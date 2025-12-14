@@ -1,4 +1,4 @@
-import { collection, doc, addDoc, updateDoc, arrayUnion, runTransaction } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { collection, doc, addDoc, updateDoc, arrayUnion, runTransaction, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { db } from './firebase-init.js';
 import { state, setLoading, setView } from './store.js';
 
@@ -30,6 +30,105 @@ export const createGame = async (name) => {
     }
 };
 
+// 🔥 新增：檢查房間狀態 (回傳未綁定玩家列表)
+export const checkGameStatus = async (gameId) => {
+    setLoading(true);
+    try {
+        const docRef = doc(db, 'games', gameId);
+        const snap = await getDoc(docRef);
+        
+        if (!snap.exists()) throw "找不到此局";
+        if (snap.data().status !== 'active') throw "此局已結束";
+
+        const players = snap.data().players || [];
+        // 檢查自己是否已在局內
+        const amIIn = players.some(p => p.uid === state.user.uid);
+        if (amIIn) return { status: 'joined' };
+
+        // 找出未綁定的空位
+        const unbound = players.filter(p => !p.uid);
+        return { status: 'open', unboundPlayers: unbound };
+
+    } catch (e) {
+        alert(e);
+        return { status: 'error', msg: e };
+    } finally {
+        setLoading(false);
+    }
+};
+
+// 🔥 新增：綁定現有空位
+export const joinByBinding = async (gameId, playerId) => {
+    setLoading(true);
+    try {
+        await runTransaction(db, async (t) => {
+            const gameRef = doc(db, 'games', gameId);
+            const gameDoc = await t.get(gameRef);
+            const players = gameDoc.data().players;
+            
+            // 找到該座位並更新
+            const newPlayers = players.map(p => {
+                if (p.id === playerId) {
+                    // 如果被搶先綁定
+                    if (p.uid) throw "手慢了，該位置已被佔用";
+                    return { ...p, uid: state.user.uid, name: state.user.displayName || 'Guest' };
+                }
+                return p;
+            });
+            t.update(gameRef, { players: newPlayers });
+        });
+        return true;
+    } catch (e) {
+        alert('綁定失敗: ' + e);
+        return false;
+    } finally {
+        setLoading(false);
+    }
+};
+
+// 🔥 新增：買入新座位 (含自動防撞名)
+export const joinAsNewPlayer = async (gameId, buyIn) => {
+    setLoading(true);
+    try {
+        await runTransaction(db, async (t) => {
+            const gameRef = doc(db, 'games', gameId);
+            const gameDoc = await t.get(gameRef);
+            const players = gameDoc.data().players;
+
+            // 再次檢查是否已在局內
+            if (players.some(p => p.uid === state.user.uid)) return;
+
+            // 防撞名邏輯
+            let baseName = state.user.displayName || 'Guest';
+            let finalName = baseName;
+            let counter = 2;
+            const existingNames = players.map(p => p.name);
+            
+            while (existingNames.includes(finalName)) {
+                finalName = `${baseName} (${counter})`;
+                counter++;
+            }
+
+            const newPlayer = { 
+                id: Date.now().toString(), 
+                name: finalName, 
+                uid: state.user.uid, 
+                buyIn: parseInt(buyIn), 
+                stack: 0 
+            };
+            
+            t.update(gameRef, { players: arrayUnion(newPlayer) });
+        });
+        return true;
+    } catch (e) {
+        alert('加入失敗: ' + e);
+        return false;
+    } finally {
+        setLoading(false);
+    }
+};
+
+// --- 以下功能保持不變 ---
 export const addPlayer = async (name) => {
     if (!state.gameId) return;
     const newPlayer = { id: Date.now().toString(), name: name || '路人', uid: null, buyIn: 2000, stack: 0 };
@@ -64,29 +163,18 @@ export const settleGame = async (rate) => {
             const gameRef = doc(db, 'games', state.gameId);
             const gameDoc = await t.get(gameRef);
             if (!gameDoc.exists()) throw "Game error";
-            
-            const gameData = gameDoc.data(); // 取得完整的遊戲資料
+            const gameData = gameDoc.data();
             const players = gameData.players;
-            
             for (const p of players) {
                 if (p.uid) {
                     const userRef = doc(db, 'users', p.uid);
                     const userDoc = await t.get(userRef);
-                    
-                    // 🔥 重點修正：這裡多存了 gameName 和 createdAt
                     const record = { 
-                        date: new Date().toISOString(), 
-                        createdAt: Date.now(), // 用於精確排序
-                        profit: (p.stack || 0) - p.buyIn, 
-                        rate: rate,
-                        gameName: gameData.name // 存入局名稱
+                        date: new Date().toISOString(), createdAt: Date.now(),
+                        profit: (p.stack || 0) - p.buyIn, rate: rate, gameName: gameData.name 
                     };
-                    
-                    if (userDoc.exists()) {
-                        t.update(userRef, { history: arrayUnion(record) });
-                    } else {
-                        t.set(userRef, { history: [record], createdAt: Date.now() });
-                    }
+                    if (userDoc.exists()) t.update(userRef, { history: arrayUnion(record) });
+                    else t.set(userRef, { history: [record], createdAt: Date.now() });
                 }
             }
             t.update(gameRef, { status: 'completed' });
