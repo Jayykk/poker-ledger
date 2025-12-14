@@ -30,15 +30,12 @@ export const createGame = async (name) => {
     }
 };
 
-// 🔥 新增：解散房間 (刪除)
 export const closeGame = async () => {
     if (!state.gameId) return;
-    if (!confirm('確定要「解散」房間嗎？\n此操作會直接刪除本局資料，無法復原。')) return;
-    
+    if (!confirm('確定要「解散」房間嗎？資料將直接刪除。')) return;
     setLoading(true);
     try {
         await deleteDoc(doc(db, 'games', state.gameId));
-        // 刪除後，main.js 的監聽器會自動偵測到檔案消失，並把大家踢回大廳
     } catch (e) {
         alert('解散失敗: ' + e.message);
     } finally {
@@ -51,7 +48,6 @@ export const checkGameStatus = async (gameId) => {
     try {
         const docRef = doc(db, 'games', gameId);
         const snap = await getDoc(docRef);
-        
         if (!snap.exists()) throw "找不到此局";
         if (snap.data().status !== 'active') throw "此局已結束";
 
@@ -61,9 +57,7 @@ export const checkGameStatus = async (gameId) => {
 
         const unbound = players.filter(p => !p.uid);
         return { status: 'open', unboundPlayers: unbound };
-
     } catch (e) {
-        alert(e);
         return { status: 'error', msg: e };
     } finally {
         setLoading(false);
@@ -80,7 +74,7 @@ export const joinByBinding = async (gameId, playerId) => {
             
             const newPlayers = players.map(p => {
                 if (p.id === playerId) {
-                    if (p.uid) throw "手慢了，該位置已被佔用";
+                    if (p.uid) throw "位置已被佔用";
                     return { ...p, uid: state.user.uid, name: state.user.displayName || 'Guest' };
                 }
                 return p;
@@ -122,7 +116,6 @@ export const joinAsNewPlayer = async (gameId, buyIn) => {
                 buyIn: parseInt(buyIn), 
                 stack: 0 
             };
-            
             t.update(gameRef, { players: arrayUnion(newPlayer) });
         });
         return true;
@@ -134,6 +127,7 @@ export const joinAsNewPlayer = async (gameId, buyIn) => {
     }
 };
 
+// ... 其他 addPlayer, savePlayer, removePlayer, bindSeat, settleGame 保持不變 (請複製前面的內容) ...
 export const addPlayer = async (name) => {
     if (!state.gameId) return;
     const newPlayer = { id: Date.now().toString(), name: name || '路人', uid: null, buyIn: 2000, stack: 0 };
