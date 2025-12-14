@@ -7,6 +7,21 @@ import * as Auth from './auth.js';
 import * as Game from './game.js';
 import { LoginView, LobbyView, GameView, ReportView, ProfileView } from './views.js';
 
+// Helper function to show notifications (non-blocking)
+const showNotification = (message, type = 'info') => {
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    window.dispatchEvent(new CustomEvent('show-notification', { 
+        detail: { message, type } 
+    }));
+};
+
+// Helper function to show confirmation (uses a simpler approach for legacy code)
+const showConfirm = (message) => {
+    // For legacy compatibility, still using confirm but with a note
+    // In a full migration, this would use a custom modal
+    return confirm(message);
+};
+
 const app = createApp({
     setup() {
         onAuthStateChanged(auth, (u) => {
@@ -17,7 +32,7 @@ const app = createApp({
                 if (state.pendingInvite) {
                     const { gameId, seatId } = state.pendingInvite;
                     state.pendingInvite = null;
-                    if (confirm(`檢測到邀請連結，是否入座該局？`)) {
+                    if (showConfirm(`檢測到邀請連結，是否入座該局？`)) {
                         Game.joinByBinding(gameId, seatId).then(success => {
                             if (success) joinGameListener(gameId);
                         });
@@ -46,10 +61,10 @@ const app = createApp({
                 if (!state.user) {
                     // User not logged in, store invite for later
                     state.pendingInvite = { gameId, seatId };
-                    alert('請先選擇登入方式');
+                    showNotification('請先選擇登入方式', 'warning');
                 } else {
                     // User already logged in
-                    if (confirm(`檢測到邀請連結，是否入座該局？`)) {
+                    if (showConfirm(`檢測到邀請連結，是否入座該局？`)) {
                         const success = await Game.joinByBinding(gameId, seatId);
                         if (success) joinGameListener(gameId);
                     }
@@ -96,7 +111,7 @@ const app = createApp({
                     state.gameId = null;
                     localStorage.removeItem('last_game_id');
                     if(state.view === 'GameView') {
-                        alert("牌局已結束或被解散");
+                        showNotification("牌局已結束或被解散", 'warning');
                         setView('LobbyView');
                     }
                 }
@@ -140,7 +155,7 @@ const app = createApp({
 
         const copyId = () => {
             navigator.clipboard.writeText(state.gameId);
-            alert('已複製 ID');
+            showNotification('已複製 ID', 'success');
         };
 
         const currentViewComponent = computed(() => {

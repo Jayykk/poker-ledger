@@ -1,5 +1,18 @@
 import { ref, computed, nextTick, onMounted, watch } from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
 
+// Helper for notifications
+const showNotification = (message, type = 'info') => {
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    window.dispatchEvent(new CustomEvent('show-notification', { 
+        detail: { message, type } 
+    }));
+};
+
+// Helper for confirmation
+const showConfirm = (message) => {
+    return confirm(message);
+};
+
 // Helper
 const formatNumber = (n) => n?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") || '0';
 const formatCash = (p, r) => {
@@ -73,13 +86,19 @@ export const LobbyView = {
         
         const checkGame = async () => {
             console.log("【Views】使用者點擊下一步，Game ID:", code.value); // LOG 1
-            if(!code.value) return alert('請輸入 ID');
+            if(!code.value) {
+                showNotification('請輸入 ID', 'warning');
+                return;
+            }
             
             emit('check-game', code.value, (res) => {
                 console.log("【Views】收到 check-game 回應:", res); // LOG 2
-                if(res.status==='joined'){ alert('已在局內'); emit('join-direct', code.value); }
+                if(res.status==='joined'){ 
+                    showNotification('已在局內', 'info'); 
+                    emit('join-direct', code.value); 
+                }
                 else if(res.status==='open'){ unboundPlayers.value=res.unboundPlayers; joinStep.value=2; }
-                else alert(res.msg||'無法加入');
+                else showNotification(res.msg||'無法加入', 'error');
             });
         };
         const resetJoin = () => { showJoin.value=false; joinStep.value=1; code.value=''; unboundPlayers.value=[]; };
@@ -164,9 +183,12 @@ export const GameView = {
         const amIIn = computed(() => props.game?.players.some(p => p.uid === props.user.uid));
         const isHost = computed(() => props.game?.hostUid === props.user.uid);
 
-        const bind = (p) => confirm(`綁定 ${p.name}?`) && emit('bind-seat', p);
+        const bind = (p) => showConfirm(`綁定 ${p.name}?`) && emit('bind-seat', p);
         const edit = (p) => editingP.value = { ...p };
-        const copyId = () => { navigator.clipboard.writeText(props.game.id); alert('ID 已複製'); };
+        const copyId = () => { 
+            navigator.clipboard.writeText(props.game.id); 
+            showNotification('ID 已複製', 'success'); 
+        };
         const clickClose = () => {
             console.log("【Views】點擊解散房間"); // LOG 3
             emit('close-game');
@@ -176,7 +198,7 @@ export const GameView = {
             // Use current pathname if available, otherwise default to root
             const basePath = window.location.pathname || '/';
             const url = `${window.location.origin}${basePath}?game=${props.game.id}&seat=${p.id}`;
-            navigator.clipboard.writeText(url).then(() => alert(`已複製連結`));
+            navigator.clipboard.writeText(url).then(() => showNotification('已複製連結', 'success'));
         };
 
         const copyReport = () => {
@@ -185,7 +207,7 @@ export const GameView = {
                 t += `${p.name}: ${calculateNet(p)>0?'+':''}${formatCash(calculateNet(p), rate.value)}\n`;
             });
             if(gap.value!==0) t+=`---\n⚠️ 誤差: ${gap.value}`;
-            navigator.clipboard.writeText(t).then(()=>alert('已複製'));
+            navigator.clipboard.writeText(t).then(()=>showNotification('已複製', 'success'));
         };
 
         return { showAdd, showSettlement, editingP, newName, rate, totalPot, gap, copyId, edit, formatNumber, formatCash, calculateNet, copyReport, amIIn, bind, invite, clickClose, isHost };
