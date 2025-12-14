@@ -97,7 +97,10 @@ export const GameView = {
     </div>
     <div v-else class="pt-16 px-4 pb-24">
         <div class="fixed top-0 inset-x-0 z-30 bg-slate-800/90 backdrop-blur px-4 py-3 border-b border-slate-700 flex justify-between items-center max-w-md mx-auto">
-            <span class="text-white font-bold">{{ game.name }}</span>
+            <div>
+                <span class="text-white font-bold">{{ game.name }}</span>
+                <div class="text-[10px] text-gray-400">房主: {{ game.hostName || '未知' }}</div>
+            </div>
             <div class="text-right"><div class="text-[10px] text-gray-400">Pot</div><div class="font-mono text-amber-400 font-bold">{{ formatNumber(totalPot) }}</div></div>
         </div>
         <div class="space-y-3 mt-2">
@@ -128,7 +131,7 @@ export const GameView = {
             <button @click="showSettlement=true" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold">結算</button>
         </div>
         
-        <button @click="clickClose" class="mt-4 w-full py-2 bg-red-900/30 text-red-400 border border-red-900/50 rounded-lg text-xs font-bold">解散房間 (刪除資料)</button>
+        <button v-if="isHost" @click="clickClose" class="mt-4 w-full py-2 bg-red-900/30 text-red-400 border border-red-900/50 rounded-lg text-xs font-bold">解散房間 (刪除資料)</button>
 
         <button @click="showAdd=true" class="fixed bottom-24 right-4 w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center text-xl shadow-lg"><i class="fas fa-plus"></i></button>
         
@@ -159,6 +162,7 @@ export const GameView = {
         const totalStack = computed(() => props.game?.players.reduce((a,b)=>a+(b.stack||0),0)||0);
         const gap = computed(() => totalStack.value - totalPot.value);
         const amIIn = computed(() => props.game?.players.some(p => p.uid === props.user.uid));
+        const isHost = computed(() => props.game?.hostUid === props.user.uid);
 
         const bind = (p) => confirm(`綁定 ${p.name}?`) && emit('bind-seat', p);
         const edit = (p) => editingP.value = { ...p };
@@ -169,7 +173,8 @@ export const GameView = {
         };
         
         const invite = (p) => {
-            const url = `${window.location.origin}${window.location.pathname}?game=${props.game.id}&seat=${p.id}`;
+            const basePath = window.location.pathname || '/poker-ledger/';
+            const url = `${window.location.origin}${basePath}?game=${props.game.id}&seat=${p.id}`;
             navigator.clipboard.writeText(url).then(() => alert(`已複製連結`));
         };
 
@@ -182,7 +187,7 @@ export const GameView = {
             navigator.clipboard.writeText(t).then(()=>alert('已複製'));
         };
 
-        return { showAdd, showSettlement, editingP, newName, rate, totalPot, gap, copyId, edit, formatNumber, formatCash, calculateNet, copyReport, amIIn, bind, invite, clickClose };
+        return { showAdd, showSettlement, editingP, newName, rate, totalPot, gap, copyId, edit, formatNumber, formatCash, calculateNet, copyReport, amIIn, bind, invite, clickClose, isHost };
     }
 };
 

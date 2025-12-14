@@ -13,11 +13,24 @@ const app = createApp({
             state.user = u;
             if (u) {
                 loadUserData(u.uid);
-                checkUrlParams();
-                const savedId = localStorage.getItem('last_game_id');
-                if (!state.gameId && savedId) joinGameListener(savedId);
+                // Process pending invite after login
+                if (state.pendingInvite) {
+                    const { gameId, seatId } = state.pendingInvite;
+                    state.pendingInvite = null;
+                    if (confirm(`檢測到邀請連結，是否入座該局？`)) {
+                        Game.joinByBinding(gameId, seatId).then(success => {
+                            if (success) joinGameListener(gameId);
+                        });
+                    }
+                } else {
+                    checkUrlParams();
+                    const savedId = localStorage.getItem('last_game_id');
+                    if (!state.gameId && savedId) joinGameListener(savedId);
+                }
                 if (state.view === 'LoginView') setView('LobbyView');
             } else {
+                // User not logged in, check for invite link
+                checkUrlParams();
                 state.view = 'LoginView';
                 state.game = null;
                 state.history = [];
@@ -29,10 +42,17 @@ const app = createApp({
             const gameId = params.get('game');
             const seatId = params.get('seat');
             if (gameId && seatId) {
-                window.history.replaceState({}, document.title, "/");
-                if (confirm(`檢測到邀請連結，是否入座該局？`)) {
-                    const success = await Game.joinByBinding(gameId, seatId);
-                    if (success) joinGameListener(gameId);
+                window.history.replaceState({}, document.title, window.location.pathname);
+                if (!state.user) {
+                    // User not logged in, store invite for later
+                    state.pendingInvite = { gameId, seatId };
+                    alert('請先選擇登入方式');
+                } else {
+                    // User already logged in
+                    if (confirm(`檢測到邀請連結，是否入座該局？`)) {
+                        const success = await Game.joinByBinding(gameId, seatId);
+                        if (success) joinGameListener(gameId);
+                    }
                 }
             }
         };
