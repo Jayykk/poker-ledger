@@ -101,50 +101,50 @@ const chartData = computed(() => {
   };
 });
 
-const renderChart = async () => {
-  await nextTick();
-  
-  // Destroy old chart instance before creating a new one
-  if (chartInstance) {
-    chartInstance.destroy();
-    chartInstance = null;
-  }
-  
-  chartInstance = createLineChart(canvasId.value, chartData.value, {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false
+const renderChart = () => {
+  nextTick(() => {
+    // Destroy old chart instance before creating a new one
+    if (chartInstance) {
+      chartInstance.destroy();
+      chartInstance = null;
+    }
+    
+    chartInstance = createLineChart(canvasId.value, chartData.value, {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              return `Profit: ${context.parsed.y >= 0 ? '+' : ''}${formatNumber(context.parsed.y)}`;
+            }
+          }
+        }
       },
-      tooltip: {
-        callbacks: {
-          label: (context) => {
-            return `Profit: ${context.parsed.y >= 0 ? '+' : ''}${formatNumber(context.parsed.y)}`;
+      scales: {
+        x: {
+          display: true,
+          grid: {
+            display: false
+          },
+          ticks: {
+            color: '#94a3b8'
+          }
+        },
+        y: {
+          grid: {
+            color: '#334155'
+          },
+          ticks: {
+            color: '#94a3b8',
+            callback: (value) => formatNumber(value)
           }
         }
       }
-    },
-    scales: {
-      x: {
-        display: true,
-        grid: {
-          display: false
-        },
-        ticks: {
-          color: '#94a3b8'
-        }
-      },
-      y: {
-        grid: {
-          color: '#334155'
-        },
-        ticks: {
-          color: '#94a3b8',
-          callback: (value) => formatNumber(value)
-        }
-      }
-    }
+    });
   });
 };
 
