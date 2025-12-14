@@ -20,28 +20,16 @@ const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', redirect: '/login' },
-    { path: '/login', name: 'Login', component: LoginView },
-    { path: '/lobby', name: 'Lobby', component: LobbyView },
-    { path: '/game', name: 'Game', component: GameView },
-    { path: '/report', name: 'Report', component: ReportView },
-    { path: '/profile', name: 'Profile', component: ProfileView },
-    { path: '/friends', name: 'Friends', component: FriendsView }
+    { path: '/login', name: 'Login', component: LoginView, meta: { requiresAuth: false } },
+    { path: '/lobby', name: 'Lobby', component: LobbyView, meta: { requiresAuth: true } },
+    { path: '/game', name: 'Game', component: GameView, meta: { requiresAuth: true } },
+    { path: '/report', name: 'Report', component: ReportView, meta: { requiresAuth: true } },
+    { path: '/profile', name: 'Profile', component: ProfileView, meta: { requiresAuth: true } },
+    { path: '/friends', name: 'Friends', component: FriendsView, meta: { requiresAuth: true } }
   ]
 });
 
-// Navigation guard
-router.beforeEach((to, from, next) => {
-  const authStore = pinia.state.value.auth;
-  const requiresAuth = to.path !== '/login';
-  
-  if (requiresAuth && !authStore?.user) {
-    next('/login');
-  } else {
-    next();
-  }
-});
-
-// Create and mount app
+// Create and mount app first
 const app = createApp(App);
 
 app.use(pinia);

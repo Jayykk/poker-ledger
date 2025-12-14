@@ -11,7 +11,7 @@ import {
   runTransaction,
   onSnapshot
 } from 'firebase/firestore';
-import { db } from '../firebase-init.js';
+import { db } from '../../firebase-init.js';
 import { useAuthStore } from './auth.js';
 import { useUserStore } from './user.js';
 import { GAME_STATUS, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';

@@ -9,7 +9,7 @@ import {
   onAuthStateChanged 
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase-init.js';
+import { auth, db } from '../../firebase-init.js';
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null);

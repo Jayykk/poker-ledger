@@ -61,8 +61,8 @@ export function useNotification() {
 
     if (permission === 'granted') {
       new Notification(title, {
-        icon: '/poker-ledger/icon-192.png',
-        badge: '/poker-ledger/icon-192.png',
+        icon: '/poker-ledger/icon.svg',
+        badge: '/poker-ledger/icon.svg',
         ...options
       });
       return true;
