@@ -40,6 +40,12 @@
     "title": "大廳",
     "createGame": "開新局",
     "joinGame": "加入房間",
+    "myRooms": "我的房間",
+    "noRooms": "目前沒有活躍房間",
+    "roomCode": "房間碼",
+    "players": "玩家",
+    "createdAt": "建立時間",
+    "enterRoom": "進入房間",
     "stats": {
       "totalProfit": "生涯損益",
       "games": "場次",
@@ -105,6 +111,7 @@
     "theme": "主題",
     "language": "語言",
     "sound": "音效",
+    "notifications": "推播通知",
     "themeOptions": {
       "dark": "深色",
       "light": "淺色"
@@ -123,7 +130,11 @@
     "thisMonth": "本月",
     "thisQuarter": "本季",
     "thisYear": "全年",
-    "noFriends": "尚無好友"
+    "noFriends": "尚無好友",
+    "inviteToRoom": "邀請進房",
+    "selectRoom": "選擇房間",
+    "noActiveRooms": "目前沒有活躍房間，請先創建房間。",
+    "invitationSent": "邀請已發送！"
   },
   "chat": {
     "title": "聊天室",
@@ -140,5 +151,16 @@
     "pause": "暫停",
     "reset": "重設",
     "breakTime": "休息時間"
+  },
+  "invitations": {
+    "title": "邀請",
+    "pending": "待處理邀請",
+    "noPending": "沒有待處理的邀請",
+    "from": "來自",
+    "room": "房間",
+    "accept": "接受",
+    "reject": "拒絕",
+    "accepted": "已接受邀請！",
+    "rejected": "已拒絕邀請"
   }
 }

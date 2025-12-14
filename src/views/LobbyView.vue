@@ -25,6 +25,77 @@
       </div>
     </BaseCard>
 
+    <!-- Pending Invitations -->
+    <div v-if="pendingInvitations.length > 0" class="mb-6">
+      <h3 class="text-lg font-bold text-white mb-3">{{ $t('invitations.pending') }}</h3>
+      <div class="space-y-2">
+        <BaseCard
+          v-for="inv in pendingInvitations"
+          :key="inv.id"
+          padding="md"
+          class="border-l-4 border-amber-500"
+        >
+          <div class="flex justify-between items-center">
+            <div>
+              <div class="text-white font-bold">{{ inv.gameName }}</div>
+              <div class="text-xs text-gray-400">
+                {{ $t('invitations.from') }}: {{ inv.fromName }}
+              </div>
+              <div class="text-xs text-gray-500">
+                {{ $t('lobby.roomCode') }}: {{ inv.roomCode }}
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <BaseButton @click="handleAcceptInvitation(inv)" size="sm" variant="primary">
+                {{ $t('invitations.accept') }}
+              </BaseButton>
+              <BaseButton @click="handleRejectInvitation(inv)" size="sm" variant="danger">
+                {{ $t('invitations.reject') }}
+              </BaseButton>
+            </div>
+          </div>
+        </BaseCard>
+      </div>
+    </div>
+
+    <!-- My Rooms -->
+    <div v-if="myRooms.length > 0" class="mb-6">
+      <h3 class="text-lg font-bold text-white mb-3">{{ $t('lobby.myRooms') }}</h3>
+      <div class="space-y-2">
+        <BaseCard
+          v-for="room in myRooms"
+          :key="room.id"
+          padding="md"
+          clickable
+          @click="handleEnterRoom(room.id)"
+        >
+          <div class="flex justify-between items-center">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-white font-bold">{{ room.name }}</span>
+                <span
+                  v-if="room.hostUid === user?.uid"
+                  class="text-xs bg-amber-600 text-white px-2 py-0.5 rounded"
+                >
+                  {{ $t('game.host') }}
+                </span>
+              </div>
+              <div class="text-xs text-gray-400">
+                {{ $t('lobby.roomCode') }}: {{ room.roomCode }} · 
+                {{ $t('lobby.players') }}: {{ room.players?.length || 0 }}
+              </div>
+              <div class="text-xs text-gray-500">
+                {{ formatDate(room.createdAt) }}
+              </div>
+            </div>
+            <div class="text-emerald-400">
+              <i class="fas fa-chevron-right"></i>
+            </div>
+          </div>
+        </BaseCard>
+      </div>
+    </div>
+
     <!-- Quick Actions -->
     <div class="grid gap-4">
       <BaseCard padding="md" clickable @click="showCreateModal = true">
@@ -111,28 +182,41 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
 import { useGame } from '../composables/useGame.js';
+import { useInvitation } from '../composables/useInvitation.js';
+import { useGameStore } from '../store/modules/game.js';
 import { useUserStore } from '../store/modules/user.js';
 import { useNotification } from '../composables/useNotification.js';
 import BaseCard from '../components/common/BaseCard.vue';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
-import { formatNumber } from '../utils/formatters.js';
+import { formatNumber, formatShortDate } from '../utils/formatters.js';
 import { DEFAULT_BUY_IN } from '../utils/constants.js';
 
 const { t } = useI18n();
 const router = useRouter();
-const { isGuest } = useAuth();
+const { isGuest, user } = useAuth();
 const { createGame, checkGameStatus, joinByBinding, joinAsNewPlayer, joinGameListener } = useGame();
+const gameStore = useGameStore();
 const userStore = useUserStore();
 const { success, error: showError } = useNotification();
 
+// Invitation composable
+const {
+  pendingInvitations,
+  loadInvitations,
+  acceptInvitation,
+  rejectInvitation,
+  cleanup: cleanupInvitations
+} = useInvitation();
+
 const stats = computed(() => userStore.stats);
+const myRooms = computed(() => gameStore.myRooms);
 
 const showCreateModal = ref(false);
 const showJoinModal = ref(false);
@@ -142,11 +226,19 @@ const gameCode = ref('');
 const buyIn = ref(DEFAULT_BUY_IN);
 const unboundPlayers = ref([]);
 
+const formatDate = (timestamp) => {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  return formatShortDate(date);
+};
+
 const handleCreateGame = async () => {
   const gameId = await createGame(gameName.value);
   if (gameId) {
     showCreateModal.value = false;
     success('Game created!');
+    // Reload rooms
+    await gameStore.loadMyRooms();
     router.push('/game');
   }
 };
@@ -177,6 +269,8 @@ const handleBindJoin = async (player) => {
   if (success) {
     showJoinModal.value = false;
     joinStep.value = 1;
+    // Reload rooms
+    await gameStore.loadMyRooms();
     router.push('/game');
   }
 };
@@ -186,7 +280,41 @@ const handleNewJoin = async () => {
   if (success) {
     showJoinModal.value = false;
     joinStep.value = 1;
+    // Reload rooms
+    await gameStore.loadMyRooms();
     router.push('/game');
   }
 };
+
+const handleEnterRoom = async (roomId) => {
+  await joinGameListener(roomId);
+  router.push('/game');
+};
+
+const handleAcceptInvitation = async (invitation) => {
+  const accepted = await acceptInvitation(invitation.id);
+  if (accepted) {
+    success(t('invitations.accepted'));
+    // Join the game
+    await joinGameListener(invitation.gameId);
+    router.push('/game');
+  }
+};
+
+const handleRejectInvitation = async (invitation) => {
+  const rejected = await rejectInvitation(invitation.id);
+  if (rejected) {
+    success(t('invitations.rejected'));
+  }
+};
+
+onMounted(async () => {
+  // Load rooms and invitations
+  await gameStore.loadMyRooms();
+  loadInvitations();
+});
+
+onUnmounted(() => {
+  cleanupInvitations();
+});
 </script>
