@@ -65,17 +65,23 @@ export const settleGame = async (rate) => {
             const gameDoc = await t.get(gameRef);
             if (!gameDoc.exists()) throw "Game error";
             
-            const players = gameDoc.data().players;
+            const gameData = gameDoc.data(); // 取得完整的遊戲資料
+            const players = gameData.players;
+            
             for (const p of players) {
                 if (p.uid) {
                     const userRef = doc(db, 'users', p.uid);
                     const userDoc = await t.get(userRef);
+                    
+                    // 🔥 重點修正：這裡多存了 gameName 和 createdAt
                     const record = { 
                         date: new Date().toISOString(), 
+                        createdAt: Date.now(), // 用於精確排序
                         profit: (p.stack || 0) - p.buyIn, 
                         rate: rate,
-                        gameName: gameDoc.data().name
+                        gameName: gameData.name // 存入局名稱
                     };
+                    
                     if (userDoc.exists()) {
                         t.update(userRef, { history: arrayUnion(record) });
                     } else {
