@@ -14,7 +14,8 @@
     "back": "Back",
     "next": "Next",
     "submit": "Submit",
-    "or": "OR"
+    "or": "OR",
+    "unknown": "Unknown"
   },
   "auth": {
     "login": "Login",
@@ -70,9 +71,10 @@
     "finishAndSave": "Finish & Save",
     "bind": "Bind",
     "invite": "Invite",
-    "addBuyIn": "+Buy-in",
+    "addBuyIn": "Buy-in",
     "modify": "Modify",
     "playerName": "Name",
+    "host": "Host",
     "alreadyInGame": "Already in game",
     "gameNotFound": "Game not found",
     "gameEnded": "Game ended",

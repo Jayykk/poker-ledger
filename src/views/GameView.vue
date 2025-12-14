@@ -9,7 +9,10 @@
   <div v-else class="pt-16 px-4 pb-24">
     <!-- Fixed header -->
     <div class="fixed top-0 inset-x-0 z-30 bg-slate-800/90 backdrop-blur px-4 py-3 border-b border-slate-700 flex justify-between items-center max-w-md mx-auto">
-      <span class="text-white font-bold">{{ game.name }}</span>
+      <div>
+        <span class="text-white font-bold">{{ game.name }}</span>
+        <div class="text-[10px] text-gray-400">{{ $t('game.host') }}: {{ game.hostName || $t('common.unknown') }}</div>
+      </div>
       <div class="text-right">
         <div class="text-[10px] text-gray-400">{{ $t('game.pot') }}</div>
         <div class="font-mono text-amber-400 font-bold">{{ formatNumber(totalPot) }}</div>

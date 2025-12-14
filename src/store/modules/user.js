@@ -83,13 +83,13 @@ export const useUserStore = defineStore('user', () => {
     
     switch (period) {
       case 'week':
-        startDate = new Date(now.setDate(now.getDate() - 7));
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         break;
       case 'month':
-        startDate = new Date(now.setMonth(now.getMonth() - 1));
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
         break;
       case 'year':
-        startDate = new Date(now.setFullYear(now.getFullYear() - 1));
+        startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
         break;
       default:
         return history.value;

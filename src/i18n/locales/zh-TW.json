@@ -14,7 +14,8 @@
     "back": "返回",
     "next": "下一步",
     "submit": "送出",
-    "or": "或"
+    "or": "或",
+    "unknown": "未知"
   },
   "auth": {
     "login": "登入",
@@ -70,9 +71,10 @@
     "finishAndSave": "結束並存檔",
     "bind": "認領",
     "invite": "邀人",
-    "addBuyIn": "+買入",
+    "addBuyIn": "買入",
     "modify": "修改",
     "playerName": "名",
+    "host": "房主",
     "alreadyInGame": "已在局內",
     "gameNotFound": "找不到此局",
     "gameEnded": "此局已結束",

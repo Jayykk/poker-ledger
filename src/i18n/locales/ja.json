@@ -14,7 +14,8 @@
     "back": "戻る",
     "next": "次へ",
     "submit": "送信",
-    "or": "または"
+    "or": "または",
+    "unknown": "不明"
   },
   "auth": {
     "login": "ログイン",
@@ -70,9 +71,10 @@
     "finishAndSave": "終了して保存",
     "bind": "紐付け",
     "invite": "招待",
-    "addBuyIn": "+バイイン",
+    "addBuyIn": "バイイン",
     "modify": "修正",
     "playerName": "名前",
+    "host": "ホスト",
     "alreadyInGame": "既にゲーム中",
     "gameNotFound": "ゲームが見つかりません",
     "gameEnded": "ゲーム終了",
