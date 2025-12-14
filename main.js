@@ -23,33 +23,19 @@ const app = createApp({
             }
         });
 
-        // 🔥 重點修正：排序與時間格式化
         const loadUserData = (uid) => {
             onSnapshot(doc(db, 'users', uid), (snap) => {
                 if (snap.exists()) {
                     const d = snap.data();
                     let raw = d.history || [];
-                    
-                    // 1. 排序：依照日期 (舊 -> 新)
                     raw.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-                    // 2. 格式化顯示資料
                     state.history = raw.map(h => {
                         const dateObj = new Date(h.date);
-                        // 格式化為: 2023/12/14 22:15:30
                         const dateStr = dateObj.toLocaleString('zh-TW', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: false
+                            year: 'numeric', month: '2-digit', day: '2-digit',
+                            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
                         });
-                        return { 
-                            ...h, 
-                            dateStr: dateStr 
-                        };
+                        return { ...h, dateStr: dateStr };
                     });
                     
                     const profit = raw.reduce((sum, h) => sum + (h.profit / (h.rate || 1)), 0);
@@ -63,7 +49,6 @@ const app = createApp({
             });
         };
 
-        // ... (以下維持不變)
         let unsubGame = null;
         const joinGameListener = (id) => {
             if (unsubGame) unsubGame();
@@ -90,8 +75,29 @@ const app = createApp({
             if(newId) joinGameListener(newId);
         };
 
-        const handleJoin = (code) => {
-            if(code) joinGameListener(code);
+        // --- 新增的加入邏輯 ---
+        
+        // 1. 檢查房間狀態
+        const handleCheckGame = async (code, callback) => {
+            const result = await Game.checkGameStatus(code);
+            callback(result);
+        };
+
+        // 2. 綁定現有
+        const handleBindJoin = async (code, pid) => {
+            const success = await Game.joinByBinding(code, pid);
+            if(success) joinGameListener(code);
+        };
+
+        // 3. 買入新位
+        const handleNewJoin = async (code, buyIn) => {
+            const success = await Game.joinAsNewPlayer(code, buyIn);
+            if(success) joinGameListener(code);
+        };
+
+        // 4. 直接加入 (已在局內)
+        const handleJoinDirect = (code) => {
+            joinGameListener(code);
         };
 
         const copyId = () => {
@@ -109,7 +115,11 @@ const app = createApp({
             handleAuth: Auth.handleAuth,
             guestLogin: Auth.guestLogin,
             logout: Auth.logout,
-            handleCreate, handleJoin,
+            handleCreate, 
+            
+            // New Handlers
+            handleCheckGame, handleBindJoin, handleNewJoin, handleJoin: handleJoinDirect, // join-direct map to listener
+
             addPlayer: Game.addPlayer,
             savePlayer: Game.savePlayer,
             removePlayer: Game.removePlayer,
