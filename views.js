@@ -1,10 +1,15 @@
-import { ref, onMounted, watch } from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
+// 注意這裡補上了 'computed'，這是之前報錯的主因
+import { ref, computed, nextTick, onMounted, watch } from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
 
-// Helper
+// --- 共用工具 ---
 const formatNumber = (n) => n?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") || '0';
-const formatCash = (p, r) => { const val = p / (r || 1); return Number.isInteger(val) ? val : val.toFixed(1); };
-const calcNet = (p) => (p.stack || 0) - p.buyIn;
+const formatCash = (p, r) => {
+    const val = p / (r || 1);
+    return Number.isInteger(val) ? val : val.toFixed(1);
+};
+const calculateNet = (p) => (p.stack || 0) - p.buyIn;
 
+// 1. 登入頁
 export const LoginView = {
     props: ['loading', 'error'],
     template: `
@@ -33,6 +38,7 @@ export const LoginView = {
     setup() { const isReg = ref(false); const form = ref({email:'',password:'',name:''}); return {isReg, form}; }
 };
 
+// 2. 大廳
 export const LobbyView = {
     props: ['stats', 'user'],
     template: `
@@ -55,6 +61,7 @@ export const LobbyView = {
     setup() { return { showCreate:ref(false), showJoin:ref(false), name:ref('德州撲克'), code:ref(''), formatNumber }; }
 };
 
+// 3. 牌局
 export const GameView = {
     props: ['game', 'user'],
     template: `
@@ -69,11 +76,11 @@ export const GameView = {
         </div>
         <div class="space-y-3 mt-2">
             <div v-for="p in game.players" :key="p.id" class="bg-slate-800 rounded-2xl p-4 border relative overflow-hidden" :class="p.uid===user.uid?'border-amber-500/50':'border-slate-700'">
-                <div class="absolute left-0 inset-y-0 w-1" :class="calcNet(p)>=0?'bg-emerald-500':'bg-rose-500'"></div>
+                <div class="absolute left-0 inset-y-0 w-1" :class="calculateNet(p)>=0?'bg-emerald-500':'bg-rose-500'"></div>
                 <div class="pl-3">
                     <div class="flex justify-between mb-3">
                         <div><div class="text-white font-bold flex gap-2 items-center">{{ p.name }} <button v-if="!p.uid" @click="$emit('bind', p)" class="text-[10px] bg-slate-600 px-2 rounded">認領</button><span v-if="p.uid" class="text-blue-400 text-[10px]">●</span></div><div class="text-xs text-gray-400 mt-1">Buy: {{ formatNumber(p.buyIn) }}</div></div>
-                        <div class="text-right"><div class="text-2xl font-mono font-bold" :class="calcNet(p)>=0?'text-emerald-400':'text-rose-400'">{{ calcNet(p)>0?'+':''}}{{ formatNumber(calcNet(p)) }}</div></div>
+                        <div class="text-right"><div class="text-2xl font-mono font-bold" :class="calculateNet(p)>=0?'text-emerald-400':'text-rose-400'">{{ calculateNet(p)>0?'+':''}}{{ formatNumber(calculateNet(p)) }}</div></div>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <button @click="$emit('add-buy', p)" class="bg-slate-700/50 py-2 rounded-xl text-blue-300 text-xs">+買入</button>
@@ -87,29 +94,36 @@ export const GameView = {
             <button @click="showSettlement=true" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold">結算</button>
         </div>
         <button @click="showAdd=true" class="fixed bottom-24 right-4 w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center text-xl shadow-lg"><i class="fas fa-plus"></i></button>
+        
         <div v-if="showAdd" class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4" @click.self="showAdd=false"><div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 mb-20"><input v-model="newName" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white mb-4" placeholder="名"><button @click="$emit('add-player', newName);showAdd=false;newName=''" class="w-full py-3 bg-amber-600 text-white rounded-xl font-bold">加入</button></div></div>
+        
         <div v-if="editingP" class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4" @click.self="editingP=null"><div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 mb-20">
             <div class="flex justify-between mb-4"><h3 class="text-white">{{ editingP.name }}</h3><button @click="$emit('remove-player', editingP);editingP=null" class="text-rose-500 text-xs">移除</button></div>
             <div class="mb-4 text-white text-sm">買入: <button @click="editingP.buyIn+=100" class="ml-2 bg-slate-700 px-2">+</button> {{ editingP.buyIn }} <button @click="editingP.buyIn-=100" class="bg-slate-700 px-2">-</button></div>
             <div class="mb-4"><label class="text-xs text-gray-400">籌碼</label><input v-model.number="editingP.stack" class="w-full bg-slate-900 text-white text-xl py-2 px-3 rounded mt-1"></div>
             <button @click="$emit('save-player', editingP);editingP=null" class="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold">儲存</button>
         </div></div>
+
         <div v-if="showSettlement" class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4" @click.self="showSettlement=false"><div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 mb-20 flex flex-col max-h-[80vh]">
             <h3 class="text-white font-bold mb-4">結算</h3>
             <div class="flex justify-between bg-slate-900 p-3 rounded mb-4"><span class="text-gray-400 text-sm">匯率</span><input v-model.number="rate" class="w-16 bg-slate-800 text-white text-center rounded"></div>
-            <div class="space-y-2 mb-4 overflow-y-auto flex-1"><div v-for="p in game.players" class="flex justify-between text-sm py-1 border-b border-slate-700"><span class="text-white">{{ p.name }}</span><span :class="calcNet(p)>=0?'text-emerald-400':'text-rose-400'">{{ formatCash(calcNet(p), rate) }}</span></div></div>
+            <div class="space-y-2 mb-4 overflow-y-auto flex-1"><div v-for="p in game.players" class="flex justify-between text-sm py-1 border-b border-slate-700"><span class="text-white">{{ p.name }}</span><span :class="calculateNet(p)>=0?'text-emerald-400':'text-rose-400'">{{ formatCash(calculateNet(p), rate) }}</span></div></div>
             <button @click="$emit('settle', rate);showSettlement=false" class="w-full py-3 bg-amber-600 text-white rounded-xl font-bold">確認</button>
         </div></div>
     </div>`,
     setup(props, { emit }) {
         const showAdd = ref(false); const showSettlement = ref(false); const editingP = ref(null); const newName = ref(''); const rate = ref(10);
+        // 使用 computed 計算總底池
         const totalPot = computed(() => props.game?.players.reduce((a,b)=>a+b.buyIn,0)||0);
-        const copyId = () => { navigator.clipboard.writeText(props.game.id); alert('ID 已複製'); };
+        const hasBoundSeat = computed(() => props.game?.players.some(p=>p.uid===props.user.uid));
+        const bind = (p) => confirm(`綁定 ${p.name}?`) && emit('bind-seat', p);
         const edit = (p) => editingP.value = { ...p };
-        return { showAdd, showSettlement, editingP, newName, rate, totalPot, copyId, edit, formatNumber, formatCash, calcNet };
+        const copyId = () => { navigator.clipboard.writeText(props.game.id); alert('ID 已複製'); };
+        return { showAdd, showSettlement, editingP, newName, rate, totalPot, copyId, edit, formatNumber, formatCash, calculateNet };
     }
 };
 
+// 4. 報表頁
 export const ReportView = {
     props: ['history'],
     template: `
@@ -135,6 +149,7 @@ export const ReportView = {
     }
 };
 
+// 5. 個人頁
 export const ProfileView = {
     props: ['user'],
     template: `
@@ -144,6 +159,6 @@ export const ProfileView = {
         <div class="space-y-3 mt-8">
             <button @click="$emit('logout')" class="w-full py-3 bg-slate-800 text-rose-400 border border-slate-700 rounded-xl font-bold">登出</button>
         </div>
-        <div class="mt-8 text-xs text-gray-600">Version 7.0.0 (Modular)</div>
+        <div class="mt-8 text-xs text-gray-600">Version 7.1.0</div>
     </div>`
 };
