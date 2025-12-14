@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Poker Sync Modular</title>
+    <title>Poker Sync Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -20,7 +20,7 @@
 <body class="text-gray-100 min-h-screen pb-24">
 
 <div id="app" v-cloak class="relative min-h-screen flex flex-col">
-    <component :is="state.view" 
+    <component :is="currentViewComponent" 
         :user="state.user" 
         :loading="state.loading" 
         :error="state.error"
@@ -30,14 +30,16 @@
         @auth="handleAuth"
         @guest="guestLogin"
         @logout="logout"
-        @create="createGame"
-        @join="joinGame"
+        @create="handleCreate" 
+        @join="handleJoin"
         @add-player="addPlayer"
         @save-player="savePlayer"
         @remove-player="removePlayer"
         @add-buy="addBuy"
         @bind="bindSeat"
         @settle="settle"
+        @go-lobby="setView('LobbyView')"
+        @copy-id="copyId"
     ></component>
 
     <nav v-if="state.user" class="fixed bottom-0 left-0 right-0 z-50 glass pb-safe-bottom">
@@ -59,6 +61,6 @@
     </nav>
 </div>
 
-<script type="module" src="./main.js"></script>
+<script type="module" src="./main.js?v=2"></script>
 </body>
 </html>
