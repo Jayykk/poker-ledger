@@ -47,6 +47,7 @@ export function usePushNotification() {
         return { success: false, error: 'denied' };
       }
       
+      // Permission is 'default' (user dismissed prompt without choosing)
       return { success: false, error: 'default' };
     } catch (err) {
       console.error('Request notification permission error:', err);
