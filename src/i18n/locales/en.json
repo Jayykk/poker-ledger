@@ -1,0 +1,142 @@
+{
+  "common": {
+    "appName": "Poker Sync Pro",
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "copy": "Copy",
+    "share": "Share",
+    "export": "Export",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "or": "OR"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "displayName": "Display Name",
+    "guestLogin": "Guest Login (No Registration)",
+    "backToLogin": "Back to Login",
+    "registerAccount": "Register Account",
+    "guest": "Guest"
+  },
+  "nav": {
+    "lobby": "Lobby",
+    "game": "Game",
+    "report": "Report",
+    "profile": "Profile",
+    "friends": "Friends"
+  },
+  "lobby": {
+    "title": "Lobby",
+    "createGame": "Create Game",
+    "joinGame": "Join Game",
+    "stats": {
+      "totalProfit": "Total Profit",
+      "games": "Games",
+      "winRate": "Win Rate"
+    }
+  },
+  "game": {
+    "title": "Game",
+    "pot": "Pot",
+    "buyIn": "Buy-in",
+    "stack": "Stack",
+    "net": "Net",
+    "addPlayer": "Add Player",
+    "editPlayer": "Edit Player",
+    "removePlayer": "Remove Player",
+    "settlement": "Settlement",
+    "copyId": "Copy ID",
+    "inviteLink": "Invite Link",
+    "closeGame": "Close Game (Delete Data)",
+    "noActiveGame": "No active game",
+    "enterGameId": "Enter Game ID",
+    "selectSeat": "Select Seat",
+    "emptySeats": "Empty Seats",
+    "newSeat": "New Seat",
+    "chips": "Chips",
+    "exchangeRate": "Exchange Rate",
+    "gap": "Gap",
+    "copyReport": "Copy Report",
+    "finishAndSave": "Finish & Save",
+    "bind": "Bind",
+    "invite": "Invite",
+    "addBuyIn": "+Buy-in",
+    "modify": "Modify",
+    "playerName": "Name",
+    "alreadyInGame": "Already in game",
+    "gameNotFound": "Game not found",
+    "gameEnded": "Game ended",
+    "confirmClose": "Confirm to close the game? All data will be deleted.",
+    "confirmSettlement": "Confirm settlement?",
+    "confirmBind": "Bind this seat?",
+    "confirmRemove": "Remove?"
+  },
+  "report": {
+    "title": "Report",
+    "history": "History",
+    "noRecords": "No records",
+    "profitTrend": "Profit Trend",
+    "winRate": "Win Rate",
+    "timePeriod": {
+      "week": "Week",
+      "month": "Month",
+      "year": "Year",
+      "all": "All"
+    },
+    "exportCSV": "Export CSV",
+    "exportPDF": "Export PDF",
+    "dateRange": "Date Range"
+  },
+  "profile": {
+    "title": "Profile",
+    "settings": "Settings",
+    "theme": "Theme",
+    "language": "Language",
+    "sound": "Sound",
+    "themeOptions": {
+      "dark": "Dark",
+      "light": "Light"
+    },
+    "version": "Version"
+  },
+  "friends": {
+    "title": "Friends",
+    "friendList": "Friend List",
+    "addFriend": "Add Friend",
+    "searchUser": "Search User",
+    "sendRequest": "Send Request",
+    "pending": "Pending",
+    "accepted": "Accepted",
+    "leaderboard": "Leaderboard",
+    "thisMonth": "This Month",
+    "thisQuarter": "This Quarter",
+    "thisYear": "This Year",
+    "noFriends": "No friends yet"
+  },
+  "chat": {
+    "title": "Chat",
+    "typeMessage": "Type a message...",
+    "send": "Send"
+  },
+  "blindTimer": {
+    "title": "Blind Timer",
+    "level": "Level",
+    "smallBlind": "Small Blind",
+    "bigBlind": "Big Blind",
+    "timeRemaining": "Time Remaining",
+    "start": "Start",
+    "pause": "Pause",
+    "reset": "Reset",
+    "breakTime": "Break Time"
+  }
+}

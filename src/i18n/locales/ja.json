@@ -1,0 +1,142 @@
+{
+  "common": {
+    "appName": "Poker Sync Pro",
+    "loading": "読み込み中...",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "delete": "削除",
+    "edit": "編集",
+    "close": "閉じる",
+    "copy": "コピー",
+    "share": "共有",
+    "export": "エクスポート",
+    "back": "戻る",
+    "next": "次へ",
+    "submit": "送信",
+    "or": "または"
+  },
+  "auth": {
+    "login": "ログイン",
+    "register": "登録",
+    "logout": "ログアウト",
+    "email": "メール",
+    "password": "パスワード",
+    "displayName": "表示名",
+    "guestLogin": "ゲストログイン（登録不要）",
+    "backToLogin": "ログインに戻る",
+    "registerAccount": "アカウント登録",
+    "guest": "ゲスト"
+  },
+  "nav": {
+    "lobby": "ロビー",
+    "game": "ゲーム",
+    "report": "レポート",
+    "profile": "プロフィール",
+    "friends": "友達"
+  },
+  "lobby": {
+    "title": "ロビー",
+    "createGame": "新規ゲーム",
+    "joinGame": "ゲームに参加",
+    "stats": {
+      "totalProfit": "累計損益",
+      "games": "ゲーム数",
+      "winRate": "勝率"
+    }
+  },
+  "game": {
+    "title": "ゲーム",
+    "pot": "ポット",
+    "buyIn": "バイイン",
+    "stack": "スタック",
+    "net": "純損益",
+    "addPlayer": "プレーヤー追加",
+    "editPlayer": "プレーヤー編集",
+    "removePlayer": "プレーヤー削除",
+    "settlement": "精算",
+    "copyId": "IDコピー",
+    "inviteLink": "招待リンク",
+    "closeGame": "ゲーム終了（データ削除）",
+    "noActiveGame": "進行中のゲームがありません",
+    "enterGameId": "ゲームIDを入力",
+    "selectSeat": "席を選択",
+    "emptySeats": "空席",
+    "newSeat": "新しい席",
+    "chips": "チップ",
+    "exchangeRate": "レート",
+    "gap": "誤差",
+    "copyReport": "レポートコピー",
+    "finishAndSave": "終了して保存",
+    "bind": "紐付け",
+    "invite": "招待",
+    "addBuyIn": "+バイイン",
+    "modify": "修正",
+    "playerName": "名前",
+    "alreadyInGame": "既にゲーム中",
+    "gameNotFound": "ゲームが見つかりません",
+    "gameEnded": "ゲーム終了",
+    "confirmClose": "ゲームを終了しますか？データは削除されます。",
+    "confirmSettlement": "精算を確認しますか？",
+    "confirmBind": "この席に紐付けますか？",
+    "confirmRemove": "削除しますか？"
+  },
+  "report": {
+    "title": "レポート分析",
+    "history": "履歴",
+    "noRecords": "記録なし",
+    "profitTrend": "損益トレンド",
+    "winRate": "勝率統計",
+    "timePeriod": {
+      "week": "週",
+      "month": "月",
+      "year": "年",
+      "all": "全て"
+    },
+    "exportCSV": "CSVエクスポート",
+    "exportPDF": "PDFエクスポート",
+    "dateRange": "日付範囲"
+  },
+  "profile": {
+    "title": "プロフィール",
+    "settings": "設定",
+    "theme": "テーマ",
+    "language": "言語",
+    "sound": "サウンド",
+    "themeOptions": {
+      "dark": "ダーク",
+      "light": "ライト"
+    },
+    "version": "バージョン"
+  },
+  "friends": {
+    "title": "友達",
+    "friendList": "友達リスト",
+    "addFriend": "友達追加",
+    "searchUser": "ユーザー検索",
+    "sendRequest": "リクエスト送信",
+    "pending": "保留中",
+    "accepted": "承認済み",
+    "leaderboard": "ランキング",
+    "thisMonth": "今月",
+    "thisQuarter": "今四半期",
+    "thisYear": "今年",
+    "noFriends": "友達がいません"
+  },
+  "chat": {
+    "title": "チャット",
+    "typeMessage": "メッセージを入力...",
+    "send": "送信"
+  },
+  "blindTimer": {
+    "title": "ブラインドタイマー",
+    "level": "レベル",
+    "smallBlind": "スモールブラインド",
+    "bigBlind": "ビッグブラインド",
+    "timeRemaining": "残り時間",
+    "start": "スタート",
+    "pause": "一時停止",
+    "reset": "リセット",
+    "breakTime": "休憩時間"
+  }
+}
