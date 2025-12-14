@@ -1,6 +1,6 @@
 import { ref, computed, nextTick, onMounted, watch } from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
 
-// --- 共用工具 ---
+// Helper
 const formatNumber = (n) => n?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") || '0';
 const formatCash = (p, r) => {
     const val = p / (r || 1);
@@ -54,7 +54,6 @@ export const LobbyView = {
             <div @click="showCreate=true" class="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex items-center gap-4 active:scale-95 transition cursor-pointer"><div class="w-12 h-12 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-xl"><i class="fas fa-plus"></i></div><div><h3 class="text-white font-bold">開新局</h3></div></div>
             <div @click="showJoin=true" class="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex items-center gap-4 active:scale-95 transition cursor-pointer"><div class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-xl"><i class="fas fa-sign-in-alt"></i></div><div><h3 class="text-white font-bold">加入房間</h3></div></div>
         </div>
-        
         <div v-if="showCreate" class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4" @click.self="showCreate=false"><div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 mb-20"><input v-model="name" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white mb-4"><button @click="$emit('create', name)" class="w-full py-3 bg-amber-600 text-white rounded-xl font-bold">建立</button></div></div>
         
         <div v-if="showJoin" class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4" @click.self="resetJoin"><div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 mb-20">
@@ -68,11 +67,8 @@ export const LobbyView = {
     </div>`,
     setup(props, { emit }) {
         const showCreate = ref(false); const showJoin = ref(false); const joinStep = ref(1); const name = ref('德州撲克'); const code = ref(''); const buyIn = ref(2000); const unboundPlayers = ref([]);
-        
-        // 觸發檢查
         const checkGame = async () => {
             if(!code.value) return alert('請輸入 ID');
-            // 這裡發出事件給 main.js，main.js 會去 call game.js，然後執行 callback
             emit('check-game', code.value, (res) => {
                 if(res.status==='joined'){ alert('已在局內'); emit('join-direct', code.value); }
                 else if(res.status==='open'){ unboundPlayers.value=res.unboundPlayers; joinStep.value=2; }
@@ -102,7 +98,15 @@ export const GameView = {
                 <div class="absolute left-0 inset-y-0 w-1" :class="calculateNet(p)>=0?'bg-emerald-500':'bg-rose-500'"></div>
                 <div class="pl-3">
                     <div class="flex justify-between mb-3">
-                        <div><div class="text-white font-bold flex gap-2 items-center">{{ p.name }} <button v-if="!p.uid" @click="$emit('bind', p)" class="text-[10px] bg-slate-600 px-2 rounded">認領</button><span v-if="p.uid" class="text-blue-400 text-[10px]">●</span></div><div class="text-xs text-gray-400 mt-1">Buy: {{ formatNumber(p.buyIn) }}</div></div>
+                        <div>
+                            <div class="text-white font-bold flex gap-2 items-center">
+                                {{ p.name }} 
+                                <button v-if="!p.uid && !amIIn" @click="bind(p)" class="text-[10px] bg-slate-600 px-2 rounded hover:bg-emerald-600">認領</button>
+                                <button v-if="!p.uid && amIIn" @click="invite(p)" class="text-[10px] bg-slate-700 text-gray-400 px-2 rounded border border-slate-600 hover:text-white"><i class="fas fa-share-alt mr-1"></i>邀人</button>
+                                <span v-if="p.uid" class="text-blue-400 text-[10px]">●</span>
+                            </div>
+                            <div class="text-xs text-gray-400 mt-1">Buy: {{ formatNumber(p.buyIn) }}</div>
+                        </div>
                         <div class="text-right"><div class="text-2xl font-mono font-bold" :class="calculateNet(p)>=0?'text-emerald-400':'text-rose-400'">{{ calculateNet(p)>0?'+':''}}{{ formatNumber(calculateNet(p)) }}</div></div>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
@@ -145,10 +149,20 @@ export const GameView = {
         const totalPot = computed(() => props.game?.players.reduce((a,b)=>a+b.buyIn,0)||0);
         const totalStack = computed(() => props.game?.players.reduce((a,b)=>a+(b.stack||0),0)||0);
         const gap = computed(() => totalStack.value - totalPot.value);
+        
+        // 🔥 判斷自己是否在局內
+        const amIIn = computed(() => props.game?.players.some(p => p.uid === props.user.uid));
+
         const bind = (p) => confirm(`綁定 ${p.name}?`) && emit('bind-seat', p);
         const edit = (p) => editingP.value = { ...p };
         const copyId = () => { navigator.clipboard.writeText(props.game.id); alert('ID 已複製'); };
         
+        // 分享連結功能
+        const invite = (p) => {
+            const url = `${window.location.origin}${window.location.pathname}?game=${props.game.id}&seat=${p.id}`;
+            navigator.clipboard.writeText(url).then(() => alert(`已複製「${p.name}」的入座連結，請傳給朋友`));
+        };
+
         const copyReport = () => {
             let t = `🎲 局: ${props.game.name}\n📅 ${new Date().toLocaleString()}\n💰 匯率: 1:${rate.value}\n---\n`;
             [...props.game.players].sort((a,b)=>calculateNet(b)-calculateNet(a)).forEach(p=>{
@@ -158,8 +172,7 @@ export const GameView = {
             navigator.clipboard.writeText(t).then(()=>alert('已複製'));
         };
 
-        // 統一回傳 calculateNet
-        return { showAdd, showSettlement, editingP, newName, rate, totalPot, gap, copyId, edit, formatNumber, formatCash, calculateNet, copyReport };
+        return { showAdd, showSettlement, editingP, newName, rate, totalPot, gap, copyId, edit, formatNumber, formatCash, calculateNet, copyReport, amIIn, bind, invite };
     }
 };
 
@@ -198,6 +211,6 @@ export const ProfileView = {
         <div class="space-y-3 mt-8">
             <button @click="$emit('logout')" class="w-full py-3 bg-slate-800 text-rose-400 border border-slate-700 rounded-xl font-bold">登出</button>
         </div>
-        <div class="mt-8 text-xs text-gray-600">Version 9.0.0</div>
+        <div class="mt-8 text-xs text-gray-600">Version 9.1.0</div>
     </div>`
 };
