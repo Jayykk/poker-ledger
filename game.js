@@ -1,4 +1,4 @@
-import { collection, doc, addDoc, updateDoc, arrayUnion, runTransaction, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { collection, doc, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { db } from './firebase-init.js';
 import { state, setLoading, setView } from './store.js';
 
@@ -30,7 +30,22 @@ export const createGame = async (name) => {
     }
 };
 
-// 🔥 新增：檢查房間狀態 (回傳未綁定玩家列表)
+// 🔥 新增：解散房間 (刪除)
+export const closeGame = async () => {
+    if (!state.gameId) return;
+    if (!confirm('確定要「解散」房間嗎？\n此操作會直接刪除本局資料，無法復原。')) return;
+    
+    setLoading(true);
+    try {
+        await deleteDoc(doc(db, 'games', state.gameId));
+        // 刪除後，main.js 的監聽器會自動偵測到檔案消失，並把大家踢回大廳
+    } catch (e) {
+        alert('解散失敗: ' + e.message);
+    } finally {
+        setLoading(false);
+    }
+};
+
 export const checkGameStatus = async (gameId) => {
     setLoading(true);
     try {
@@ -41,11 +56,9 @@ export const checkGameStatus = async (gameId) => {
         if (snap.data().status !== 'active') throw "此局已結束";
 
         const players = snap.data().players || [];
-        // 檢查自己是否已在局內
         const amIIn = players.some(p => p.uid === state.user.uid);
         if (amIIn) return { status: 'joined' };
 
-        // 找出未綁定的空位
         const unbound = players.filter(p => !p.uid);
         return { status: 'open', unboundPlayers: unbound };
 
@@ -57,7 +70,6 @@ export const checkGameStatus = async (gameId) => {
     }
 };
 
-// 🔥 新增：綁定現有空位
 export const joinByBinding = async (gameId, playerId) => {
     setLoading(true);
     try {
@@ -66,10 +78,8 @@ export const joinByBinding = async (gameId, playerId) => {
             const gameDoc = await t.get(gameRef);
             const players = gameDoc.data().players;
             
-            // 找到該座位並更新
             const newPlayers = players.map(p => {
                 if (p.id === playerId) {
-                    // 如果被搶先綁定
                     if (p.uid) throw "手慢了，該位置已被佔用";
                     return { ...p, uid: state.user.uid, name: state.user.displayName || 'Guest' };
                 }
@@ -86,7 +96,6 @@ export const joinByBinding = async (gameId, playerId) => {
     }
 };
 
-// 🔥 新增：買入新座位 (含自動防撞名)
 export const joinAsNewPlayer = async (gameId, buyIn) => {
     setLoading(true);
     try {
@@ -95,15 +104,12 @@ export const joinAsNewPlayer = async (gameId, buyIn) => {
             const gameDoc = await t.get(gameRef);
             const players = gameDoc.data().players;
 
-            // 再次檢查是否已在局內
             if (players.some(p => p.uid === state.user.uid)) return;
 
-            // 防撞名邏輯
             let baseName = state.user.displayName || 'Guest';
             let finalName = baseName;
             let counter = 2;
             const existingNames = players.map(p => p.name);
-            
             while (existingNames.includes(finalName)) {
                 finalName = `${baseName} (${counter})`;
                 counter++;
@@ -128,7 +134,6 @@ export const joinAsNewPlayer = async (gameId, buyIn) => {
     }
 };
 
-// --- 以下功能保持不變 ---
 export const addPlayer = async (name) => {
     if (!state.gameId) return;
     const newPlayer = { id: Date.now().toString(), name: name || '路人', uid: null, buyIn: 2000, stack: 0 };
