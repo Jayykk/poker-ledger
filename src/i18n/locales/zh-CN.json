@@ -1,0 +1,142 @@
+{
+  "common": {
+    "appName": "Poker Sync Pro",
+    "loading": "加载中...",
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "edit": "编辑",
+    "close": "关闭",
+    "copy": "复制",
+    "share": "分享",
+    "export": "导出",
+    "back": "返回",
+    "next": "下一步",
+    "submit": "提交",
+    "or": "或"
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "logout": "登出",
+    "email": "Email",
+    "password": "密码",
+    "displayName": "昵称",
+    "guestLogin": "访客试用 (免注册)",
+    "backToLogin": "返回登录",
+    "registerAccount": "注册账号",
+    "guest": "访客"
+  },
+  "nav": {
+    "lobby": "大厅",
+    "game": "牌局",
+    "report": "报表",
+    "profile": "我的",
+    "friends": "好友"
+  },
+  "lobby": {
+    "title": "大厅",
+    "createGame": "开新局",
+    "joinGame": "加入房间",
+    "stats": {
+      "totalProfit": "生涯损益",
+      "games": "场次",
+      "winRate": "胜率"
+    }
+  },
+  "game": {
+    "title": "牌局",
+    "pot": "Pot",
+    "buyIn": "买入",
+    "stack": "筹码",
+    "net": "净损益",
+    "addPlayer": "加入玩家",
+    "editPlayer": "编辑玩家",
+    "removePlayer": "移除玩家",
+    "settlement": "结算",
+    "copyId": "复制 ID",
+    "inviteLink": "邀请链接",
+    "closeGame": "解散房间 (删除数据)",
+    "noActiveGame": "目前没有进行中的牌局",
+    "enterGameId": "输入 Game ID",
+    "selectSeat": "选择入座",
+    "emptySeats": "空位",
+    "newSeat": "新座位",
+    "chips": "筹码",
+    "exchangeRate": "汇率",
+    "gap": "误差",
+    "copyReport": "复制报表",
+    "finishAndSave": "结束并存档",
+    "bind": "认领",
+    "invite": "邀人",
+    "addBuyIn": "+买入",
+    "modify": "修改",
+    "playerName": "名",
+    "alreadyInGame": "已在局内",
+    "gameNotFound": "找不到此局",
+    "gameEnded": "此局已结束",
+    "confirmClose": "确定要「解散」房间吗？数据将直接删除。",
+    "confirmSettlement": "确认结算并封存?",
+    "confirmBind": "绑定此座位?",
+    "confirmRemove": "移除?"
+  },
+  "report": {
+    "title": "报表分析",
+    "history": "历史战绩",
+    "noRecords": "暂无记录",
+    "profitTrend": "盈亏趋势",
+    "winRate": "胜率统计",
+    "timePeriod": {
+      "week": "周",
+      "month": "月",
+      "year": "年",
+      "all": "全部"
+    },
+    "exportCSV": "导出 CSV",
+    "exportPDF": "导出 PDF",
+    "dateRange": "日期范围"
+  },
+  "profile": {
+    "title": "个人设定",
+    "settings": "设定",
+    "theme": "主题",
+    "language": "语言",
+    "sound": "音效",
+    "themeOptions": {
+      "dark": "深色",
+      "light": "浅色"
+    },
+    "version": "版本"
+  },
+  "friends": {
+    "title": "好友",
+    "friendList": "好友列表",
+    "addFriend": "新增好友",
+    "searchUser": "搜索用户",
+    "sendRequest": "发送邀请",
+    "pending": "待确认",
+    "accepted": "已接受",
+    "leaderboard": "排行榜",
+    "thisMonth": "本月",
+    "thisQuarter": "本季",
+    "thisYear": "全年",
+    "noFriends": "尚无好友"
+  },
+  "chat": {
+    "title": "聊天室",
+    "typeMessage": "输入消息...",
+    "send": "传送"
+  },
+  "blindTimer": {
+    "title": "Blind 计时器",
+    "level": "等级",
+    "smallBlind": "小盲",
+    "bigBlind": "大盲",
+    "timeRemaining": "剩余时间",
+    "start": "开始",
+    "pause": "暂停",
+    "reset": "重设",
+    "breakTime": "休息时间"
+  }
+}

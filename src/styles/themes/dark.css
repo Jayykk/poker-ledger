@@ -1,0 +1,26 @@
+/* Dark theme (default) */
+:root,
+[data-theme="dark"] {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
+  --border-color: #475569;
+  --accent-primary: #f59e0b;
+  --accent-secondary: #10b981;
+  --accent-danger: #ef4444;
+}
+
+/* Glass effect for dark theme */
+[data-theme="dark"] .glass {
+  background: rgba(30, 41, 59, 0.95);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Card shadows for dark theme */
+[data-theme="dark"] .card-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
