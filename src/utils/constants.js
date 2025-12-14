@@ -58,7 +58,8 @@ export const STORAGE_KEYS = {
   LAST_GAME_ID: 'last_game_id',
   THEME: 'poker_theme',
   LANGUAGE: 'poker_language',
-  SOUND_ENABLED: 'poker_sound_enabled'
+  SOUND_ENABLED: 'poker_sound_enabled',
+  NOTIFICATIONS_ENABLED: 'poker_notifications_enabled'
 };
 
 // Theme options

@@ -7,6 +7,9 @@ import {
   updateDoc, 
   deleteDoc, 
   getDoc,
+  getDocs,
+  query,
+  where,
   arrayUnion, 
   runTransaction,
   onSnapshot
@@ -22,6 +25,7 @@ export const useGameStore = defineStore('game', () => {
   
   const game = ref(null);
   const gameId = ref(null);
+  const myRooms = ref([]);
   const loading = ref(false);
   const error = ref('');
   
@@ -392,6 +396,42 @@ export const useGameStore = defineStore('game', () => {
   };
 
   /**
+   * Load my rooms (active rooms created or joined by user)
+   */
+  const loadMyRooms = async () => {
+    if (!authStore.user) return;
+    
+    loading.value = true;
+    try {
+      const gamesRef = collection(db, 'games');
+      const q = query(gamesRef, where('status', '==', GAME_STATUS.ACTIVE));
+      const snapshot = await getDocs(q);
+      
+      const rooms = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const isHost = data.hostUid === authStore.user.uid;
+        const isPlayer = data.players?.some(p => p.uid === authStore.user.uid);
+        
+        if (isHost || isPlayer) {
+          rooms.push({
+            id: doc.id,
+            ...data
+          });
+        }
+      });
+      
+      // Sort by creation time, newest first
+      myRooms.value = rooms.sort((a, b) => b.createdAt - a.createdAt);
+    } catch (err) {
+      console.error('Load my rooms error:', err);
+      error.value = 'Failed to load rooms: ' + err.message;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  /**
    * Cleanup (unsubscribe from listeners)
    */
   const cleanup = () => {
@@ -404,6 +444,7 @@ export const useGameStore = defineStore('game', () => {
   return {
     game,
     gameId,
+    myRooms,
     loading,
     error,
     isInGame,
@@ -423,6 +464,7 @@ export const useGameStore = defineStore('game', () => {
     bindSeat,
     settleGame,
     closeGame,
+    loadMyRooms,
     cleanup
   };
 });

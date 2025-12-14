@@ -40,6 +40,12 @@
     "title": "Lobby",
     "createGame": "Create Game",
     "joinGame": "Join Game",
+    "myRooms": "My Rooms",
+    "noRooms": "No active rooms",
+    "roomCode": "Room Code",
+    "players": "Players",
+    "createdAt": "Created",
+    "enterRoom": "Enter Room",
     "stats": {
       "totalProfit": "Total Profit",
       "games": "Games",
@@ -105,6 +111,7 @@
     "theme": "Theme",
     "language": "Language",
     "sound": "Sound",
+    "notifications": "Push Notifications",
     "themeOptions": {
       "dark": "Dark",
       "light": "Light"
@@ -123,7 +130,11 @@
     "thisMonth": "This Month",
     "thisQuarter": "This Quarter",
     "thisYear": "This Year",
-    "noFriends": "No friends yet"
+    "noFriends": "No friends yet",
+    "inviteToRoom": "Invite to Room",
+    "selectRoom": "Select Room",
+    "noActiveRooms": "No active rooms. Please create a room first.",
+    "invitationSent": "Invitation sent!"
   },
   "chat": {
     "title": "Chat",
@@ -140,5 +151,16 @@
     "pause": "Pause",
     "reset": "Reset",
     "breakTime": "Break Time"
+  },
+  "invitations": {
+    "title": "Invitations",
+    "pending": "Pending Invitations",
+    "noPending": "No pending invitations",
+    "from": "From",
+    "room": "Room",
+    "accept": "Accept",
+    "reject": "Reject",
+    "accepted": "Invitation accepted!",
+    "rejected": "Invitation rejected"
   }
 }

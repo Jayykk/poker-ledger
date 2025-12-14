@@ -40,6 +40,12 @@
     "title": "ロビー",
     "createGame": "新規ゲーム",
     "joinGame": "ゲームに参加",
+    "myRooms": "マイルーム",
+    "noRooms": "アクティブなルームがありません",
+    "roomCode": "ルームコード",
+    "players": "プレイヤー",
+    "createdAt": "作成日時",
+    "enterRoom": "ルーム参加",
     "stats": {
       "totalProfit": "累計損益",
       "games": "ゲーム数",
@@ -105,6 +111,7 @@
     "theme": "テーマ",
     "language": "言語",
     "sound": "サウンド",
+    "notifications": "プッシュ通知",
     "themeOptions": {
       "dark": "ダーク",
       "light": "ライト"
@@ -123,7 +130,11 @@
     "thisMonth": "今月",
     "thisQuarter": "今四半期",
     "thisYear": "今年",
-    "noFriends": "友達がいません"
+    "noFriends": "友達がいません",
+    "inviteToRoom": "ルームに招待",
+    "selectRoom": "ルームを選択",
+    "noActiveRooms": "アクティブなルームがありません。まずルームを作成してください。",
+    "invitationSent": "招待を送信しました！"
   },
   "chat": {
     "title": "チャット",
@@ -140,5 +151,16 @@
     "pause": "一時停止",
     "reset": "リセット",
     "breakTime": "休憩時間"
+  },
+  "invitations": {
+    "title": "招待",
+    "pending": "保留中の招待",
+    "noPending": "保留中の招待はありません",
+    "from": "差出人",
+    "room": "ルーム",
+    "accept": "承認",
+    "reject": "拒否",
+    "accepted": "招待を承認しました！",
+    "rejected": "招待を拒否しました"
   }
 }

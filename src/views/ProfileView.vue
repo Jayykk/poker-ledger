@@ -69,6 +69,23 @@
         </div>
       </BaseCard>
 
+      <!-- Notifications -->
+      <BaseCard padding="md">
+        <div class="flex justify-between items-center">
+          <span class="text-white">{{ $t('profile.notifications') }}</span>
+          <button
+            @click="handleToggleNotifications"
+            class="w-12 h-6 rounded-full transition relative"
+            :class="notificationsEnabled ? 'bg-emerald-600' : 'bg-slate-700'"
+          >
+            <div
+              class="w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform"
+              :class="notificationsEnabled ? 'translate-x-6' : 'translate-x-0.5'"
+            ></div>
+          </button>
+        </div>
+      </BaseCard>
+
       <!-- Logout -->
       <BaseButton @click="handleLogout" variant="danger" fullWidth>
         {{ $t('auth.logout') }}
@@ -86,6 +103,7 @@ import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
+import { usePushNotification } from '../composables/usePushNotification.js';
 import BaseCard from '../components/common/BaseCard.vue';
 import BaseButton from '../components/common/BaseButton.vue';
 import { STORAGE_KEYS, THEMES } from '../utils/constants.js';
@@ -93,6 +111,7 @@ import { STORAGE_KEYS, THEMES } from '../utils/constants.js';
 const { t, locale } = useI18n();
 const router = useRouter();
 const { displayName, isGuest, logout } = useAuth();
+const { notificationsEnabled, toggleNotifications } = usePushNotification();
 
 const selectedLanguage = ref(locale.value);
 const currentTheme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
@@ -112,6 +131,10 @@ const setTheme = (theme) => {
 const toggleSound = () => {
   soundEnabled.value = !soundEnabled.value;
   localStorage.setItem(STORAGE_KEYS.SOUND_ENABLED, soundEnabled.value);
+};
+
+const handleToggleNotifications = async () => {
+  await toggleNotifications();
 };
 
 const handleLogout = async () => {
