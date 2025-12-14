@@ -73,8 +73,12 @@ export function usePushNotification() {
    * Send game invitation notification
    */
   const sendInvitationNotification = (fromName, roomName) => {
+    // Sanitize inputs to prevent XSS
+    const sanitizedFromName = String(fromName || 'Someone').replace(/[<>]/g, '').substring(0, 50);
+    const sanitizedRoomName = String(roomName || 'a game').replace(/[<>]/g, '').substring(0, 50);
+    
     return sendNotification('Game Invitation', {
-      body: `${fromName} invited you to join ${roomName}`,
+      body: `${sanitizedFromName} invited you to join ${sanitizedRoomName}`,
       tag: 'invitation',
       requireInteraction: true
     });

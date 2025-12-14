@@ -77,13 +77,13 @@ const handleInviteFriend = async (friend) => {
 const handleSelectRoom = async (room) => {
   if (!selectedFriend.value) return;
   
-  const invitationId = await sendInvitation(
-    selectedFriend.value.friendUid || selectedFriend.value.uid,
-    selectedFriend.value.displayName || selectedFriend.value.name,
-    room.id,
-    room.name,
-    room.roomCode
-  );
+  const invitationId = await sendInvitation({
+    friendUid: selectedFriend.value.friendUid || selectedFriend.value.uid,
+    friendName: selectedFriend.value.displayName || selectedFriend.value.name,
+    gameId: room.id,
+    gameName: room.name,
+    roomCode: room.roomCode
+  });
   
   if (invitationId) {
     success(t('friends.invitationSent'));

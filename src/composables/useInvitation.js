@@ -32,8 +32,22 @@ export function useInvitation() {
   /**
    * Send invitation to friend
    */
-  const sendInvitation = async (friendUid, friendName, gameId, gameName, roomCode) => {
+  const sendInvitation = async (options) => {
     if (!authStore.user) return null;
+    
+    const { friendUid, friendName, gameId, gameName, roomCode } = options;
+    
+    // Validate required fields
+    if (!friendUid || !gameId || !roomCode) {
+      console.error('Missing required invitation fields');
+      error.value = 'Invalid invitation data';
+      return null;
+    }
+    
+    // Sanitize user inputs
+    const sanitizedFriendName = String(friendName || 'Friend').replace(/[<>]/g, '').substring(0, 50);
+    const sanitizedGameName = String(gameName || 'Poker Game').replace(/[<>]/g, '').substring(0, 50);
+    const sanitizedRoomCode = String(roomCode).replace(/[^0-9]/g, '').substring(0, 4);
     
     loading.value = true;
     error.value = '';
@@ -41,12 +55,12 @@ export function useInvitation() {
     try {
       const invitation = {
         fromUid: authStore.user.uid,
-        fromName: authStore.displayName,
+        fromName: authStore.displayName || 'Unknown',
         toUid: friendUid,
-        toName: friendName,
+        toName: sanitizedFriendName,
         gameId,
-        gameName,
-        roomCode,
+        gameName: sanitizedGameName,
+        roomCode: sanitizedRoomCode,
         status: 'pending',
         createdAt: serverTimestamp()
       };

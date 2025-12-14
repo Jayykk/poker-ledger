@@ -397,6 +397,10 @@ export const useGameStore = defineStore('game', () => {
 
   /**
    * Load my rooms (active rooms created or joined by user)
+   * Note: For better performance with many active games, consider:
+   * - Using a compound query with an array-contains filter
+   * - Maintaining a user-room relationship collection
+   * - Adding pagination for large datasets
    */
   const loadMyRooms = async () => {
     if (!authStore.user) return;
