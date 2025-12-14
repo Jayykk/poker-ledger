@@ -59,6 +59,7 @@ export const useGameStore = defineStore('game', () => {
         name: name || 'Poker Game',
         roomCode: Math.floor(1000 + Math.random() * 9000).toString(),
         hostUid: authStore.user.uid,
+        hostName: hostName,
         status: GAME_STATUS.ACTIVE,
         createdAt: Date.now(),
         players: [{
