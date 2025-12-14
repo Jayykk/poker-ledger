@@ -5,9 +5,10 @@
       <button
         v-for="period in periods"
         :key="period"
-        @click="selectedPeriod = period"
+        @click="handlePeriodChange(period)"
         class="px-3 py-1 rounded-lg text-sm transition"
         :class="selectedPeriod === period ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
+        :disabled="isLoading"
       >
         {{ $t(`report.timePeriod.${period}`) }}
       </button>
@@ -15,6 +16,16 @@
 
     <!-- Chart -->
     <div class="relative h-64 w-full">
+      <!-- Loading overlay -->
+      <div
+        v-if="isLoading"
+        class="absolute inset-0 flex items-center justify-center bg-slate-800/50 rounded-lg z-10"
+      >
+        <div class="flex flex-col items-center">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+          <div class="text-xs text-gray-400 mt-2">Loading...</div>
+        </div>
+      </div>
       <canvas :id="canvasId"></canvas>
     </div>
 
@@ -47,7 +58,7 @@ import { formatNumber } from '../../utils/formatters.js';
 import { TIME_PERIODS, CHART_COLORS } from '../../utils/constants.js';
 
 const { t } = useI18n();
-const { createLineChart } = useChart();
+const { createLineChart, debounce } = useChart();
 const userStore = useUserStore();
 
 // Store chart instance locally
@@ -55,6 +66,7 @@ let chartInstance = null;
 
 const canvasId = ref(`profit-chart-${Math.random().toString(36).substr(2, 9)}`);
 const selectedPeriod = ref(TIME_PERIODS.ALL);
+const isLoading = ref(false);
 const periods = [TIME_PERIODS.WEEK, TIME_PERIODS.MONTH, TIME_PERIODS.YEAR, TIME_PERIODS.ALL];
 
 const filteredHistory = computed(() => {
@@ -145,13 +157,36 @@ const renderChart = () => {
         }
       }
     });
+    
+    isLoading.value = false;
   });
 };
 
-// Only watch selectedPeriod to avoid infinite loops
-watch(selectedPeriod, () => {
+// Debounced render function to prevent rapid re-renders
+const debouncedRenderChart = debounce(() => {
   renderChart();
-});
+}, 300);
+
+// Handle period change with loading state
+const handlePeriodChange = (period) => {
+  // Don't do anything if it's the same period
+  if (selectedPeriod.value === period) {
+    return;
+  }
+  
+  // Don't allow change if already loading
+  if (isLoading.value) {
+    return;
+  }
+  
+  isLoading.value = true;
+  selectedPeriod.value = period;
+};
+
+// Watch selectedPeriod and trigger debounced render
+watch(selectedPeriod, () => {
+  debouncedRenderChart();
+}, { flush: 'post' });
 
 onMounted(() => {
   renderChart();
