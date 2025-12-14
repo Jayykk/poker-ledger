@@ -9,32 +9,48 @@ import { LoginView, LobbyView, GameView, ReportView, ProfileView } from './views
 
 const app = createApp({
     setup() {
-        // --- Auth 監聽 ---
         onAuthStateChanged(auth, (u) => {
             state.user = u;
             if (u) {
-                // 登入後載入資料
                 loadUserData(u.uid);
-                // 檢查是否有進行中的局
                 const savedId = localStorage.getItem('last_game_id');
                 if (savedId) joinGameListener(savedId);
-                
-                // 如果在登入頁，就轉去大廳
                 if (state.view === 'LoginView') setView('LobbyView');
             } else {
-                // 登出重置
                 state.view = 'LoginView';
                 state.game = null;
                 state.history = [];
             }
         });
 
+        // 🔥 重點修正：排序與時間格式化
         const loadUserData = (uid) => {
             onSnapshot(doc(db, 'users', uid), (snap) => {
                 if (snap.exists()) {
                     const d = snap.data();
-                    const raw = d.history || [];
-                    state.history = raw.map(h => ({ ...h, dateStr: new Date(h.date).toLocaleDateString() }));
+                    let raw = d.history || [];
+                    
+                    // 1. 排序：依照日期 (舊 -> 新)
+                    raw.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                    // 2. 格式化顯示資料
+                    state.history = raw.map(h => {
+                        const dateObj = new Date(h.date);
+                        // 格式化為: 2023/12/14 22:15:30
+                        const dateStr = dateObj.toLocaleString('zh-TW', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: false
+                        });
+                        return { 
+                            ...h, 
+                            dateStr: dateStr 
+                        };
+                    });
                     
                     const profit = raw.reduce((sum, h) => sum + (h.profit / (h.rate || 1)), 0);
                     const wins = raw.filter(h => h.profit > 0).length;
@@ -47,7 +63,7 @@ const app = createApp({
             });
         };
 
-        // --- Game Listener ---
+        // ... (以下維持不變)
         let unsubGame = null;
         const joinGameListener = (id) => {
             if (unsubGame) unsubGame();
@@ -80,7 +96,7 @@ const app = createApp({
 
         const copyId = () => {
             navigator.clipboard.writeText(state.gameId);
-            alert('已複製');
+            alert('已複製 ID');
         };
 
         const currentViewComponent = computed(() => {
