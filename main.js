@@ -63,7 +63,7 @@ const app = createApp({
                     state.gameId = null;
                     localStorage.removeItem('last_game_id');
                     if(state.view === 'GameView') {
-                        alert("牌局已結束");
+                        alert("牌局已結束或已解散");
                         setView('LobbyView');
                     }
                 }
@@ -75,27 +75,27 @@ const app = createApp({
             if(newId) joinGameListener(newId);
         };
 
-        // --- 新增的加入邏輯 ---
-        
-        // 1. 檢查房間狀態
+        const handleJoin = async (code, buyIn) => {
+            if (!code || !buyIn) return alert("請輸入完整 ID 與金額");
+            const success = await Game.joinAsNewPlayer(code, buyIn);
+            if (success) joinGameListener(code);
+        };
+
         const handleCheckGame = async (code, callback) => {
             const result = await Game.checkGameStatus(code);
             callback(result);
         };
 
-        // 2. 綁定現有
         const handleBindJoin = async (code, pid) => {
             const success = await Game.joinByBinding(code, pid);
             if(success) joinGameListener(code);
         };
 
-        // 3. 買入新位
         const handleNewJoin = async (code, buyIn) => {
             const success = await Game.joinAsNewPlayer(code, buyIn);
             if(success) joinGameListener(code);
         };
 
-        // 4. 直接加入 (已在局內)
         const handleJoinDirect = (code) => {
             joinGameListener(code);
         };
@@ -118,7 +118,7 @@ const app = createApp({
             handleCreate, 
             
             // New Handlers
-            handleCheckGame, handleBindJoin, handleNewJoin, handleJoin: handleJoinDirect, // join-direct map to listener
+            handleCheckGame, handleBindJoin, handleNewJoin, handleJoin: handleJoinDirect,
 
             addPlayer: Game.addPlayer,
             savePlayer: Game.savePlayer,
@@ -126,6 +126,7 @@ const app = createApp({
             addBuy: (p) => Game.savePlayer({ ...p, buyIn: p.buyIn + 2000 }),
             bindSeat: Game.bindSeat,
             settle: Game.settleGame,
+            closeGame: Game.closeGame, // 🔥 關鍵：匯出解散功能
             goLobby: () => setView('LobbyView'),
             copyId
         };
