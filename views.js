@@ -49,76 +49,27 @@ export const LobbyView = {
             <div @click="showCreate=true" class="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex items-center gap-4 active:scale-95 transition cursor-pointer"><div class="w-12 h-12 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-xl"><i class="fas fa-plus"></i></div><div><h3 class="text-white font-bold">開新局</h3></div></div>
             <div @click="showJoin=true" class="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex items-center gap-4 active:scale-95 transition cursor-pointer"><div class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-xl"><i class="fas fa-sign-in-alt"></i></div><div><h3 class="text-white font-bold">加入房間</h3></div></div>
         </div>
-        
         <div v-if="showCreate" class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4" @click.self="showCreate=false"><div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 mb-20"><input v-model="name" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white mb-4"><button @click="$emit('create', name)" class="w-full py-3 bg-amber-600 text-white rounded-xl font-bold">建立</button></div></div>
-        
-        <div v-if="showJoin" class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4" @click.self="resetJoin">
-            <div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 mb-20">
-                <h3 class="text-white font-bold mb-4">{{ joinStep === 1 ? '輸入 Game ID' : '選擇入座方式' }}</h3>
-                
-                <div v-if="joinStep === 1">
-                    <input v-model="code" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white mb-4 font-mono text-center" placeholder="貼上 ID">
-                    <button @click="checkGame" class="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold">下一步</button>
-                </div>
-
-                <div v-else>
-                    <div v-if="unboundPlayers.length > 0" class="mb-4">
-                        <p class="text-xs text-gray-400 mb-2">有空位可認領：</p>
-                        <div class="space-y-2 max-h-40 overflow-y-auto">
-                            <button v-for="p in unboundPlayers" :key="p.id" @click="$emit('bind-join', code, p.id)" class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm border border-slate-600 flex justify-between px-3">
-                                <span>{{ p.name }}</span>
-                                <span class="text-emerald-400">Buy: {{ formatNumber(p.buyIn) }}</span>
-                            </button>
-                        </div>
-                        <div class="relative py-3"><div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-600"></div></div><div class="relative flex justify-center"><span class="bg-slate-800 px-2 text-gray-500 text-xs">或是</span></div></div>
-                    </div>
-
-                    <p class="text-xs text-gray-400 mb-2">建立新座位：</p>
-                    <div class="flex items-center gap-2 mb-4">
-                        <input v-model.number="buyIn" type="number" class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 text-white text-right font-mono">
-                        <span class="text-white text-sm">籌碼</span>
-                    </div>
-                    <button @click="$emit('new-join', code, buyIn)" class="w-full py-3 bg-amber-600 text-white rounded-xl font-bold">買入並加入</button>
-                </div>
+        <div v-if="showJoin" class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4" @click.self="resetJoin"><div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 mb-20">
+            <h3 class="text-white font-bold mb-4">{{ joinStep===1?'輸入 Game ID':'選擇入座' }}</h3>
+            <div v-if="joinStep===1"><input v-model="code" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white mb-4 font-mono text-center" placeholder="ID"><button @click="checkGame" class="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold">下一步</button></div>
+            <div v-else>
+                <div v-if="unboundPlayers.length>0" class="mb-4"><p class="text-xs text-gray-400 mb-2">空位:</p><div class="space-y-2 max-h-40 overflow-y-auto"><button v-for="p in unboundPlayers" :key="p.id" @click="$emit('bind-join',code,p.id)" class="w-full py-2 bg-slate-700 text-white rounded-lg text-sm border border-slate-600 flex justify-between px-3"><span>{{p.name}}</span><span class="text-emerald-400">{{formatNumber(p.buyIn)}}</span></button></div><div class="relative py-3"><span class="bg-slate-800 px-2 text-gray-500 text-xs">OR</span></div></div>
+                <p class="text-xs text-gray-400 mb-2">新座位:</p><div class="flex gap-2 mb-4"><input v-model.number="buyIn" type="number" class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 text-white text-right font-mono"><span class="text-white text-sm pt-2">籌碼</span></div><button @click="$emit('new-join',code,buyIn)" class="w-full py-3 bg-amber-600 text-white rounded-xl font-bold">買入加入</button>
             </div>
-        </div>
+        </div></div>
     </div>`,
     setup(props, { emit }) {
-        const showCreate = ref(false);
-        const showJoin = ref(false);
-        const joinStep = ref(1);
-        const name = ref('德州撲克');
-        const code = ref('');
-        const buyIn = ref(2000);
-        const unboundPlayers = ref([]);
-
-        // 把檢查邏輯移到 views 裡面觸發比較好控制 UI
+        const showCreate = ref(false); const showJoin = ref(false); const joinStep = ref(1); const name = ref('德州撲克'); const code = ref(''); const buyIn = ref(2000); const unboundPlayers = ref([]);
         const checkGame = async () => {
             if(!code.value) return alert('請輸入 ID');
-            // 這裡我們需要 emit 一個事件讓 main.js 去查 game.js，但因為要拿回傳值，
-            // 為了簡化，我們假設 main.js 會傳遞一個 prop 或是我們直接在這裡呼叫全域方法?
-            // 更好的做法是 emit 一個 async action，但 Vue 模板裡比較難處理。
-            // 我們改用 emit('check-game', code, callback) 的模式
-            emit('check-game', code.value, (result) => {
-                if (result.status === 'joined') {
-                    alert('你已經在局內了');
-                    emit('join-direct', code.value); // 直接進入
-                } else if (result.status === 'open') {
-                    unboundPlayers.value = result.unboundPlayers;
-                    joinStep.value = 2;
-                } else {
-                    alert(result.msg || '無法加入');
-                }
+            emit('check-game', code.value, (res) => {
+                if(res.status==='joined'){ alert('已在局內'); emit('join-direct', code.value); }
+                else if(res.status==='open'){ unboundPlayers.value=res.unboundPlayers; joinStep.value=2; }
+                else alert(res.msg||'無法加入');
             });
         };
-
-        const resetJoin = () => {
-            showJoin.value = false;
-            joinStep.value = 1;
-            code.value = '';
-            unboundPlayers.value = [];
-        };
-
+        const resetJoin = () => { showJoin.value=false; joinStep.value=1; code.value=''; unboundPlayers.value=[]; };
         return { showCreate, showJoin, joinStep, name, code, buyIn, unboundPlayers, formatNumber, checkGame, resetJoin };
     }
 };
@@ -154,6 +105,8 @@ export const GameView = {
             <button @click="$emit('copy-id')" class="px-4 py-2 bg-slate-800 text-gray-400 rounded-lg text-xs">複製 ID</button>
             <button @click="showSettlement=true" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold">結算</button>
         </div>
+        <button @click="$emit('close-game')" class="mt-4 w-full py-2 bg-red-900/30 text-red-400 border border-red-900/50 rounded-lg text-xs font-bold">解散房間 (刪除資料)</button>
+
         <button @click="showAdd=true" class="fixed bottom-24 right-4 w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center text-xl shadow-lg"><i class="fas fa-plus"></i></button>
         
         <div v-if="showAdd" class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4" @click.self="showAdd=false"><div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 mb-20"><input v-model="newName" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white mb-4" placeholder="名"><button @click="$emit('add-player', newName);showAdd=false;newName=''" class="w-full py-3 bg-amber-600 text-white rounded-xl font-bold">加入</button></div></div>
@@ -232,6 +185,6 @@ export const ProfileView = {
         <div class="space-y-3 mt-8">
             <button @click="$emit('logout')" class="w-full py-3 bg-slate-800 text-rose-400 border border-slate-700 rounded-xl font-bold">登出</button>
         </div>
-        <div class="mt-8 text-xs text-gray-600">Version 8.2.0</div>
+        <div class="mt-8 text-xs text-gray-600">Version 8.3.0</div>
     </div>`
 };
