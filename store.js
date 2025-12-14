@@ -12,7 +12,10 @@ export const state = reactive({
     
     // 統計資料
     stats: { games: 0, totalProfit: 0, winRate: 0 },
-    history: []
+    history: [],
+    
+    // 待處理的邀請
+    pendingInvite: null
 });
 
 export const setView = (viewName) => {

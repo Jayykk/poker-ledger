@@ -11,6 +11,7 @@ export const createGame = async (name) => {
             name: name,
             roomCode: Math.floor(1000 + Math.random() * 9000).toString(),
             hostUid: state.user.uid,
+            hostName: hostName,
             status: 'active',
             createdAt: Date.now(),
             players: [{ 
@@ -32,6 +33,11 @@ export const createGame = async (name) => {
 
 export const closeGame = async () => {
     if (!state.gameId) return;
+    // Check if current user is the host
+    if (state.game.hostUid !== state.user.uid) {
+        alert('只有房主才能解散房間');
+        return;
+    }
     if (!confirm('確定要「解散」房間嗎？資料將直接刪除。')) return;
     setLoading(true);
     try {
