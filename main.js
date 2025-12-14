@@ -13,13 +13,9 @@ const app = createApp({
             state.user = u;
             if (u) {
                 loadUserData(u.uid);
-                // 優先檢查 URL 參數
                 checkUrlParams();
-                
                 const savedId = localStorage.getItem('last_game_id');
-                // 如果沒有 URL 參數且有舊局，才連回去
                 if (!state.gameId && savedId) joinGameListener(savedId);
-                
                 if (state.view === 'LoginView') setView('LobbyView');
             } else {
                 state.view = 'LoginView';
@@ -28,16 +24,12 @@ const app = createApp({
             }
         });
 
-        // 🔥 檢查網址參數 (?game=xxx&seat=yyy)
         const checkUrlParams = async () => {
             const params = new URLSearchParams(window.location.search);
             const gameId = params.get('game');
             const seatId = params.get('seat');
-            
             if (gameId && seatId) {
-                // 清除網址參數避免重複觸發
                 window.history.replaceState({}, document.title, "/");
-                
                 if (confirm(`檢測到邀請連結，是否入座該局？`)) {
                     const success = await Game.joinByBinding(gameId, seatId);
                     if (success) joinGameListener(gameId);
@@ -97,7 +89,9 @@ const app = createApp({
         };
 
         const handleCheckGame = async (code, callback) => {
+            console.log("【Main】收到 check-game，準備呼叫 Game Logic", code); // LOG 4
             const result = await Game.checkGameStatus(code);
+            console.log("【Main】Game Logic 回傳:", result); // LOG 5
             callback(result);
         };
 
@@ -117,7 +111,11 @@ const app = createApp({
 
         const handleBindSeat = async (p) => {
             const success = await Game.bindSeat(p);
-            // 綁定成功後，views.js 會自動更新畫面
+        };
+
+        const handleCloseGame = async () => {
+            console.log("【Main】收到 close-game，呼叫 Game.closeGame"); // LOG 6
+            await Game.closeGame();
         };
 
         const copyId = () => {
@@ -146,7 +144,7 @@ const app = createApp({
             addBuy: (p) => Game.savePlayer({ ...p, buyIn: p.buyIn + 2000 }),
             bindSeat: handleBindSeat,
             settle: Game.settleGame,
-            closeGame: Game.closeGame,
+            closeGame: handleCloseGame, // 🔥 這裡綁定上面的 log wrapper
             goLobby: () => setView('LobbyView'),
             copyId
         };
