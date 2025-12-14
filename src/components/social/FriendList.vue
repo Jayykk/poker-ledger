@@ -135,6 +135,7 @@ import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, s
 import { db } from '../../firebase-init.js';
 import { useAuth } from '../../composables/useAuth.js';
 import { useNotification } from '../../composables/useNotification.js';
+import { useConfirm } from '../../composables/useConfirm.js';
 import BaseCard from '../common/BaseCard.vue';
 import BaseButton from '../common/BaseButton.vue';
 import BaseInput from '../common/BaseInput.vue';
@@ -143,6 +144,7 @@ import { formatShortDate } from '../../utils/formatters.js';
 const { t } = useI18n();
 const { user } = useAuth();
 const { success, error: showError } = useNotification();
+const { confirm } = useConfirm();
 
 defineEmits(['invite-friend']);
 
@@ -243,7 +245,11 @@ const rejectFriendRequest = async (request) => {
 };
 
 const removeFriend = async (friend) => {
-  if (!confirm(`Remove ${friend.name} from friends?`)) return;
+  const shouldRemove = await confirm({
+    message: t('friends.confirmRemove'),
+    type: 'warning'
+  });
+  if (!shouldRemove) return;
   
   friends.value = friends.value.filter(f => f.uid !== friend.uid);
   success('Friend removed');

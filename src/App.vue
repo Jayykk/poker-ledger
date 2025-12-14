@@ -59,6 +59,21 @@
         </router-link>
       </div>
     </nav>
+
+    <!-- Toast notifications -->
+    <ToastNotification />
+
+    <!-- Confirm dialog -->
+    <ConfirmDialog
+      v-model="confirmDialog.show"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :type="confirmDialog.type"
+      :confirm-text="confirmDialog.confirmText"
+      :cancel-text="confirmDialog.cancelText"
+      @confirm="handleConfirm(true)"
+      @cancel="handleConfirm(false)"
+    />
   </div>
 </template>
 
@@ -69,20 +84,31 @@ import { useI18n } from 'vue-i18n';
 import { useAuthStore } from './store/modules/auth.js';
 import { useGameStore } from './store/modules/game.js';
 import { useUserStore } from './store/modules/user.js';
+import { useNotificationStore } from './store/modules/notification.js';
+import { useConfirm } from './composables/useConfirm.js';
 import LoadingSpinner from './components/common/LoadingSpinner.vue';
+import ToastNotification from './components/common/ToastNotification.vue';
+import ConfirmDialog from './components/common/ConfirmDialog.vue';
 import { STORAGE_KEYS, THEMES } from './utils/constants.js';
 
 const router = useRouter();
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 const authStore = useAuthStore();
 const gameStore = useGameStore();
 const userStore = useUserStore();
+const notificationStore = useNotificationStore();
+const { confirm } = useConfirm();
 
 const loading = ref(true);
 const theme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const isInGame = computed(() => gameStore.isInGame);
+const confirmDialog = computed(() => notificationStore.confirmDialog);
+
+const handleConfirm = (result) => {
+  notificationStore.resolveConfirm(result);
+};
 
 // Initialize auth
 onMounted(async () => {
@@ -106,7 +132,11 @@ onMounted(async () => {
       
       if (gameId && seatId) {
         window.history.replaceState({}, document.title, window.location.pathname);
-        if (confirm('Detected invite link. Join this game?')) {
+        const shouldJoin = await confirm({
+          message: t('game.inviteLinkDetected'),
+          type: 'info'
+        });
+        if (shouldJoin) {
           const success = await gameStore.joinByBinding(gameId, seatId);
           if (success) {
             router.push('/game');

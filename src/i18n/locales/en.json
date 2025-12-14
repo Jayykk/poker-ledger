@@ -15,7 +15,10 @@
     "next": "Next",
     "submit": "Submit",
     "or": "OR",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "copied": "Copied",
+    "copySuccess": "Copy successful",
+    "copyFailed": "Copy failed"
   },
   "auth": {
     "login": "Login",
@@ -87,7 +90,23 @@
     "confirmClose": "Confirm to close the game? All data will be deleted.",
     "confirmSettlement": "Confirm settlement?",
     "confirmBind": "Bind this seat?",
-    "confirmRemove": "Remove?"
+    "confirmRemove": "Remove?",
+    "createFailed": "Failed to create game",
+    "onlyHostCanClose": "Only host can close the game",
+    "closeFailed": "Failed to close game",
+    "bindFailed": "Failed to bind",
+    "joinFailed": "Failed to join",
+    "settlementFailed": "Settlement failed",
+    "gameEndedOrClosed": "Game ended or closed",
+    "idCopied": "ID copied",
+    "linkCopied": "Link copied",
+    "reportCopied": "Copied",
+    "pleaseEnterCode": "Please enter ID",
+    "cannotJoin": "Cannot join",
+    "inviteDetected": "Invite detected. Join this game?",
+    "pleaseLoginFirst": "Please login first",
+    "inviteLinkDetected": "Detected invite link. Join this game?",
+    "noActiveGameAlert": "No active game"
   },
   "report": {
     "title": "Report",
@@ -134,7 +153,8 @@
     "inviteToRoom": "Invite to Room",
     "selectRoom": "Select Room",
     "noActiveRooms": "No active rooms. Please create a room first.",
-    "invitationSent": "Invitation sent!"
+    "invitationSent": "Invitation sent!",
+    "confirmRemove": "Remove this friend?"
   },
   "chat": {
     "title": "Chat",

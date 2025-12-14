@@ -144,6 +144,7 @@ import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
 import { useGame } from '../composables/useGame.js';
 import { useNotification } from '../composables/useNotification.js';
+import { useConfirm } from '../composables/useConfirm.js';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
@@ -157,6 +158,7 @@ const router = useRouter();
 const { user } = useAuth();
 const { game, totalPot, totalStack, gap, isHost, myPlayer, addPlayer, updatePlayer, removePlayer, bindSeat, settleGame, closeGame } = useGame();
 const { success, copyWithNotification } = useNotification();
+const { confirm } = useConfirm();
 
 const showAddPlayer = ref(false);
 const showEditPlayer = ref(false);
@@ -188,7 +190,11 @@ const handleSavePlayer = async () => {
 };
 
 const handleRemovePlayer = async () => {
-  if (confirm(t('game.confirmRemove'))) {
+  const shouldRemove = await confirm({
+    message: t('game.confirmRemove'),
+    type: 'danger'
+  });
+  if (shouldRemove) {
     await removePlayer(editingPlayer.value);
     showEditPlayer.value = false;
     editingPlayer.value = null;
@@ -196,7 +202,11 @@ const handleRemovePlayer = async () => {
 };
 
 const handleBind = async (player) => {
-  if (confirm(t('game.confirmBind'))) {
+  const shouldBind = await confirm({
+    message: t('game.confirmBind'),
+    type: 'info'
+  });
+  if (shouldBind) {
     await bindSeat(player);
   }
 };
@@ -220,7 +230,11 @@ const handleCopyReport = async () => {
 };
 
 const handleSettle = async () => {
-  if (confirm(t('game.confirmSettlement'))) {
+  const shouldSettle = await confirm({
+    message: t('game.confirmSettlement'),
+    type: 'warning'
+  });
+  if (shouldSettle) {
     const success = await settleGame(exchangeRate.value);
     if (success) {
       showSettlement.value = false;
@@ -230,7 +244,11 @@ const handleSettle = async () => {
 };
 
 const handleCloseGame = async () => {
-  if (confirm(t('game.confirmClose'))) {
+  const shouldClose = await confirm({
+    message: t('game.confirmClose'),
+    type: 'danger'
+  });
+  if (shouldClose) {
     const success = await closeGame();
     if (success) {
       router.push('/lobby');
