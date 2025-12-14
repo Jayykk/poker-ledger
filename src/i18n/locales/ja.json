@@ -105,7 +105,6 @@
     "cannotJoin": "参加できません",
     "inviteDetected": "招待リンクが検出されました。このゲームに参加しますか？",
     "pleaseLoginFirst": "先にログインしてください",
-    "inviteLinkDetected": "招待リンクが検出されました。このゲームに参加しますか？",
     "noActiveGameAlert": "進行中のゲームがありません"
   },
   "report": {

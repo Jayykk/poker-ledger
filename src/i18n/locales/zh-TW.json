@@ -105,7 +105,6 @@
     "cannotJoin": "無法加入",
     "inviteDetected": "檢測到邀請連結，是否入座該局？",
     "pleaseLoginFirst": "請先選擇登入方式",
-    "inviteLinkDetected": "Detected invite link. Join this game?",
     "noActiveGameAlert": "目前無進行中的牌局"
   },
   "report": {

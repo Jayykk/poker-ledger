@@ -105,7 +105,6 @@
     "cannotJoin": "Cannot join",
     "inviteDetected": "Invite detected. Join this game?",
     "pleaseLoginFirst": "Please login first",
-    "inviteLinkDetected": "Detected invite link. Join this game?",
     "noActiveGameAlert": "No active game"
   },
   "report": {

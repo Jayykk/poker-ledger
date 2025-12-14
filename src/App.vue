@@ -133,7 +133,7 @@ onMounted(async () => {
       if (gameId && seatId) {
         window.history.replaceState({}, document.title, window.location.pathname);
         const shouldJoin = await confirm({
-          message: t('game.inviteLinkDetected'),
+          message: t('game.inviteDetected'),
           type: 'info'
         });
         if (shouldJoin) {
