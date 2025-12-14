@@ -141,4 +141,3 @@ const app = createApp({
 });
 
 app.mount('#app');
-</script>
