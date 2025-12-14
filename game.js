@@ -35,8 +35,11 @@ export const closeGame = async () => {
     if (!confirm('確定要「解散」房間嗎？資料將直接刪除。')) return;
     setLoading(true);
     try {
+        console.log("【Game】執行刪除 Doc:", state.gameId); // LOG 7
         await deleteDoc(doc(db, 'games', state.gameId));
+        console.log("【Game】刪除成功"); // LOG 8
     } catch (e) {
+        console.error("【Game】刪除失敗:", e);
         alert('解散失敗: ' + e.message);
     } finally {
         setLoading(false);
@@ -44,20 +47,31 @@ export const closeGame = async () => {
 };
 
 export const checkGameStatus = async (gameId) => {
+    console.log("【Game】開始檢查 ID:", gameId); // LOG 9
     setLoading(true);
     try {
         const docRef = doc(db, 'games', gameId);
         const snap = await getDoc(docRef);
-        if (!snap.exists()) throw "找不到此局";
-        if (snap.data().status !== 'active') throw "此局已結束";
+        
+        if (!snap.exists()) {
+            console.log("【Game】找不到局");
+            throw "找不到此局";
+        }
+        if (snap.data().status !== 'active') {
+            console.log("【Game】局已結束");
+            throw "此局已結束";
+        }
 
         const players = snap.data().players || [];
         const amIIn = players.some(p => p.uid === state.user.uid);
         if (amIIn) return { status: 'joined' };
 
         const unbound = players.filter(p => !p.uid);
+        console.log("【Game】檢查完成，空位:", unbound);
         return { status: 'open', unboundPlayers: unbound };
+
     } catch (e) {
+        console.error("【Game】檢查報錯:", e);
         return { status: 'error', msg: e };
     } finally {
         setLoading(false);
