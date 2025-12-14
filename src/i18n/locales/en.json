@@ -116,7 +116,11 @@
       "dark": "Dark",
       "light": "Light"
     },
-    "version": "Version"
+    "version": "Version",
+    "errors": {
+      "notificationDenied": "Notification permission was denied. Please enable notifications in your browser settings.",
+      "notificationUnsupported": "This browser does not support notifications"
+    }
   },
   "friends": {
     "title": "Friends",

@@ -31,17 +31,8 @@ export function usePushNotification() {
     }
 
     try {
-      // Safari requires requestPermission to be called directly from user interaction
-      // Check if requestPermission is a function (Safari) or property
-      let permission;
-      
-      if (typeof Notification.requestPermission === 'function') {
-        // Modern browsers and Safari
-        permission = await Notification.requestPermission();
-      } else {
-        // Fallback - try to request anyway
-        permission = await Notification.requestPermission();
-      }
+      // Request permission - this is standard across all modern browsers
+      const permission = await Notification.requestPermission();
       
       notificationPermission.value = permission;
       

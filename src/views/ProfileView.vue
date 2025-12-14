@@ -137,34 +137,14 @@ const handleToggleNotifications = async () => {
   const result = await toggleNotifications();
   
   if (!result.success) {
-    if (result.error === 'denied') {
-      // Show error message for denied permission
-      // Use browser's built-in confirm/alert since we need immediate user attention
-      const message = locale.value === 'zh-TW' 
-        ? '通知權限已被拒絕。請在瀏覽器設定中啟用通知。'
-        : locale.value === 'zh-CN'
-        ? '通知权限已被拒绝。请在浏览器设置中启用通知。'
-        : locale.value === 'ja'
-        ? '通知の許可が拒否されました。ブラウザの設定で通知を有効にしてください。'
-        : 'Notification permission was denied. Please enable notifications in your browser settings.';
-      
-      // Use setTimeout to avoid blocking the UI toggle animation
-      setTimeout(() => {
-        window.alert(message);
-      }, 100);
-    } else if (result.error === 'unsupported') {
-      const message = locale.value === 'zh-TW' 
-        ? '此瀏覽器不支援通知功能'
-        : locale.value === 'zh-CN'
-        ? '此浏览器不支持通知功能'
-        : locale.value === 'ja'
-        ? 'このブラウザは通知をサポートしていません'
-        : 'This browser does not support notifications';
-      
-      setTimeout(() => {
-        window.alert(message);
-      }, 100);
-    }
+    // Use setTimeout to avoid blocking the UI toggle animation
+    setTimeout(() => {
+      if (result.error === 'denied') {
+        window.alert(t('profile.errors.notificationDenied'));
+      } else if (result.error === 'unsupported') {
+        window.alert(t('profile.errors.notificationUnsupported'));
+      }
+    }, 100);
   }
 };
 
