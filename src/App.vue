@@ -10,7 +10,7 @@
     </router-view>
 
     <!-- Bottom navigation (only show when authenticated) -->
-    <nav v-if="isAuthenticated && $route.path !== '/login'" class="fixed bottom-0 left-0 right-0 z-50 glass pb-safe-bottom">
+    <nav v-if="isAuthenticated && $route.path !== '/login'" class="fixed-bottom-nav glass">
       <div class="flex justify-around items-center h-16 max-w-md mx-auto">
         <router-link
           to="/lobby"

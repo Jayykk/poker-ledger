@@ -31,13 +31,29 @@ export function usePushNotification() {
     }
 
     try {
-      const permission = await Notification.requestPermission();
+      // Safari requires requestPermission to be called directly from user interaction
+      // Check if requestPermission is a function (Safari) or property
+      let permission;
+      
+      if (typeof Notification.requestPermission === 'function') {
+        // Modern browsers and Safari
+        permission = await Notification.requestPermission();
+      } else {
+        // Fallback for very old browsers
+        permission = Notification.permission;
+      }
+      
       notificationPermission.value = permission;
       
       if (permission === 'granted') {
         notificationsEnabled.value = true;
         localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED, 'true');
         return true;
+      } else if (permission === 'denied') {
+        // User explicitly denied, disable notifications
+        notificationsEnabled.value = false;
+        localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED, 'false');
+        return false;
       }
       
       return false;
@@ -100,18 +116,34 @@ export function usePushNotification() {
    */
   const toggleNotifications = async () => {
     if (!isSupported.value) {
+      console.warn('Notifications are not supported in this browser');
       return false;
     }
 
+    // If user is trying to enable notifications
     if (!notificationsEnabled.value) {
-      // Enabling notifications
-      const granted = await requestPermission();
-      if (granted) {
+      // Check current permission status
+      const currentPermission = Notification.permission;
+      
+      if (currentPermission === 'denied') {
+        // Permission was previously denied, cannot request again
+        // User must manually enable in browser settings
+        console.warn('Notification permission was denied. Please enable in browser settings.');
+        alert('Notification permission was denied. Please enable notifications in your browser settings.');
+        return false;
+      }
+      
+      if (currentPermission === 'granted') {
+        // Permission already granted, just enable
         notificationsEnabled.value = true;
         localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED, 'true');
+        notificationPermission.value = 'granted';
         return true;
       }
-      return false;
+      
+      // Permission not yet requested, request it
+      const granted = await requestPermission();
+      return granted;
     } else {
       // Disabling notifications
       notificationsEnabled.value = false;
