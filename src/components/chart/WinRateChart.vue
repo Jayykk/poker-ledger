@@ -43,7 +43,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useChart } from '../../composables/useChart.js';
 import { useUserStore } from '../../store/modules/user.js';
@@ -53,6 +53,9 @@ import { CHART_COLORS } from '../../utils/constants.js';
 const { t } = useI18n();
 const { createPieChart } = useChart();
 const userStore = useUserStore();
+
+// Store chart instance locally
+let chartInstance = null;
 
 const canvasId = ref(`winrate-chart-${Math.random().toString(36).substr(2, 9)}`);
 
@@ -107,8 +110,14 @@ const chartData = computed(() => {
 });
 
 const renderChart = () => {
-  setTimeout(() => {
-    createPieChart(canvasId.value, chartData.value, {
+  nextTick(() => {
+    // Destroy old chart instance before creating a new one
+    if (chartInstance) {
+      chartInstance.destroy();
+      chartInstance = null;
+    }
+    
+    chartInstance = createPieChart(canvasId.value, chartData.value, {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
@@ -135,10 +144,16 @@ const renderChart = () => {
         }
       }
     });
-  }, 100);
+  });
 };
 
 onMounted(() => {
   renderChart();
+});
+
+onUnmounted(() => {
+  if (chartInstance) {
+    chartInstance.destroy();
+  }
 });
 </script>
