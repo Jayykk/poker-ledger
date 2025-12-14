@@ -169,7 +169,13 @@ const debouncedRenderChart = debounce(() => {
 
 // Handle period change with loading state
 const handlePeriodChange = (period) => {
-  if (selectedPeriod.value === period || isLoading.value) {
+  // Don't do anything if it's the same period
+  if (selectedPeriod.value === period) {
+    return;
+  }
+  
+  // Don't allow change if already loading
+  if (isLoading.value) {
     return;
   }
   

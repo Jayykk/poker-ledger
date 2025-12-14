@@ -38,7 +38,6 @@ export function useChart() {
       const canvas = document.getElementById(canvasId);
       if (!canvas) {
         console.error(`Canvas with id ${canvasId} not found`);
-        isUpdating.value = false;
         return null;
       }
 
@@ -94,7 +93,6 @@ export function useChart() {
       const canvas = document.getElementById(canvasId);
       if (!canvas) {
         console.error(`Canvas with id ${canvasId} not found`);
-        isUpdating.value = false;
         return null;
       }
 
@@ -143,7 +141,6 @@ export function useChart() {
       const canvas = document.getElementById(canvasId);
       if (!canvas) {
         console.error(`Canvas with id ${canvasId} not found`);
-        isUpdating.value = false;
         return null;
       }
 
