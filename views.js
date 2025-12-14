@@ -1,15 +1,10 @@
-// 注意這裡補上了 'computed'，這是之前報錯的主因
 import { ref, computed, nextTick, onMounted, watch } from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
 
-// --- 共用工具 ---
+// Helper
 const formatNumber = (n) => n?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") || '0';
-const formatCash = (p, r) => {
-    const val = p / (r || 1);
-    return Number.isInteger(val) ? val : val.toFixed(1);
-};
+const formatCash = (p, r) => { const val = p / (r || 1); return Number.isInteger(val) ? val : val.toFixed(1); };
 const calculateNet = (p) => (p.stack || 0) - p.buyIn;
 
-// 1. 登入頁
 export const LoginView = {
     props: ['loading', 'error'],
     template: `
@@ -38,7 +33,6 @@ export const LoginView = {
     setup() { const isReg = ref(false); const form = ref({email:'',password:'',name:''}); return {isReg, form}; }
 };
 
-// 2. 大廳
 export const LobbyView = {
     props: ['stats', 'user'],
     template: `
@@ -61,7 +55,6 @@ export const LobbyView = {
     setup() { return { showCreate:ref(false), showJoin:ref(false), name:ref('德州撲克'), code:ref(''), formatNumber }; }
 };
 
-// 3. 牌局
 export const GameView = {
     props: ['game', 'user'],
     template: `
@@ -107,32 +100,42 @@ export const GameView = {
         <div v-if="showSettlement" class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4" @click.self="showSettlement=false"><div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 mb-20 flex flex-col max-h-[80vh]">
             <h3 class="text-white font-bold mb-4">結算</h3>
             <div class="flex justify-between bg-slate-900 p-3 rounded mb-4"><span class="text-gray-400 text-sm">匯率</span><input v-model.number="rate" class="w-16 bg-slate-800 text-white text-center rounded"></div>
-            <div class="space-y-2 mb-4 overflow-y-auto flex-1"><div v-for="p in game.players" class="flex justify-between text-sm py-1 border-b border-slate-700"><span class="text-white">{{ p.name }}</span><span :class="calculateNet(p)>=0?'text-emerald-400':'text-rose-400'">{{ formatCash(calculateNet(p), rate) }}</span></div></div>
+            <div class="space-y-2 mb-4 overflow-y-auto flex-1"><div v-for="p in game.players" class="flex justify-between text-sm py-1 border-b border-slate-700"><span class="text-white">{{ p.name }}</span><span :class="calcNet(p)>=0?'text-emerald-400':'text-rose-400'">{{ formatCash(calcNet(p), rate) }}</span></div></div>
             <button @click="$emit('settle', rate);showSettlement=false" class="w-full py-3 bg-amber-600 text-white rounded-xl font-bold">確認</button>
         </div></div>
     </div>`,
     setup(props, { emit }) {
         const showAdd = ref(false); const showSettlement = ref(false); const editingP = ref(null); const newName = ref(''); const rate = ref(10);
-        // 使用 computed 計算總底池
         const totalPot = computed(() => props.game?.players.reduce((a,b)=>a+b.buyIn,0)||0);
         const hasBoundSeat = computed(() => props.game?.players.some(p=>p.uid===props.user.uid));
         const bind = (p) => confirm(`綁定 ${p.name}?`) && emit('bind-seat', p);
         const edit = (p) => editingP.value = { ...p };
         const copyId = () => { navigator.clipboard.writeText(props.game.id); alert('ID 已複製'); };
-        return { showAdd, showSettlement, editingP, newName, rate, totalPot, copyId, edit, formatNumber, formatCash, calculateNet };
+        return { showAdd, showSettlement, editingP, newName, rate, totalPot, copyId, edit, formatNumber, formatCash, calcNet };
     }
 };
 
-// 4. 報表頁
+// 🔥 重點修正：報表頁 (ReportView) - 顯示局名稱與時間
 export const ReportView = {
     props: ['history'],
     template: `
     <div class="pt-8 px-4 pb-24">
         <h2 class="text-2xl font-bold text-white mb-6">報表分析</h2>
         <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 mb-6"><div class="relative h-64 w-full"><canvas id="chartCanvas"></canvas></div></div>
-        <h3 class="text-sm font-bold text-gray-400 mb-2">歷史戰績</h3>
+        <h3 class="text-sm font-bold text-gray-400 mb-2">歷史戰績 ({{ history.length }} 場)</h3>
         <div v-if="history.length===0" class="text-center text-gray-500 py-6">暫無紀錄</div>
-        <div class="space-y-3"><div v-for="(h, i) in history" :key="i" class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center"><div><div class="text-xs text-gray-400">{{ h.dateStr }}</div><div class="text-white font-bold">Game #{{ i+1 }}</div></div><div class="text-right"><div class="font-mono font-bold" :class="h.profit>=0?'text-emerald-400':'text-rose-400'">{{ h.profit>0?'+':''}}{{ formatNumber(h.profit) }}</div><div class="text-[10px] text-gray-500">Cash: {{ formatCash(h.profit, h.rate) }}</div></div></div></div>
+        <div class="space-y-3">
+            <div v-for="(h, i) in history" :key="i" class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
+                <div>
+                    <div class="text-white font-bold">{{ h.gameName || '未命名局' }}</div>
+                    <div class="text-xs text-gray-400 mt-0.5">{{ h.dateStr }}</div>
+                </div>
+                <div class="text-right">
+                    <div class="font-mono font-bold" :class="h.profit>=0?'text-emerald-400':'text-rose-400'">{{ h.profit>0?'+':''}}{{ formatNumber(h.profit) }}</div>
+                    <div class="text-[10px] text-gray-500">Cash: {{ formatCash(h.profit, h.rate) }}</div>
+                </div>
+            </div>
+        </div>
     </div>`,
     setup(props) {
         let chart = null;
@@ -140,7 +143,8 @@ export const ReportView = {
             const ctx = document.getElementById('chartCanvas'); if (!ctx) return;
             if (chart) chart.destroy();
             let acc = 0;
-            const data = props.history.slice().reverse().map(h => { acc += (h.profit / (h.rate || 1)); return acc; });
+            // 圖表資料：維持舊到新 (左到右)
+            const data = props.history.map(h => { acc += (h.profit / (h.rate || 1)); return acc; });
             chart = new Chart(ctx, { type: 'line', data: { labels: props.history.map((_, i) => i+1), datasets: [{ label: '損益', data, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { grid: { color: '#334155' } } } } });
         };
         onMounted(() => setTimeout(render, 100));
@@ -149,7 +153,6 @@ export const ReportView = {
     }
 };
 
-// 5. 個人頁
 export const ProfileView = {
     props: ['user'],
     template: `
@@ -159,6 +162,6 @@ export const ProfileView = {
         <div class="space-y-3 mt-8">
             <button @click="$emit('logout')" class="w-full py-3 bg-slate-800 text-rose-400 border border-slate-700 rounded-xl font-bold">登出</button>
         </div>
-        <div class="mt-8 text-xs text-gray-600">Version 7.1.0</div>
+        <div class="mt-8 text-xs text-gray-600">Version 7.2.0</div>
     </div>`
 };
