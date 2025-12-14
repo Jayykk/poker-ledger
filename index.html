@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Poker Pro - 德州撲克記帳</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background-color: #0f172a; /* Slate 900 */
+            -webkit-tap-highlight-color: transparent;
+        }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        /* 隱藏 Scrollbar 但保持滑動 */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        
+        /* 數字字體優化 */
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+
+        /* 玻璃擬態背景 */
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 彈窗動畫 */
+        .modal-enter-active, .modal-leave-active { transition: all 0.3s ease; }
+        .modal-enter-from, .modal-leave-to { opacity: 0; transform: translateY(20px); }
+    </style>
+</head>
+<body class="text-gray-100 min-h-screen pb-24">
+
+<div id="app" class="relative min-h-screen">
+    
+    <header class="fixed top-0 left-0 right-0 z-40 glass shadow-lg transition-all duration-300">
+        <div class="max-w-md mx-auto px-4 py-3">
+            <div class="flex justify-between items-end">
+                <div>
+                    <div class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Total Pot</div>
+                    <div class="text-3xl font-bold text-amber-400 font-mono tracking-tight">
+                        <span class="text-lg align-top opacity-80">$</span>{{ formatNumber(totalPot) }}
+                    </div>
+                </div>
+                
+                <div class="text-right">
+                    <div class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Balance</div>
+                    <div class="font-bold font-mono px-2 py-0.5 rounded"
+                         :class="balanceGap === 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400 animate-pulse'">
+                        {{ balanceGap === 0 ? 'PERFECT' : (balanceGap > 0 ? '+' : '') + formatNumber(balanceGap) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 pt-24 space-y-3">
+        
+        <div v-for="player in sortedPlayers" :key="player.id" 
+             class="bg-slate-800 rounded-2xl p-4 border border-slate-700 shadow-sm relative overflow-hidden group">
+            
+            <div class="absolute left-0 top-0 bottom-0 w-1.5 transition-colors duration-300"
+                 :class="player.netProfit >= 0 ? 'bg-emerald-500' : 'bg-rose-500'"></div>
+
+            <div class="pl-3">
+                <div class="flex justify-between items-start mb-3" @click="openEditModal(player)">
+                    <div>
+                        <h3 class="text-lg font-bold text-white leading-tight flex items-center gap-2">
+                            {{ player.name }}
+                            <span v-if="!player.isActive" class="text-[10px] bg-gray-600 px-1.5 rounded text-gray-300">離桌</span>
+                        </h3>
+                        <div class="text-xs text-gray-400 mt-1 font-mono">
+                            Buy-in: ${{ formatNumber(player.totalBuyIn) }} <span class="text-gray-600">|</span> {{ player.buyInCount }}R
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-2xl font-bold font-mono tabular-nums tracking-tight"
+                             :class="player.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'">
+                            {{ player.netProfit > 0 ? '+' : '' }}{{ formatNumber(player.netProfit) }}
+                        </div>
+                        <div class="text-[10px] text-gray-500 uppercase mt-0.5">Net Profit</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mt-2">
+                    <button @click="quickBuyIn(player)" 
+                        class="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 active:bg-slate-600 text-blue-300 py-2.5 rounded-xl text-sm font-medium transition-colors">
+                        <i class="fas fa-plus-circle"></i> 
+                        <span>${{ formatNumber(defaultBuyIn) }}</span>
+                    </button>
+                    <button @click="openEditModal(player)" 
+                        class="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 active:bg-slate-600 text-gray-300 py-2.5 rounded-xl text-sm font-medium transition-colors">
+                        <i class="fas fa-coins"></i>
+                        <span>結算 / 編輯</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="players.length === 0" class="text-center py-12 opacity-50">
+            <i class="fas fa-ghost text-4xl mb-3 text-slate-600"></i>
+            <p class="text-slate-400">目前沒有玩家<br>點擊下方按鈕開始</p>
+        </div>
+
+    </main>
+
+    <div class="fixed bottom-6 left-0 right-0 z-30 flex justify-center gap-4 px-6 pointer-events-none">
+        
+        <button @click="showLogModal = true" class="pointer-events-auto w-12 h-12 rounded-full bg-slate-800 border border-slate-600 text-gray-400 shadow-lg flex items-center justify-center active:scale-95 transition">
+            <i class="fas fa-list-ul"></i>
+        </button>
+
+        <button @click="showAddModal = true" class="pointer-events-auto w-16 h-16 rounded-full bg-amber-500 text-slate-900 shadow-lg shadow-amber-500/20 flex items-center justify-center text-2xl active:scale-95 transition hover:bg-amber-400">
+            <i class="fas fa-plus"></i>
+        </button>
+
+        <button @click="copyReport" class="pointer-events-auto w-12 h-12 rounded-full bg-slate-800 border border-slate-600 text-gray-400 shadow-lg flex items-center justify-center active:scale-95 transition">
+            <i class="fas fa-share-nodes"></i>
+        </button>
+    </div>
+
+
+    <transition name="modal">
+        <div v-if="showAddModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm" @click.self="showAddModal = false">
+            <div class="bg-slate-800 w-full max-w-sm mx-4 mb-4 sm:mb-0 rounded-2xl p-6 shadow-2xl border border-slate-700">
+                <h3 class="text-xl font-bold text-white mb-4">新增玩家</h3>
+                <input ref="newPlayerInput" v-model="newPlayerName" type="text" placeholder="輸入名稱 (e.g. Andy)" 
+                       class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-lg text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 mb-4">
+                
+                <div class="flex items-center justify-between text-sm text-gray-400 mb-6 bg-slate-900 p-3 rounded-xl">
+                    <span>預設買入</span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-amber-500 font-mono">$</span>
+                        <input type="number" inputmode="numeric" v-model.number="defaultBuyIn" class="w-20 bg-transparent text-right text-white font-mono focus:outline-none border-b border-gray-700 focus:border-amber-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <button @click="showAddModal = false" class="py-3 rounded-xl bg-slate-700 text-gray-300 font-medium">取消</button>
+                    <button @click="addPlayer" class="py-3 rounded-xl bg-amber-500 text-slate-900 font-bold hover:bg-amber-400">確認加入</button>
+                </div>
+            </div>
+        </div>
+    </transition>
+
+    <transition name="modal">
+        <div v-if="editingPlayer" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm" @click.self="closeEditModal">
+            <div class="bg-slate-800 w-full max-w-sm mx-4 mb-4 sm:mb-0 rounded-2xl p-6 shadow-2xl border border-slate-700">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-white">{{ editingPlayer.name }}</h3>
+                    <button @click="removePlayer(editingPlayer.id)" class="text-rose-500 text-sm px-2 py-1"><i class="fas fa-trash-alt mr-1"></i>刪除</button>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-xs text-gray-400 uppercase tracking-wider mb-2">總買入 (Total Buy-in)</label>
+                    <div class="flex gap-2">
+                        <button @click="adjustBuyIn(-100)" class="w-12 bg-slate-700 rounded-lg text-rose-400"><i class="fas fa-minus"></i></button>
+                        <input type="number" inputmode="numeric" v-model.number="tempTotalBuyIn" class="flex-1 bg-slate-900 border border-slate-600 rounded-lg py-3 text-center text-xl font-mono text-white focus:border-amber-500 focus:outline-none">
+                        <button @click="adjustBuyIn(100)" class="w-12 bg-slate-700 rounded-lg text-emerald-400"><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>
+
+                <div class="mb-8">
+                    <label class="block text-xs text-gray-400 uppercase tracking-wider mb-2">離桌籌碼 (Cash Out)</label>
+                    <div class="relative">
+                        <div class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</div>
+                        <input type="number" inputmode="decimal" v-model.number="tempCurrentChips" placeholder="0"
+                               class="w-full bg-slate-900 border border-slate-600 rounded-lg py-3 pl-8 pr-4 text-2xl font-mono text-emerald-400 focus:border-emerald-500 focus:outline-none">
+                    </div>
+                    <div class="flex justify-end mt-2 gap-2">
+                        <button @click="tempCurrentChips = 0" class="text-xs bg-slate-700 px-2 py-1 rounded text-gray-400">歸零</button>
+                        <button @click="tempCurrentChips = tempTotalBuyIn" class="text-xs bg-slate-700 px-2 py-1 rounded text-blue-300">保本</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <button @click="closeEditModal" class="py-3 rounded-xl bg-slate-700 text-gray-300 font-medium">取消</button>
+                    <button @click="saveEditPlayer" class="py-3 rounded-xl bg-emerald-600 text-white font-bold shadow-lg shadow-emerald-600/20">儲存變更</button>
+                </div>
+            </div>
+        </div>
+    </transition>
+
+    <transition name="modal">
+        <div v-if="showLogModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm" @click.self="showLogModal = false">
+            <div class="bg-slate-800 w-full max-w-sm mx-4 mb-4 sm:mb-0 rounded-2xl p-4 shadow-2xl border border-slate-700 max-h-[80vh] flex flex-col">
+                <div class="flex justify-between items-center mb-4 px-2">
+                    <h3 class="text-lg font-bold text-white">操作紀錄</h3>
+                    <button @click="resetGame" class="text-xs bg-rose-500/10 text-rose-500 px-3 py-1.5 rounded-lg border border-rose-500/20">
+                        <i class="fas fa-skull mr-1"></i>全部清除
+                    </button>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto bg-slate-900/50 rounded-xl p-3 space-y-2 text-sm">
+                    <div v-if="logs.length === 0" class="text-center text-gray-500 py-4">暫無紀錄</div>
+                    <div v-for="(log, idx) in logs.slice().reverse()" :key="idx" class="flex gap-3 border-b border-gray-700/50 pb-2 last:border-0 last:pb-0">
+                        <span class="text-xs text-gray-500 font-mono mt-0.5">{{ log.time }}</span>
+                        <span class="text-gray-300 flex-1">{{ log.message }}</span>
+                    </div>
+                </div>
+
+                <button @click="showLogModal = false" class="mt-4 w-full py-3 rounded-xl bg-slate-700 text-gray-300 font-medium">關閉</button>
+            </div>
+        </div>
+    </transition>
+
+</div>
+
+<script>
+    const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
+
+    createApp({
+        setup() {
+            // --- State ---
+            const players = ref([]);
+            const logs = ref([]);
+            const newPlayerName = ref('');
+            const defaultBuyIn = ref(2000);
+            
+            // Modals control
+            const showAddModal = ref(false);
+            const showLogModal = ref(false);
+            const editingPlayer = ref(null);
+            
+            // Temp variables for editing
+            const tempTotalBuyIn = ref(0);
+            const tempCurrentChips = ref(0);
+            const newPlayerInput = ref(null);
+
+            // --- Computed ---
+            const sortedPlayers = computed(() => {
+                // 依照加入順序反向，或者依照贏錢排序，這裡保持加入順序方便找人
+                return players.value; 
+            });
+
+            const totalPot = computed(() => players.value.reduce((sum, p) => sum + (p.totalBuyIn || 0), 0));
+            const totalCashOut = computed(() => players.value.reduce((sum, p) => sum + (p.currentChips || 0), 0));
+            const balanceGap = computed(() => totalCashOut.value - totalPot.value);
+
+            // --- Methods ---
+            const formatNumber = (num) => {
+                if (num === undefined || num === null) return '0';
+                return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            };
+
+            const addLog = (msg) => {
+                const now = new Date();
+                const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                logs.value.push({ time: timeStr, message: msg });
+                saveData();
+            };
+
+            const addPlayer = () => {
+                const name = newPlayerName.value.trim();
+                if (!name) return;
+                if (players.value.find(p => p.name === name)) {
+                    alert('名字重複囉');
+                    return;
+                }
+                const newP = {
+                    id: Date.now().toString(),
+                    name: name,
+                    totalBuyIn: defaultBuyIn.value,
+                    buyInCount: 1,
+                    currentChips: 0,
+                    netProfit: -defaultBuyIn.value,
+                    isActive: true
+                };
+                players.value.push(newP);
+                addLog(`[加入] ${name} 買入 $${defaultBuyIn.value}`);
+                newPlayerName.value = '';
+                showAddModal.value = false;
+                saveData();
+            };
+
+            const quickBuyIn = (player) => {
+                if(confirm(`確定幫 ${player.name} 再買入 $${defaultBuyIn.value}?`)) {
+                    player.totalBuyIn += defaultBuyIn.value;
+                    player.buyInCount++;
+                    updateStats();
+                    addLog(`[再買] ${player.name} 加碼 $${defaultBuyIn.value}`);
+                }
+            };
+
+            // 開啟編輯 Modal
+            const openEditModal = (player) => {
+                editingPlayer.value = player;
+                tempTotalBuyIn.value = player.totalBuyIn;
+                tempCurrentChips.value = player.currentChips;
+            };
+
+            // 在編輯視窗微調買入
+            const adjustBuyIn = (amount) => {
+                tempTotalBuyIn.value += amount;
+                if(tempTotalBuyIn.value < 0) tempTotalBuyIn.value = 0;
+            };
+
+            const saveEditPlayer = () => {
+                if (editingPlayer.value) {
+                    const p = editingPlayer.value;
+                    
+                    // 檢查變更並紀錄 Log
+                    if (p.totalBuyIn !== tempTotalBuyIn.value) {
+                        addLog(`[修正] ${p.name} 總買入調整為 $${tempTotalBuyIn.value}`);
+                    }
+                    if (p.currentChips !== tempCurrentChips.value) {
+                        // 這是結算動作
+                    }
+
+                    p.totalBuyIn = tempTotalBuyIn.value;
+                    p.currentChips = tempCurrentChips.value;
+                    
+                    updateStats();
+                    editingPlayer.value = null; // 關閉 Modal
+                }
+            };
+
+            const closeEditModal = () => {
+                editingPlayer.value = null;
+            };
+
+            const removePlayer = (id) => {
+                if(confirm('確定要刪除這位玩家嗎？紀錄會消失喔')) {
+                    const idx = players.value.findIndex(p => p.id === id);
+                    if(idx > -1) {
+                        const name = players.value[idx].name;
+                        players.value.splice(idx, 1);
+                        addLog(`[刪除] 玩家 ${name} 已被移除`);
+                        closeEditModal();
+                        saveData();
+                    }
+                }
+            };
+
+            const updateStats = () => {
+                players.value.forEach(p => {
+                    p.netProfit = (p.currentChips || 0) - p.totalBuyIn;
+                });
+                saveData();
+            };
+
+            const resetGame = () => {
+                if (confirm('確定要清空所有資料重新開始嗎？')) {
+                    players.value = [];
+                    logs.value = [];
+                    localStorage.removeItem('poker_pro_data');
+                    showLogModal.value = false;
+                }
+            };
+
+            // 複製報表功能
+            const copyReport = () => {
+                let report = `🎲 德州撲克戰績表 🎲\n${new Date().toLocaleDateString()}\n------------------\n`;
+                
+                // 贏家排序
+                const sorted = [...players.value].sort((a, b) => b.netProfit - a.netProfit);
+                
+                sorted.forEach(p => {
+                    const profit = p.netProfit;
+                    const sign = profit > 0 ? '+' : '';
+                    report += `${p.name}: ${sign}${profit}\n`;
+                });
+                
+                report += `------------------\n`;
+                if(balanceGap.value !== 0) {
+                    report += `⚠️ 帳面誤差: ${balanceGap.value}\n`;
+                } else {
+                    report += `✅ 帳目平衡 OK\n`;
+                }
+
+                navigator.clipboard.writeText(report).then(() => {
+                    alert('戰績已複製！');
+                }).catch(() => {
+                    alert('複製失敗，請手動截圖');
+                });
+            };
+
+            const saveData = () => {
+                const data = {
+                    players: players.value,
+                    logs: logs.value,
+                    defaultBuyIn: defaultBuyIn.value
+                };
+                localStorage.setItem('poker_pro_data', JSON.stringify(data));
+            };
+
+            onMounted(() => {
+                const saved = localStorage.getItem('poker_pro_data');
+                if (saved) {
+                    try {
+                        const data = JSON.parse(saved);
+                        players.value = data.players || [];
+                        logs.value = data.logs || [];
+                        defaultBuyIn.value = data.defaultBuyIn || 2000;
+                    } catch(e) {}
+                }
+            });
+
+            // Focus input when add modal opens
+            watch(showAddModal, (val) => {
+                if(val) {
+                    nextTick(() => {
+                        newPlayerInput.value?.focus();
+                    });
+                }
+            });
+
+            return {
+                players, sortedPlayers, logs, newPlayerName, defaultBuyIn,
+                totalPot, balanceGap,
+                showAddModal, showLogModal, editingPlayer,
+                tempTotalBuyIn, tempCurrentChips, newPlayerInput,
+                formatNumber, addPlayer, quickBuyIn,
+                openEditModal, closeEditModal, saveEditPlayer, adjustBuyIn, removePlayer,
+                resetGame, copyReport
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
