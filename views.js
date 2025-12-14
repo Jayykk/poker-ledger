@@ -173,7 +173,8 @@ export const GameView = {
         };
         
         const invite = (p) => {
-            const basePath = window.location.pathname || '/poker-ledger/';
+            // Use current pathname if available, otherwise default to root
+            const basePath = window.location.pathname || '/';
             const url = `${window.location.origin}${basePath}?game=${props.game.id}&seat=${p.id}`;
             navigator.clipboard.writeText(url).then(() => alert(`已複製連結`));
         };
