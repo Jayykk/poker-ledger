@@ -58,7 +58,10 @@ export const LobbyView = {
         
         <div v-if="showJoin" class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4" @click.self="resetJoin"><div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 mb-20">
             <h3 class="text-white font-bold mb-4">{{ joinStep===1?'輸入 Game ID':'選擇入座' }}</h3>
-            <div v-if="joinStep===1"><input v-model="code" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white mb-4 font-mono text-center" placeholder="ID"><button @click="checkGame" class="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold">下一步</button></div>
+            <div v-if="joinStep===1">
+                <input v-model="code" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white mb-4 font-mono text-center" placeholder="ID">
+                <button @click="checkGame" class="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold">下一步</button>
+            </div>
             <div v-else>
                 <div v-if="unboundPlayers.length>0" class="mb-4"><p class="text-xs text-gray-400 mb-2">空位:</p><div class="space-y-2 max-h-40 overflow-y-auto"><button v-for="p in unboundPlayers" :key="p.id" @click="$emit('bind-join',code,p.id)" class="w-full py-2 bg-slate-700 text-white rounded-lg text-sm border border-slate-600 flex justify-between px-3"><span>{{p.name}}</span><span class="text-emerald-400">{{formatNumber(p.buyIn)}}</span></button></div><div class="relative py-3"><span class="bg-slate-800 px-2 text-gray-500 text-xs">OR</span></div></div>
                 <p class="text-xs text-gray-400 mb-2">新座位:</p><div class="flex gap-2 mb-4"><input v-model.number="buyIn" type="number" class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 text-white text-right font-mono"><span class="text-white text-sm pt-2">籌碼</span></div><button @click="$emit('new-join',code,buyIn)" class="w-full py-3 bg-amber-600 text-white rounded-xl font-bold">買入加入</button>
@@ -67,9 +70,13 @@ export const LobbyView = {
     </div>`,
     setup(props, { emit }) {
         const showCreate = ref(false); const showJoin = ref(false); const joinStep = ref(1); const name = ref('德州撲克'); const code = ref(''); const buyIn = ref(2000); const unboundPlayers = ref([]);
+        
         const checkGame = async () => {
+            console.log("【Views】使用者點擊下一步，Game ID:", code.value); // LOG 1
             if(!code.value) return alert('請輸入 ID');
+            
             emit('check-game', code.value, (res) => {
+                console.log("【Views】收到 check-game 回應:", res); // LOG 2
                 if(res.status==='joined'){ alert('已在局內'); emit('join-direct', code.value); }
                 else if(res.status==='open'){ unboundPlayers.value=res.unboundPlayers; joinStep.value=2; }
                 else alert(res.msg||'無法加入');
@@ -120,7 +127,8 @@ export const GameView = {
             <button @click="$emit('copy-id')" class="px-4 py-2 bg-slate-800 text-gray-400 rounded-lg text-xs">複製 ID</button>
             <button @click="showSettlement=true" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold">結算</button>
         </div>
-        <button @click="$emit('close-game')" class="mt-4 w-full py-2 bg-red-900/30 text-red-400 border border-red-900/50 rounded-lg text-xs font-bold">解散房間 (刪除資料)</button>
+        
+        <button @click="clickClose" class="mt-4 w-full py-2 bg-red-900/30 text-red-400 border border-red-900/50 rounded-lg text-xs font-bold">解散房間 (刪除資料)</button>
 
         <button @click="showAdd=true" class="fixed bottom-24 right-4 w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center text-xl shadow-lg"><i class="fas fa-plus"></i></button>
         
@@ -146,21 +154,23 @@ export const GameView = {
     </div>`,
     setup(props, { emit }) {
         const showAdd = ref(false); const showSettlement = ref(false); const editingP = ref(null); const newName = ref(''); const rate = ref(10);
+        
         const totalPot = computed(() => props.game?.players.reduce((a,b)=>a+b.buyIn,0)||0);
         const totalStack = computed(() => props.game?.players.reduce((a,b)=>a+(b.stack||0),0)||0);
         const gap = computed(() => totalStack.value - totalPot.value);
-        
-        // 🔥 判斷自己是否在局內
         const amIIn = computed(() => props.game?.players.some(p => p.uid === props.user.uid));
 
         const bind = (p) => confirm(`綁定 ${p.name}?`) && emit('bind-seat', p);
         const edit = (p) => editingP.value = { ...p };
         const copyId = () => { navigator.clipboard.writeText(props.game.id); alert('ID 已複製'); };
+        const clickClose = () => {
+            console.log("【Views】點擊解散房間"); // LOG 3
+            emit('close-game');
+        };
         
-        // 分享連結功能
         const invite = (p) => {
             const url = `${window.location.origin}${window.location.pathname}?game=${props.game.id}&seat=${p.id}`;
-            navigator.clipboard.writeText(url).then(() => alert(`已複製「${p.name}」的入座連結，請傳給朋友`));
+            navigator.clipboard.writeText(url).then(() => alert(`已複製連結`));
         };
 
         const copyReport = () => {
@@ -172,11 +182,10 @@ export const GameView = {
             navigator.clipboard.writeText(t).then(()=>alert('已複製'));
         };
 
-        return { showAdd, showSettlement, editingP, newName, rate, totalPot, gap, copyId, edit, formatNumber, formatCash, calculateNet, copyReport, amIIn, bind, invite };
+        return { showAdd, showSettlement, editingP, newName, rate, totalPot, gap, copyId, edit, formatNumber, formatCash, calculateNet, copyReport, amIIn, bind, invite, clickClose };
     }
 };
 
-// 4. 報表頁
 export const ReportView = {
     props: ['history'],
     template: `
@@ -211,6 +220,6 @@ export const ProfileView = {
         <div class="space-y-3 mt-8">
             <button @click="$emit('logout')" class="w-full py-3 bg-slate-800 text-rose-400 border border-slate-700 rounded-xl font-bold">登出</button>
         </div>
-        <div class="mt-8 text-xs text-gray-600">Version 9.1.0</div>
+        <div class="mt-8 text-xs text-gray-600">Version 9.2.0 (Logs)</div>
     </div>`
 };
