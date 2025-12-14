@@ -14,296 +14,37 @@
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #0f172a; -webkit-tap-highlight-color: transparent; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         ::-webkit-scrollbar { width: 0px; background: transparent; }
-        .glass { background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .glass { background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(10px); border-top: 1px solid rgba(255, 255, 255, 0.05); }
         .loader { border: 2px solid #f3f3f3; border-top: 2px solid #f59e0b; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .live-dot { width: 8px; height: 8px; background-color: #10b981; border-radius: 50%; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); animation: pulse-green 2s infinite; }
-        @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
         [v-cloak] { display: none !important; }
     </style>
 </head>
 <body class="text-gray-100 min-h-screen pb-24">
 
 <div id="app" v-cloak class="relative min-h-screen flex flex-col">
+    <component :is="currentView"></component>
 
-    <header class="fixed top-0 left-0 right-0 z-30 glass pt-safe-top transition-all duration-300">
-        <div class="flex justify-between items-center px-4 py-3 max-w-md mx-auto">
-            <h1 class="font-bold text-lg tracking-wide text-white flex items-center gap-2">
-                <i class="fas fa-chart-line text-amber-500"></i>
-                <span v-if="currentGame">ID: {{ currentGame.id.slice(0,5) }}...</span>
-                <span v-else>Poker Sync</span>
-            </h1>
-            
-            <div v-if="user" class="flex items-center gap-2">
-                <span class="text-xs px-2 py-1 rounded-full border" 
-                      :class="user.isAnonymous ? 'bg-gray-600 border-gray-500 text-gray-300' : 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400'">
-                    {{ user.isAnonymous ? '訪客' : (user.displayName || 'User') }}
-                </span>
-                <button @click="logout" class="text-gray-400 text-xs hover:text-white ml-1"><i class="fas fa-sign-out-alt"></i></button>
-            </div>
-            <button v-else @click="showAuthModal = true" class="text-xs bg-amber-500 text-slate-900 px-3 py-1.5 rounded font-bold">登入/註冊</button>
-        </div>
-    </header>
-
-    <main class="flex-1 max-w-md mx-auto w-full pt-16 px-4 space-y-4 overflow-y-auto pb-24">
-
-        <div v-if="!user" class="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
-            <div class="relative">
-                <i class="fas fa-poker-chip text-6xl text-amber-500 animate-pulse"></i>
-                <i class="fas fa-chart-pie absolute -bottom-2 -right-2 text-3xl text-emerald-400"></i>
-            </div>
-            <div>
-                <h2 class="text-2xl font-bold mb-2 text-white">Poker Sync Pro</h2>
-                <p class="text-gray-400 text-sm max-w-xs mx-auto">記錄你的每一手牌，分析你的勝率。<br>支援多人連線、即時圖表。</p>
-            </div>
-            <div class="flex flex-col gap-3 w-full max-w-xs">
-                <button @click="showAuthModal = true" class="bg-amber-600 hover:bg-amber-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-amber-600/20 transition">會員登入 / 註冊</button>
-                <button @click="guestLogin" :disabled="loading" class="bg-slate-700 hover:bg-slate-600 text-gray-300 px-6 py-3 rounded-xl font-bold border border-slate-600 transition flex justify-center items-center gap-2">
-                    <span v-if="loading" class="loader border-gray-400 border-t-white"></span>
-                    <span>訪客試用 (免註冊)</span>
-                </button>
-            </div>
-        </div>
-
-        <div v-else-if="user && !currentGame" class="space-y-4 pt-2">
-            
-            <div class="flex bg-slate-800 p-1 rounded-xl">
-                <button @click="lobbyTab = 'overview'" :class="lobbyTab==='overview' ? 'bg-slate-600 text-white' : 'text-gray-500'" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition">概況</button>
-                <button @click="lobbyTab = 'chart'" :class="lobbyTab==='chart' ? 'bg-slate-600 text-white' : 'text-gray-500'" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition">圖表分析</button>
-                <button @click="lobbyTab = 'history'" :class="lobbyTab==='history' ? 'bg-slate-600 text-white' : 'text-gray-500'" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition">詳細歷程</button>
-            </div>
-
-            <div v-if="lobbyTab === 'overview'" class="space-y-4">
-                <div class="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl border border-slate-700 shadow-xl">
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <div class="text-xs text-gray-400 uppercase tracking-wider">生涯損益 (現金)</div>
-                            <div class="text-3xl font-mono font-bold" :class="careerStats.totalProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'">
-                                {{ careerStats.totalProfit > 0 ? '+' : '' }}{{ formatNumber(careerStats.totalProfit) }}
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-xs text-gray-400">總場次</div>
-                            <div class="font-bold text-white text-xl">{{ careerStats.games }}</div>
-                        </div>
-                    </div>
-                    <div class="w-full bg-slate-700 h-2 rounded-full overflow-hidden flex">
-                        <div class="bg-emerald-500 h-full" :style="{width: careerStats.winRate + '%'}"></div>
-                    </div>
-                    <div class="flex justify-between text-xs mt-2 text-gray-500">
-                        <span>勝率 {{ careerStats.winRate }}%</span>
-                        <span>盈利場次 {{ careerStats.wins }}</span>
-                    </div>
-                </div>
-
-                <div v-if="user.isAnonymous" class="bg-blue-900/20 border border-blue-500/30 p-3 rounded-xl flex items-center justify-between">
-                    <div class="text-xs text-blue-200">
-                        <i class="fas fa-info-circle mr-1"></i> 你是訪客身份，資料未備份
-                    </div>
-                    <button @click="logout" class="text-xs bg-blue-600 px-2 py-1 rounded text-white">登出</button>
-                </div>
-
-                <div class="grid grid-cols-1 gap-3">
-                    <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700">
-                        <h3 class="font-bold text-white mb-2 text-sm">開新局</h3>
-                        <div class="flex gap-2">
-                            <input v-model="newGameName" class="flex-1 bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm" placeholder="局名稱">
-                            <button @click="createGame" :disabled="loading" class="px-4 bg-amber-600 text-white rounded-lg font-bold text-sm whitespace-nowrap">建立</button>
-                        </div>
-                    </div>
-                    <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700">
-                        <h3 class="font-bold text-white mb-2 text-sm">加入房間</h3>
-                        <div class="flex gap-2">
-                            <input v-model="joinRoomCode" placeholder="貼上 ID" class="flex-1 bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm font-mono">
-                            <button @click="joinGame" :disabled="loading" class="px-4 bg-emerald-600 text-white rounded-lg font-bold text-sm whitespace-nowrap">加入</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div v-show="lobbyTab === 'chart'" class="space-y-4">
-                <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700">
-                    <h3 class="text-sm font-bold text-gray-400 mb-4">資金趨勢 (Profit Trend)</h3>
-                    <div class="relative h-64 w-full">
-                        <canvas id="profitChart"></canvas>
-                    </div>
-                </div>
-                <div class="text-center text-xs text-gray-500">
-                    * 僅顯示最近 20 場紀錄
-                </div>
-            </div>
-
-            <div v-if="lobbyTab === 'history'" class="space-y-3">
-                <div v-if="historyList.length === 0" class="text-center py-10 text-gray-500 text-sm">暫無紀錄</div>
-                <div v-for="(game, idx) in historyList" :key="idx" class="bg-slate-800 p-3 rounded-xl border border-slate-700 flex justify-between items-center">
-                    <div>
-                        <div class="text-xs text-gray-400 mb-0.5">{{ game.dateStr }}</div>
-                        <div class="text-sm font-bold text-white">Game #{{ idx + 1 }}</div>
-                    </div>
-                    <div class="text-right">
-                        <div class="font-mono font-bold" :class="game.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'">
-                            {{ game.profit > 0 ? '+' : '' }}{{ formatNumber(game.profit) }}
-                        </div>
-                        <div class="text-[10px] text-gray-500">匯率 1:{{ game.rate }}</div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
-        <div v-else-if="currentGame" class="space-y-4">
-            <div class="flex justify-between items-center bg-slate-800/90 p-3 rounded-xl border border-slate-700 sticky top-0 z-20 backdrop-blur-md">
-                <div class="flex items-center gap-2">
-                    <div class="live-dot"></div>
-                    <span class="text-xs font-bold text-gray-300">{{ currentGame.name }}</span>
-                </div>
-                <div class="text-right">
-                    <div class="text-[10px] text-gray-400 uppercase">Total Pot</div>
-                    <div class="font-mono font-bold text-amber-400">{{ formatNumber(totalPot) }}</div>
-                </div>
-            </div>
-
-            <div v-for="player in currentGame.players" :key="player.id" 
-                 class="bg-slate-800 rounded-2xl p-4 border shadow-sm relative overflow-hidden"
-                 :class="player.uid === user.uid ? 'border-amber-500/50 bg-slate-800/80' : 'border-slate-700'">
-                <div class="absolute left-0 top-0 bottom-0 w-1.5 transition-colors duration-500" :class="calculateNet(player) >= 0 ? 'bg-emerald-500' : 'bg-rose-500'"></div>
-                <div class="pl-3">
-                    <div class="flex justify-between items-start mb-3">
-                        <div>
-                            <h3 class="font-bold text-white text-lg flex items-center gap-2">
-                                {{ player.name }}
-                                <span v-if="player.uid" class="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded border border-blue-500/30">
-                                    <i class="fas fa-check-circle mr-1"></i>已綁定
-                                </span>
-                                <button v-else-if="!hasBoundSeat" @click="bindSeat(player)" class="text-[10px] bg-slate-600 hover:bg-emerald-600 text-white px-2 py-0.5 rounded transition">
-                                    <i class="fas fa-user-plus mr-1"></i>我是他
-                                </button>
-                            </h3>
-                            <div class="text-xs text-gray-400 mt-1 font-mono">
-                                買入: {{ formatNumber(player.buyIn) }} <span class="text-gray-600">({{ player.buyInCount }}R)</span>
-                            </div>
-                        </div>
-                        <div class="text-right" @click="openEditModal(player)">
-                            <div class="text-2xl font-bold font-mono" :class="calculateNet(player) >= 0 ? 'text-emerald-400' : 'text-rose-400'">
-                                {{ calculateNet(player) > 0 ? '+' : '' }}{{ formatNumber(calculateNet(player)) }}
-                            </div>
-                            <div class="text-[10px] text-gray-500 flex justify-end items-center gap-1"><i class="fas fa-pen text-[8px] mr-1"></i>籌碼損益</div>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <button @click="quickBuyIn(player)" class="bg-slate-700/50 hover:bg-slate-700 text-blue-300 py-2 rounded-xl text-sm font-medium border border-slate-600/30">+{{ formatNumber(defaultBuyIn) }} 買入</button>
-                        <button @click="openEditModal(player)" class="bg-slate-700/50 hover:bg-slate-700 text-gray-300 py-2 rounded-xl text-sm font-medium border border-slate-600/30">修改</button>
-                    </div>
-                </div>
-            </div>
-
-            <div v-if="currentGame.players.length === 0" class="text-center py-12 opacity-40">
-                <i class="fas fa-users text-4xl mb-3"></i>
-                <p>等待玩家加入...</p>
-            </div>
-            
-            <div class="text-center mt-4 mb-20">
-                 <p class="text-xs text-gray-500 mb-1">Game ID:</p>
-                 <button @click="navigator.clipboard.writeText(currentGame.id); alert('複製成功')" class="bg-slate-900 text-amber-500 px-3 py-1 rounded border border-slate-700 text-xs font-mono">
-                     {{ currentGame.id }} <i class="fas fa-copy ml-1"></i>
-                 </button>
-            </div>
-        </div>
-    </main>
-
-    <div v-if="currentGame" class="fixed bottom-6 left-0 right-0 z-30 flex justify-center items-center gap-4 px-6 pointer-events-none">
-        <button @click="exitGame" class="pointer-events-auto w-12 h-12 rounded-full bg-slate-800 border border-slate-600 text-gray-400 shadow-lg flex items-center justify-center active:scale-95 transition"><i class="fas fa-sign-out-alt"></i></button>
-        <button @click="showAddPlayerModal = true" class="pointer-events-auto w-16 h-16 rounded-full bg-amber-500 text-slate-900 shadow-lg shadow-amber-500/20 flex items-center justify-center text-2xl active:scale-95 transition hover:bg-amber-400"><i class="fas fa-user-plus"></i></button>
-        <button @click="showSettlementModal = true" class="pointer-events-auto w-12 h-12 rounded-full bg-emerald-600 border border-emerald-500 text-white shadow-lg flex items-center justify-center active:scale-95 transition"><i class="fas fa-flag-checkered"></i></button>
-    </div>
-
-    <transition name="modal"><div v-if="showAuthModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" @click.self="showAuthModal = false">
-        <div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 border border-slate-700 mx-4">
-            <h3 class="text-xl font-bold text-white mb-6">{{ isRegistering ? '註冊帳號' : '會員登入' }}</h3>
-            <div class="space-y-3">
-                <input v-model="authForm.email" type="email" placeholder="Email" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white">
-                <input v-model="authForm.password" type="password" placeholder="Password" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white">
-                <input v-if="isRegistering" v-model="authForm.name" type="text" placeholder="暱稱 (e.g. Andy)" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white">
-            </div>
-            <div class="text-rose-400 text-xs mt-2 min-h-[1.5em]">{{ authError }}</div>
-            <button @click="handleAuth" :disabled="loading" class="w-full mt-2 py-3 bg-emerald-600 text-white rounded-xl font-bold flex justify-center gap-2">
-                <span v-if="loading" class="loader border-white/30 border-t-white"></span>
-                {{ isRegistering ? '註冊' : '登入' }}
+    <nav v-if="user" class="fixed bottom-0 left-0 right-0 z-50 glass pb-safe-bottom">
+        <div class="flex justify-around items-center h-16 max-w-md mx-auto">
+            <button @click="changeView('LobbyView')" :class="currentViewName === 'LobbyView' ? 'text-amber-500' : 'text-gray-500'" class="flex flex-col items-center gap-1 w-full h-full justify-center">
+                <i class="fas fa-home text-xl"></i><span class="text-[10px]">大廳</span>
             </button>
-            <div class="text-center mt-4">
-                <button @click="isRegistering = !isRegistering" class="text-sm text-gray-400 underline">{{ isRegistering ? '已有帳號？登入' : '沒有帳號？註冊' }}</button>
-            </div>
-        </div>
-    </div></transition>
-
-    <transition name="modal"><div v-if="showAddPlayerModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm" @click.self="showAddPlayerModal = false">
-        <div class="bg-slate-800 w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-6 border border-slate-700">
-            <h3 class="text-lg font-bold text-white mb-4">新增座位</h3>
-            <input v-model="newPlayerName" placeholder="名稱" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white mb-4">
-            <div class="flex items-center justify-between bg-slate-900 p-3 rounded-xl mb-4">
-                <span class="text-gray-400 text-sm">初始買入</span>
-                <input v-model.number="defaultBuyIn" type="number" class="bg-transparent text-right text-white font-mono w-20 border-b border-gray-600 outline-none">
-            </div>
-            <button @click="addPlayerToGame" class="w-full py-3 bg-amber-600 text-white rounded-xl font-bold">加入</button>
-        </div>
-    </div></transition>
-
-    <transition name="modal"><div v-if="editingPlayer" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm" @click.self="editingPlayer = null">
-        <div class="bg-slate-800 w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-6 border border-slate-700">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold text-white">{{ editingPlayer.name }}</h3>
-                <button @click="removePlayerFromGame" class="text-rose-500 text-sm"><i class="fas fa-trash"></i> 移除</button>
-            </div>
-            <div class="mb-6">
-                <label class="text-xs text-gray-400 uppercase">總買入</label>
-                <div class="flex gap-2 mt-1">
-                    <button @click="editTempBuyIn -= 100" class="w-12 bg-slate-700 rounded text-rose-400">-</button>
-                    <input type="number" v-model.number="editTempBuyIn" class="flex-1 bg-slate-900 border border-slate-600 rounded text-center text-white py-2 font-mono">
-                    <button @click="editTempBuyIn += 100" class="w-12 bg-slate-700 rounded text-emerald-400">+</button>
-                </div>
-            </div>
-            <div class="mb-8">
-                <label class="text-xs text-gray-400 uppercase">桌上籌碼 (Stack)</label>
-                <input type="number" v-model.number="editTempStack" class="w-full bg-slate-900 border border-slate-600 rounded px-4 py-3 text-right text-white text-xl font-mono mt-1">
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <button @click="editingPlayer = null" class="py-3 bg-slate-700 text-gray-300 rounded-xl">取消</button>
-                <button @click="savePlayerEdit" class="py-3 bg-emerald-600 text-white font-bold rounded-xl">儲存</button>
-            </div>
-        </div>
-    </div></transition>
-
-    <transition name="modal"><div v-if="showSettlementModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm" @click.self="showSettlementModal = false">
-        <div class="bg-slate-800 w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-5 border border-slate-700 max-h-[90vh] flex flex-col">
-            <h3 class="text-lg font-bold text-white mb-4 border-b border-gray-700 pb-2">本局結算</h3>
             
-            <div class="bg-slate-900 p-3 rounded-xl mb-4 flex justify-between items-center">
-                <span class="text-sm text-gray-400">匯率 (1現金=籌碼)</span>
-                <input type="number" v-model.number="exchangeRate" class="w-16 bg-slate-800 border border-slate-600 rounded text-center text-white font-mono">
-            </div>
+            <button @click="changeView('GameView')" :class="currentViewName === 'GameView' ? 'text-amber-500' : 'text-gray-500'" class="flex flex-col items-center gap-1 w-full h-full justify-center relative">
+                <i class="fas fa-gamepad text-xl"></i><span class="text-[10px]">牌局</span>
+                <span v-if="currentGame" class="absolute top-2 right-8 w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+            </button>
 
-            <div class="flex-1 overflow-y-auto space-y-1 mb-4" v-if="currentGame">
-                <div v-for="p in currentGame.players" :key="p.id" class="flex justify-between items-center py-2 border-b border-slate-700/50 text-sm">
-                    <span class="text-white">{{ p.name }} <span v-if="p.uid" class="text-[10px] text-blue-400">●</span></span>
-                    <div class="text-right">
-                        <div class="font-mono" :class="calculateNet(p) >= 0 ? 'text-emerald-400' : 'text-rose-400'">
-                            {{ calculateNet(p) > 0 ? '+' : '' }}{{ formatCash(calculateNet(p)) }}
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <button @click="changeView('ReportView')" :class="currentViewName === 'ReportView' ? 'text-amber-500' : 'text-gray-500'" class="flex flex-col items-center gap-1 w-full h-full justify-center">
+                <i class="fas fa-chart-pie text-xl"></i><span class="text-[10px]">報表</span>
+            </button>
             
-            <div v-if="balanceGap !== 0" class="text-center text-xs text-rose-400 mb-4 font-bold">⚠️ 籌碼不平，誤差: {{ formatNumber(balanceGap) }}</div>
-
-            <div class="grid grid-cols-1 gap-3">
-                <button @click="settleGame" :disabled="loading" class="py-3 bg-amber-600 text-white rounded-xl font-bold shadow-lg shadow-amber-600/20 flex justify-center items-center gap-2">
-                    <span v-if="loading" class="loader border-white/30 border-t-white"></span>
-                    <span>寫入生涯並結束</span>
-                </button>
-            </div>
+            <button @click="changeView('ProfileView')" :class="currentViewName === 'ProfileView' ? 'text-amber-500' : 'text-gray-500'" class="flex flex-col items-center gap-1 w-full h-full justify-center">
+                <i class="fas fa-user text-xl"></i><span class="text-[10px]">我的</span>
+            </button>
         </div>
-    </div></transition>
-
+    </nav>
 </div>
 
 <script type="module" src="./main.js"></script>
