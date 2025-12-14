@@ -15,7 +15,10 @@
     "next": "次へ",
     "submit": "送信",
     "or": "または",
-    "unknown": "不明"
+    "unknown": "不明",
+    "copied": "コピーしました",
+    "copySuccess": "コピー成功",
+    "copyFailed": "コピー失敗"
   },
   "auth": {
     "login": "ログイン",
@@ -87,7 +90,23 @@
     "confirmClose": "ゲームを終了しますか？データは削除されます。",
     "confirmSettlement": "精算を確認しますか？",
     "confirmBind": "この席に紐付けますか？",
-    "confirmRemove": "削除しますか？"
+    "confirmRemove": "削除しますか？",
+    "createFailed": "ゲーム作成失敗",
+    "onlyHostCanClose": "ホストのみがゲームを終了できます",
+    "closeFailed": "終了失敗",
+    "bindFailed": "紐付け失敗",
+    "joinFailed": "参加失敗",
+    "settlementFailed": "精算失敗",
+    "gameEndedOrClosed": "ゲームは終了または削除されました",
+    "idCopied": "IDをコピーしました",
+    "linkCopied": "リンクをコピーしました",
+    "reportCopied": "コピーしました",
+    "pleaseEnterCode": "IDを入力してください",
+    "cannotJoin": "参加できません",
+    "inviteDetected": "招待リンクが検出されました。このゲームに参加しますか？",
+    "pleaseLoginFirst": "先にログインしてください",
+    "inviteLinkDetected": "招待リンクが検出されました。このゲームに参加しますか？",
+    "noActiveGameAlert": "進行中のゲームがありません"
   },
   "report": {
     "title": "レポート分析",
@@ -134,7 +153,8 @@
     "inviteToRoom": "ルームに招待",
     "selectRoom": "ルームを選択",
     "noActiveRooms": "アクティブなルームがありません。まずルームを作成してください。",
-    "invitationSent": "招待を送信しました！"
+    "invitationSent": "招待を送信しました！",
+    "confirmRemove": "友達を削除しますか？"
   },
   "chat": {
     "title": "チャット",
