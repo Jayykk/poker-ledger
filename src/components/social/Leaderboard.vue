@@ -29,6 +29,48 @@
       </div>
     </div>
 
+    <!-- Hand type filter (only visible when sorting by special hands) -->
+    <div v-if="selectedSort === 'specialHands'" class="mb-4">
+      <div class="text-xs text-gray-400 mb-2">{{ $t('friends.handType') }}</div>
+      <div class="flex gap-2 flex-wrap">
+        <button
+          @click="selectedHandType = 'all'"
+          class="px-3 py-1 rounded-lg text-sm transition"
+          :class="selectedHandType === 'all' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
+        >
+          {{ $t('friends.allHands') }}
+        </button>
+        <button
+          @click="selectedHandType = 'royalFlush'"
+          class="px-3 py-1 rounded-lg text-sm transition"
+          :class="selectedHandType === 'royalFlush' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
+        >
+          {{ $t('friends.royalFlush') }}
+        </button>
+        <button
+          @click="selectedHandType = 'straightFlush'"
+          class="px-3 py-1 rounded-lg text-sm transition"
+          :class="selectedHandType === 'straightFlush' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
+        >
+          {{ $t('friends.straightFlush') }}
+        </button>
+        <button
+          @click="selectedHandType = 'fourOfAKind'"
+          class="px-3 py-1 rounded-lg text-sm transition"
+          :class="selectedHandType === 'fourOfAKind' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
+        >
+          {{ $t('friends.fourOfAKind') }}
+        </button>
+        <button
+          @click="selectedHandType = 'fullHouse'"
+          class="px-3 py-1 rounded-lg text-sm transition"
+          :class="selectedHandType === 'fullHouse' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
+        >
+          {{ $t('friends.fullHouse') }}
+        </button>
+      </div>
+    </div>
+
     <!-- Leaderboard -->
     <div class="space-y-2">
       <div
@@ -103,6 +145,7 @@ const { user } = useAuth();
 
 const selectedPeriod = ref('thisMonth');
 const selectedSort = ref('profit');
+const selectedHandType = ref('all'); // Filter for special hands
 const leaderboardData = ref([]);
 const specialHandsData = ref({});
 
@@ -150,7 +193,20 @@ const leaderboard = computed(() => {
     const winRate = games > 0 ? Math.round((winningGames / games) * 100) : 0;
     
     // Get special hands count for this user
-    const specialHandsCount = specialHandsData.value[entry.uid] || 0;
+    const userSpecialHands = specialHandsData.value[entry.uid] || {};
+    let specialHandsCount = 0;
+    
+    if (selectedHandType.value === 'all') {
+      specialHandsCount = userSpecialHands.total || 0;
+    } else if (selectedHandType.value === 'royalFlush') {
+      specialHandsCount = userSpecialHands.royalFlush || 0;
+    } else if (selectedHandType.value === 'straightFlush') {
+      specialHandsCount = userSpecialHands.straightFlush || 0;
+    } else if (selectedHandType.value === 'fourOfAKind') {
+      specialHandsCount = userSpecialHands.fourOfAKind || 0;
+    } else if (selectedHandType.value === 'fullHouse') {
+      specialHandsCount = userSpecialHands.fullHouse || 0;
+    }
     
     return {
       uid: entry.uid,
@@ -196,8 +252,8 @@ const loadLeaderboard = async () => {
         return;
       }
       if (data.history && data.history.length > 0) {
-        // Priority: displayName > email > exclude
-        const name = data.displayName || data.email;
+        // Priority: name > displayName > exclude (don't show email)
+        const name = data.name || data.displayName || null;
         if (name) {
           userData.push({
             uid: doc.id,
@@ -216,7 +272,7 @@ const loadLeaderboard = async () => {
 
 const loadSpecialHands = async () => {
   try {
-    // Count special hands for each user
+    // Count special hands for each user by type
     const specialHandsCount = {};
     
     // Query all hand records from all games
@@ -228,19 +284,30 @@ const loadSpecialHands = async () => {
       if (hand.players && Array.isArray(hand.players)) {
         hand.players.forEach(player => {
           if (player.playerId && player.handType) {
-            // Count special hand types
-            const specialTypes = [
-              HAND_TYPES.ROYAL_FLUSH,
-              HAND_TYPES.STRAIGHT_FLUSH,
-              HAND_TYPES.FOUR_OF_A_KIND,
-              HAND_TYPES.FULL_HOUSE
-            ];
+            // Initialize user's special hands object if not exists
+            if (!specialHandsCount[player.playerId]) {
+              specialHandsCount[player.playerId] = {
+                total: 0,
+                royalFlush: 0,
+                straightFlush: 0,
+                fourOfAKind: 0,
+                fullHouse: 0
+              };
+            }
             
-            if (specialTypes.includes(player.handType)) {
-              if (!specialHandsCount[player.playerId]) {
-                specialHandsCount[player.playerId] = 0;
-              }
-              specialHandsCount[player.playerId]++;
+            // Count by specific hand type
+            if (player.handType === HAND_TYPES.ROYAL_FLUSH) {
+              specialHandsCount[player.playerId].royalFlush++;
+              specialHandsCount[player.playerId].total++;
+            } else if (player.handType === HAND_TYPES.STRAIGHT_FLUSH) {
+              specialHandsCount[player.playerId].straightFlush++;
+              specialHandsCount[player.playerId].total++;
+            } else if (player.handType === HAND_TYPES.FOUR_OF_A_KIND) {
+              specialHandsCount[player.playerId].fourOfAKind++;
+              specialHandsCount[player.playerId].total++;
+            } else if (player.handType === HAND_TYPES.FULL_HOUSE) {
+              specialHandsCount[player.playerId].fullHouse++;
+              specialHandsCount[player.playerId].total++;
             }
           }
         });
