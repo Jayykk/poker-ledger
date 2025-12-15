@@ -205,7 +205,14 @@ export const settleGame = async (rate) => {
                     const userDoc = await t.get(userRef);
                     const record = { 
                         date: new Date().toISOString(), createdAt: Date.now(),
-                        profit: (p.stack || 0) - p.buyIn, rate: rate, gameName: gameData.name 
+                        profit: (p.stack || 0) - p.buyIn, rate: rate, gameName: gameData.name,
+                        // Save complete settlement data
+                        settlement: players.map(player => ({
+                            name: player.name,
+                            buyIn: player.buyIn,
+                            stack: player.stack || 0,
+                            profit: (player.stack || 0) - player.buyIn
+                        }))
                     };
                     if (userDoc.exists()) t.update(userRef, { history: arrayUnion(record) });
                     else t.set(userRef, { history: [record], createdAt: Date.now() });

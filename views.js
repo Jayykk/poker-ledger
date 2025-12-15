@@ -222,9 +222,104 @@ export const ReportView = {
         <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 mb-6"><div class="relative h-64 w-full"><canvas id="chartCanvas"></canvas></div></div>
         <h3 class="text-sm font-bold text-gray-400 mb-2">歷史戰績</h3>
         <div v-if="history.length===0" class="text-center text-gray-500 py-6">暫無紀錄</div>
-        <div class="space-y-3"><div v-for="(h, i) in history" :key="i" class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center"><div><div class="text-white font-bold">{{ h.gameName || '未命名' }}</div><div class="text-xs text-gray-400">{{ h.dateStr }}</div></div><div class="text-right"><div class="font-mono font-bold" :class="h.profit>=0?'text-emerald-400':'text-rose-400'">{{ h.profit>0?'+':''}}{{ formatNumber(h.profit) }}</div><div class="text-[10px] text-gray-500">Cash: {{ formatCash(h.profit, h.rate) }}</div></div></div></div>
+        <div class="space-y-3">
+            <div 
+                v-for="(h, i) in history" 
+                :key="i" 
+                @click="showDetail(h)"
+                class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center cursor-pointer hover:bg-slate-700/50 transition-colors"
+            >
+                <div>
+                    <div class="text-white font-bold">{{ h.gameName || '未命名' }}</div>
+                    <div class="text-xs text-gray-400">{{ h.dateStr }}</div>
+                </div>
+                <div class="text-right">
+                    <div class="font-mono font-bold" :class="h.profit>=0?'text-emerald-400':'text-rose-400'">
+                        {{ h.profit>0?'+':''}}{{ formatNumber(h.profit) }}
+                    </div>
+                    <div class="text-[10px] text-gray-500">Cash: {{ formatCash(h.profit, h.rate) }}</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Settlement Detail Modal -->
+        <div v-if="selectedRecord" @click.self="selectedRecord=null" class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4">
+            <div class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 mb-20 max-h-[80vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-white font-bold">{{ selectedRecord.gameName || '牌局結算' }}</h3>
+                    <button @click="selectedRecord=null" class="text-gray-400 hover:text-white transition">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="space-y-4">
+                    <!-- Game Info -->
+                    <div class="space-y-2 pb-4 border-b border-slate-700">
+                        <div class="flex items-center text-gray-400">
+                            <i class="fas fa-dice mr-2"></i>
+                            <span class="text-sm">{{ selectedRecord.gameName || '未命名' }}</span>
+                        </div>
+                        <div class="flex items-center text-gray-400">
+                            <i class="fas fa-calendar mr-2"></i>
+                            <span class="text-sm">{{ selectedRecord.dateStr }}</span>
+                        </div>
+                        <div class="flex items-center text-gray-400">
+                            <i class="fas fa-coins mr-2"></i>
+                            <span class="text-sm">匯率: 1:{{ selectedRecord.rate || 1 }}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Settlement Details -->
+                    <div v-if="hasSettlement" class="space-y-2">
+                        <h4 class="text-sm font-bold text-gray-400 mb-3">所有玩家結算</h4>
+                        <div
+                            v-for="(player, idx) in sortedPlayers"
+                            :key="idx"
+                            class="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg"
+                        >
+                            <div>
+                                <div class="text-white font-medium">{{ player.name }}</div>
+                                <div class="text-xs text-gray-400">
+                                    買入: {{ formatNumber(player.buyIn) }} | 籌碼: {{ formatNumber(player.stack) }}
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-mono font-bold text-lg" :class="player.profit>=0?'text-emerald-400':'text-rose-400'">
+                                    {{ player.profit>0?'+':''}}{{ formatNumber(player.profit) }}
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                    Cash: {{ player.profit>0?'+':''}}{{ formatCash(player.profit, selectedRecord.rate) }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- No Settlement Data -->
+                    <div v-else class="text-center text-gray-500 py-4">
+                        此紀錄無詳細結算資訊
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>`,
     setup(props) {
+        const selectedRecord = ref(null);
+        
+        const hasSettlement = computed(() => {
+            return selectedRecord.value?.settlement && 
+                   Array.isArray(selectedRecord.value.settlement) && 
+                   selectedRecord.value.settlement.length > 0;
+        });
+        
+        const sortedPlayers = computed(() => {
+            if (!hasSettlement.value) return [];
+            return [...selectedRecord.value.settlement].sort((a, b) => b.profit - a.profit);
+        });
+        
+        const showDetail = (record) => {
+            selectedRecord.value = record;
+        };
+        
         let chart = null;
         const render = () => {
             const ctx = document.getElementById('chartCanvas'); if (!ctx) return;
@@ -235,7 +330,7 @@ export const ReportView = {
         };
         onMounted(() => setTimeout(render, 100));
         watch(() => props.history, render, { deep: true });
-        return { formatNumber, formatCash };
+        return { formatNumber, formatCash, selectedRecord, hasSettlement, sortedPlayers, showDetail };
     }
 };
 
