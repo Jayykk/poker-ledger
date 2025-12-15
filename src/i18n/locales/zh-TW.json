@@ -116,7 +116,11 @@
       "dark": "深色",
       "light": "淺色"
     },
-    "version": "版本"
+    "version": "版本",
+    "errors": {
+      "notificationDenied": "通知權限已被拒絕。請在瀏覽器設定中啟用通知。",
+      "notificationUnsupported": "此瀏覽器不支援通知功能"
+    }
   },
   "friends": {
     "title": "好友",

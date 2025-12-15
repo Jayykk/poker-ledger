@@ -134,7 +134,18 @@ const toggleSound = () => {
 };
 
 const handleToggleNotifications = async () => {
-  await toggleNotifications();
+  const result = await toggleNotifications();
+  
+  if (!result.success) {
+    // Use setTimeout to avoid blocking the UI toggle animation
+    setTimeout(() => {
+      if (result.error === 'denied') {
+        window.alert(t('profile.errors.notificationDenied'));
+      } else if (result.error === 'unsupported') {
+        window.alert(t('profile.errors.notificationUnsupported'));
+      }
+    }, 100);
+  }
 };
 
 const handleLogout = async () => {

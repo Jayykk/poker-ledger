@@ -84,6 +84,24 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Fix for Safari mobile bottom navigation */
+.fixed-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  /* Support for safe area on iOS */
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  /* Ensure it stays on top and fixed on Safari */
+  z-index: 9999;
+  /* Force hardware acceleration for better performance on Safari */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  /* Prevent Safari from moving this element when scrolling */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
