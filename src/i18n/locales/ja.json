@@ -149,6 +149,8 @@
     "linkEmail": "メールをリンク",
     "lastChanceToRename": "最後の名前変更機会",
     "upgradeSuccess": "アカウントのアップグレードに成功しました！",
+    "upgradeError": "アカウントのアップグレードに失敗しました。もう一度お試しください。",
+    "emailPasswordRequired": "メールとパスワードは必須です",
     "errors": {
       "notificationDenied": "通知の許可が拒否されました。ブラウザの設定で通知を有効にしてください。",
       "notificationUnsupported": "このブラウザは通知をサポートしていません"

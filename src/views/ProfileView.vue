@@ -138,6 +138,7 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
 import { usePushNotification } from '../composables/usePushNotification.js';
+import { useNotification } from '../composables/useNotification.js';
 import BaseCard from '../components/common/BaseCard.vue';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
@@ -147,6 +148,7 @@ const { t, locale } = useI18n();
 const router = useRouter();
 const { displayName, isGuest, logout, linkEmailToGuest } = useAuth();
 const { notificationsEnabled, toggleNotifications } = usePushNotification();
+const notification = useNotification();
 
 const selectedLanguage = ref(locale.value);
 const currentTheme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
@@ -195,7 +197,7 @@ const handleUpgrade = async () => {
   upgradeError.value = '';
   
   if (!upgradeForm.value.email || !upgradeForm.value.password) {
-    upgradeError.value = 'Email and password are required';
+    upgradeError.value = t('profile.emailPasswordRequired');
     return;
   }
   
@@ -208,7 +210,7 @@ const handleUpgrade = async () => {
   upgradeLoading.value = false;
   
   if (success) {
-    window.alert(t('profile.upgradeSuccess'));
+    notification.success(t('profile.upgradeSuccess'));
     // Reset form
     upgradeForm.value = {
       email: '',
@@ -216,7 +218,7 @@ const handleUpgrade = async () => {
       name: ''
     };
   } else {
-    upgradeError.value = 'Failed to upgrade account. Please try again.';
+    upgradeError.value = t('profile.upgradeError');
   }
 };
 
