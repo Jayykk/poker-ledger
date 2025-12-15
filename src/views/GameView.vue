@@ -60,6 +60,7 @@
     </div>
 
     <BaseButton
+      v-if="isHost"
       @click="handleCloseGame"
       variant="danger"
       fullWidth
