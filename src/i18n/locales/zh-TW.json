@@ -224,6 +224,8 @@
     },
     "winner": "贏家",
     "handHistory": "牌局記錄",
+    "handRecords": "手牌紀錄",
+    "participants": "參與玩家",
     "noHandRecords": "暫無牌局記錄",
     "viewDetails": "查看詳情",
     "errors": {

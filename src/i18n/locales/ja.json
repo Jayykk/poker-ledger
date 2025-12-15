@@ -224,6 +224,8 @@
     },
     "winner": "勝者",
     "handHistory": "ハンド履歴",
+    "handRecords": "ハンド記録",
+    "participants": "参加者",
     "noHandRecords": "ハンド記録がありません",
     "viewDetails": "詳細を表示",
     "errors": {

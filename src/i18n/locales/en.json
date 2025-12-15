@@ -224,6 +224,8 @@
     },
     "winner": "Winner",
     "handHistory": "Hand History",
+    "handRecords": "Hand Records",
+    "participants": "Participants",
     "noHandRecords": "No hand records",
     "viewDetails": "View Details",
     "errors": {
