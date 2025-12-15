@@ -339,7 +339,14 @@ export const useGameStore = defineStore('game', () => {
               createdAt: Date.now(),
               profit: (p.stack || 0) - p.buyIn,
               rate: exchangeRate,
-              gameName: gameData.name
+              gameName: gameData.name,
+              // Save complete settlement data
+              settlement: players.map(player => ({
+                name: player.name,
+                buyIn: player.buyIn,
+                stack: player.stack || 0,
+                profit: (player.stack || 0) - player.buyIn
+              }))
             };
             
             if (userDoc.exists()) {
