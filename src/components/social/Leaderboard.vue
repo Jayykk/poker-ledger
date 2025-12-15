@@ -34,9 +34,9 @@
       <div class="text-xs text-gray-400 mb-2">{{ $t('friends.handType') }}</div>
       <div class="flex gap-2 flex-wrap">
         <button
-          @click="selectedHandType = 'all'"
+          @click="selectedHandType = 'total'"
           class="px-3 py-1 rounded-lg text-sm transition"
-          :class="selectedHandType === 'all' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
+          :class="selectedHandType === 'total' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
         >
           {{ $t('friends.allHands') }}
         </button>
@@ -145,7 +145,7 @@ const { user } = useAuth();
 
 const selectedPeriod = ref('thisMonth');
 const selectedSort = ref('profit');
-const selectedHandType = ref('all'); // Filter for special hands
+const selectedHandType = ref('total'); // Filter for special hands - use 'total' instead of 'all'
 const leaderboardData = ref([]);
 const specialHandsData = ref({});
 
@@ -194,17 +194,7 @@ const leaderboard = computed(() => {
     
     // Get special hands count for this user
     const userSpecialHands = specialHandsData.value[entry.uid] || {};
-    
-    // Map hand type to property name
-    const handTypeMap = {
-      all: 'total',
-      royalFlush: 'royalFlush',
-      straightFlush: 'straightFlush',
-      fourOfAKind: 'fourOfAKind',
-      fullHouse: 'fullHouse'
-    };
-    
-    const specialHandsCount = userSpecialHands[handTypeMap[selectedHandType.value]] || 0;
+    const specialHandsCount = userSpecialHands[selectedHandType.value] || 0;
     
     return {
       uid: entry.uid,
@@ -273,6 +263,14 @@ const loadSpecialHands = async () => {
     // Count special hands for each user by type
     const specialHandsCount = {};
     
+    // Map hand types to property names for cleaner counting
+    const handTypePropertyMap = {
+      [HAND_TYPES.ROYAL_FLUSH]: 'royalFlush',
+      [HAND_TYPES.STRAIGHT_FLUSH]: 'straightFlush',
+      [HAND_TYPES.FOUR_OF_A_KIND]: 'fourOfAKind',
+      [HAND_TYPES.FULL_HOUSE]: 'fullHouse'
+    };
+    
     // Query all hand records from all games
     const handsQuery = query(collectionGroup(db, 'hands'));
     const handsSnapshot = await getDocs(handsQuery);
@@ -282,29 +280,23 @@ const loadSpecialHands = async () => {
       if (hand.players && Array.isArray(hand.players)) {
         hand.players.forEach(player => {
           if (player.playerId && player.handType) {
-            // Initialize user's special hands object if not exists
-            if (!specialHandsCount[player.playerId]) {
-              specialHandsCount[player.playerId] = {
-                total: 0,
-                royalFlush: 0,
-                straightFlush: 0,
-                fourOfAKind: 0,
-                fullHouse: 0
-              };
-            }
+            const propertyName = handTypePropertyMap[player.handType];
             
-            // Count by specific hand type
-            if (player.handType === HAND_TYPES.ROYAL_FLUSH) {
-              specialHandsCount[player.playerId].royalFlush++;
-              specialHandsCount[player.playerId].total++;
-            } else if (player.handType === HAND_TYPES.STRAIGHT_FLUSH) {
-              specialHandsCount[player.playerId].straightFlush++;
-              specialHandsCount[player.playerId].total++;
-            } else if (player.handType === HAND_TYPES.FOUR_OF_A_KIND) {
-              specialHandsCount[player.playerId].fourOfAKind++;
-              specialHandsCount[player.playerId].total++;
-            } else if (player.handType === HAND_TYPES.FULL_HOUSE) {
-              specialHandsCount[player.playerId].fullHouse++;
+            // Only count if it's a special hand type
+            if (propertyName) {
+              // Initialize user's special hands object if not exists
+              if (!specialHandsCount[player.playerId]) {
+                specialHandsCount[player.playerId] = {
+                  total: 0,
+                  royalFlush: 0,
+                  straightFlush: 0,
+                  fourOfAKind: 0,
+                  fullHouse: 0
+                };
+              }
+              
+              // Increment both the specific hand type and total
+              specialHandsCount[player.playerId][propertyName]++;
               specialHandsCount[player.playerId].total++;
             }
           }
