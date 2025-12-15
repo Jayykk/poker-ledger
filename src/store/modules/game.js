@@ -387,7 +387,7 @@ export const useGameStore = defineStore('game', () => {
     
     // 檢查是否為房主
     if (!isHost.value) {
-      error.value = '只有房主才能解散房間';
+      error.value = 'Only the host can close the game';
       return false;
     }
     

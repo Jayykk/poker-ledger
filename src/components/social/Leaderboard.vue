@@ -95,11 +95,19 @@ const leaderboard = computed(() => {
   
   // Filter data by selected period
   const filteredData = leaderboardData.value.map(entry => {
-    const periodHistory = entry.history.filter(h => h.createdAt >= cutoffTime);
+    const periodHistory = entry.history.filter(h => {
+      // Ensure h.createdAt is a valid timestamp
+      const timestamp = typeof h.createdAt === 'number' ? h.createdAt : Date.parse(h.createdAt);
+      return !isNaN(timestamp) && timestamp >= cutoffTime;
+    });
     
     if (periodHistory.length === 0) return null;
     
-    const totalProfit = periodHistory.reduce((sum, h) => sum + (h.profit / h.rate), 0);
+    const totalProfit = periodHistory.reduce((sum, h) => {
+      // Prevent division by zero
+      const rate = h.rate || 1;
+      return sum + (h.profit / rate);
+    }, 0);
     const games = periodHistory.length;
     const winningGames = periodHistory.filter(h => h.profit > 0).length;
     const winRate = games > 0 ? Math.round((winningGames / games) * 100) : 0;
