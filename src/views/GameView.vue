@@ -44,6 +44,21 @@
       </BaseButton>
     </div>
 
+    <!-- Record hand button -->
+    <BaseButton
+      @click="showHandRecord = true"
+      variant="primary"
+      fullWidth
+      class="mt-4"
+    >
+      <i class="fas fa-save mr-2"></i>{{ $t('hand.recordHand') }}
+    </BaseButton>
+
+    <!-- Hand history -->
+    <div v-if="hands.length > 0" class="mt-6">
+      <HandHistoryList :hands="hands" @select="handleSelectHand" />
+    </div>
+
     <BaseButton
       @click="handleCloseGame"
       variant="danger"
@@ -134,21 +149,39 @@
         </BaseButton>
       </div>
     </BaseModal>
+
+    <!-- Hand Record Sheet -->
+    <HandRecordSheet
+      v-model="showHandRecord"
+      :game-id="gameId"
+      :players="game.players"
+      @saved="handleHandRecordSaved"
+    />
+
+    <!-- Hand History Detail Modal -->
+    <HandHistoryDetail
+      v-model="showHandDetail"
+      :hand="selectedHand"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
 import { useGame } from '../composables/useGame.js';
+import { useHand } from '../composables/useHand.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
 import PlayerCard from '../components/game/PlayerCard.vue';
+import HandRecordSheet from '../components/game/HandRecordSheet.vue';
+import HandHistoryList from '../components/game/HandHistoryList.vue';
+import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
 import { formatNumber, formatCash, calculateNet } from '../utils/formatters.js';
 import { generateTextReport } from '../utils/exportReport.js';
 import { DEFAULT_EXCHANGE_RATE } from '../utils/constants.js';
@@ -156,16 +189,29 @@ import { DEFAULT_EXCHANGE_RATE } from '../utils/constants.js';
 const { t } = useI18n();
 const router = useRouter();
 const { user } = useAuth();
-const { game, totalPot, totalStack, gap, isHost, myPlayer, addPlayer, updatePlayer, removePlayer, bindSeat, settleGame, closeGame } = useGame();
+const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer, addPlayer, updatePlayer, removePlayer, bindSeat, settleGame, closeGame } = useGame();
+const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
 const { success, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 
 const showAddPlayer = ref(false);
 const showEditPlayer = ref(false);
 const showSettlement = ref(false);
+const showHandRecord = ref(false);
+const showHandDetail = ref(false);
 const newPlayerName = ref('');
 const editingPlayer = ref(null);
 const exchangeRate = ref(DEFAULT_EXCHANGE_RATE);
+const selectedHand = ref(null);
+
+// Listen to hand records when game is loaded
+watch(() => gameId.value, (newGameId) => {
+  if (newGameId) {
+    listenToHandRecords(newGameId);
+  } else {
+    cleanupHands();
+  }
+}, { immediate: true });
 
 const sortedPlayers = computed(() => {
   if (!game.value) return [];
@@ -254,5 +300,14 @@ const handleCloseGame = async () => {
       router.push('/lobby');
     }
   }
+};
+
+const handleHandRecordSaved = () => {
+  success(t('common.save'));
+};
+
+const handleSelectHand = (hand) => {
+  selectedHand.value = hand;
+  showHandDetail.value = true;
 };
 </script>

@@ -18,7 +18,9 @@
     "unknown": "Unknown",
     "copied": "Copied",
     "copySuccess": "Copy successful",
-    "copyFailed": "Copy failed"
+    "copyFailed": "Copy failed",
+    "max": "Max",
+    "error": "Error"
   },
   "auth": {
     "login": "Login",
@@ -189,5 +191,46 @@
   "notification": {
     "accept": "Accept",
     "decline": "Decline"
+  },
+  "hand": {
+    "recordHand": "Record Hand",
+    "recordHandResult": "Record Hand Result",
+    "communityCards": "Community Cards",
+    "selectCards": "Select Cards",
+    "selectHandType": "Select Hand Type",
+    "selectedCards": "Selected",
+    "participating": "Participating",
+    "notParticipating": "Not Participating",
+    "chipsBalance": "Chips Balance",
+    "balanced": "Balanced",
+    "imbalanced": "Imbalanced",
+    "selectSuit": "Select Suit",
+    "selectRank": "Select Rank",
+    "spades": "Spades",
+    "hearts": "Hearts",
+    "diamonds": "Diamonds",
+    "clubs": "Clubs",
+    "handTypes": {
+      "high_card": "High Card",
+      "one_pair": "One Pair",
+      "two_pair": "Two Pair",
+      "three_of_a_kind": "Three of a Kind",
+      "straight": "Straight",
+      "flush": "Flush",
+      "full_house": "Full House",
+      "four_of_a_kind": "Four of a Kind",
+      "straight_flush": "Straight Flush",
+      "royal_flush": "Royal Flush"
+    },
+    "winner": "Winner",
+    "handHistory": "Hand History",
+    "noHandRecords": "No hand records",
+    "viewDetails": "View Details",
+    "errors": {
+      "chipsNotBalanced": "Chips must sum to 0",
+      "duplicateCards": "Duplicate cards found",
+      "tooManyCommunityCards": "Max 5 community cards",
+      "tooManyPlayerCards": "Max 2 player cards"
+    }
   }
 }
