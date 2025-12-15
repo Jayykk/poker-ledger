@@ -18,8 +18,8 @@ export function useGame() {
   const loading = computed(() => gameStore.loading);
   const error = computed(() => gameStore.error);
 
-  const createGame = async (name) => {
-    return await gameStore.createGame(name);
+  const createGame = async (name, buyInAmount) => {
+    return await gameStore.createGame(name, buyInAmount);
   };
 
   const checkGameStatus = async (id) => {

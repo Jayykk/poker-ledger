@@ -128,6 +128,14 @@
         :placeholder="$t('game.playerName')"
         class="mb-4"
       />
+      <div class="flex gap-2 mb-4">
+        <BaseInput
+          v-model.number="createBuyIn"
+          type="number"
+          class="flex-1"
+        />
+        <span class="text-white text-sm pt-3">{{ $t('game.chips') }}</span>
+      </div>
       <BaseButton @click="handleCreateGame" variant="primary" fullWidth>
         {{ $t('common.confirm') }}
       </BaseButton>
@@ -228,6 +236,7 @@ const joinStep = ref(1);
 const gameName = ref('Poker Game');
 const gameCode = ref('');
 const buyIn = ref(DEFAULT_BUY_IN);
+const createBuyIn = ref(DEFAULT_BUY_IN);
 const unboundPlayers = ref([]);
 
 // Track previously seen invitations to show notifications for new ones
@@ -241,7 +250,7 @@ const formatDate = (timestamp) => {
 
 const handleCreateGame = async () => {
   await withLoading(async () => {
-    const gameId = await createGame(gameName.value);
+    const gameId = await createGame(gameName.value, createBuyIn.value);
     if (gameId) {
       showCreateModal.value = false;
       success('Game created!');

@@ -245,6 +245,189 @@ export const evaluateHand = (playerCards, communityCards) => {
 };
 
 /**
+ * Get the specific 5 cards that form the evaluated hand
+ * @param {Array<string>} playerCards - Player's hole cards
+ * @param {Array<string>} communityCards - Community cards
+ * @returns {Array<string>} - The 5 cards that form the best hand
+ */
+export const getHandCards = (playerCards, communityCards) => {
+  const allCards = [...(playerCards || []), ...(communityCards || [])];
+  
+  if (allCards.length < 5) {
+    return allCards;
+  }
+  
+  const handType = evaluateHand(playerCards, communityCards);
+  const parsed = allCards.map(parseCard).filter(c => c !== null);
+  
+  // Royal Flush - A-K-Q-J-10 of same suit
+  if (handType === HAND_TYPES.ROYAL_FLUSH) {
+    const flushSuit = getFlushSuit(allCards);
+    const royalRanks = ['A', 'K', 'Q', 'J', '10'];
+    return parsed
+      .filter(c => c.suit === flushSuit && royalRanks.includes(c.rank))
+      .map(c => c.original);
+  }
+  
+  // Straight Flush - 5 consecutive cards of same suit
+  if (handType === HAND_TYPES.STRAIGHT_FLUSH) {
+    const flushSuit = getFlushSuit(allCards);
+    const flushCards = parsed.filter(c => c.suit === flushSuit);
+    const straightHighCard = getStraightHighCard(flushCards.map(c => c.original));
+    
+    // Get the 5 cards forming the straight
+    if (straightHighCard === 5) {
+      // Wheel (A-2-3-4-5)
+      const wheelRanks = ['A', '2', '3', '4', '5'];
+      return flushCards
+        .filter(c => wheelRanks.includes(c.rank))
+        .slice(0, 5)
+        .map(c => c.original);
+    } else {
+      // Regular straight
+      return flushCards
+        .sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
+        .slice(0, 5)
+        .filter((c, i, arr) => {
+          if (i === 0) return true;
+          return getRankValue(arr[i-1].rank) - getRankValue(c.rank) === 1;
+        })
+        .slice(0, 5)
+        .map(c => c.original);
+    }
+  }
+  
+  // Four of a Kind
+  if (handType === HAND_TYPES.FOUR_OF_A_KIND) {
+    const rankCounts = countRanks(allCards);
+    const quadRank = Object.entries(rankCounts).find(([_, count]) => count === 4)?.[0];
+    const quadCards = parsed.filter(c => c.rank === quadRank).map(c => c.original);
+    const kicker = parsed
+      .filter(c => c.rank !== quadRank)
+      .sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))[0]?.original;
+    return [...quadCards, kicker].filter(Boolean);
+  }
+  
+  // Full House - 3 of a kind + pair
+  if (handType === HAND_TYPES.FULL_HOUSE) {
+    const rankCounts = countRanks(allCards);
+    const sortedRanks = Object.entries(rankCounts)
+      .sort((a, b) => b[1] - a[1] || getRankValue(b[0]) - getRankValue(a[0]));
+    
+    const tripRank = sortedRanks.find(([_, count]) => count >= 3)?.[0];
+    const pairRank = sortedRanks.find(([rank, count]) => count >= 2 && rank !== tripRank)?.[0];
+    
+    const tripCards = parsed.filter(c => c.rank === tripRank).slice(0, 3).map(c => c.original);
+    const pairCards = parsed.filter(c => c.rank === pairRank).slice(0, 2).map(c => c.original);
+    
+    return [...tripCards, ...pairCards];
+  }
+  
+  // Flush - 5 cards of same suit
+  if (handType === HAND_TYPES.FLUSH) {
+    const flushSuit = getFlushSuit(allCards);
+    return parsed
+      .filter(c => c.suit === flushSuit)
+      .sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
+      .slice(0, 5)
+      .map(c => c.original);
+  }
+  
+  // Straight - 5 consecutive cards
+  if (handType === HAND_TYPES.STRAIGHT) {
+    const straightHighCard = getStraightHighCard(allCards);
+    
+    if (straightHighCard === 5) {
+      // Wheel (A-2-3-4-5)
+      const wheelRanks = ['A', '2', '3', '4', '5'];
+      return parsed
+        .filter(c => wheelRanks.includes(c.rank))
+        .reduce((acc, c) => {
+          if (!acc.find(card => card.rank === c.rank)) {
+            acc.push(c);
+          }
+          return acc;
+        }, [])
+        .map(c => c.original);
+    } else {
+      // Regular straight - get one card of each rank in sequence
+      const values = parsed.map(c => ({ ...c, value: getRankValue(c.rank) }));
+      const uniqueValues = values.reduce((acc, card) => {
+        if (!acc.find(c => c.value === card.value)) {
+          acc.push(card);
+        }
+        return acc;
+      }, []);
+      
+      uniqueValues.sort((a, b) => b.value - a.value);
+      
+      // Find the straight sequence
+      const straightCards = [];
+      for (let i = 0; i < uniqueValues.length; i++) {
+        if (uniqueValues[i].value === straightHighCard) {
+          for (let j = 0; j < 5; j++) {
+            const targetValue = straightHighCard - j;
+            const card = uniqueValues.find(c => c.value === targetValue);
+            if (card) straightCards.push(card.original);
+          }
+          break;
+        }
+      }
+      return straightCards;
+    }
+  }
+  
+  // Three of a Kind
+  if (handType === HAND_TYPES.THREE_OF_A_KIND) {
+    const rankCounts = countRanks(allCards);
+    const tripRank = Object.entries(rankCounts).find(([_, count]) => count === 3)?.[0];
+    const tripCards = parsed.filter(c => c.rank === tripRank).map(c => c.original);
+    const kickers = parsed
+      .filter(c => c.rank !== tripRank)
+      .sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
+      .slice(0, 2)
+      .map(c => c.original);
+    return [...tripCards, ...kickers];
+  }
+  
+  // Two Pair
+  if (handType === HAND_TYPES.TWO_PAIR) {
+    const rankCounts = countRanks(allCards);
+    const pairs = Object.entries(rankCounts)
+      .filter(([_, count]) => count === 2)
+      .sort((a, b) => getRankValue(b[0]) - getRankValue(a[0]))
+      .slice(0, 2)
+      .map(([rank]) => rank);
+    
+    const pairCards = parsed.filter(c => pairs.includes(c.rank)).slice(0, 4).map(c => c.original);
+    const kicker = parsed
+      .filter(c => !pairs.includes(c.rank))
+      .sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))[0]?.original;
+    
+    return [...pairCards, kicker].filter(Boolean);
+  }
+  
+  // One Pair
+  if (handType === HAND_TYPES.ONE_PAIR) {
+    const rankCounts = countRanks(allCards);
+    const pairRank = Object.entries(rankCounts).find(([_, count]) => count === 2)?.[0];
+    const pairCards = parsed.filter(c => c.rank === pairRank).map(c => c.original);
+    const kickers = parsed
+      .filter(c => c.rank !== pairRank)
+      .sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
+      .slice(0, 3)
+      .map(c => c.original);
+    return [...pairCards, ...kickers];
+  }
+  
+  // High Card - just the 5 highest cards
+  return parsed
+    .sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
+    .slice(0, 5)
+    .map(c => c.original);
+};
+
+/**
  * Validate if a card string is valid
  */
 export const isValidCard = (cardStr) => {

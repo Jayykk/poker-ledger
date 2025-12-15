@@ -156,6 +156,7 @@
       v-model="showHandRecord"
       :game-id="gameId"
       :players="game.players"
+      :base-buy-in="game.baseBuyIn || 2000"
       @saved="handleHandRecordSaved"
     />
 
@@ -274,7 +275,8 @@ const handleInvite = async (player) => {
 };
 
 const handleAddBuy = async (player) => {
-  await updatePlayer({ ...player, buyIn: player.buyIn + 2000 });
+  const buyInAmount = game.value?.baseBuyIn || 2000;
+  await updatePlayer({ ...player, buyIn: player.buyIn + buyInAmount });
 };
 
 const handleCopyId = async () => {

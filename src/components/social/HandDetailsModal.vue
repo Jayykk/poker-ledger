@@ -35,8 +35,13 @@
             <div
               v-for="(card, cardIndex) in hand.communityCards"
               :key="cardIndex"
-              class="bg-slate-600 px-2 py-1 rounded text-sm font-mono"
-              :class="getCardColor(card)"
+              class="px-2 py-1 rounded text-sm font-mono"
+              :class="[
+                getCardColor(card),
+                isHandCard(card, hand) 
+                  ? 'bg-amber-600 ring-2 ring-amber-400' 
+                  : 'bg-slate-600'
+              ]"
             >
               {{ card }}
             </div>
@@ -50,8 +55,13 @@
             <div
               v-for="(card, cardIndex) in hand.playerCards"
               :key="cardIndex"
-              class="bg-slate-600 px-2 py-1 rounded text-sm font-mono"
-              :class="getCardColor(card)"
+              class="px-2 py-1 rounded text-sm font-mono"
+              :class="[
+                getCardColor(card),
+                isHandCard(card, hand) 
+                  ? 'bg-amber-600 ring-2 ring-amber-400' 
+                  : 'bg-slate-600'
+              ]"
             >
               {{ card }}
             </div>
@@ -70,6 +80,7 @@ import { db } from '../../firebase-init.js';
 import BaseModal from '../common/BaseModal.vue';
 import { formatDate } from '../../utils/formatters.js';
 import { SUITS, SPECIAL_HAND_TYPES } from '../../utils/constants.js';
+import { getHandCards } from '../../utils/pokerHandEvaluator.js';
 
 const props = defineProps({
   modelValue: {
@@ -115,6 +126,13 @@ const getCardColor = (card) => {
     return 'text-rose-400';
   }
   return 'text-white';
+};
+
+// Check if a card is part of the hand
+const isHandCard = (card, hand) => {
+  if (!hand || !hand.playerCards || !hand.communityCards) return false;
+  const handCards = getHandCards(hand.playerCards, hand.communityCards);
+  return handCards.includes(card);
 };
 
 const loadHandDetails = async () => {
