@@ -112,6 +112,7 @@ const { confirm } = useConfirm();
 const loading = ref(true);
 const theme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
 const pendingInvite = ref(null);
+const inviteProcessedInMount = ref(false);
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const isInGame = computed(() => gameStore.isInGame);
@@ -126,7 +127,7 @@ const handleConfirm = (result) => {
 // Process pending invite
 const processPendingInvite = async () => {
   const invite = pendingInvite.value;
-  if (!invite) return;
+  if (!invite) return false;
   
   // Clear pending invite
   pendingInvite.value = null;
@@ -141,8 +142,11 @@ const processPendingInvite = async () => {
     const success = await gameStore.joinByBinding(invite.gameId, invite.seatId);
     if (success) {
       router.push('/game');
+      return true;
     }
   }
+  
+  return false;
 };
 
 // Initialize auth
@@ -179,12 +183,15 @@ onMounted(async () => {
       await userStore.loadUserData();
       
       // Process pending invite first
-      await processPendingInvite();
+      const inviteProcessed = await processPendingInvite();
+      inviteProcessedInMount.value = true;
       
-      // Check for saved game
-      const savedGameId = localStorage.getItem(STORAGE_KEYS.LAST_GAME_ID);
-      if (savedGameId) {
-        await gameStore.joinGameListener(savedGameId);
+      // Only check for saved game if no invite was processed
+      if (!inviteProcessed) {
+        const savedGameId = localStorage.getItem(STORAGE_KEYS.LAST_GAME_ID);
+        if (savedGameId) {
+          await gameStore.joinGameListener(savedGameId);
+        }
       }
       
       if (router.currentRoute.value.path === '/' || router.currentRoute.value.path === '/login') {
@@ -202,8 +209,11 @@ onMounted(async () => {
 watch(() => authStore.user, async (newUser, oldUser) => {
   if (newUser && !oldUser) {
     // User just logged in, load data and process pending invite
-    await userStore.loadUserData();
-    await processPendingInvite();
+    // Skip if already processed in onMounted
+    if (!inviteProcessedInMount.value) {
+      await userStore.loadUserData();
+      await processPendingInvite();
+    }
   } else if (!newUser) {
     // User logged out
     gameStore.cleanup();
