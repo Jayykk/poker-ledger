@@ -76,8 +76,12 @@
       <div
         v-for="(entry, index) in leaderboard"
         :key="entry.uid"
+        @click="selectedSort === 'specialHands' && handleViewHandDetails(entry)"
         class="flex items-center gap-3 p-3 rounded-lg"
-        :class="entry.uid === user?.uid ? 'bg-amber-600/20 border border-amber-600/50' : 'bg-slate-700'"
+        :class="[
+          entry.uid === user?.uid ? 'bg-amber-600/20 border border-amber-600/50' : 'bg-slate-700',
+          selectedSort === 'specialHands' ? 'cursor-pointer hover:bg-slate-600 transition-colors' : ''
+        ]"
       >
         <!-- Rank -->
         <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold"
@@ -111,8 +115,7 @@
             {{ entry.winRate }}%
           </div>
           <div v-else-if="selectedSort === 'specialHands'"
-            class="text-xl font-mono font-bold text-amber-400 cursor-pointer hover:text-amber-300 transition-colors"
-            @click="handleViewHandDetails(entry)"
+            class="text-xl font-mono font-bold text-amber-400"
           >
             {{ entry.specialHands }}
           </div>
@@ -219,13 +222,18 @@ const leaderboard = computed(() => {
     };
   }).filter(entry => entry !== null);
   
+  // Filter out entries with games === 0
+  const validEntries = filteredData.filter(entry => entry.games > 0);
+  
   // Sort based on selected mode
-  let sorted = [...filteredData];
+  let sorted = [...validEntries];
   if (selectedSort.value === 'profit') {
     sorted.sort((a, b) => b.profit - a.profit);
   } else if (selectedSort.value === 'winRate') {
     sorted.sort((a, b) => b.winRate - a.winRate);
   } else if (selectedSort.value === 'specialHands') {
+    // When sorting by special hands, filter out entries with specialHands === 0
+    sorted = sorted.filter(entry => entry.specialHands > 0);
     sorted.sort((a, b) => b.specialHands - a.specialHands);
   }
   

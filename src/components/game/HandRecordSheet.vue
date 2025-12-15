@@ -39,7 +39,7 @@
             <!-- Chips input -->
             <div>
               <div class="text-xs text-gray-400 mb-1">{{ $t('game.chips') }}</div>
-              <ChipsInput v-model="playerRecord.chips" />
+              <ChipsInput v-model="playerRecord.chips" :base-buy-in="baseBuyIn" />
             </div>
 
             <!-- Player cards -->
@@ -133,6 +133,10 @@ const props = defineProps({
   players: {
     type: Array,
     required: true
+  },
+  baseBuyIn: {
+    type: Number,
+    default: 2000
   }
 });
 

@@ -47,7 +47,7 @@ export const useGameStore = defineStore('game', () => {
   /**
    * Create a new game
    */
-  const createGame = async (name) => {
+  const createGame = async (name, buyInAmount = DEFAULT_BUY_IN) => {
     if (!authStore.user) return null;
     
     loading.value = true;
@@ -62,11 +62,12 @@ export const useGameStore = defineStore('game', () => {
         hostName,
         status: GAME_STATUS.ACTIVE,
         createdAt: Date.now(),
+        baseBuyIn: parseInt(buyInAmount),
         players: [{
           id: Date.now().toString(),
           name: hostName,
           uid: authStore.user.uid,
-          buyIn: DEFAULT_BUY_IN,
+          buyIn: parseInt(buyInAmount),
           stack: 0
         }]
       });
@@ -224,11 +225,12 @@ export const useGameStore = defineStore('game', () => {
     if (!gameId.value || !isHost.value) return false;
     
     try {
+      const buyInAmount = game.value?.baseBuyIn || DEFAULT_BUY_IN;
       const newPlayer = {
         id: Date.now().toString(),
         name: name || 'Player',
         uid: null,
-        buyIn: DEFAULT_BUY_IN,
+        buyIn: buyInAmount,
         stack: 0
       };
       

@@ -31,6 +31,8 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
+
 const props = defineProps({
   modelValue: {
     type: Number,
@@ -39,12 +41,29 @@ const props = defineProps({
   placeholder: {
     type: String,
     default: '0'
+  },
+  baseBuyIn: {
+    type: Number,
+    default: 2000
   }
 });
 
 const emit = defineEmits(['update:modelValue']);
 
-const quickAmounts = [100, 500, 1000, -100, -500, -1000];
+// Calculate quick amounts proportionally based on baseBuyIn
+// Default buttons for 2000 buy-in: [100, 500, 1000, -100, -500, -1000]
+// Ratio: 0.05, 0.25, 0.5, -0.05, -0.25, -0.5
+const quickAmounts = computed(() => {
+  const base = props.baseBuyIn;
+  return [
+    Math.round(base * 0.05),
+    Math.round(base * 0.25),
+    Math.round(base * 0.5),
+    -Math.round(base * 0.05),
+    -Math.round(base * 0.25),
+    -Math.round(base * 0.5)
+  ];
+});
 
 const handleInput = (e) => {
   const value = parseInt(e.target.value) || 0;
