@@ -123,7 +123,12 @@
     },
     "exportCSV": "CSVエクスポート",
     "exportPDF": "PDFエクスポート",
-    "dateRange": "日付範囲"
+    "dateRange": "日付範囲",
+    "recentRecords": "最近の戦績",
+    "careerStats": "累積統計",
+    "lastNGames": "最近 {n} 試合",
+    "win": "勝ち",
+    "loss": "負け"
   },
   "profile": {
     "title": "プロフィール",
@@ -159,7 +164,16 @@
     "selectRoom": "ルームを選択",
     "noActiveRooms": "アクティブなルームがありません。まずルームを作成してください。",
     "invitationSent": "招待を送信しました！",
-    "confirmRemove": "友達を削除しますか？"
+    "confirmRemove": "友達を削除しますか？",
+    "sortBy": "並び替え",
+    "sortByProfit": "収益",
+    "sortByWinRate": "勝率",
+    "sortBySpecialHands": "特殊役",
+    "specialHands": "特殊役",
+    "royalFlush": "ロイヤルフラッシュ",
+    "straightFlush": "ストレートフラッシュ",
+    "fourOfAKind": "フォーカード",
+    "fullHouse": "フルハウス"
   },
   "chat": {
     "title": "チャット",
