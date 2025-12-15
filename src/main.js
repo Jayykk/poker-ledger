@@ -38,10 +38,11 @@ app.use(router);
 
 app.mount('#app');
 
-// Register service worker
+// Register service worker with dynamic base path
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/poker-ledger/sw.js')
+    const swPath = import.meta.env.BASE_URL + 'sw.js';
+    navigator.serviceWorker.register(swPath)
       .then(registration => console.log('SW registered:', registration))
       .catch(err => console.log('SW registration failed:', err));
   });
