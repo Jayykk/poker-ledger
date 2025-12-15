@@ -273,7 +273,8 @@ export const getHandCards = (playerCards, communityCards) => {
   if (handType === HAND_TYPES.STRAIGHT_FLUSH) {
     const flushSuit = getFlushSuit(allCards);
     const flushCards = parsed.filter(c => c.suit === flushSuit);
-    const straightHighCard = getStraightHighCard(flushCards.map(c => c.original));
+    const flushCardStrings = flushCards.map(c => c.original);
+    const straightHighCard = getStraightHighCard(flushCardStrings);
     
     // Get the 5 cards forming the straight
     if (straightHighCard === 5) {
@@ -284,16 +285,19 @@ export const getHandCards = (playerCards, communityCards) => {
         .slice(0, 5)
         .map(c => c.original);
     } else {
-      // Regular straight
-      return flushCards
-        .sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank))
-        .slice(0, 5)
-        .filter((c, i, arr) => {
-          if (i === 0) return true;
-          return getRankValue(arr[i-1].rank) - getRankValue(c.rank) === 1;
-        })
-        .slice(0, 5)
-        .map(c => c.original);
+      // Regular straight - find consecutive sequence
+      const sortedFlush = flushCards
+        .sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank));
+      
+      const straightCards = [];
+      for (let i = 0; i < sortedFlush.length && straightCards.length < 5; i++) {
+        if (straightCards.length === 0 || 
+            getRankValue(straightCards[straightCards.length - 1].rank) - getRankValue(sortedFlush[i].rank) === 1) {
+          straightCards.push(sortedFlush[i]);
+        }
+      }
+      
+      return straightCards.map(c => c.original);
     }
   }
   

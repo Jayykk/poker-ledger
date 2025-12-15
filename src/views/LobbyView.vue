@@ -129,11 +129,15 @@
         class="mb-4"
       />
       <div class="flex gap-2 mb-4">
-        <BaseInput
-          v-model.number="createBuyIn"
-          type="number"
-          class="flex-1"
-        />
+        <label class="flex-1">
+          <BaseInput
+            v-model.number="createBuyIn"
+            type="number"
+            :min="100"
+            :step="100"
+            class="w-full"
+          />
+        </label>
         <span class="text-white text-sm pt-3">{{ $t('game.chips') }}</span>
       </div>
       <BaseButton @click="handleCreateGame" variant="primary" fullWidth>
