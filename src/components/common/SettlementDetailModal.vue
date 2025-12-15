@@ -144,7 +144,7 @@
 
                       <!-- Hand type -->
                       <span v-if="player.handType" class="text-gray-400 text-xs">
-                        {{ $t(`hand.handTypes.${player.handType}`) }}
+                        {{ getHandTypeText(player.handType) }}
                       </span>
                       <span v-else class="text-gray-500 text-xs">--</span>
                     </div>
@@ -253,5 +253,16 @@ const getWinnerInfo = (hand) => {
 const getParticipants = (hand) => {
   if (!hand.players) return [];
   return hand.players.filter(p => p.participating);
+};
+
+const getHandTypeText = (handType) => {
+  try {
+    const key = `hand.handTypes.${handType}`;
+    const translation = t(key);
+    // If translation is same as key, it means translation doesn't exist
+    return translation === key ? handType : translation;
+  } catch (error) {
+    return handType;
+  }
 };
 </script>
