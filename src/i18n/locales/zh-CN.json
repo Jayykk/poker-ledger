@@ -185,5 +185,9 @@
     "reject": "拒绝",
     "accepted": "已接受邀请！",
     "rejected": "已拒绝邀请"
+  },
+  "notification": {
+    "accept": "接受",
+    "decline": "拒绝"
   }
 }
