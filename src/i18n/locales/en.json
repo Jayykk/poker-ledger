@@ -170,6 +170,8 @@
     "sortByWinRate": "Win Rate",
     "sortBySpecialHands": "Special Hands",
     "specialHands": "Special Hands",
+    "handType": "Hand Type",
+    "allHands": "All",
     "royalFlush": "Royal Flush",
     "straightFlush": "Straight Flush",
     "fourOfAKind": "Four of a Kind",

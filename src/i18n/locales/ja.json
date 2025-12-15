@@ -170,6 +170,8 @@
     "sortByWinRate": "勝率",
     "sortBySpecialHands": "特殊役",
     "specialHands": "特殊役",
+    "handType": "役の種類",
+    "allHands": "全て",
     "royalFlush": "ロイヤルフラッシュ",
     "straightFlush": "ストレートフラッシュ",
     "fourOfAKind": "フォーカード",

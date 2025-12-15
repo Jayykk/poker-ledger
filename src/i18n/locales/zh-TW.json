@@ -170,6 +170,8 @@
     "sortByWinRate": "勝率",
     "sortBySpecialHands": "特殊大牌",
     "specialHands": "特殊大牌",
+    "handType": "牌型",
+    "allHands": "全部",
     "royalFlush": "皇家同花順",
     "straightFlush": "同花順",
     "fourOfAKind": "鐵支",

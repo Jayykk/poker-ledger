@@ -44,7 +44,8 @@
         <div
           v-for="(record, i) in recentRecords"
           :key="i"
-          class="flex items-center gap-3 p-3 rounded-lg bg-slate-700"
+          @click="handleRecordClick(record)"
+          class="flex items-center gap-3 p-3 rounded-lg bg-slate-700 cursor-pointer hover:bg-slate-600 transition-colors"
         >
           <!-- Game number -->
           <div class="flex-shrink-0 w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-sm font-bold text-gray-300">
@@ -87,41 +88,6 @@
           <i class="fas fa-file-csv mr-2"></i>{{ $t('report.exportCSV') }}
         </BaseButton>
       </div>
-
-      <!-- History -->
-      <h3 class="text-sm font-bold text-gray-400 mb-2">{{ $t('report.history') }}</h3>
-      
-      <div v-if="formattedHistory.length === 0" class="text-center text-gray-500 py-6">
-        {{ $t('report.noRecords') }}
-      </div>
-      
-      <div class="space-y-3">
-        <BaseCard
-          v-for="(record, i) in formattedHistory"
-          :key="i"
-          padding="md"
-          @click="handleRecordClick(record)"
-          class="cursor-pointer hover:bg-slate-700/50 transition-colors"
-        >
-          <div class="flex justify-between items-center">
-            <div>
-              <div class="text-white font-bold">{{ record.gameName || 'Untitled' }}</div>
-              <div class="text-xs text-gray-400">{{ record.dateStr }}</div>
-            </div>
-            <div class="text-right">
-              <div
-                class="font-mono font-bold"
-                :class="record.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'"
-              >
-                {{ record.profit > 0 ? '+' : '' }}{{ formatNumber(record.profit) }}
-              </div>
-              <div class="text-[10px] text-gray-500">
-                Cash: {{ formatCash(record.profit, record.rate) }}
-              </div>
-            </div>
-          </div>
-        </BaseCard>
-      </div>
     </div>
     
     <!-- Settlement Detail Modal -->
@@ -137,12 +103,11 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useUserStore } from '../store/modules/user.js';
 import { useNotification } from '../composables/useNotification.js';
-import BaseCard from '../components/common/BaseCard.vue';
 import BaseButton from '../components/common/BaseButton.vue';
 import SettlementDetailModal from '../components/common/SettlementDetailModal.vue';
 import ProfitTrendChart from '../components/chart/ProfitTrendChart.vue';
 import WinRateChart from '../components/chart/WinRateChart.vue';
-import { formatNumber, formatCash, formatDate } from '../utils/formatters.js';
+import { formatNumber, formatDate } from '../utils/formatters.js';
 import { exportHistoryToCSV } from '../utils/exportReport.js';
 
 const { t } = useI18n();
@@ -152,8 +117,6 @@ const { success } = useNotification();
 const activeTab = ref('recent');
 const selectedGameCount = ref(10);
 const gameCounts = [5, 10, 20];
-
-const formattedHistory = computed(() => userStore.formattedHistory);
 
 const recentRecords = computed(() => {
   // Get sorted history (newest first)
