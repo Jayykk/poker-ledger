@@ -23,6 +23,7 @@
           <div class="flex items-center gap-2 mb-2">
             <input
               v-model="playerRecord.participating"
+              @change="handleParticipationChange(playerRecord)"
               type="checkbox"
               class="w-4 h-4 rounded border-gray-600 text-amber-600 focus:ring-amber-500"
             />
@@ -151,16 +152,14 @@ watch(() => props.players, (newPlayers) => {
   }
 }, { immediate: true });
 
-// Reset participating players' chips to 0 when unchecked
-watch(() => handRecord.value.players, (players) => {
-  players.forEach(p => {
-    if (!p.participating) {
-      p.chips = 0;
-      p.cards = [];
-      p.handType = '';
-    }
-  });
-}, { deep: true });
+// Handle participation changes - reset non-participating players
+const handleParticipationChange = (player) => {
+  if (!player.participating) {
+    player.chips = 0;
+    player.cards = [];
+    player.handType = '';
+  }
+};
 
 const totalChips = computed(() => {
   return handRecord.value.players.reduce((sum, p) => sum + (p.chips || 0), 0);
@@ -178,6 +177,12 @@ const allCards = computed(() => {
   return cards;
 });
 
+const hasDuplicateCards = computed(() => {
+  const cards = allCards.value;
+  const cardSet = new Set(cards);
+  return cardSet.size !== cards.length;
+});
+
 const validationErrors = computed(() => {
   const errors = [];
   
@@ -187,8 +192,7 @@ const validationErrors = computed(() => {
   }
   
   // Check for duplicate cards
-  const cardSet = new Set(allCards.value);
-  if (cardSet.size !== allCards.value.length) {
+  if (hasDuplicateCards.value) {
     errors.push(t('hand.errors.duplicateCards'));
   }
   

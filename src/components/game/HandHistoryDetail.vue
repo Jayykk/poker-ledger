@@ -90,7 +90,7 @@ const props = defineProps({
 
 defineEmits(['update:modelValue']);
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const getCardColor = (card) => {
   if (card.includes('♥') || card.includes('♦')) {
@@ -102,7 +102,7 @@ const getCardColor = (card) => {
 const formatDateTime = (timestamp) => {
   if (!timestamp) return '';
   const date = new Date(timestamp);
-  return date.toLocaleString('zh-TW', {
+  return date.toLocaleString(locale.value, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

@@ -12,6 +12,17 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
 
+/**
+ * Hand Store - Manages hand records for poker games
+ * 
+ * Stores and manages individual hand records within a game, including:
+ * - Community cards (0-5 cards)
+ * - Player hands (0-2 cards per player)
+ * - Hand types (flush, straight, etc.)
+ * - Chips won/lost per player
+ * 
+ * Hand records are stored in Firestore at: games/{gameId}/hands/{handId}
+ */
 export const useHandStore = defineStore('hand', () => {
   const hands = ref([]);
   const loading = ref(false);
