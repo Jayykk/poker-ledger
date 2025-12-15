@@ -185,8 +185,8 @@ watch(
       
       if (player.cards.length === 2 && handRecord.value.communityCards.length >= 3) {
         const evaluatedType = evaluateHand(player.cards, handRecord.value.communityCards);
-        // Only auto-fill if hand type is not manually set or is empty
-        if (!playerRecord.handType) {
+        // Only auto-fill if hand type is empty or not set
+        if (!playerRecord.handType || playerRecord.handType === '') {
           playerRecord.handType = evaluatedType;
         }
       }
@@ -205,8 +205,8 @@ watch(
       
       if (playerRecord.cards && playerRecord.cards.length === 2 && handRecord.value.communityCards.length >= 3) {
         const evaluatedType = evaluateHand(playerRecord.cards, handRecord.value.communityCards);
-        // Only auto-fill if hand type is not manually set or is empty
-        if (!playerRecord.handType) {
+        // Only auto-fill if hand type is empty or not set
+        if (!playerRecord.handType || playerRecord.handType === '') {
           playerRecord.handType = evaluatedType;
         }
       }

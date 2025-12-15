@@ -91,7 +91,8 @@ const getFlushSuit = (cards) => {
  */
 const getStraightHighCard = (cards) => {
   const parsed = cards.map(parseCard).filter(c => c !== null);
-  const uniqueValues = [...new Set(parsed.map(c => getRankValue(c.rank)))].sort((a, b) => b - a);
+  const values = parsed.map(c => getRankValue(c.rank));
+  const uniqueValues = [...new Set(values)].sort((a, b) => b - a);
   
   // Check for regular straight (5 consecutive cards)
   for (let i = 0; i <= uniqueValues.length - 5; i++) {
@@ -100,10 +101,15 @@ const getStraightHighCard = (cards) => {
     }
   }
   
-  // Check for A-2-3-4-5 (wheel) straight
-  if (uniqueValues.includes(14) && uniqueValues.includes(2) && 
-      uniqueValues.includes(3) && uniqueValues.includes(4) && 
-      uniqueValues.includes(5)) {
+  // Check for A-2-3-4-5 (wheel) straight - special case
+  // Need to check if we have A (14), 2, 3, 4, 5
+  const hasAce = values.includes(14);
+  const hasTwo = values.includes(2);
+  const hasThree = values.includes(3);
+  const hasFour = values.includes(4);
+  const hasFive = values.includes(5);
+  
+  if (hasAce && hasTwo && hasThree && hasFour && hasFive) {
     return 5; // In wheel, 5 is the high card
   }
   
