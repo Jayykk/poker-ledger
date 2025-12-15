@@ -129,14 +129,14 @@ const processPendingInvite = async () => {
   const invite = pendingInvite.value;
   if (!invite) return false;
   
-  // Clear pending invite
-  pendingInvite.value = null;
-  localStorage.removeItem(STORAGE_KEYS.PENDING_INVITE);
-  
   const shouldJoin = await confirm({
     message: t('game.inviteDetected'),
     type: 'info'
   });
+  
+  // Clear pending invite (user has made a decision)
+  pendingInvite.value = null;
+  localStorage.removeItem(STORAGE_KEYS.PENDING_INVITE);
   
   if (shouldJoin) {
     const success = await gameStore.joinByBinding(invite.gameId, invite.seatId);
@@ -171,6 +171,7 @@ onMounted(async () => {
           pendingInvite.value = JSON.parse(saved);
         } catch (e) {
           // Invalid JSON, remove it
+          console.warn('Failed to parse pending invite:', e);
           localStorage.removeItem(STORAGE_KEYS.PENDING_INVITE);
         }
       }
