@@ -35,6 +35,13 @@
         </button>
       </div>
 
+      <!-- Line chart for recent records -->
+      <BaseCard v-if="recentRecords.length > 0" :title="$t('report.profitTrend')" padding="md" class="mb-4">
+        <div class="relative h-48 w-full">
+          <canvas :id="recentChartId"></canvas>
+        </div>
+      </BaseCard>
+
       <!-- Recent records list -->
       <div v-if="recentRecords.length === 0" class="text-center text-gray-500 py-6">
         {{ $t('report.noRecords') }}
@@ -99,24 +106,30 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useUserStore } from '../store/modules/user.js';
 import { useNotification } from '../composables/useNotification.js';
+import { useChart } from '../composables/useChart.js';
 import BaseButton from '../components/common/BaseButton.vue';
+import BaseCard from '../components/common/BaseCard.vue';
 import SettlementDetailModal from '../components/common/SettlementDetailModal.vue';
 import ProfitTrendChart from '../components/chart/ProfitTrendChart.vue';
 import WinRateChart from '../components/chart/WinRateChart.vue';
 import { formatNumber, formatDate } from '../utils/formatters.js';
 import { exportHistoryToCSV } from '../utils/exportReport.js';
+import { CHART_COLORS } from '../utils/constants.js';
 
 const { t } = useI18n();
 const userStore = useUserStore();
 const { success } = useNotification();
+const { createLineChart } = useChart();
 
 const activeTab = ref('recent');
 const selectedGameCount = ref(10);
 const gameCounts = [5, 10, 20];
+const recentChartId = ref(`recent-chart-${Date.now()}-${Math.floor(Math.random() * 1000)}`);
+let recentChartInstance = null;
 
 const recentRecords = computed(() => {
   // Get sorted history (newest first)
@@ -148,4 +161,113 @@ const handleExportCSV = () => {
   exportHistoryToCSV(userStore.history, filename);
   success('Exported successfully!');
 };
+
+const recentChartData = computed(() => {
+  if (recentRecords.value.length === 0) {
+    return {
+      labels: [],
+      datasets: [{
+        label: 'Profit',
+        data: [],
+        borderColor: CHART_COLORS.profit,
+        backgroundColor: CHART_COLORS.background,
+        fill: true,
+        tension: 0.4
+      }]
+    };
+  }
+
+  // Calculate cumulative profit
+  let accumulated = 0;
+  const data = recentRecords.value.map(record => {
+    accumulated += record.profit;
+    return accumulated;
+  });
+
+  return {
+    labels: recentRecords.value.map((_, i) => i + 1),
+    datasets: [{
+      label: 'Cumulative Profit',
+      data,
+      borderColor: CHART_COLORS.profit,
+      backgroundColor: CHART_COLORS.background,
+      fill: true,
+      tension: 0.4
+    }]
+  };
+});
+
+const renderRecentChart = () => {
+  nextTick(() => {
+    // Destroy old chart instance before creating a new one
+    if (recentChartInstance) {
+      recentChartInstance.destroy();
+      recentChartInstance = null;
+    }
+    
+    // Only create chart if there are records
+    if (recentRecords.value.length > 0) {
+      recentChartInstance = createLineChart(recentChartId.value, recentChartData.value, {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                return `Profit: ${context.parsed.y >= 0 ? '+' : ''}${formatNumber(context.parsed.y)}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            display: true,
+            grid: {
+              display: false
+            },
+            ticks: {
+              color: '#94a3b8'
+            }
+          },
+          y: {
+            grid: {
+              color: '#334155'
+            },
+            ticks: {
+              color: '#94a3b8',
+              callback: (value) => formatNumber(value)
+            }
+          }
+        }
+      });
+    }
+  });
+};
+
+// Watch for changes in selectedGameCount to re-render chart
+watch(selectedGameCount, () => {
+  renderRecentChart();
+});
+
+// Watch for active tab changes
+watch(activeTab, (newTab) => {
+  if (newTab === 'recent') {
+    renderRecentChart();
+  }
+});
+
+onMounted(() => {
+  if (activeTab.value === 'recent') {
+    renderRecentChart();
+  }
+});
+
+onUnmounted(() => {
+  if (recentChartInstance) {
+    recentChartInstance.destroy();
+  }
+});
 </script>
