@@ -279,14 +279,17 @@ const loadSpecialHands = async () => {
       const hand = doc.data();
       if (hand.players && Array.isArray(hand.players)) {
         hand.players.forEach(player => {
-          if (player.playerId && player.handType) {
+          // Use playerUid if available (new format), otherwise fall back to playerId for backward compatibility
+          const userId = player.playerUid || player.playerId;
+          
+          if (userId && player.handType) {
             const propertyName = handTypePropertyMap[player.handType];
             
             // Only count if it's a special hand type
             if (propertyName) {
               // Initialize user's special hands object if not exists
-              if (!specialHandsCount[player.playerId]) {
-                specialHandsCount[player.playerId] = {
+              if (!specialHandsCount[userId]) {
+                specialHandsCount[userId] = {
                   total: 0,
                   royalFlush: 0,
                   straightFlush: 0,
@@ -296,8 +299,8 @@ const loadSpecialHands = async () => {
               }
               
               // Increment both the specific hand type and total
-              specialHandsCount[player.playerId][propertyName]++;
-              specialHandsCount[player.playerId].total++;
+              specialHandsCount[userId][propertyName]++;
+              specialHandsCount[userId].total++;
             }
           }
         });

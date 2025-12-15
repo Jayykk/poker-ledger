@@ -153,6 +153,7 @@ watch(() => props.players, (newPlayers) => {
     handRecord.value.players = newPlayers.map(p => ({
       playerId: p.id,
       playerName: p.name,
+      playerUid: p.uid || null,  // Store the Firebase user ID
       cards: [],
       handType: '',
       chips: 0,
@@ -298,6 +299,7 @@ const handleSave = async () => {
       .map(p => ({
         playerId: p.playerId,
         playerName: p.playerName,
+        playerUid: p.playerUid || null,  // Include the Firebase user ID
         cards: p.cards || [],
         handType: p.handType || '',
         chips: p.chips || 0
