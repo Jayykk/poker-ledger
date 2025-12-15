@@ -27,6 +27,8 @@
         v-for="(record, i) in formattedHistory"
         :key="i"
         padding="md"
+        @click="handleRecordClick(record)"
+        class="cursor-pointer hover:bg-slate-700/50 transition-colors"
       >
         <div class="flex justify-between items-center">
           <div>
@@ -47,16 +49,23 @@
         </div>
       </BaseCard>
     </div>
+    
+    <!-- Settlement Detail Modal -->
+    <SettlementDetailModal
+      v-model="showSettlementModal"
+      :record="selectedRecord"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useUserStore } from '../store/modules/user.js';
 import { useNotification } from '../composables/useNotification.js';
 import BaseCard from '../components/common/BaseCard.vue';
 import BaseButton from '../components/common/BaseButton.vue';
+import SettlementDetailModal from '../components/common/SettlementDetailModal.vue';
 import ProfitTrendChart from '../components/chart/ProfitTrendChart.vue';
 import WinRateChart from '../components/chart/WinRateChart.vue';
 import { formatNumber, formatCash } from '../utils/formatters.js';
@@ -67,6 +76,14 @@ const userStore = useUserStore();
 const { success } = useNotification();
 
 const formattedHistory = computed(() => userStore.formattedHistory);
+
+const showSettlementModal = ref(false);
+const selectedRecord = ref(null);
+
+const handleRecordClick = (record) => {
+  selectedRecord.value = record;
+  showSettlementModal.value = true;
+};
 
 const handleExportCSV = () => {
   const filename = `poker-history-${new Date().toISOString().split('T')[0]}.csv`;
