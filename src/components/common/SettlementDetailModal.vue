@@ -252,7 +252,8 @@ const getWinnerInfo = (hand) => {
 
 const getParticipants = (hand) => {
   if (!hand.players) return [];
-  return hand.players.filter(p => p.participating);
+  // Return all players - the saved data only contains participating players
+  return hand.players;
 };
 
 const getHandTypeText = (handType) => {

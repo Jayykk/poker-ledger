@@ -9,7 +9,11 @@
       <!-- Community Cards -->
       <div class="bg-slate-900 rounded-lg p-3">
         <div class="text-xs text-gray-400 mb-2">{{ $t('hand.communityCards') }}</div>
-        <CardPicker v-model="handRecord.communityCards" :max-cards="5" />
+        <CardPicker 
+          v-model="handRecord.communityCards" 
+          :max-cards="5"
+          :excluded-cards="excludedCardsForCommunity"
+        />
       </div>
 
       <!-- Players -->
@@ -41,7 +45,11 @@
             <!-- Player cards -->
             <div>
               <div class="text-xs text-gray-400 mb-1">{{ $t('hand.selectCards') }}</div>
-              <CardPicker v-model="playerRecord.cards" :max-cards="2" />
+              <CardPicker 
+                v-model="playerRecord.cards" 
+                :max-cards="2"
+                :excluded-cards="getExcludedCardsForPlayer(playerRecord.playerId)"
+              />
             </div>
 
             <!-- Hand type -->
@@ -107,6 +115,7 @@ import { useI18n } from 'vue-i18n';
 import { useHand } from '../../composables/useHand.js';
 import { useNotification } from '../../composables/useNotification.js';
 import { HAND_TYPES, CARD_LIMITS } from '../../utils/constants.js';
+import { evaluateHand } from '../../utils/pokerHandEvaluator.js';
 import BaseModal from '../common/BaseModal.vue';
 import BaseButton from '../common/BaseButton.vue';
 import CardPicker from './CardPicker.vue';
@@ -161,6 +170,50 @@ const handleParticipationChange = (player) => {
   }
 };
 
+// Auto-evaluate hand type when player cards or community cards change
+watch(
+  () => handRecord.value.players.map(p => ({ 
+    id: p.playerId, 
+    cards: [...(p.cards || [])], 
+    participating: p.participating 
+  })),
+  (newPlayers) => {
+    // Auto-evaluate hand type for each player when they have 2 cards and there are at least 3 community cards
+    newPlayers.forEach((player, index) => {
+      const playerRecord = handRecord.value.players[index];
+      if (!playerRecord.participating) return;
+      
+      if (player.cards.length === 2 && handRecord.value.communityCards.length >= 3) {
+        const evaluatedType = evaluateHand(player.cards, handRecord.value.communityCards);
+        // Only auto-fill if hand type is empty or not set
+        if (!playerRecord.handType || playerRecord.handType === '') {
+          playerRecord.handType = evaluatedType;
+        }
+      }
+    });
+  },
+  { deep: true }
+);
+
+// Also watch community cards changes
+watch(
+  () => [...handRecord.value.communityCards],
+  () => {
+    // Re-evaluate all participating players with 2 cards
+    handRecord.value.players.forEach(playerRecord => {
+      if (!playerRecord.participating) return;
+      
+      if (playerRecord.cards && playerRecord.cards.length === 2 && handRecord.value.communityCards.length >= 3) {
+        const evaluatedType = evaluateHand(playerRecord.cards, handRecord.value.communityCards);
+        // Only auto-fill if hand type is empty or not set
+        if (!playerRecord.handType || playerRecord.handType === '') {
+          playerRecord.handType = evaluatedType;
+        }
+      }
+    });
+  }
+);
+
 const totalChips = computed(() => {
   return handRecord.value.players.reduce((sum, p) => sum + (p.chips || 0), 0);
 });
@@ -176,6 +229,28 @@ const allCards = computed(() => {
   });
   return cards;
 });
+
+// Get excluded cards for community card picker (all player cards)
+const excludedCardsForCommunity = computed(() => {
+  const cards = [];
+  handRecord.value.players.forEach(p => {
+    if (p.participating && p.cards) {
+      cards.push(...p.cards);
+    }
+  });
+  return cards;
+});
+
+// Get excluded cards for a specific player (community cards + other players' cards)
+const getExcludedCardsForPlayer = (playerId) => {
+  const cards = [...handRecord.value.communityCards];
+  handRecord.value.players.forEach(p => {
+    if (p.playerId !== playerId && p.participating && p.cards) {
+      cards.push(...p.cards);
+    }
+  });
+  return cards;
+};
 
 const hasDuplicateCards = computed(() => {
   const cards = allCards.value;
