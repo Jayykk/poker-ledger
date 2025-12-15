@@ -314,14 +314,18 @@ const handleRejectInvitation = async (invitation) => {
 };
 
 onMounted(async () => {
-  // Load rooms and invitations
+  // Load rooms first
   await gameStore.loadMyRooms();
+  
+  // Load invitations and mark existing ones as seen
   loadInvitations();
   
-  // Initialize seen invitations
-  pendingInvitations.value.forEach(inv => {
-    seenInvitationIds.value.add(inv.id);
-  });
+  // Wait a bit for the first snapshot to arrive, then mark all as seen
+  setTimeout(() => {
+    pendingInvitations.value.forEach(inv => {
+      seenInvitationIds.value.add(inv.id);
+    });
+  }, 1000);
 });
 
 // Watch for new invitations and show action notifications

@@ -1,6 +1,9 @@
 <template>
   <Teleport to="body">
-    <div class="fixed top-20 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-3 pointer-events-none w-full max-w-md px-4">
+    <div 
+      class="fixed top-20 left-1/2 -translate-x-1/2 flex flex-col gap-3 pointer-events-none w-full max-w-md px-4"
+      :style="{ zIndex: Z_INDEX.ACTION_NOTIFICATION }"
+    >
       <TransitionGroup name="action-notification">
         <div
           v-for="notification in actionNotifications"
@@ -71,6 +74,7 @@
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useNotificationStore } from '../../store/modules/notification.js';
+import { Z_INDEX } from '../../utils/constants.js';
 
 const { t } = useI18n();
 const notificationStore = useNotificationStore();

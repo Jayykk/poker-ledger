@@ -86,14 +86,19 @@ export const useNotificationStore = defineStore('notification', () => {
   // Action notification functions
   const addActionNotification = (options) => {
     const id = ++actionNotificationIdCounter;
+    
+    // Store callbacks separately to avoid closure issues
+    const onConfirmCallback = options.onConfirm || null;
+    const onDeclineCallback = options.onDecline || null;
+    
     const notification = {
       id,
       type: options.type || 'custom',
       title: options.title || '',
       message: options.message || '',
       duration: options.duration || 30000, // Default 30 seconds
-      onConfirm: options.onConfirm || null,
-      onDecline: options.onDecline || null,
+      onConfirm: onConfirmCallback,
+      onDecline: onDeclineCallback,
       createdAt: Date.now()
     };
 
@@ -104,9 +109,9 @@ export const useNotificationStore = defineStore('notification', () => {
       setTimeout(() => {
         const exists = actionNotifications.value.find(n => n.id === id);
         if (exists) {
-          // Auto-expire is treated as decline
-          if (notification.onDecline) {
-            notification.onDecline();
+          // Auto-expire is treated as decline - call the stored callback
+          if (onDeclineCallback) {
+            onDeclineCallback();
           }
           removeActionNotification(id);
         }
