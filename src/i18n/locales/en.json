@@ -22,6 +22,21 @@
     "max": "Max",
     "error": "Error"
   },
+  "loading": {
+    "creating": "Creating...",
+    "joining": "Joining...",
+    "settling": "Settling...",
+    "closing": "Closing...",
+    "saving": "Saving...",
+    "loading": "Loading...",
+    "loggingIn": "Logging in...",
+    "registering": "Registering...",
+    "checking": "Checking...",
+    "accepting": "Accepting...",
+    "rejecting": "Rejecting...",
+    "binding": "Binding...",
+    "removing": "Removing..."
+  },
   "auth": {
     "login": "Login",
     "register": "Register",

@@ -1,7 +1,7 @@
 <template>
-  <div class="flex items-center justify-center" :class="containerClasses">
+  <div class="flex flex-col items-center justify-center" :class="containerClasses">
     <div :class="spinnerClasses"></div>
-    <span v-if="text" class="ml-2 text-gray-400">{{ text }}</span>
+    <span v-if="text" :class="textClasses">{{ text }}</span>
   </div>
 </template>
 
@@ -27,16 +27,24 @@ const props = defineProps({
 const sizeMap = {
   sm: 16,
   md: 24,
-  lg: 32
+  lg: 48
 };
 
 const containerClasses = computed(() => {
-  return props.fullScreen ? 'h-screen w-screen fixed inset-0 bg-slate-900/80 z-50' : '';
+  if (props.fullScreen) {
+    return 'h-screen w-screen fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[9999] pointer-events-auto';
+  }
+  return '';
 });
 
 const spinnerClasses = computed(() => {
   const size = sizeMap[props.size];
-  return `loader border-2 border-gray-300 border-t-amber-500 rounded-full animate-spin`;
+  const borderWidth = props.fullScreen ? 4 : 2;
+  return `loader border-${borderWidth} border-gray-600 border-t-amber-500 rounded-full animate-spin`;
+});
+
+const textClasses = computed(() => {
+  return props.fullScreen ? 'mt-4 text-white text-base' : 'ml-2 text-gray-400';
 });
 </script>
 

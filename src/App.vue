@@ -1,6 +1,10 @@
 <template>
   <div id="app" class="relative min-h-screen flex flex-col" :data-theme="theme">
-    <LoadingSpinner v-if="loading" fullScreen />
+    <!-- Global loading overlay -->
+    <LoadingSpinner v-if="globalLoading" fullScreen :text="loadingText" />
+    
+    <!-- Initial loading -->
+    <LoadingSpinner v-else-if="loading" fullScreen />
     
     <!-- Main content -->
     <router-view v-slot="{ Component }">
@@ -88,6 +92,7 @@ import { useAuthStore } from './store/modules/auth.js';
 import { useGameStore } from './store/modules/game.js';
 import { useUserStore } from './store/modules/user.js';
 import { useNotificationStore } from './store/modules/notification.js';
+import { useLoadingStore } from './store/modules/loading.js';
 import { useConfirm } from './composables/useConfirm.js';
 import LoadingSpinner from './components/common/LoadingSpinner.vue';
 import ToastNotification from './components/common/ToastNotification.vue';
@@ -101,6 +106,7 @@ const authStore = useAuthStore();
 const gameStore = useGameStore();
 const userStore = useUserStore();
 const notificationStore = useNotificationStore();
+const loadingStore = useLoadingStore();
 const { confirm } = useConfirm();
 
 const loading = ref(true);
@@ -109,6 +115,8 @@ const theme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const isInGame = computed(() => gameStore.isInGame);
 const confirmDialog = computed(() => notificationStore.confirmDialog);
+const globalLoading = computed(() => loadingStore.isLoading);
+const loadingText = computed(() => loadingStore.loadingText);
 
 const handleConfirm = (result) => {
   notificationStore.resolveConfirm(result);
