@@ -45,7 +45,13 @@
             v-for="rank in RANKS"
             :key="rank"
             @click="selectRank(rank)"
-            class="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition text-sm font-bold"
+            :disabled="isRankDisabled(rank)"
+            :class="[
+              'p-2 rounded-lg text-sm font-bold transition',
+              isRankDisabled(rank)
+                ? 'bg-slate-800 text-gray-600 cursor-not-allowed opacity-50'
+                : 'bg-slate-700 hover:bg-slate-600 text-white'
+            ]"
           >
             {{ rank }}
           </button>
@@ -71,6 +77,10 @@ const props = defineProps({
   maxCards: {
     type: Number,
     default: 5
+  },
+  excludedCards: {
+    type: Array,
+    default: () => []
   }
 });
 
@@ -82,6 +92,13 @@ const selectedSuit = ref(null);
 watch(() => props.modelValue, (newVal) => {
   selectedCards.value = [...newVal];
 });
+
+// Check if a specific rank + current suit is excluded
+const isRankDisabled = (rank) => {
+  if (!selectedSuit.value) return false;
+  const card = rank + SUITS[selectedSuit.value];
+  return selectedCards.value.includes(card) || props.excludedCards.includes(card);
+};
 
 const getSuitName = (suit) => {
   const names = {
@@ -108,10 +125,14 @@ const selectRank = (rank) => {
   if (selectedCards.value.length >= props.maxCards) return;
   
   const card = rank + SUITS[selectedSuit.value];
-  if (!selectedCards.value.includes(card)) {
-    selectedCards.value.push(card);
-    emit('update:modelValue', selectedCards.value);
+  
+  // Check if card is already selected or excluded
+  if (selectedCards.value.includes(card) || props.excludedCards.includes(card)) {
+    return;
   }
+  
+  selectedCards.value.push(card);
+  emit('update:modelValue', selectedCards.value);
   selectedSuit.value = null;
 };
 
