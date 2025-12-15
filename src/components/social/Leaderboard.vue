@@ -34,13 +34,6 @@
       <div class="text-xs text-gray-400 mb-2">{{ $t('friends.handType') }}</div>
       <div class="flex gap-2 flex-wrap">
         <button
-          @click="selectedHandType = 'total'"
-          class="px-3 py-1 rounded-lg text-sm transition"
-          :class="selectedHandType === 'total' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
-        >
-          {{ $t('friends.allHands') }}
-        </button>
-        <button
           @click="selectedHandType = 'royalFlush'"
           class="px-3 py-1 rounded-lg text-sm transition"
           :class="selectedHandType === 'royalFlush' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
@@ -67,6 +60,13 @@
           :class="selectedHandType === 'fullHouse' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
         >
           {{ $t('friends.fullHouse') }}
+        </button>
+        <button
+          @click="selectedHandType = 'total'"
+          class="px-3 py-1 rounded-lg text-sm transition"
+          :class="selectedHandType === 'total' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
+        >
+          {{ $t('friends.allHands') }}
         </button>
       </div>
     </div>
@@ -111,7 +111,8 @@
             {{ entry.winRate }}%
           </div>
           <div v-else-if="selectedSort === 'specialHands'"
-            class="text-xl font-mono font-bold text-amber-400"
+            class="text-xl font-mono font-bold text-amber-400 cursor-pointer hover:text-amber-300 transition-colors"
+            @click="handleViewHandDetails(entry)"
           >
             {{ entry.specialHands }}
           </div>
@@ -127,6 +128,14 @@
         No data available
       </div>
     </div>
+    
+    <!-- Hand Details Modal -->
+    <HandDetailsModal
+      v-model="showHandDetailsModal"
+      :userId="selectedUserId"
+      :userName="selectedUserName"
+      :handType="selectedHandType"
+    />
   </BaseCard>
 </template>
 
@@ -137,6 +146,7 @@ import { collection, getDocs, query, collectionGroup } from 'firebase/firestore'
 import { db } from '../../firebase-init.js';
 import { useAuth } from '../../composables/useAuth.js';
 import BaseCard from '../common/BaseCard.vue';
+import HandDetailsModal from './HandDetailsModal.vue';
 import { formatNumber } from '../../utils/formatters.js';
 import { HAND_TYPES } from '../../utils/constants.js';
 
@@ -148,6 +158,9 @@ const selectedSort = ref('profit');
 const selectedHandType = ref('total'); // Filter for special hands - use 'total' instead of 'all'
 const leaderboardData = ref([]);
 const specialHandsData = ref({});
+const showHandDetailsModal = ref(false);
+const selectedUserId = ref('');
+const selectedUserName = ref('');
 
 const periods = [
   { value: 'thisMonth', label: 'thisMonth' },
@@ -311,6 +324,12 @@ const loadSpecialHands = async () => {
   } catch (err) {
     console.error('Load special hands error:', err);
   }
+};
+
+const handleViewHandDetails = (entry) => {
+  selectedUserId.value = entry.uid;
+  selectedUserName.value = entry.name;
+  showHandDetailsModal.value = true;
 };
 
 onMounted(() => {

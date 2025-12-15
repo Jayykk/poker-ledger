@@ -13,37 +13,47 @@
     <!-- Settings -->
     <div class="space-y-3 mt-8 max-w-sm mx-auto">
       <!-- Upgrade Account for Guests -->
-      <div v-if="isGuest" class="bg-slate-800 p-5 rounded-2xl border border-amber-600 space-y-3 mb-4">
-        <h3 class="text-white font-bold text-lg">{{ $t('profile.upgradeAccount') }}</h3>
-        <p class="text-gray-400 text-sm">{{ $t('profile.upgradeDescription') }}</p>
+      <div v-if="isGuest" class="bg-slate-800 p-5 rounded-2xl border border-amber-600 mb-4">
+        <div class="flex justify-between items-center cursor-pointer" @click="upgradeExpanded = !upgradeExpanded">
+          <h3 class="text-white font-bold text-lg">{{ $t('profile.upgradeAccount') }}</h3>
+          <button class="text-amber-400 transition-transform duration-300" :class="upgradeExpanded ? 'rotate-180' : ''">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+        </div>
         
-        <BaseInput
-          v-model="upgradeForm.email"
-          type="email"
-          :placeholder="$t('auth.email')"
-        />
-        <BaseInput
-          v-model="upgradeForm.password"
-          type="password"
-          :placeholder="$t('auth.password')"
-        />
-        <BaseInput
-          v-model="upgradeForm.name"
-          type="text"
-          :placeholder="$t('profile.lastChanceToRename')"
-        />
-        
-        <BaseButton
-          @click="handleUpgrade"
-          :loading="upgradeLoading"
-          :disabled="upgradeLoading"
-          variant="secondary"
-          fullWidth
-        >
-          {{ $t('profile.linkEmail') }}
-        </BaseButton>
-        
-        <div v-if="upgradeError" class="text-rose-400 text-xs">{{ upgradeError }}</div>
+        <Transition name="expand">
+          <div v-if="upgradeExpanded" class="space-y-3 mt-3">
+            <p class="text-gray-400 text-sm">{{ $t('profile.upgradeDescription') }}</p>
+            
+            <BaseInput
+              v-model="upgradeForm.email"
+              type="email"
+              :placeholder="$t('auth.email')"
+            />
+            <BaseInput
+              v-model="upgradeForm.password"
+              type="password"
+              :placeholder="$t('auth.password')"
+            />
+            <BaseInput
+              v-model="upgradeForm.name"
+              type="text"
+              :placeholder="$t('profile.lastChanceToRename')"
+            />
+            
+            <BaseButton
+              @click="handleUpgrade"
+              :loading="upgradeLoading"
+              :disabled="upgradeLoading"
+              variant="secondary"
+              fullWidth
+            >
+              {{ $t('profile.linkEmail') }}
+            </BaseButton>
+            
+            <div v-if="upgradeError" class="text-rose-400 text-xs">{{ upgradeError }}</div>
+          </div>
+        </Transition>
       </div>
 
       <!-- Language -->
@@ -161,6 +171,7 @@ const upgradeForm = ref({
 });
 const upgradeLoading = ref(false);
 const upgradeError = ref('');
+const upgradeExpanded = ref(false);
 
 const handleLanguageChange = () => {
   locale.value = selectedLanguage.value;
@@ -227,3 +238,23 @@ const handleLogout = async () => {
   router.push('/login');
 };
 </script>
+
+<style scoped>
+.expand-enter-active,
+.expand-leave-active {
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.expand-enter-from,
+.expand-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+.expand-enter-to,
+.expand-leave-from {
+  max-height: 500px;
+  opacity: 1;
+}
+</style>
