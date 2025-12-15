@@ -86,6 +86,9 @@ export const EXPORT_FORMATS = {
 // Maximum players per game
 export const MAX_PLAYERS = 10;
 
+// Special hand types for filtering
+export const SPECIAL_HAND_TYPES = ['royal_flush', 'straight_flush', 'four_of_a_kind', 'full_house'];
+
 // Minimum name length
 export const MIN_NAME_LENGTH = 1;
 export const MAX_NAME_LENGTH = 20;

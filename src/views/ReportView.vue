@@ -128,7 +128,7 @@ const { createLineChart } = useChart();
 const activeTab = ref('recent');
 const selectedGameCount = ref(10);
 const gameCounts = [5, 10, 20];
-const recentChartId = ref(`recent-chart-${Math.random().toString(36).substr(2, 9)}`);
+const recentChartId = ref(`recent-chart-${Date.now()}-${Math.floor(Math.random() * 1000)}`);
 let recentChartInstance = null;
 
 const recentRecords = computed(() => {

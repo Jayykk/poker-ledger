@@ -69,7 +69,7 @@ import { collection, query, where, getDocs, limit, orderBy, collectionGroup } fr
 import { db } from '../../firebase-init.js';
 import BaseModal from '../common/BaseModal.vue';
 import { formatDate } from '../../utils/formatters.js';
-import { SUITS } from '../../utils/constants.js';
+import { SUITS, SPECIAL_HAND_TYPES } from '../../utils/constants.js';
 
 const props = defineProps({
   modelValue: {
@@ -125,6 +125,10 @@ const loadHandDetails = async () => {
   
   try {
     // Query all hands from all games
+    // Note: Firestore collectionGroup queries don't support compound where clauses on player data
+    // since players are in an array. For optimization with large datasets, consider:
+    // 1. Creating a separate collection for special hands indexed by userId
+    // 2. Implementing server-side filtering via Cloud Functions
     const handsQuery = query(
       collectionGroup(db, 'hands'),
       orderBy('createdAt', 'desc')
@@ -159,8 +163,7 @@ const loadHandDetails = async () => {
             }
             
             // Only include special hands (royal flush, straight flush, four of a kind, full house)
-            const specialHandTypes = ['royal_flush', 'straight_flush', 'four_of_a_kind', 'full_house'];
-            if (specialHandTypes.includes(player.handType)) {
+            if (SPECIAL_HAND_TYPES.includes(player.handType)) {
               userHands.push({
                 handType: player.handType,
                 playerCards: player.cards || [],
