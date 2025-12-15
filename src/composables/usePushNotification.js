@@ -1,62 +1,36 @@
 import { ref, computed } from 'vue';
 import { STORAGE_KEYS } from '../utils/constants.js';
+import { useNotificationStore } from '../store/modules/notification.js';
 
 /**
- * Composable for push notifications
+ * Composable for push notifications (now using in-app action notifications)
  */
 export function usePushNotification() {
-  const notificationPermission = ref(
-    typeof Notification !== 'undefined' ? Notification.permission : 'denied'
-  );
+  const notificationStore = useNotificationStore();
   
   const notificationsEnabled = ref(
-    localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED) === 'true'
+    localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED) !== 'false'
   );
   
-  const isSupported = computed(() => 'Notification' in window);
+  // In-app notifications are always supported
+  const isSupported = computed(() => true);
   
   const canSendNotifications = computed(() => {
-    return isSupported.value && 
-           notificationPermission.value === 'granted' && 
-           notificationsEnabled.value;
+    return notificationsEnabled.value;
   });
 
   /**
-   * Request notification permission
+   * Request notification permission (no longer needed, but kept for backward compatibility)
    */
   const requestPermission = async () => {
-    if (!isSupported.value) {
-      console.warn('This browser does not support notifications');
-      return { success: false, error: 'unsupported' };
-    }
-
-    try {
-      // Request permission - this is standard across all modern browsers
-      const permission = await Notification.requestPermission();
-      
-      notificationPermission.value = permission;
-      
-      if (permission === 'granted') {
-        notificationsEnabled.value = true;
-        localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED, 'true');
-        return { success: true };
-      } else if (permission === 'denied') {
-        // User explicitly denied, disable notifications
-        notificationsEnabled.value = false;
-        localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED, 'false');
-        return { success: false, error: 'denied' };
-      }
-      
-      // Permission is 'default' (user dismissed prompt without choosing)
-      return { success: false, error: 'default' };
-    } catch (err) {
-      console.error('Request notification permission error:', err);
-      return { success: false, error: 'error' };
-    }
+    // In-app notifications don't need browser permission
+    notificationsEnabled.value = true;
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED, 'true');
+    return { success: true };
   };
 
   /**
-   * Send push notification
+   * Send in-app action notification
    */
   const sendNotification = (title, options = {}) => {
     if (!canSendNotifications.value) {
@@ -64,13 +38,16 @@ export function usePushNotification() {
     }
 
     try {
-      const notification = new Notification(title, {
-        icon: '/poker-ledger/icon.svg',
-        badge: '/poker-ledger/icon.svg',
-        ...options
+      const id = notificationStore.addActionNotification({
+        type: options.type || 'custom',
+        title,
+        message: options.body || options.message || '',
+        duration: options.duration || 30000,
+        onConfirm: options.onConfirm || null,
+        onDecline: options.onDecline || null
       });
       
-      return notification;
+      return id;
     } catch (err) {
       console.error('Send notification error:', err);
       return null;
@@ -78,28 +55,31 @@ export function usePushNotification() {
   };
 
   /**
-   * Send game invitation notification
+   * Send game invitation notification with Accept/Decline buttons
    */
-  const sendInvitationNotification = (fromName, roomName) => {
+  const sendInvitationNotification = (fromName, roomName, onConfirm, onDecline) => {
     // Sanitize inputs to prevent XSS
     const sanitizedFromName = String(fromName || 'Someone').replace(/[<>]/g, '').substring(0, 50);
     const sanitizedRoomName = String(roomName || 'a game').replace(/[<>]/g, '').substring(0, 50);
     
     return sendNotification('Game Invitation', {
+      type: 'invitation',
       body: `${sanitizedFromName} invited you to join ${sanitizedRoomName}`,
-      tag: 'invitation',
-      requireInteraction: true
+      duration: 30000,
+      onConfirm: onConfirm || null,
+      onDecline: onDecline || null
     });
   };
 
   /**
-   * Send game settlement notification
+   * Send game settlement notification (display only, no actions)
    */
   const sendSettlementNotification = (profit) => {
     const profitText = profit >= 0 ? `+${profit}` : `${profit}`;
     return sendNotification('Game Settled', {
+      type: 'settlement',
       body: `Your final profit: ${profitText}`,
-      tag: 'settlement'
+      duration: 10000 // Shorter duration for info-only notifications
     });
   };
 
@@ -107,44 +87,13 @@ export function usePushNotification() {
    * Toggle notifications on/off
    */
   const toggleNotifications = async () => {
-    if (!isSupported.value) {
-      console.warn('Notifications are not supported in this browser');
-      return { success: false, error: 'unsupported' };
-    }
-
-    // If user is trying to enable notifications
-    if (!notificationsEnabled.value) {
-      // Check current permission status
-      const currentPermission = Notification.permission;
-      
-      if (currentPermission === 'denied') {
-        // Permission was previously denied, cannot request again
-        // User must manually enable in browser settings
-        console.warn('Notification permission was denied. Please enable in browser settings.');
-        return { success: false, error: 'denied' };
-      }
-      
-      if (currentPermission === 'granted') {
-        // Permission already granted, just enable
-        notificationsEnabled.value = true;
-        localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED, 'true');
-        notificationPermission.value = 'granted';
-        return { success: true };
-      }
-      
-      // Permission not yet requested, request it
-      const result = await requestPermission();
-      return result;
-    } else {
-      // Disabling notifications
-      notificationsEnabled.value = false;
-      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED, 'false');
-      return { success: true };
-    }
+    // Toggle the setting
+    notificationsEnabled.value = !notificationsEnabled.value;
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED, String(notificationsEnabled.value));
+    return { success: true };
   };
 
   return {
-    notificationPermission,
     notificationsEnabled,
     isSupported,
     canSendNotifications,

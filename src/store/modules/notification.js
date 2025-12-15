@@ -2,9 +2,11 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
 let toastIdCounter = 0;
+let actionNotificationIdCounter = 0;
 
 export const useNotificationStore = defineStore('notification', () => {
   const toasts = ref([]);
+  const actionNotifications = ref([]);
   const confirmDialog = ref({
     show: false,
     title: '',
@@ -81,6 +83,66 @@ export const useNotificationStore = defineStore('notification', () => {
     confirmDialog.value.resolve = null;
   };
 
+  // Action notification functions
+  const addActionNotification = (options) => {
+    const id = ++actionNotificationIdCounter;
+    
+    // Store callbacks separately to avoid closure issues
+    const onConfirmCallback = options.onConfirm || null;
+    const onDeclineCallback = options.onDecline || null;
+    
+    const notification = {
+      id,
+      type: options.type || 'custom',
+      title: options.title || '',
+      message: options.message || '',
+      duration: options.duration || 30000, // Default 30 seconds
+      onConfirm: onConfirmCallback,
+      onDecline: onDeclineCallback,
+      createdAt: Date.now()
+    };
+
+    actionNotifications.value.push(notification);
+
+    // Auto-remove after duration (treat as decline)
+    if (notification.duration > 0) {
+      setTimeout(() => {
+        const exists = actionNotifications.value.find(n => n.id === id);
+        if (exists) {
+          // Auto-expire is treated as decline - call the stored callback
+          if (onDeclineCallback) {
+            onDeclineCallback();
+          }
+          removeActionNotification(id);
+        }
+      }, notification.duration);
+    }
+
+    return id;
+  };
+
+  const removeActionNotification = (id) => {
+    const index = actionNotifications.value.findIndex(n => n.id === id);
+    if (index > -1) {
+      actionNotifications.value.splice(index, 1);
+    }
+  };
+
+  const handleActionResponse = (id, accepted) => {
+    const notification = actionNotifications.value.find(n => n.id === id);
+    if (!notification) return;
+
+    // Call the appropriate callback
+    if (accepted && notification.onConfirm) {
+      notification.onConfirm();
+    } else if (!accepted && notification.onDecline) {
+      notification.onDecline();
+    }
+
+    // Remove the notification
+    removeActionNotification(id);
+  };
+
   return {
     // Toast
     toasts,
@@ -94,6 +156,12 @@ export const useNotificationStore = defineStore('notification', () => {
     // Confirm
     confirmDialog,
     confirm,
-    resolveConfirm
+    resolveConfirm,
+
+    // Action notifications
+    actionNotifications,
+    addActionNotification,
+    removeActionNotification,
+    handleActionResponse
   };
 });

@@ -185,5 +185,9 @@
     "reject": "Reject",
     "accepted": "Invitation accepted!",
     "rejected": "Invitation rejected"
+  },
+  "notification": {
+    "accept": "Accept",
+    "decline": "Decline"
   }
 }

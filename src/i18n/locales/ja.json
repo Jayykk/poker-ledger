@@ -185,5 +185,9 @@
     "reject": "拒否",
     "accepted": "招待を承認しました！",
     "rejected": "招待を拒否しました"
+  },
+  "notification": {
+    "accept": "承認",
+    "decline": "拒否"
   }
 }

@@ -88,3 +88,10 @@ export const MAX_PLAYERS = 10;
 // Minimum name length
 export const MIN_NAME_LENGTH = 1;
 export const MAX_NAME_LENGTH = 20;
+
+// Z-index layers
+export const Z_INDEX = {
+  TOAST: 100,
+  ACTION_NOTIFICATION: 200,
+  MODAL: 300
+};

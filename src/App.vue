@@ -63,6 +63,9 @@
     <!-- Toast notifications -->
     <ToastNotification />
 
+    <!-- Action notifications -->
+    <ActionNotification />
+
     <!-- Confirm dialog -->
     <ConfirmDialog
       v-model="confirmDialog.show"
@@ -88,6 +91,7 @@ import { useNotificationStore } from './store/modules/notification.js';
 import { useConfirm } from './composables/useConfirm.js';
 import LoadingSpinner from './components/common/LoadingSpinner.vue';
 import ToastNotification from './components/common/ToastNotification.vue';
+import ActionNotification from './components/common/ActionNotification.vue';
 import ConfirmDialog from './components/common/ConfirmDialog.vue';
 import { STORAGE_KEYS, THEMES } from './utils/constants.js';
 
