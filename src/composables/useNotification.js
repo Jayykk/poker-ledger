@@ -1,47 +1,25 @@
-import { ref } from 'vue';
+import { useNotificationStore } from '../store/modules/notification.js';
 
 /**
  * Composable for notifications/toasts
  */
 export function useNotification() {
-  const notification = ref({
-    show: false,
-    message: '',
-    type: 'info' // 'success', 'error', 'warning', 'info'
-  });
-
-  const showNotification = (message, type = 'info', duration = 3000) => {
-    notification.value = {
-      show: true,
-      message,
-      type
-    };
-
-    if (duration > 0) {
-      setTimeout(() => {
-        hideNotification();
-      }, duration);
-    }
-  };
-
-  const hideNotification = () => {
-    notification.value.show = false;
-  };
+  const notificationStore = useNotificationStore();
 
   const success = (message, duration = 3000) => {
-    showNotification(message, 'success', duration);
+    return notificationStore.success(message, duration);
   };
 
   const error = (message, duration = 3000) => {
-    showNotification(message, 'error', duration);
+    return notificationStore.error(message, duration);
   };
 
   const warning = (message, duration = 3000) => {
-    showNotification(message, 'warning', duration);
+    return notificationStore.warning(message, duration);
   };
 
   const info = (message, duration = 3000) => {
-    showNotification(message, 'info', duration);
+    return notificationStore.info(message, duration);
   };
 
   /**
@@ -86,9 +64,6 @@ export function useNotification() {
   };
 
   return {
-    notification,
-    showNotification,
-    hideNotification,
     success,
     error,
     warning,

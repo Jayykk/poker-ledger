@@ -15,7 +15,10 @@
     "next": "下一步",
     "submit": "提交",
     "or": "或",
-    "unknown": "未知"
+    "unknown": "未知",
+    "copied": "已复制",
+    "copySuccess": "复制成功",
+    "copyFailed": "复制失败"
   },
   "auth": {
     "login": "登录",
@@ -87,7 +90,22 @@
     "confirmClose": "确定要「解散」房间吗？数据将直接删除。",
     "confirmSettlement": "确认结算并封存?",
     "confirmBind": "绑定此座位?",
-    "confirmRemove": "移除?"
+    "confirmRemove": "移除?",
+    "createFailed": "开局失败",
+    "onlyHostCanClose": "只有房主才能解散房间",
+    "closeFailed": "解散失败",
+    "bindFailed": "绑定失败",
+    "joinFailed": "加入失败",
+    "settlementFailed": "结算失败",
+    "gameEndedOrClosed": "牌局已结束或被解散",
+    "idCopied": "ID 已复制",
+    "linkCopied": "已复制链接",
+    "reportCopied": "已复制",
+    "pleaseEnterCode": "请输入 ID",
+    "cannotJoin": "无法加入",
+    "inviteDetected": "检测到邀请链接，是否入座该局？",
+    "pleaseLoginFirst": "请先选择登录方式",
+    "noActiveGameAlert": "目前无进行中的牌局"
   },
   "report": {
     "title": "报表分析",
@@ -138,7 +156,8 @@
     "inviteToRoom": "邀请进房",
     "selectRoom": "选择房间",
     "noActiveRooms": "目前没有活跃房间，请先创建房间。",
-    "invitationSent": "邀请已发送！"
+    "invitationSent": "邀请已发送！",
+    "confirmRemove": "确定要移除好友吗？"
   },
   "chat": {
     "title": "聊天室",

@@ -2,6 +2,21 @@ import { collection, doc, addDoc, updateDoc, deleteDoc, arrayUnion, runTransacti
 import { db } from './firebase-init.js';
 import { state, setLoading, setView } from './store.js';
 
+// Helper function to show notifications (non-blocking)
+const showNotification = (message, type = 'info') => {
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    window.dispatchEvent(new CustomEvent('show-notification', { 
+        detail: { message, type } 
+    }));
+};
+
+// Helper function to show confirmation (uses a simpler approach for legacy code)
+const showConfirm = (message) => {
+    // For legacy compatibility, still using confirm but with a note
+    // In a full migration, this would use a custom modal
+    return confirm(message);
+};
+
 export const createGame = async (name) => {
     if (!state.user) return null;
     setLoading(true);
@@ -24,7 +39,7 @@ export const createGame = async (name) => {
         });
         return docRef.id;
     } catch (e) {
-        alert('開局失敗: ' + e.message);
+        showNotification('開局失敗: ' + e.message, 'error');
         return null;
     } finally {
         setLoading(false);
@@ -35,10 +50,10 @@ export const closeGame = async () => {
     if (!state.gameId) return;
     // Check if current user is the host
     if (state.game.hostUid !== state.user.uid) {
-        alert('只有房主才能解散房間');
+        showNotification('只有房主才能解散房間', 'error');
         return;
     }
-    if (!confirm('確定要「解散」房間嗎？資料將直接刪除。')) return;
+    if (!showConfirm('確定要「解散」房間嗎？資料將直接刪除。')) return;
     setLoading(true);
     try {
         console.log("【Game】執行刪除 Doc:", state.gameId); // LOG 7
@@ -46,7 +61,7 @@ export const closeGame = async () => {
         console.log("【Game】刪除成功"); // LOG 8
     } catch (e) {
         console.error("【Game】刪除失敗:", e);
-        alert('解散失敗: ' + e.message);
+        showNotification('解散失敗: ' + e.message, 'error');
     } finally {
         setLoading(false);
     }
@@ -103,7 +118,7 @@ export const joinByBinding = async (gameId, playerId) => {
         });
         return true;
     } catch (e) {
-        alert('綁定失敗: ' + e);
+        showNotification('綁定失敗: ' + e, 'error');
         return false;
     } finally {
         setLoading(false);
@@ -140,7 +155,7 @@ export const joinAsNewPlayer = async (gameId, buyIn) => {
         });
         return true;
     } catch (e) {
-        alert('加入失敗: ' + e);
+        showNotification('加入失敗: ' + e, 'error');
         return false;
     } finally {
         setLoading(false);
@@ -161,13 +176,13 @@ export const savePlayer = async (p) => {
 };
 
 export const removePlayer = async (p) => {
-    if(!confirm('移除?')) return;
+    if(!showConfirm('移除?')) return;
     const updatedPlayers = state.game.players.filter(old => old.id !== p.id);
     await updateDoc(doc(db, 'games', state.gameId), { players: updatedPlayers });
 };
 
 export const bindSeat = async (p) => {
-    if(!confirm('綁定此座位?')) return;
+    if(!showConfirm('綁定此座位?')) return;
     const updatedPlayers = state.game.players.map(old => 
         old.id === p.id ? { ...old, name: state.user.displayName || 'Guest', uid: state.user.uid } : old
     );
@@ -175,7 +190,7 @@ export const bindSeat = async (p) => {
 };
 
 export const settleGame = async (rate) => {
-    if (!confirm('確認結算並封存?')) return;
+    if (!showConfirm('確認結算並封存?')) return;
     setLoading(true);
     try {
         await runTransaction(db, async (t) => {
@@ -201,7 +216,7 @@ export const settleGame = async (rate) => {
         setView('ReportView');
         state.game = null;
     } catch (e) {
-        alert('結算失敗: ' + e.message);
+        showNotification('結算失敗: ' + e.message, 'error');
     } finally {
         setLoading(false);
     }

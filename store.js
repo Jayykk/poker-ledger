@@ -24,7 +24,12 @@ export const setView = (viewName) => {
         return;
     }
     if (viewName === 'GameView' && !state.game) {
-        alert("目前無進行中的牌局");
+        // Using console.warn instead of alert for non-blocking notification
+        console.warn("目前無進行中的牌局");
+        // Could also dispatch a custom event for the UI to show a toast
+        window.dispatchEvent(new CustomEvent('show-notification', { 
+            detail: { message: "目前無進行中的牌局", type: 'warning' } 
+        }));
         return;
     }
     state.view = viewName;
