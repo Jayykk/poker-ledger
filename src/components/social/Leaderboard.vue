@@ -75,8 +75,8 @@
           </div>
           <div class="text-xs text-gray-400">
             <span v-if="selectedSort === 'profit'">{{ entry.winRate }}% win rate</span>
-            <span v-else-if="selectedSort === 'winRate'">{{ $t('friends.sortByWinRate') }}</span>
-            <span v-else-if="selectedSort === 'specialHands'">{{ $t('friends.specialHands') }}</span>
+            <span v-else-if="selectedSort === 'winRate'">{{ formatNumber(entry.profit) }} profit</span>
+            <span v-else-if="selectedSort === 'specialHands'">{{ entry.winRate }}% win rate</span>
           </div>
         </div>
       </div>

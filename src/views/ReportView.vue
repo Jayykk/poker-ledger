@@ -159,8 +159,8 @@ const recentRecords = computed(() => {
   // Get sorted history (newest first)
   const sorted = [...userStore.history]
     .sort((a, b) => {
-      const dateA = typeof a.createdAt === 'number' ? a.createdAt : Date.parse(a.createdAt || a.date);
-      const dateB = typeof b.createdAt === 'number' ? b.createdAt : Date.parse(b.createdAt || b.date);
+      const dateA = typeof a.createdAt === 'number' ? a.createdAt : (Date.parse(a.createdAt || a.date) || 0);
+      const dateB = typeof b.createdAt === 'number' ? b.createdAt : (Date.parse(b.createdAt || b.date) || 0);
       return dateB - dateA;
     })
     .slice(0, selectedGameCount.value);
