@@ -55,12 +55,10 @@
             class="h-1 bg-slate-700 relative overflow-hidden"
           >
             <div
-              class="absolute inset-0 transition-all ease-linear"
+              ref="progressBars"
+              class="absolute inset-0 h-full transition-none"
               :class="progressBarClass(notification.type)"
-              :style="{ 
-                width: getProgressWidth(notification) + '%',
-                transitionDuration: notification.duration + 'ms'
-              }"
+              :data-notification-id="notification.id"
             ></div>
           </div>
         </div>
@@ -70,7 +68,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useNotificationStore } from '../../store/modules/notification.js';
 
@@ -78,17 +76,7 @@ const { t } = useI18n();
 const notificationStore = useNotificationStore();
 
 const actionNotifications = computed(() => notificationStore.actionNotifications);
-
-// Calculate progress width based on elapsed time
-const getProgressWidth = (notification) => {
-  if (!notification.duration || notification.duration <= 0) return 0;
-  
-  const elapsed = Date.now() - notification.createdAt;
-  const remaining = Math.max(0, notification.duration - elapsed);
-  const percentage = (remaining / notification.duration) * 100;
-  
-  return Math.max(0, Math.min(100, percentage));
-};
+const progressBars = ref([]);
 
 const handleConfirm = (notification) => {
   notificationStore.handleActionResponse(notification.id, true);
@@ -138,23 +126,77 @@ const progressBarClass = (type) => {
   return classes[type] || 'bg-blue-500';
 };
 
-// Update progress bars periodically
-let progressInterval = null;
+// Manage progress bar animations
+const activeAnimations = new Map();
 
-onMounted(() => {
-  // Force re-render every 100ms to update progress bars
-  progressInterval = setInterval(() => {
-    if (actionNotifications.value.length > 0) {
-      // Trigger reactivity by accessing the array
-      actionNotifications.value.forEach(() => {});
+const updateProgressBar = (notification) => {
+  nextTick(() => {
+    if (!progressBars.value) return;
+    
+    const progressBar = progressBars.value.find(
+      el => el && el.dataset.notificationId === String(notification.id)
+    );
+    
+    if (!progressBar) return;
+    
+    // Clear any existing animation
+    if (activeAnimations.has(notification.id)) {
+      cancelAnimationFrame(activeAnimations.get(notification.id));
     }
-  }, 100);
-});
+    
+    const startTime = notification.createdAt;
+    const duration = notification.duration;
+    
+    const animate = () => {
+      const now = Date.now();
+      const elapsed = now - startTime;
+      const remaining = Math.max(0, duration - elapsed);
+      const percentage = (remaining / duration) * 100;
+      
+      if (progressBar) {
+        progressBar.style.width = `${Math.max(0, Math.min(100, percentage))}%`;
+      }
+      
+      if (remaining > 0) {
+        const frameId = requestAnimationFrame(animate);
+        activeAnimations.set(notification.id, frameId);
+      } else {
+        activeAnimations.delete(notification.id);
+      }
+    };
+    
+    animate();
+  });
+};
+
+// Watch for new notifications and update progress bars
+watch(
+  actionNotifications,
+  (newNotifications) => {
+    newNotifications.forEach(notification => {
+      if (notification.duration > 0 && !activeAnimations.has(notification.id)) {
+        updateProgressBar(notification);
+      }
+    });
+    
+    // Clean up animations for removed notifications
+    const currentIds = new Set(newNotifications.map(n => n.id));
+    activeAnimations.forEach((frameId, id) => {
+      if (!currentIds.has(id)) {
+        cancelAnimationFrame(frameId);
+        activeAnimations.delete(id);
+      }
+    });
+  },
+  { immediate: true, deep: true }
+);
 
 onUnmounted(() => {
-  if (progressInterval) {
-    clearInterval(progressInterval);
-  }
+  // Clean up all animations
+  activeAnimations.forEach((frameId) => {
+    cancelAnimationFrame(frameId);
+  });
+  activeAnimations.clear();
 });
 </script>
 
