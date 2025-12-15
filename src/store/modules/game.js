@@ -320,6 +320,7 @@ export const useGameStore = defineStore('game', () => {
     loading.value = true;
     try {
       await runTransaction(db, async (t) => {
+        // Phase 1: Read all documents first
         const gameRef = doc(db, 'games', gameId.value);
         const gameDoc = await t.get(gameRef);
         
@@ -328,33 +329,45 @@ export const useGameStore = defineStore('game', () => {
         const gameData = gameDoc.data();
         const players = gameData.players;
         
-        // Save to each player's history
+        // Read all user documents for players with uid
+        const userReads = [];
         for (const p of players) {
           if (p.uid) {
             const userRef = doc(db, 'users', p.uid);
-            const userDoc = await t.get(userRef);
-            
-            const record = {
-              date: new Date().toISOString(),
-              createdAt: Date.now(),
-              profit: (p.stack || 0) - p.buyIn,
-              rate: exchangeRate,
-              gameName: gameData.name,
-              gameId: gameId.value,
-              // Save complete settlement data
-              settlement: players.map(player => ({
-                name: player.name,
-                buyIn: player.buyIn,
-                stack: player.stack || 0,
-                profit: (player.stack || 0) - player.buyIn
-              }))
-            };
-            
-            if (userDoc.exists()) {
-              t.update(userRef, { history: arrayUnion(record) });
-            } else {
-              t.set(userRef, { history: [record], createdAt: Date.now() });
-            }
+            userReads.push({
+              player: p,
+              userRef: userRef,
+              userDoc: await t.get(userRef)
+            });
+          }
+        }
+        
+        // Phase 2: Prepare all records
+        const userWrites = userReads.map(({ player, userRef, userDoc }) => {
+          const record = {
+            date: new Date().toISOString(),
+            createdAt: Date.now(),
+            profit: (player.stack || 0) - player.buyIn,
+            rate: exchangeRate,
+            gameName: gameData.name,
+            gameId: gameId.value,
+            // Save complete settlement data
+            settlement: players.map(p => ({
+              name: p.name,
+              buyIn: p.buyIn,
+              stack: p.stack || 0,
+              profit: (p.stack || 0) - p.buyIn
+            }))
+          };
+          return { userRef, userDoc, record };
+        });
+        
+        // Phase 3: Execute all writes
+        for (const { userRef, userDoc, record } of userWrites) {
+          if (userDoc.exists()) {
+            t.update(userRef, { history: arrayUnion(record) });
+          } else {
+            t.set(userRef, { history: [record], createdAt: Date.now() });
           }
         }
         
