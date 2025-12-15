@@ -111,6 +111,8 @@ const { confirm } = useConfirm();
 
 const loading = ref(true);
 const theme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
+const pendingInvite = ref(null);
+const inviteProcessedInMount = ref(false);
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const isInGame = computed(() => gameStore.isInGame);
@@ -122,37 +124,74 @@ const handleConfirm = (result) => {
   notificationStore.resolveConfirm(result);
 };
 
+// Process pending invite
+const processPendingInvite = async () => {
+  const invite = pendingInvite.value;
+  if (!invite) return false;
+  
+  const shouldJoin = await confirm({
+    message: t('game.inviteDetected'),
+    type: 'info'
+  });
+  
+  // Clear pending invite (user has made a decision)
+  pendingInvite.value = null;
+  localStorage.removeItem(STORAGE_KEYS.PENDING_INVITE);
+  
+  if (shouldJoin) {
+    const success = await gameStore.joinByBinding(invite.gameId, invite.seatId);
+    if (success) {
+      router.push('/game');
+      return true;
+    }
+  }
+  
+  return false;
+};
+
 // Initialize auth
 onMounted(async () => {
   try {
+    // Check URL params for game invitation
+    const params = new URLSearchParams(window.location.search);
+    const gameId = params.get('game');
+    const seatId = params.get('seat');
+    
+    if (gameId && seatId) {
+      // Clear URL params
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Save invite info
+      pendingInvite.value = { gameId, seatId };
+      localStorage.setItem(STORAGE_KEYS.PENDING_INVITE, JSON.stringify({ gameId, seatId }));
+    } else {
+      // Check localStorage for pending invite
+      const saved = localStorage.getItem(STORAGE_KEYS.PENDING_INVITE);
+      if (saved) {
+        try {
+          pendingInvite.value = JSON.parse(saved);
+        } catch (e) {
+          // Invalid JSON, remove it
+          console.warn('Failed to parse pending invite:', e);
+          localStorage.removeItem(STORAGE_KEYS.PENDING_INVITE);
+        }
+      }
+    }
+    
     await authStore.initAuth();
     
     if (authStore.user) {
       // Load user data
       await userStore.loadUserData();
       
-      // Check for saved game
-      const savedGameId = localStorage.getItem(STORAGE_KEYS.LAST_GAME_ID);
-      if (savedGameId) {
-        await gameStore.joinGameListener(savedGameId);
-      }
+      // Process pending invite first
+      const inviteProcessed = await processPendingInvite();
+      inviteProcessedInMount.value = true;
       
-      // Check URL params for game invitation
-      const params = new URLSearchParams(window.location.search);
-      const gameId = params.get('game');
-      const seatId = params.get('seat');
-      
-      if (gameId && seatId) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-        const shouldJoin = await confirm({
-          message: t('game.inviteDetected'),
-          type: 'info'
-        });
-        if (shouldJoin) {
-          const success = await gameStore.joinByBinding(gameId, seatId);
-          if (success) {
-            router.push('/game');
-          }
+      // Only check for saved game if no invite was processed
+      if (!inviteProcessed) {
+        const savedGameId = localStorage.getItem(STORAGE_KEYS.LAST_GAME_ID);
+        if (savedGameId) {
+          await gameStore.joinGameListener(savedGameId);
         }
       }
       
@@ -168,10 +207,16 @@ onMounted(async () => {
 });
 
 // Watch for auth changes
-watch(() => authStore.user, (newUser) => {
-  if (newUser) {
-    userStore.loadUserData();
-  } else {
+watch(() => authStore.user, async (newUser, oldUser) => {
+  if (newUser && !oldUser) {
+    // User just logged in, load data and process pending invite
+    // Skip if already processed in onMounted
+    if (!inviteProcessedInMount.value) {
+      await userStore.loadUserData();
+      await processPendingInvite();
+    }
+  } else if (!newUser) {
+    // User logged out
     gameStore.cleanup();
     userStore.cleanup();
     router.push('/login');
