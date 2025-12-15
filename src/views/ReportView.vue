@@ -45,7 +45,7 @@
           v-for="(record, i) in recentRecords"
           :key="i"
           @click="handleRecordClick(record)"
-          class="flex items-center gap-3 p-3 rounded-lg bg-slate-700 cursor-pointer hover:bg-slate-700/50 transition-colors"
+          class="flex items-center gap-3 p-3 rounded-lg bg-slate-700 cursor-pointer hover:bg-slate-600 transition-colors"
         >
           <!-- Game number -->
           <div class="flex-shrink-0 w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-sm font-bold text-gray-300">

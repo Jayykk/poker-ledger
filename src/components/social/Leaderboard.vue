@@ -194,19 +194,17 @@ const leaderboard = computed(() => {
     
     // Get special hands count for this user
     const userSpecialHands = specialHandsData.value[entry.uid] || {};
-    let specialHandsCount = 0;
     
-    if (selectedHandType.value === 'all') {
-      specialHandsCount = userSpecialHands.total || 0;
-    } else if (selectedHandType.value === 'royalFlush') {
-      specialHandsCount = userSpecialHands.royalFlush || 0;
-    } else if (selectedHandType.value === 'straightFlush') {
-      specialHandsCount = userSpecialHands.straightFlush || 0;
-    } else if (selectedHandType.value === 'fourOfAKind') {
-      specialHandsCount = userSpecialHands.fourOfAKind || 0;
-    } else if (selectedHandType.value === 'fullHouse') {
-      specialHandsCount = userSpecialHands.fullHouse || 0;
-    }
+    // Map hand type to property name
+    const handTypeMap = {
+      all: 'total',
+      royalFlush: 'royalFlush',
+      straightFlush: 'straightFlush',
+      fourOfAKind: 'fourOfAKind',
+      fullHouse: 'fullHouse'
+    };
+    
+    const specialHandsCount = userSpecialHands[handTypeMap[selectedHandType.value]] || 0;
     
     return {
       uid: entry.uid,
