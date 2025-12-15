@@ -340,6 +340,7 @@ export const useGameStore = defineStore('game', () => {
               profit: (p.stack || 0) - p.buyIn,
               rate: exchangeRate,
               gameName: gameData.name,
+              gameId: gameId.value,
               // Save complete settlement data
               settlement: players.map(player => ({
                 name: player.name,
