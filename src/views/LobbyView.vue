@@ -182,12 +182,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
 import { useGame } from '../composables/useGame.js';
 import { useInvitation } from '../composables/useInvitation.js';
+import { usePushNotification } from '../composables/usePushNotification.js';
 import { useGameStore } from '../store/modules/game.js';
 import { useUserStore } from '../store/modules/user.js';
 import { useNotification } from '../composables/useNotification.js';
@@ -205,6 +206,7 @@ const { createGame, checkGameStatus, joinByBinding, joinAsNewPlayer, joinGameLis
 const gameStore = useGameStore();
 const userStore = useUserStore();
 const { success, error: showError } = useNotification();
+const { sendInvitationNotification } = usePushNotification();
 
 // Invitation composable
 const {
@@ -225,6 +227,9 @@ const gameName = ref('Poker Game');
 const gameCode = ref('');
 const buyIn = ref(DEFAULT_BUY_IN);
 const unboundPlayers = ref([]);
+
+// Track previously seen invitations to show notifications for new ones
+const seenInvitationIds = ref(new Set());
 
 const formatDate = (timestamp) => {
   if (!timestamp) return '';
@@ -312,7 +317,30 @@ onMounted(async () => {
   // Load rooms and invitations
   await gameStore.loadMyRooms();
   loadInvitations();
+  
+  // Initialize seen invitations
+  pendingInvitations.value.forEach(inv => {
+    seenInvitationIds.value.add(inv.id);
+  });
 });
+
+// Watch for new invitations and show action notifications
+watch(pendingInvitations, (newInvitations, oldInvitations) => {
+  newInvitations.forEach(inv => {
+    // Only show notification for new invitations not seen before
+    if (!seenInvitationIds.value.has(inv.id)) {
+      seenInvitationIds.value.add(inv.id);
+      
+      // Show interactive notification
+      sendInvitationNotification(
+        inv.fromName,
+        inv.gameName,
+        () => handleAcceptInvitation(inv), // onConfirm
+        () => handleRejectInvitation(inv)  // onDecline
+      );
+    }
+  });
+}, { deep: true });
 
 onUnmounted(() => {
   cleanupInvitations();
