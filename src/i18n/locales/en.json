@@ -123,7 +123,12 @@
     },
     "exportCSV": "Export CSV",
     "exportPDF": "Export PDF",
-    "dateRange": "Date Range"
+    "dateRange": "Date Range",
+    "recentRecords": "Recent Records",
+    "careerStats": "Career Stats",
+    "lastNGames": "Last {n} games",
+    "win": "Win",
+    "loss": "Loss"
   },
   "profile": {
     "title": "Profile",
@@ -159,7 +164,16 @@
     "selectRoom": "Select Room",
     "noActiveRooms": "No active rooms. Please create a room first.",
     "invitationSent": "Invitation sent!",
-    "confirmRemove": "Remove this friend?"
+    "confirmRemove": "Remove this friend?",
+    "sortBy": "Sort by",
+    "sortByProfit": "Profit",
+    "sortByWinRate": "Win Rate",
+    "sortBySpecialHands": "Special Hands",
+    "specialHands": "Special Hands",
+    "royalFlush": "Royal Flush",
+    "straightFlush": "Straight Flush",
+    "fourOfAKind": "Four of a Kind",
+    "fullHouse": "Full House"
   },
   "chat": {
     "title": "Chat",

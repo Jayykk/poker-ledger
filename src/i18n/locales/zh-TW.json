@@ -123,7 +123,12 @@
     },
     "exportCSV": "匯出 CSV",
     "exportPDF": "匯出 PDF",
-    "dateRange": "日期範圍"
+    "dateRange": "日期範圍",
+    "recentRecords": "近期戰績",
+    "careerStats": "生涯累積",
+    "lastNGames": "最近 {n} 場",
+    "win": "贏",
+    "loss": "輸"
   },
   "profile": {
     "title": "個人設定",
@@ -159,7 +164,16 @@
     "selectRoom": "選擇房間",
     "noActiveRooms": "目前沒有活躍房間，請先創建房間。",
     "invitationSent": "邀請已發送！",
-    "confirmRemove": "確定要移除好友嗎？"
+    "confirmRemove": "確定要移除好友嗎？",
+    "sortBy": "排序方式",
+    "sortByProfit": "金額",
+    "sortByWinRate": "勝率",
+    "sortBySpecialHands": "特殊大牌",
+    "specialHands": "特殊大牌",
+    "royalFlush": "皇家同花順",
+    "straightFlush": "同花順",
+    "fourOfAKind": "鐵支",
+    "fullHouse": "葫蘆"
   },
   "chat": {
     "title": "聊天室",

@@ -123,7 +123,12 @@
     },
     "exportCSV": "导出 CSV",
     "exportPDF": "导出 PDF",
-    "dateRange": "日期范围"
+    "dateRange": "日期范围",
+    "recentRecords": "近期战绩",
+    "careerStats": "生涯累积",
+    "lastNGames": "最近 {n} 场",
+    "win": "赢",
+    "loss": "输"
   },
   "profile": {
     "title": "个人设定",
@@ -159,7 +164,16 @@
     "selectRoom": "选择房间",
     "noActiveRooms": "目前没有活跃房间，请先创建房间。",
     "invitationSent": "邀请已发送！",
-    "confirmRemove": "确定要移除好友吗？"
+    "confirmRemove": "确定要移除好友吗？",
+    "sortBy": "排序方式",
+    "sortByProfit": "金额",
+    "sortByWinRate": "胜率",
+    "sortBySpecialHands": "特殊大牌",
+    "specialHands": "特殊大牌",
+    "royalFlush": "皇家同花顺",
+    "straightFlush": "同花顺",
+    "fourOfAKind": "铁支",
+    "fullHouse": "葫芦"
   },
   "chat": {
     "title": "聊天室",

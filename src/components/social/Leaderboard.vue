@@ -13,6 +13,22 @@
       </button>
     </div>
 
+    <!-- Sort selector -->
+    <div class="mb-4">
+      <div class="text-xs text-gray-400 mb-2">{{ $t('friends.sortBy') }}</div>
+      <div class="flex gap-2">
+        <button
+          v-for="option in sortOptions"
+          :key="option.value"
+          @click="selectedSort = option.value"
+          class="px-3 py-1 rounded-lg text-sm transition"
+          :class="selectedSort === option.value ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
+        >
+          {{ $t(`friends.${option.label}`) }}
+        </button>
+      </div>
+    </div>
+
     <!-- Leaderboard -->
     <div class="space-y-2">
       <div
@@ -39,16 +55,28 @@
           </div>
         </div>
 
-        <!-- Profit -->
+        <!-- Profit / Win Rate / Special Hands -->
         <div class="text-right">
-          <div
+          <div v-if="selectedSort === 'profit'"
             class="text-xl font-mono font-bold"
             :class="entry.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'"
           >
             {{ entry.profit >= 0 ? '+' : '' }}{{ formatNumber(entry.profit) }}
           </div>
+          <div v-else-if="selectedSort === 'winRate'"
+            class="text-xl font-mono font-bold text-emerald-400"
+          >
+            {{ entry.winRate }}%
+          </div>
+          <div v-else-if="selectedSort === 'specialHands'"
+            class="text-xl font-mono font-bold text-amber-400"
+          >
+            {{ entry.specialHands }}
+          </div>
           <div class="text-xs text-gray-400">
-            {{ entry.winRate }}% win rate
+            <span v-if="selectedSort === 'profit'">{{ entry.winRate }}% win rate</span>
+            <span v-else-if="selectedSort === 'winRate'">{{ formatNumber(entry.profit) }} profit</span>
+            <span v-else-if="selectedSort === 'specialHands'">{{ entry.winRate }}% win rate</span>
           </div>
         </div>
       </div>
@@ -63,22 +91,31 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, collectionGroup } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
 import { useAuth } from '../../composables/useAuth.js';
 import BaseCard from '../common/BaseCard.vue';
 import { formatNumber } from '../../utils/formatters.js';
+import { HAND_TYPES } from '../../utils/constants.js';
 
 const { t } = useI18n();
 const { user } = useAuth();
 
 const selectedPeriod = ref('thisMonth');
+const selectedSort = ref('profit');
 const leaderboardData = ref([]);
+const specialHandsData = ref({});
 
 const periods = [
   { value: 'thisMonth', label: 'thisMonth' },
   { value: 'thisQuarter', label: 'thisQuarter' },
   { value: 'thisYear', label: 'thisYear' }
+];
+
+const sortOptions = [
+  { value: 'profit', label: 'sortByProfit' },
+  { value: 'winRate', label: 'sortByWinRate' },
+  { value: 'specialHands', label: 'sortBySpecialHands' }
 ];
 
 const leaderboard = computed(() => {
@@ -112,19 +149,30 @@ const leaderboard = computed(() => {
     const winningGames = periodHistory.filter(h => h.profit > 0).length;
     const winRate = games > 0 ? Math.round((winningGames / games) * 100) : 0;
     
+    // Get special hands count for this user
+    const specialHandsCount = specialHandsData.value[entry.uid] || 0;
+    
     return {
       uid: entry.uid,
       name: entry.name,
       games,
       profit: Math.round(totalProfit),
-      winRate
+      winRate,
+      specialHands: specialHandsCount
     };
   }).filter(entry => entry !== null);
   
-  // Sort by profit and return top 10
-  return filteredData
-    .sort((a, b) => b.profit - a.profit)
-    .slice(0, 10);
+  // Sort based on selected mode
+  let sorted = [...filteredData];
+  if (selectedSort.value === 'profit') {
+    sorted.sort((a, b) => b.profit - a.profit);
+  } else if (selectedSort.value === 'winRate') {
+    sorted.sort((a, b) => b.winRate - a.winRate);
+  } else if (selectedSort.value === 'specialHands') {
+    sorted.sort((a, b) => b.specialHands - a.specialHands);
+  }
+  
+  return sorted.slice(0, 10);
 });
 
 const getRankClass = (index) => {
@@ -143,12 +191,20 @@ const loadLeaderboard = async () => {
     const userData = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
+      // Exclude anonymous users
+      if (data.isAnonymous) {
+        return;
+      }
       if (data.history && data.history.length > 0) {
-        userData.push({
-          uid: doc.id,
-          name: data.displayName || data.email || 'Unknown',
-          history: data.history
-        });
+        // Priority: displayName > email > exclude
+        const name = data.displayName || data.email;
+        if (name) {
+          userData.push({
+            uid: doc.id,
+            name: name,
+            history: data.history
+          });
+        }
       }
     });
     
@@ -158,7 +214,47 @@ const loadLeaderboard = async () => {
   }
 };
 
+const loadSpecialHands = async () => {
+  try {
+    // Count special hands for each user
+    const specialHandsCount = {};
+    
+    // Query all hand records from all games
+    const handsQuery = query(collectionGroup(db, 'hands'));
+    const handsSnapshot = await getDocs(handsQuery);
+    
+    handsSnapshot.forEach((doc) => {
+      const hand = doc.data();
+      if (hand.players && Array.isArray(hand.players)) {
+        hand.players.forEach(player => {
+          if (player.playerId && player.handType) {
+            // Count special hand types
+            const specialTypes = [
+              HAND_TYPES.ROYAL_FLUSH,
+              HAND_TYPES.STRAIGHT_FLUSH,
+              HAND_TYPES.FOUR_OF_A_KIND,
+              HAND_TYPES.FULL_HOUSE
+            ];
+            
+            if (specialTypes.includes(player.handType)) {
+              if (!specialHandsCount[player.playerId]) {
+                specialHandsCount[player.playerId] = 0;
+              }
+              specialHandsCount[player.playerId]++;
+            }
+          }
+        });
+      }
+    });
+    
+    specialHandsData.value = specialHandsCount;
+  } catch (err) {
+    console.error('Load special hands error:', err);
+  }
+};
+
 onMounted(() => {
   loadLeaderboard();
+  loadSpecialHands();
 });
 </script>
