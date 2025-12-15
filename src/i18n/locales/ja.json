@@ -32,7 +32,9 @@
     "guestLogin": "ゲストログイン（登録不要）",
     "backToLogin": "ログインに戻る",
     "registerAccount": "アカウント登録",
-    "guest": "ゲスト"
+    "guest": "ゲスト",
+    "guestName": "ゲスト名（任意）",
+    "defaultGuestName": "ゲスト"
   },
   "nav": {
     "lobby": "ロビー",
@@ -142,6 +144,11 @@
       "light": "ライト"
     },
     "version": "バージョン",
+    "upgradeAccount": "アカウントをアップグレード",
+    "upgradeDescription": "メールをリンクしてゲーム記録を保存",
+    "linkEmail": "メールをリンク",
+    "lastChanceToRename": "最後の名前変更機会",
+    "upgradeSuccess": "アカウントのアップグレードに成功しました！",
     "errors": {
       "notificationDenied": "通知の許可が拒否されました。ブラウザの設定で通知を有効にしてください。",
       "notificationUnsupported": "このブラウザは通知をサポートしていません"

@@ -32,7 +32,9 @@
     "guestLogin": "Guest Login (No Registration)",
     "backToLogin": "Back to Login",
     "registerAccount": "Register Account",
-    "guest": "Guest"
+    "guest": "Guest",
+    "guestName": "Guest name (optional)",
+    "defaultGuestName": "Guest"
   },
   "nav": {
     "lobby": "Lobby",
@@ -142,6 +144,11 @@
       "light": "Light"
     },
     "version": "Version",
+    "upgradeAccount": "Upgrade Account",
+    "upgradeDescription": "Link your email to save your game records",
+    "linkEmail": "Link Email",
+    "lastChanceToRename": "Last chance to rename",
+    "upgradeSuccess": "Account upgraded successfully!",
     "errors": {
       "notificationDenied": "Notification permission was denied. Please enable notifications in your browser settings.",
       "notificationUnsupported": "This browser does not support notifications"

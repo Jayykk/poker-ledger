@@ -32,7 +32,9 @@
     "guestLogin": "訪客試用 (免註冊)",
     "backToLogin": "返回登入",
     "registerAccount": "註冊帳號",
-    "guest": "訪客"
+    "guest": "訪客",
+    "guestName": "訪客暱稱（可選）",
+    "defaultGuestName": "訪客"
   },
   "nav": {
     "lobby": "大廳",
@@ -142,6 +144,11 @@
       "light": "淺色"
     },
     "version": "版本",
+    "upgradeAccount": "升級帳號",
+    "upgradeDescription": "綁定 Email 以保存您的遊戲紀錄",
+    "linkEmail": "綁定 Email",
+    "lastChanceToRename": "最後更名機會",
+    "upgradeSuccess": "帳號升級成功！",
     "errors": {
       "notificationDenied": "通知權限已被拒絕。請在瀏覽器設定中啟用通知。",
       "notificationUnsupported": "此瀏覽器不支援通知功能"

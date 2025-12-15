@@ -6,7 +6,9 @@ import {
   signInAnonymously, 
   signOut, 
   updateProfile,
-  onAuthStateChanged 
+  onAuthStateChanged,
+  EmailAuthProvider,
+  linkWithCredential
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebase-init.js';
@@ -106,6 +108,52 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
+  /**
+   * Update guest display name
+   */
+  const updateGuestDisplayName = async (name) => {
+    if (!user.value) return false;
+    try {
+      await updateProfile(user.value, { displayName: name });
+      // Refresh user to update state
+      user.value = auth.currentUser;
+      return true;
+    } catch (err) {
+      console.error('Update guest name error:', err);
+      return false;
+    }
+  };
+
+  /**
+   * Link email to guest account (upgrade to permanent account)
+   */
+  const linkEmailToGuest = async (email, password, name) => {
+    if (!user.value || !user.value.isAnonymous) return false;
+    loading.value = true;
+    error.value = '';
+    try {
+      const credential = EmailAuthProvider.credential(email, password);
+      await linkWithCredential(user.value, credential);
+      await updateProfile(auth.currentUser, { displayName: name });
+      
+      // Create Firestore user document
+      await setDoc(doc(db, 'users', user.value.uid), {
+        name,
+        email,
+        createdAt: Date.now()
+      });
+      
+      user.value = auth.currentUser;
+      return true;
+    } catch (err) {
+      console.error('Link email error:', err);
+      error.value = err.message;
+      return false;
+    } finally {
+      loading.value = false;
+    }
+  };
+
   return {
     user,
     loading,
@@ -117,6 +165,8 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     login,
     guestLogin,
-    logout
+    logout,
+    updateGuestDisplayName,
+    linkEmailToGuest
   };
 });
