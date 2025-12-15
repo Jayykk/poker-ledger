@@ -82,11 +82,41 @@ const periods = [
 ];
 
 const leaderboard = computed(() => {
-  // Filter and sort by selected period
-  // This is a simplified version - in production, you'd query Firestore with proper filters
-  return [...leaderboardData.value]
+  // Filter by selected period
+  const now = Date.now();
+  const periodDays = {
+    'thisMonth': 30,
+    'thisQuarter': 90,
+    'thisYear': 365
+  };
+  
+  const daysToFilter = periodDays[selectedPeriod.value] || 30;
+  const cutoffTime = now - (daysToFilter * 24 * 60 * 60 * 1000);
+  
+  // Filter data by selected period
+  const filteredData = leaderboardData.value.map(entry => {
+    const periodHistory = entry.history.filter(h => h.createdAt >= cutoffTime);
+    
+    if (periodHistory.length === 0) return null;
+    
+    const totalProfit = periodHistory.reduce((sum, h) => sum + (h.profit / h.rate), 0);
+    const games = periodHistory.length;
+    const winningGames = periodHistory.filter(h => h.profit > 0).length;
+    const winRate = games > 0 ? Math.round((winningGames / games) * 100) : 0;
+    
+    return {
+      uid: entry.uid,
+      name: entry.name,
+      games,
+      profit: Math.round(totalProfit),
+      winRate
+    };
+  }).filter(entry => entry !== null);
+  
+  // Sort by profit and return top 10
+  return filteredData
     .sort((a, b) => b.profit - a.profit)
-    .slice(0, 10); // Top 10
+    .slice(0, 10);
 });
 
 const getRankClass = (index) => {
@@ -98,17 +128,23 @@ const getRankClass = (index) => {
 
 const loadLeaderboard = async () => {
   try {
-    // In a real implementation, you'd fetch this from a dedicated leaderboard collection
-    // or aggregate from user stats
+    // Fetch all users from Firestore
+    const usersRef = collection(db, 'users');
+    const snapshot = await getDocs(usersRef);
     
-    // Mock data for demonstration
-    leaderboardData.value = [
-      { uid: '1', name: 'Player 1', games: 15, profit: 12500, winRate: 60 },
-      { uid: '2', name: 'Player 2', games: 12, profit: 8300, winRate: 58 },
-      { uid: '3', name: 'Player 3', games: 20, profit: 6700, winRate: 55 },
-      { uid: user.value?.uid, name: user.value?.displayName || 'You', games: 8, profit: 3200, winRate: 50 },
-      { uid: '5', name: 'Player 5', games: 10, profit: -1500, winRate: 40 }
-    ];
+    const userData = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.history && data.history.length > 0) {
+        userData.push({
+          uid: doc.id,
+          name: data.displayName || data.email || 'Unknown',
+          history: data.history
+        });
+      }
+    });
+    
+    leaderboardData.value = userData;
   } catch (err) {
     console.error('Load leaderboard error:', err);
   }

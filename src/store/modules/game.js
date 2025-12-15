@@ -385,6 +385,12 @@ export const useGameStore = defineStore('game', () => {
   const closeGame = async () => {
     if (!gameId.value) return false;
     
+    // 檢查是否為房主
+    if (!isHost.value) {
+      error.value = '只有房主才能解散房間';
+      return false;
+    }
+    
     loading.value = true;
     try {
       await deleteDoc(doc(db, 'games', gameId.value));
