@@ -189,6 +189,7 @@ import { useAuth } from '../composables/useAuth.js';
 import { useGame } from '../composables/useGame.js';
 import { useInvitation } from '../composables/useInvitation.js';
 import { usePushNotification } from '../composables/usePushNotification.js';
+import { useLoading } from '../composables/useLoading.js';
 import { useGameStore } from '../store/modules/game.js';
 import { useUserStore } from '../store/modules/user.js';
 import { useNotification } from '../composables/useNotification.js';
@@ -207,6 +208,7 @@ const gameStore = useGameStore();
 const userStore = useUserStore();
 const { success, error: showError } = useNotification();
 const { sendInvitationNotification } = usePushNotification();
+const { withLoading } = useLoading();
 
 // Invitation composable
 const {
@@ -238,14 +240,16 @@ const formatDate = (timestamp) => {
 };
 
 const handleCreateGame = async () => {
-  const gameId = await createGame(gameName.value);
-  if (gameId) {
-    showCreateModal.value = false;
-    success('Game created!');
-    // Reload rooms
-    await gameStore.loadMyRooms();
-    router.push('/game');
-  }
+  await withLoading(async () => {
+    const gameId = await createGame(gameName.value);
+    if (gameId) {
+      showCreateModal.value = false;
+      success('Game created!');
+      // Reload rooms
+      await gameStore.loadMyRooms();
+      router.push('/game');
+    }
+  }, t('loading.creating'));
 };
 
 const handleCheckGame = async () => {
@@ -254,63 +258,75 @@ const handleCheckGame = async () => {
     return;
   }
   
-  const result = await checkGameStatus(gameCode.value);
-  
-  if (result.status === 'joined') {
-    await joinGameListener(gameCode.value);
-    showJoinModal.value = false;
-    success('Already in game');
-    router.push('/game');
-  } else if (result.status === 'open') {
-    unboundPlayers.value = result.unboundPlayers;
-    joinStep.value = 2;
-  } else {
-    showError(result.msg || 'Cannot join game');
-  }
+  await withLoading(async () => {
+    const result = await checkGameStatus(gameCode.value);
+    
+    if (result.status === 'joined') {
+      await joinGameListener(gameCode.value);
+      showJoinModal.value = false;
+      success('Already in game');
+      router.push('/game');
+    } else if (result.status === 'open') {
+      unboundPlayers.value = result.unboundPlayers;
+      joinStep.value = 2;
+    } else {
+      showError(result.msg || 'Cannot join game');
+    }
+  }, t('loading.checking'));
 };
 
 const handleBindJoin = async (player) => {
-  const success = await joinByBinding(gameCode.value, player.id);
-  if (success) {
-    showJoinModal.value = false;
-    joinStep.value = 1;
-    // Reload rooms
-    await gameStore.loadMyRooms();
-    router.push('/game');
-  }
+  await withLoading(async () => {
+    const success = await joinByBinding(gameCode.value, player.id);
+    if (success) {
+      showJoinModal.value = false;
+      joinStep.value = 1;
+      // Reload rooms
+      await gameStore.loadMyRooms();
+      router.push('/game');
+    }
+  }, t('loading.binding'));
 };
 
 const handleNewJoin = async () => {
-  const success = await joinAsNewPlayer(gameCode.value, buyIn.value);
-  if (success) {
-    showJoinModal.value = false;
-    joinStep.value = 1;
-    // Reload rooms
-    await gameStore.loadMyRooms();
-    router.push('/game');
-  }
+  await withLoading(async () => {
+    const success = await joinAsNewPlayer(gameCode.value, buyIn.value);
+    if (success) {
+      showJoinModal.value = false;
+      joinStep.value = 1;
+      // Reload rooms
+      await gameStore.loadMyRooms();
+      router.push('/game');
+    }
+  }, t('loading.joining'));
 };
 
 const handleEnterRoom = async (roomId) => {
-  await joinGameListener(roomId);
-  router.push('/game');
+  await withLoading(async () => {
+    await joinGameListener(roomId);
+    router.push('/game');
+  }, t('loading.loading'));
 };
 
 const handleAcceptInvitation = async (invitation) => {
-  const accepted = await acceptInvitation(invitation.id);
-  if (accepted) {
-    success(t('invitations.accepted'));
-    // Join the game
-    await joinGameListener(invitation.gameId);
-    router.push('/game');
-  }
+  await withLoading(async () => {
+    const accepted = await acceptInvitation(invitation.id);
+    if (accepted) {
+      success(t('invitations.accepted'));
+      // Join the game
+      await joinGameListener(invitation.gameId);
+      router.push('/game');
+    }
+  }, t('loading.accepting'));
 };
 
 const handleRejectInvitation = async (invitation) => {
-  const rejected = await rejectInvitation(invitation.id);
-  if (rejected) {
-    success(t('invitations.rejected'));
-  }
+  await withLoading(async () => {
+    const rejected = await rejectInvitation(invitation.id);
+    if (rejected) {
+      success(t('invitations.rejected'));
+    }
+  }, t('loading.rejecting'));
 };
 
 onMounted(async () => {

@@ -22,6 +22,21 @@
     "max": "最多",
     "error": "錯誤"
   },
+  "loading": {
+    "creating": "建立中...",
+    "joining": "加入中...",
+    "settling": "結算中...",
+    "closing": "關閉中...",
+    "saving": "儲存中...",
+    "loading": "載入中...",
+    "loggingIn": "登入中...",
+    "registering": "註冊中...",
+    "checking": "檢查中...",
+    "accepting": "接受中...",
+    "rejecting": "拒絕中...",
+    "binding": "綁定中...",
+    "removing": "移除中..."
+  },
   "auth": {
     "login": "登入",
     "register": "註冊",

@@ -176,6 +176,7 @@ import { useGame } from '../composables/useGame.js';
 import { useHand } from '../composables/useHand.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
+import { useLoading } from '../composables/useLoading.js';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
@@ -194,6 +195,7 @@ const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer, addPlayer, up
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
 const { success, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
+const { withLoading } = useLoading();
 
 const showAddPlayer = ref(false);
 const showEditPlayer = ref(false);
@@ -220,9 +222,11 @@ const sortedPlayers = computed(() => {
 });
 
 const handleAddPlayer = async () => {
-  await addPlayer(newPlayerName.value || 'Player');
-  showAddPlayer.value = false;
-  newPlayerName.value = '';
+  await withLoading(async () => {
+    await addPlayer(newPlayerName.value || 'Player');
+    showAddPlayer.value = false;
+    newPlayerName.value = '';
+  }, t('loading.saving'));
 };
 
 const handleEditPlayer = (player) => {
@@ -231,9 +235,11 @@ const handleEditPlayer = (player) => {
 };
 
 const handleSavePlayer = async () => {
-  await updatePlayer(editingPlayer.value);
-  showEditPlayer.value = false;
-  editingPlayer.value = null;
+  await withLoading(async () => {
+    await updatePlayer(editingPlayer.value);
+    showEditPlayer.value = false;
+    editingPlayer.value = null;
+  }, t('loading.saving'));
 };
 
 const handleRemovePlayer = async () => {
@@ -242,9 +248,11 @@ const handleRemovePlayer = async () => {
     type: 'danger'
   });
   if (shouldRemove) {
-    await removePlayer(editingPlayer.value);
-    showEditPlayer.value = false;
-    editingPlayer.value = null;
+    await withLoading(async () => {
+      await removePlayer(editingPlayer.value);
+      showEditPlayer.value = false;
+      editingPlayer.value = null;
+    }, t('loading.removing'));
   }
 };
 
@@ -254,7 +262,9 @@ const handleBind = async (player) => {
     type: 'info'
   });
   if (shouldBind) {
-    await bindSeat(player);
+    await withLoading(async () => {
+      await bindSeat(player);
+    }, t('loading.binding'));
   }
 };
 
@@ -282,11 +292,13 @@ const handleSettle = async () => {
     type: 'warning'
   });
   if (shouldSettle) {
-    const success = await settleGame(exchangeRate.value);
-    if (success) {
-      showSettlement.value = false;
-      router.push('/report');
-    }
+    await withLoading(async () => {
+      const success = await settleGame(exchangeRate.value);
+      if (success) {
+        showSettlement.value = false;
+        router.push('/report');
+      }
+    }, t('loading.settling'));
   }
 };
 
@@ -296,10 +308,12 @@ const handleCloseGame = async () => {
     type: 'danger'
   });
   if (shouldClose) {
-    const success = await closeGame();
-    if (success) {
-      router.push('/lobby');
-    }
+    await withLoading(async () => {
+      const success = await closeGame();
+      if (success) {
+        router.push('/lobby');
+      }
+    }, t('loading.closing'));
   }
 };
 

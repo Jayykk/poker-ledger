@@ -76,12 +76,14 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
+import { useLoading } from '../composables/useLoading.js';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 
 const { t } = useI18n();
 const router = useRouter();
 const { login, register, guestLogin, updateGuestDisplayName, loading, error } = useAuth();
+const { withLoading } = useLoading();
 
 const isRegister = ref(false);
 const form = ref({
@@ -95,30 +97,36 @@ const guestForm = ref({
 });
 
 const handleGuestLogin = async () => {
-  const success = await guestLogin();
-  if (success) {
-    // If user provided a custom name, update it
-    if (guestForm.value.name.trim()) {
-      await updateGuestDisplayName(guestForm.value.name.trim());
-    } else {
-      // Use default guest name based on locale
-      await updateGuestDisplayName(t('auth.defaultGuestName'));
+  await withLoading(async () => {
+    const success = await guestLogin();
+    if (success) {
+      // If user provided a custom name, update it
+      if (guestForm.value.name.trim()) {
+        await updateGuestDisplayName(guestForm.value.name.trim());
+      } else {
+        // Use default guest name based on locale
+        await updateGuestDisplayName(t('auth.defaultGuestName'));
+      }
+      router.push('/lobby');
     }
-    router.push('/lobby');
-  }
+  }, t('loading.loggingIn'));
 };
 
 const handleAuth = async () => {
   if (isRegister.value) {
-    const success = await register(form.value.email, form.value.password, form.value.name);
-    if (success) {
-      router.push('/lobby');
-    }
+    await withLoading(async () => {
+      const success = await register(form.value.email, form.value.password, form.value.name);
+      if (success) {
+        router.push('/lobby');
+      }
+    }, t('loading.registering'));
   } else {
-    const success = await login(form.value.email, form.value.password);
-    if (success) {
-      router.push('/lobby');
-    }
+    await withLoading(async () => {
+      const success = await login(form.value.email, form.value.password);
+      if (success) {
+        router.push('/lobby');
+      }
+    }, t('loading.loggingIn'));
   }
 };
 </script>
