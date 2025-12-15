@@ -32,6 +32,7 @@ const sizeMap = {
 
 const containerClasses = computed(() => {
   if (props.fullScreen) {
+    // pointer-events-auto is needed to ensure the overlay blocks all clicks
     return 'h-screen w-screen fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[9999] pointer-events-auto';
   }
   return '';
@@ -39,8 +40,9 @@ const containerClasses = computed(() => {
 
 const spinnerClasses = computed(() => {
   const size = sizeMap[props.size];
-  const borderWidth = props.fullScreen ? 4 : 2;
-  return `loader border-${borderWidth} border-gray-600 border-t-amber-500 rounded-full animate-spin`;
+  // Use full class names for Tailwind's purging mechanism
+  const borderClass = props.fullScreen ? 'border-4' : 'border-2';
+  return `loader ${borderClass} border-gray-600 border-t-amber-500 rounded-full animate-spin`;
 });
 
 const textClasses = computed(() => {
