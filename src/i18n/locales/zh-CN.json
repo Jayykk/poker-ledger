@@ -18,7 +18,9 @@
     "unknown": "未知",
     "copied": "已复制",
     "copySuccess": "复制成功",
-    "copyFailed": "复制失败"
+    "copyFailed": "复制失败",
+    "max": "最多",
+    "error": "错误"
   },
   "auth": {
     "login": "登录",
@@ -189,5 +191,46 @@
   "notification": {
     "accept": "接受",
     "decline": "拒绝"
+  },
+  "hand": {
+    "recordHand": "记录这手牌",
+    "recordHandResult": "记录牌局结果",
+    "communityCards": "公共牌",
+    "selectCards": "选牌",
+    "selectHandType": "选牌型",
+    "selectedCards": "已选",
+    "participating": "参与",
+    "notParticipating": "未参与",
+    "chipsBalance": "筹码平衡",
+    "balanced": "平衡",
+    "imbalanced": "不平衡",
+    "selectSuit": "选择花色",
+    "selectRank": "选择点数",
+    "spades": "黑桃",
+    "hearts": "红心",
+    "diamonds": "方块",
+    "clubs": "梅花",
+    "handTypes": {
+      "high_card": "高牌",
+      "one_pair": "一对",
+      "two_pair": "两对",
+      "three_of_a_kind": "三条",
+      "straight": "顺子",
+      "flush": "同花",
+      "full_house": "葫芦",
+      "four_of_a_kind": "四条",
+      "straight_flush": "同花顺",
+      "royal_flush": "皇家同花顺"
+    },
+    "winner": "赢家",
+    "handHistory": "牌局记录",
+    "noHandRecords": "暂无牌局记录",
+    "viewDetails": "查看详情",
+    "errors": {
+      "chipsNotBalanced": "筹码总和必须为 0",
+      "duplicateCards": "有重复的牌",
+      "tooManyCommunityCards": "公共牌最多 5 张",
+      "tooManyPlayerCards": "手牌最多 2 张"
+    }
   }
 }

@@ -18,7 +18,9 @@
     "unknown": "不明",
     "copied": "コピーしました",
     "copySuccess": "コピー成功",
-    "copyFailed": "コピー失敗"
+    "copyFailed": "コピー失敗",
+    "max": "最大",
+    "error": "エラー"
   },
   "auth": {
     "login": "ログイン",
@@ -189,5 +191,46 @@
   "notification": {
     "accept": "承認",
     "decline": "拒否"
+  },
+  "hand": {
+    "recordHand": "ハンドを記録",
+    "recordHandResult": "ハンド結果を記録",
+    "communityCards": "コミュニティカード",
+    "selectCards": "カードを選択",
+    "selectHandType": "役を選択",
+    "selectedCards": "選択済み",
+    "participating": "参加中",
+    "notParticipating": "不参加",
+    "chipsBalance": "チップバランス",
+    "balanced": "バランス",
+    "imbalanced": "不均衡",
+    "selectSuit": "スートを選択",
+    "selectRank": "ランクを選択",
+    "spades": "スペード",
+    "hearts": "ハート",
+    "diamonds": "ダイヤ",
+    "clubs": "クラブ",
+    "handTypes": {
+      "high_card": "ハイカード",
+      "one_pair": "ワンペア",
+      "two_pair": "ツーペア",
+      "three_of_a_kind": "スリーカード",
+      "straight": "ストレート",
+      "flush": "フラッシュ",
+      "full_house": "フルハウス",
+      "four_of_a_kind": "フォーカード",
+      "straight_flush": "ストレートフラッシュ",
+      "royal_flush": "ロイヤルフラッシュ"
+    },
+    "winner": "勝者",
+    "handHistory": "ハンド履歴",
+    "noHandRecords": "ハンド記録がありません",
+    "viewDetails": "詳細を表示",
+    "errors": {
+      "chipsNotBalanced": "チップの合計は0である必要があります",
+      "duplicateCards": "重複するカードがあります",
+      "tooManyCommunityCards": "コミュニティカードは最大5枚です",
+      "tooManyPlayerCards": "ハンドカードは最大2枚です"
+    }
   }
 }

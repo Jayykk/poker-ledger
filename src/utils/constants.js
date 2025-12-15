@@ -95,3 +95,34 @@ export const Z_INDEX = {
   ACTION_NOTIFICATION: 200,
   MODAL: 300
 };
+
+// Poker card suits
+export const SUITS = {
+  SPADES: '♠',
+  HEARTS: '♥',
+  DIAMONDS: '♦',
+  CLUBS: '♣'
+};
+
+// Poker card ranks
+export const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+// Hand types
+export const HAND_TYPES = {
+  HIGH_CARD: 'high_card',
+  ONE_PAIR: 'one_pair',
+  TWO_PAIR: 'two_pair',
+  THREE_OF_A_KIND: 'three_of_a_kind',
+  STRAIGHT: 'straight',
+  FLUSH: 'flush',
+  FULL_HOUSE: 'full_house',
+  FOUR_OF_A_KIND: 'four_of_a_kind',
+  STRAIGHT_FLUSH: 'straight_flush',
+  ROYAL_FLUSH: 'royal_flush'
+};
+
+// Card limits
+export const CARD_LIMITS = {
+  COMMUNITY_MAX: 5,
+  PLAYER_HAND_MAX: 2
+};
