@@ -12,6 +12,40 @@
 
     <!-- Settings -->
     <div class="space-y-3 mt-8 max-w-sm mx-auto">
+      <!-- Upgrade Account for Guests -->
+      <div v-if="isGuest" class="bg-slate-800 p-5 rounded-2xl border border-amber-600 space-y-3 mb-4">
+        <h3 class="text-white font-bold text-lg">{{ $t('profile.upgradeAccount') }}</h3>
+        <p class="text-gray-400 text-sm">{{ $t('profile.upgradeDescription') }}</p>
+        
+        <BaseInput
+          v-model="upgradeForm.email"
+          type="email"
+          :placeholder="$t('auth.email')"
+        />
+        <BaseInput
+          v-model="upgradeForm.password"
+          type="password"
+          :placeholder="$t('auth.password')"
+        />
+        <BaseInput
+          v-model="upgradeForm.name"
+          type="text"
+          :placeholder="$t('profile.lastChanceToRename')"
+        />
+        
+        <BaseButton
+          @click="handleUpgrade"
+          :loading="upgradeLoading"
+          :disabled="upgradeLoading"
+          variant="secondary"
+          fullWidth
+        >
+          {{ $t('profile.linkEmail') }}
+        </BaseButton>
+        
+        <div v-if="upgradeError" class="text-rose-400 text-xs">{{ upgradeError }}</div>
+      </div>
+
       <!-- Language -->
       <BaseCard padding="md">
         <div class="flex justify-between items-center">
@@ -104,18 +138,29 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
 import { usePushNotification } from '../composables/usePushNotification.js';
+import { useNotification } from '../composables/useNotification.js';
 import BaseCard from '../components/common/BaseCard.vue';
 import BaseButton from '../components/common/BaseButton.vue';
+import BaseInput from '../components/common/BaseInput.vue';
 import { STORAGE_KEYS, THEMES } from '../utils/constants.js';
 
 const { t, locale } = useI18n();
 const router = useRouter();
-const { displayName, isGuest, logout } = useAuth();
+const { displayName, isGuest, logout, linkEmailToGuest } = useAuth();
 const { notificationsEnabled, toggleNotifications } = usePushNotification();
+const notification = useNotification();
 
 const selectedLanguage = ref(locale.value);
 const currentTheme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
 const soundEnabled = ref(localStorage.getItem(STORAGE_KEYS.SOUND_ENABLED) !== 'false');
+
+const upgradeForm = ref({
+  email: '',
+  password: '',
+  name: displayName.value || t('auth.defaultGuestName')
+});
+const upgradeLoading = ref(false);
+const upgradeError = ref('');
 
 const handleLanguageChange = () => {
   locale.value = selectedLanguage.value;
@@ -145,6 +190,35 @@ const handleToggleNotifications = async () => {
         window.alert(t('profile.errors.notificationUnsupported'));
       }
     }, 100);
+  }
+};
+
+const handleUpgrade = async () => {
+  upgradeError.value = '';
+  
+  if (!upgradeForm.value.email || !upgradeForm.value.password) {
+    upgradeError.value = t('profile.emailPasswordRequired');
+    return;
+  }
+  
+  upgradeLoading.value = true;
+  const success = await linkEmailToGuest(
+    upgradeForm.value.email,
+    upgradeForm.value.password,
+    upgradeForm.value.name || displayName.value || t('auth.defaultGuestName')
+  );
+  upgradeLoading.value = false;
+  
+  if (success) {
+    notification.success(t('profile.upgradeSuccess'));
+    // Reset form
+    upgradeForm.value = {
+      email: '',
+      password: '',
+      name: ''
+    };
+  } else {
+    upgradeError.value = t('profile.upgradeError');
   }
 };
 

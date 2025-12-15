@@ -30,6 +30,14 @@ export function useAuth() {
     return await authStore.logout();
   };
 
+  const updateGuestDisplayName = async (name) => {
+    return await authStore.updateGuestDisplayName(name);
+  };
+
+  const linkEmailToGuest = async (email, password, name) => {
+    return await authStore.linkEmailToGuest(email, password, name);
+  };
+
   return {
     isAuthenticated,
     isGuest,
@@ -40,6 +48,8 @@ export function useAuth() {
     register,
     login,
     guestLogin,
-    logout
+    logout,
+    updateGuestDisplayName,
+    linkEmailToGuest
   };
 }

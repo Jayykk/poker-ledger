@@ -32,7 +32,9 @@
     "guestLogin": "访客试用 (免注册)",
     "backToLogin": "返回登录",
     "registerAccount": "注册账号",
-    "guest": "访客"
+    "guest": "访客",
+    "guestName": "访客昵称（可选）",
+    "defaultGuestName": "访客"
   },
   "nav": {
     "lobby": "大厅",
@@ -142,6 +144,13 @@
       "light": "浅色"
     },
     "version": "版本",
+    "upgradeAccount": "升级账号",
+    "upgradeDescription": "绑定 Email 以保存您的游戏记录",
+    "linkEmail": "绑定 Email",
+    "lastChanceToRename": "最后更名机会",
+    "upgradeSuccess": "账号升级成功！",
+    "upgradeError": "升级账号失败，请重试",
+    "emailPasswordRequired": "Email 和密码为必填",
     "errors": {
       "notificationDenied": "通知权限已被拒绝。请在浏览器设置中启用通知。",
       "notificationUnsupported": "此浏览器不支持通知功能"
