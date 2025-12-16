@@ -6,11 +6,11 @@
 import { initializeApp } from 'firebase-admin/app';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { createRoom, joinSeat, leaveSeat, getRoom, deleteRoom } from './handlers/room.js';
-import { 
-  startHand, 
-  handlePlayerAction, 
-  setEndAfterHand as setEndAfterHandHandler, 
-  settlePokerGame as settlePokerGameHandler 
+import {
+  startHand,
+  handlePlayerAction,
+  setEndAfterHand as setEndAfterHandHandler,
+  settlePokerGame as settlePokerGameHandler,
 } from './handlers/game.js';
 
 // Initialize Firebase Admin

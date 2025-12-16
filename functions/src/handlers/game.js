@@ -216,7 +216,7 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
   const privateCollection = gameRef.collection('private');
   const privateDocs = await privateCollection.listDocuments();
   const holeCards = {};
-  
+
   // Get each document within the transaction
   for (const docRef of privateDocs) {
     const docSnap = await transaction.get(docRef);
