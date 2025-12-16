@@ -192,7 +192,7 @@ const handleAllIn = () => {
   color: white;
 }
 
-.btn-fold:hover {
+.btn-fold:hover:not(:disabled) {
   background: linear-gradient(135deg, #777 0%, #555 100%);
 }
 

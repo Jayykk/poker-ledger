@@ -6,7 +6,7 @@
         v-for="(card, index) in displayCards"
         :key="index"
         class="card"
-        :class="[{ 'card-hidden': !card }, card ? getCardColor(card) : '']"
+        :class="[{ 'card-hidden': !card }, getCardColor(card)]"
       >
         {{ card || '?' }}
       </div>
