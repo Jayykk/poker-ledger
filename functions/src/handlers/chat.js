@@ -41,7 +41,7 @@ export async function sendMessage(gameId, userId, message, userInfo) {
     // Verify user is in the game or is a spectator
     const isPlayer = Object.values(game.seats || {})
       .some((seat) => seat && seat.odId === userId);
-    const isSpectator = (game.spectators || []).includes(userId);
+    const isSpectator = (game.spectators || []).some((s) => s.userId === userId);
 
     if (!isPlayer && !isSpectator) {
       throw new Error('User not in game');
