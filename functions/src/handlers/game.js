@@ -222,13 +222,21 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
   // Find winner closest to dealer for remainder
   let closestWinnerIndex = -1;
   let minDistance = Infinity;
-  
+
   result.winners.forEach((winner, idx) => {
     const seatEntry = Object.entries(seats)
       .find(([, seat]) => seat && seat.odId === winner.playerId);
     if (seatEntry) {
       const [seatNum] = seatEntry;
-      const distance = (parseInt(seatNum) - game.table.dealerSeat + Object.keys(seats).length) % Object.keys(seats).length;
+
+      // 把總座位數先提出來，讓程式碼變短且更有效率 (不用算兩次)
+      const totalSeats = Object.keys(seats).length;
+
+      // 拆解計算公式，解決 max-len 問題
+      // (目標座位 - 莊家座位 + 總數) % 總數 = 順時針距離
+      const relativePos = parseInt(seatNum, 10) - game.table.dealerSeat;
+      const distance = (relativePos + totalSeats) % totalSeats;
+
       if (distance < minDistance) {
         minDistance = distance;
         closestWinnerIndex = idx;
@@ -271,7 +279,7 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
 
   // Check if game should end after this hand
   const shouldEndGame = game.meta?.pauseAfterHand === true;
-  
+
   const finalStatus = shouldEndGame ? 'ended' : 'waiting';
 
   // If game is ending, settle it
@@ -300,7 +308,7 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
 export async function setEndAfterHand(gameId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
-  
+
   await gameRef.update({
     'meta.pauseAfterHand': true,
   });
@@ -325,7 +333,7 @@ export async function settlePokerGame(gameId) {
 
     const game = gameDoc.data();
     const seats = game.seats || {};
-    
+
     // Get all seated players
     const seatedPlayers = Object.values(seats).filter((seat) => seat !== null);
 

@@ -123,7 +123,7 @@ export function validateJoinSeat(game, seatNumber, buyIn, userId) {
   // Check if player is already seated
   const alreadySeated = Object.values(game.seats || {})
     .some((seat) => seat && seat.odId === userId);
-  
+
   if (alreadySeated) {
     return { valid: false, error: 'Already seated at this table' };
   }
