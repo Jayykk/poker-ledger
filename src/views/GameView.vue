@@ -88,8 +88,8 @@
           <BaseInput
             v-model.number="newPlayerBuyIn"
             type="number"
-            :min="100"
-            :step="100"
+            :min="MIN_BUY_IN"
+            :step="CHIP_STEP"
             class="flex-1 text-center"
           />
           <BaseButton @click="incrementNewPlayerBuyIn" size="sm">+100</BaseButton>
@@ -115,9 +115,9 @@
         <div>
           <label class="text-xs text-gray-400 block mb-2">{{ $t('game.buyIn') }}</label>
           <div class="flex gap-2 items-center">
-            <BaseButton @click="editingPlayer.buyIn -= 100" size="sm">-</BaseButton>
+            <BaseButton @click="editingPlayer.buyIn = Math.max(MIN_BUY_IN, editingPlayer.buyIn - CHIP_STEP)" size="sm">-</BaseButton>
             <span class="text-white font-mono flex-1 text-center">{{ editingPlayer?.buyIn }}</span>
-            <BaseButton @click="editingPlayer.buyIn += 100" size="sm">+</BaseButton>
+            <BaseButton @click="editingPlayer.buyIn += CHIP_STEP" size="sm">+</BaseButton>
           </div>
         </div>
         <BaseInput

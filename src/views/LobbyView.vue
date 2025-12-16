@@ -134,8 +134,8 @@
           <BaseInput
             v-model.number="createBuyIn"
             type="number"
-            :min="100"
-            :step="100"
+            :min="MIN_BUY_IN"
+            :step="CHIP_STEP"
             class="w-full"
           />
         </label>
