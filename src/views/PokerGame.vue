@@ -71,9 +71,6 @@ const authStore = useAuthStore();
 const { success } = useNotification();
 const { confirm } = useConfirm();
 
-// Constants
-const NAVIGATION_DELAY_MS = 2000;
-
 const {
   currentGame,
   gameId,
@@ -88,13 +85,11 @@ const isCreator = computed(() => {
   return currentGame.value?.meta?.createdBy === authStore.user?.uid;
 });
 
-// Watch for game completion
+// Watch for game completion - just show message, don't navigate away
 watch(() => currentGame.value?.status, (status, oldStatus) => {
   if (status === 'completed' && oldStatus !== 'completed') {
     success('Game completed! Results saved to your history.');
-    setTimeout(() => {
-      router.push('/report');
-    }, NAVIGATION_DELAY_MS);
+    // Don't navigate away - let player stay and view results
   }
 });
 
@@ -122,7 +117,12 @@ const handleLeave = async () => {
   
   if (confirmed) {
     try {
-      await leaveSeat();
+      // Leave seat if seated
+      if (mySeat.value) {
+        await leaveSeat();
+      }
+      // Stop listeners and go back to lobby
+      pokerStore.stopListeners();
       goBack();
     } catch (error) {
       console.error('Failed to leave:', error);
