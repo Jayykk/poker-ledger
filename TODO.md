@@ -50,7 +50,7 @@
 poker-ledger/
 ├── functions/                      # Cloud Functions
 │   ├── package.json               # Functions 依賴配置
-│   ├── .eslintrc.js              # ESLint 配置
+│   ├── .eslintrc.cjs             # ESLint 配置
 │   └── src/
 │       ├── index.js              # Functions 入口
 │       ├── engines/
