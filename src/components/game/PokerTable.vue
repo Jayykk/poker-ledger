@@ -20,7 +20,7 @@
           :isCurrentTurn="isCurrentTurn(seatInfo.actualSeatNum)"
           :isMe="isMySeat(seatInfo.actualSeatNum)"
           :visible="true"
-          @join-seat="handleJoinSeat"
+          @join-seat="showBuyInModal"
         />
       </div>
     </div>
@@ -51,11 +51,33 @@
         {{ loading ? 'Starting...' : 'Start Hand' }}
       </button>
     </div>
+
+    <!-- Buy-in Modal -->
+    <BaseModal v-model="showBuyInModalDialog" title="Join Seat">
+      <div class="buy-in-content">
+        <p class="mb-4 text-gray-300">Enter buy-in amount:</p>
+        <input
+          v-model="buyInAmount"
+          type="number"
+          placeholder="1000"
+          class="buy-in-input"
+          @keyup.enter="handleBuyInConfirm"
+        />
+        <div class="modal-actions">
+          <button @click="handleBuyInConfirm" class="btn-confirm">
+            Join
+          </button>
+          <button @click="showBuyInModalDialog = false" class="btn-cancel">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </BaseModal>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { usePokerGame } from '../../composables/usePokerGame.js';
 import { useGameActions } from '../../composables/useGameActions.js';
 import { useAuthStore } from '../../store/modules/auth.js';
@@ -63,6 +85,7 @@ import CommunityCards from './CommunityCards.vue';
 import PotDisplay from './PotDisplay.vue';
 import PlayerSeat from './PlayerSeat.vue';
 import ActionButtons from './ActionButtons.vue';
+import BaseModal from '../common/BaseModal.vue';
 
 const authStore = useAuthStore();
 const {
@@ -79,6 +102,13 @@ const {
   startHand,
   joinSeat,
 } = usePokerGame();
+
+const { fold, check, call, raise, allIn } = useGameActions();
+
+// Buy-in modal state
+const showBuyInModalDialog = ref(false);
+const buyInAmount = ref('1000');
+const selectedSeatNumber = ref(null);
 
 const { fold, check, call, raise, allIn } = useGameActions();
 
@@ -158,6 +188,23 @@ const isMySeat = (seatNum) => {
   const seat = seats.value[seatNum];
   if (!seat) return false;
   return seat.odId === authStore.user?.uid;
+};
+
+const showBuyInModal = (seatNumber) => {
+  selectedSeatNumber.value = seatNumber;
+  buyInAmount.value = '1000'; // Reset to default
+  showBuyInModalDialog.value = true;
+};
+
+const handleBuyInConfirm = async () => {
+  const amount = parseInt(buyInAmount.value);
+  if (isNaN(amount) || amount <= 0) {
+    console.error('Invalid buy-in amount');
+    return;
+  }
+  
+  showBuyInModalDialog.value = false;
+  await handleJoinSeat(selectedSeatNumber.value, amount);
 };
 
 const handleJoinSeat = async (seatNumber, buyIn) => {
@@ -356,5 +403,67 @@ const handleAllIn = async () => {
   .seat-7 { top: 25%; right: 18%; }
   .seat-8 { top: 40%; right: 10%; }
   .seat-9 { bottom: 20%; right: 30%; }
+}
+
+/* Buy-in Modal Styles */
+.buy-in-content {
+  color: white;
+}
+
+.buy-in-input {
+  width: 100%;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+.buy-in-input:focus {
+  outline: none;
+  border-color: #4CAF50;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-confirm {
+  flex: 1;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-confirm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-cancel {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 </style>
