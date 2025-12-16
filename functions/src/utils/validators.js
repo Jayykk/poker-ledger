@@ -116,9 +116,18 @@ export function validateGameStart(game) {
  * @param {Object} game - Game state
  * @param {number} seatNumber - Seat to join
  * @param {number} buyIn - Buy-in amount
+ * @param {string} userId - User ID trying to join
  * @return {{ valid: boolean, error: string }}
  */
-export function validateJoinSeat(game, seatNumber, buyIn) {
+export function validateJoinSeat(game, seatNumber, buyIn, userId) {
+  // Check if player is already seated
+  const alreadySeated = Object.values(game.seats || {})
+    .some((seat) => seat && seat.odId === userId);
+  
+  if (alreadySeated) {
+    return { valid: false, error: 'Already seated at this table' };
+  }
+
   // Check seat number is valid
   if (seatNumber < 0 || seatNumber >= game.meta.maxPlayers) {
     return { valid: false, error: 'Invalid seat number' };

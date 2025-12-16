@@ -13,8 +13,8 @@
       </transition>
     </router-view>
 
-    <!-- Bottom navigation (only show when authenticated) -->
-    <nav v-if="isAuthenticated && $route.path !== '/login'" class="fixed-bottom-nav glass">
+    <!-- Bottom navigation (only show when authenticated and not in poker game) -->
+    <nav v-if="isAuthenticated && $route.path !== '/login' && !$route.path.startsWith('/poker-game')" class="fixed-bottom-nav glass">
       <div class="flex justify-around items-center h-16 max-w-md mx-auto relative">
         <!-- Lobby -->
         <router-link

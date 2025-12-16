@@ -15,6 +15,9 @@ import {
 } from '../engines/texasHoldem.js';
 import { validateGameStart, validatePlayerAction } from '../utils/validators.js';
 
+// Constants
+const DEFAULT_BUY_IN = 1000;
+
 /**
  * Start a new hand
  * @param {string} gameId - Game ID
@@ -214,13 +217,37 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
   // Distribute pot among winners
   const seats = { ...game.seats };
   const amountPerWinner = Math.floor(result.pot / result.winners.length);
+  const remainder = result.pot % result.winners.length;
 
-  result.winners.forEach((winner) => {
+  // Find winner closest to dealer for remainder
+  let closestWinnerIndex = -1;
+  let minDistance = Infinity;
+  
+  result.winners.forEach((winner, idx) => {
     const seatEntry = Object.entries(seats)
       .find(([, seat]) => seat && seat.odId === winner.playerId);
     if (seatEntry) {
       const [seatNum] = seatEntry;
-      seats[seatNum].chips += amountPerWinner;
+      const distance = (parseInt(seatNum) - game.table.dealerSeat + Object.keys(seats).length) % Object.keys(seats).length;
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestWinnerIndex = idx;
+      }
+    }
+  });
+
+  // Distribute chips
+  result.winners.forEach((winner, idx) => {
+    const seatEntry = Object.entries(seats)
+      .find(([, seat]) => seat && seat.odId === winner.playerId);
+    if (seatEntry) {
+      const [seatNum] = seatEntry;
+      let amount = amountPerWinner;
+      // Give remainder to closest winner to dealer
+      if (idx === closestWinnerIndex) {
+        amount += remainder;
+      }
+      seats[seatNum].chips += amount;
     }
   });
 
@@ -228,14 +255,29 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
   transaction.set(handRef, {
     communityCards: game.table.communityCards,
     result: {
-      winners: result.winners.map((w) => ({
+      winners: result.winners.map((w, idx) => ({
         odId: w.playerId,
-        amount: amountPerWinner,
+        amount: amountPerWinner + (idx === closestWinnerIndex ? remainder : 0),
         hand: w.hand.name,
       })),
       pot: result.pot,
     },
   }, { merge: true });
+
+  // Clean up private hole cards after showdown
+  privateDocsSnapshot.forEach((doc) => {
+    transaction.delete(doc.ref);
+  });
+
+  // Check if game should end after this hand
+  const shouldEndGame = game.meta?.pauseAfterHand === true;
+  
+  const finalStatus = shouldEndGame ? 'ended' : 'waiting';
+
+  // If game is ending, settle it
+  if (shouldEndGame) {
+    // Settle will be called separately via settlePokerGame
+  }
 
   return {
     ...game,
@@ -246,6 +288,88 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
       pot: 0,
       currentTurn: null,
     },
-    status: 'waiting',
+    status: finalStatus,
   };
+}
+
+/**
+ * Set game to end after current hand
+ * @param {string} gameId - Game ID
+ * @return {Promise<void>}
+ */
+export async function setEndAfterHand(gameId) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+  
+  await gameRef.update({
+    'meta.pauseAfterHand': true,
+  });
+}
+
+/**
+ * Settle and complete poker game
+ * Saves chip changes to user history
+ * @param {string} gameId - Game ID
+ * @return {Promise<void>}
+ */
+export async function settlePokerGame(gameId) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+
+  return db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+
+    if (!gameDoc.exists) {
+      throw new Error('Game not found');
+    }
+
+    const game = gameDoc.data();
+    const seats = game.seats || {};
+    
+    // Get all seated players
+    const seatedPlayers = Object.values(seats).filter((seat) => seat !== null);
+
+    // For each player, calculate profit/loss and save to their history
+    for (const player of seatedPlayers) {
+      const userId = player.odId;
+      const userRef = db.collection('users').doc(userId);
+      const userDoc = await transaction.get(userRef);
+
+      // Calculate profit/loss (current chips - initial buy-in)
+      const initialBuyIn = player.initialBuyIn || game.meta.minBuyIn || DEFAULT_BUY_IN;
+      const profit = player.chips - initialBuyIn;
+
+      const record = {
+        date: new Date().toISOString(),
+        createdAt: Date.now(),
+        profit: profit,
+        rate: 1, // Online poker uses chip values directly
+        gameName: `Poker Game #${gameId.slice(0, 8)}`,
+        gameType: 'online_poker',
+        settlement: seatedPlayers.map((p) => ({
+          name: p.odName,
+          buyIn: p.initialBuyIn || game.meta.minBuyIn || DEFAULT_BUY_IN,
+          stack: p.chips,
+          profit: p.chips - (p.initialBuyIn || game.meta.minBuyIn || DEFAULT_BUY_IN),
+        })),
+      };
+
+      if (userDoc.exists()) {
+        transaction.update(userRef, {
+          history: FieldValue.arrayUnion(record),
+        });
+      } else {
+        transaction.set(userRef, {
+          history: [record],
+          createdAt: Date.now(),
+        });
+      }
+    }
+
+    // Mark game as completed
+    transaction.update(gameRef, {
+      status: 'completed',
+      completedAt: FieldValue.serverTimestamp(),
+    });
+  });
 }

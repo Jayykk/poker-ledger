@@ -25,7 +25,7 @@ export async function createRoom(config, userId) {
       },
       minBuyIn: config.minBuyIn || 1000,
       maxBuyIn: config.maxBuyIn || 5000,
-      maxPlayers: config.maxPlayers || 6,
+      maxPlayers: 10, // Fixed to 10 players
       createdBy: userId,
       createdAt: FieldValue.serverTimestamp(),
     },
@@ -38,7 +38,7 @@ export async function createRoom(config, userId) {
       dealerSeat: 0,
       currentTurn: null,
       turnStartedAt: null,
-      turnTimeout: 30,
+      turnTimeout: config.turnTimeout || 30,
       minRaise: config.bigBlind || 20,
       lastRaise: 0,
       currentBet: 0,
@@ -83,7 +83,7 @@ export async function joinSeat(gameId, userId, userInfo, seatNumber, buyIn) {
     const game = gameDoc.data();
 
     // Validate join
-    const validation = validateJoinSeat(game, seatNumber, buyIn);
+    const validation = validateJoinSeat(game, seatNumber, buyIn, userId);
     if (!validation.valid) {
       throw new Error(validation.error);
     }
@@ -94,6 +94,7 @@ export async function joinSeat(gameId, userId, userInfo, seatNumber, buyIn) {
       odName: userInfo.name || 'Player',
       odAvatar: userInfo.avatar || '',
       chips: buyIn,
+      initialBuyIn: buyIn, // Track initial buy-in for settlement
       status: 'active',
       currentBet: 0,
       isDealer: false,

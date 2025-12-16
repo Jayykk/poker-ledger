@@ -81,7 +81,7 @@ const {
 const { fold, check, call, raise, allIn } = useGameActions();
 
 // Computed
-const maxSeats = computed(() => currentGame.value?.meta?.maxPlayers || 6);
+const maxSeats = computed(() => currentGame.value?.meta?.maxPlayers || 10);
 
 const seats = computed(() => {
   const seatMap = {};
@@ -175,7 +175,7 @@ const handleAllIn = async () => {
   position: relative;
   width: 100%;
   height: 100vh;
-  background: linear-gradient(135deg, #1a472a 0%, #0d291a 100%);
+  background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 50%, #0d1b2a 100%);
   overflow: hidden;
 }
 
@@ -185,12 +185,42 @@ const handleAllIn = async () => {
   max-width: 1200px;
   height: 70vh;
   margin: 5vh auto;
-  background: radial-gradient(ellipse at center, #0a5d2c 0%, #064020 100%);
-  border: 12px solid #8b4513;
+  background: 
+    radial-gradient(ellipse at center, #1a5c3a 0%, #0f3d26 50%, #0a2818 100%);
+  border: 16px solid #8b6914;
   border-radius: 50%;
   box-shadow: 
-    inset 0 0 50px rgba(0, 0, 0, 0.5),
-    0 10px 40px rgba(0, 0, 0, 0.8);
+    inset 0 0 80px rgba(0, 0, 0, 0.8),
+    inset 0 -20px 40px rgba(0, 0, 0, 0.4),
+    0 15px 50px rgba(0, 0, 0, 0.9),
+    0 0 0 4px #654321,
+    0 0 0 8px #3d2817;
+  position: relative;
+}
+
+.poker-table::before {
+  content: '';
+  position: absolute;
+  inset: 20px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 30% 30%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.poker-table::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: 
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.03) 2px,
+      rgba(0, 0, 0, 0.03) 4px
+    );
+  pointer-events: none;
 }
 
 .community-cards-area {
@@ -206,12 +236,17 @@ const handleAllIn = async () => {
   position: absolute;
 }
 
-.seat-0 { top: 50%; left: 10%; transform: translateY(-50%); }
-.seat-1 { top: 15%; left: 20%; }
-.seat-2 { top: 5%; left: 50%; transform: translateX(-50%); }
-.seat-3 { top: 15%; right: 20%; }
-.seat-4 { top: 50%; right: 10%; transform: translateY(-50%); }
-.seat-5 { bottom: 15%; left: 50%; transform: translateX(-50%); }
+/* 10-player seat positions arranged in oval */
+.seat-0 { bottom: 20%; left: 50%; transform: translateX(-50%); }
+.seat-1 { bottom: 25%; left: 25%; }
+.seat-2 { top: 45%; left: 8%; transform: translateY(-50%); }
+.seat-3 { top: 20%; left: 15%; }
+.seat-4 { top: 8%; left: 35%; }
+.seat-5 { top: 5%; left: 50%; transform: translateX(-50%); }
+.seat-6 { top: 8%; right: 35%; }
+.seat-7 { top: 20%; right: 15%; }
+.seat-8 { top: 45%; right: 8%; transform: translateY(-50%); }
+.seat-9 { bottom: 25%; right: 25%; }
 
 .action-controls {
   position: fixed;
@@ -264,11 +299,15 @@ const handleAllIn = async () => {
     height: 60vh;
   }
 
-  .seat-0 { top: 50%; left: 5%; }
-  .seat-1 { top: 20%; left: 15%; }
-  .seat-2 { top: 10%; left: 50%; }
-  .seat-3 { top: 20%; right: 15%; }
-  .seat-4 { top: 50%; right: 5%; }
-  .seat-5 { bottom: 10%; left: 50%; }
+  .seat-0 { bottom: 15%; left: 50%; }
+  .seat-1 { bottom: 20%; left: 30%; }
+  .seat-2 { top: 40%; left: 10%; }
+  .seat-3 { top: 25%; left: 18%; }
+  .seat-4 { top: 15%; left: 38%; }
+  .seat-5 { top: 10%; left: 50%; }
+  .seat-6 { top: 15%; right: 38%; }
+  .seat-7 { top: 25%; right: 18%; }
+  .seat-8 { top: 40%; right: 10%; }
+  .seat-9 { bottom: 20%; right: 30%; }
 }
 </style>
