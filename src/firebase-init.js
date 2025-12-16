@@ -17,6 +17,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export { app }; // Export app for Functions
 
 // Use the new persistence API instead of deprecated enableIndexedDbPersistence
 export const db = initializeFirestore(app, {

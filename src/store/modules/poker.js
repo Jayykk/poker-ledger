@@ -4,7 +4,7 @@
  */
 
 import { defineStore } from 'pinia';
-import { db } from '../../firebase-init.js';
+import { db, app } from '../../firebase-init.js';
 import {
   collection,
   doc,
@@ -100,7 +100,7 @@ export const usePokerStore = defineStore('poker', {
       this.error = null;
 
       try {
-        const functions = getFunctions();
+        const functions = getFunctions(app);
         const createRoom = httpsCallable(functions, 'createPokerRoom');
         
         const result = await createRoom({ config });
@@ -127,7 +127,7 @@ export const usePokerStore = defineStore('poker', {
       this.error = null;
 
       try {
-        const functions = getFunctions();
+        const functions = getFunctions(app);
         const joinSeat = httpsCallable(functions, 'joinPokerSeat');
         
         const result = await joinSeat({ gameId, seatNumber, buyIn });
@@ -158,7 +158,7 @@ export const usePokerStore = defineStore('poker', {
       this.error = null;
 
       try {
-        const functions = getFunctions();
+        const functions = getFunctions(app);
         const leaveSeat = httpsCallable(functions, 'leavePokerSeat');
         
         await leaveSeat({ gameId: this.gameId });
@@ -186,7 +186,7 @@ export const usePokerStore = defineStore('poker', {
       this.error = null;
 
       try {
-        const functions = getFunctions();
+        const functions = getFunctions(app);
         const startHand = httpsCallable(functions, 'startPokerHand');
         
         const result = await startHand({ gameId: this.gameId });
@@ -210,7 +210,7 @@ export const usePokerStore = defineStore('poker', {
       this.error = null;
 
       try {
-        const functions = getFunctions();
+        const functions = getFunctions(app);
         const playerAction = httpsCallable(functions, 'pokerPlayerAction');
         
         const result = await playerAction({

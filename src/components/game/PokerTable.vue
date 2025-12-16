@@ -18,7 +18,7 @@
           :seat="seats[seatNum]"
           :seatNumber="seatNum"
           :isCurrentTurn="isCurrentTurn(seatNum)"
-          :isMe="isMyS eat(seatNum)"
+          :isMe="isMySeat(seatNum)"
           @join-seat="handleJoinSeat"
         />
       </div>

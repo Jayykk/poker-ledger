@@ -36,6 +36,15 @@
         </router-link>
         
         <router-link
+          to="/poker-lobby"
+          class="flex flex-col items-center gap-1 w-full h-full justify-center"
+          :class="$route.path.startsWith('/poker') ? 'text-amber-500' : 'text-gray-500'"
+        >
+          <i class="fas fa-cards text-xl"></i>
+          <span class="text-[10px]">{{ $t('nav.poker') }}</span>
+        </router-link>
+        
+        <router-link
           to="/report"
           class="flex flex-col items-center gap-1 w-full h-full justify-center"
           :class="$route.path === '/report' ? 'text-amber-500' : 'text-gray-500'"
