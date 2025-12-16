@@ -187,7 +187,8 @@ export async function deleteRoom(gameId, userId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
-  return db.runTransaction(async (transaction) => {
+  // First verify permissions in a transaction
+  await db.runTransaction(async (transaction) => {
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
@@ -205,8 +206,8 @@ export async function deleteRoom(gameId, userId) {
     transaction.delete(gameRef);
   });
 
-  // Delete subcollections (private cards and hands) after transaction
-  // These don't need to be in the transaction since we're deleting everything
+  // Delete subcollections (private cards and hands) after main document
+  // This is safe to do after the transaction since we verified permissions
   const privateSnapshot = await gameRef.collection('private').get();
   const handsSnapshot = await gameRef.collection('hands').get();
 
