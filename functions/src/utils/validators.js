@@ -45,17 +45,6 @@ export function validatePlayerAction(game, playerId, action, amount = 0) {
     if (callAmount > 0) {
       return { valid: false, error: 'Cannot check, must call or fold' };
     }
-    
-    // Check if any other player is all-in with a higher bet
-    const hasHigherAllIn = Object.values(game.seats).some((seat) => {
-      if (!seat || seat.odId === playerId) return false;
-      return seat.status === 'all_in' && (seat.currentBet || 0) > playerCurrentBet;
-    });
-    
-    if (hasHigherAllIn) {
-      return { valid: false, error: 'Cannot check when facing an all-in bet' };
-    }
-    
     return { valid: true, error: null };
 
   case 'call':
