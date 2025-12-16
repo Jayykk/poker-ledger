@@ -33,6 +33,12 @@
         <span v-if="seat.status === 'all_in'" class="badge all-in">All-In</span>
       </div>
 
+      <!-- Turn Timer -->
+      <div v-if="isCurrentTurn && timeRemaining > 0" class="turn-timer">
+        <div class="timer-bar" :style="{ width: timerPercentage + '%' }"></div>
+        <span class="timer-text">{{ timeRemaining }}s</span>
+      </div>
+
       <!-- Hole Cards (only show for current player) -->
       <div v-if="isMe && holeCards.length > 0" class="hole-cards">
         <div v-for="(card, i) in holeCards" :key="i" class="card-mini">
@@ -42,16 +48,23 @@
     </div>
 
     <!-- Empty Seat (Join Button) -->
-    <div v-else class="empty-seat" @click="handleJoinClick">
+    <div v-else-if="!isAlreadySeated" class="empty-seat" @click="handleJoinClick">
       <div class="join-icon">+</div>
       <div class="join-text">Join</div>
+    </div>
+
+    <!-- Empty Seat (Locked - Already Seated) -->
+    <div v-else class="empty-seat locked">
+      <div class="join-icon">🔒</div>
+      <div class="join-text">Locked</div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import { usePokerGame } from '../../composables/usePokerGame.js';
+import { useAuthStore } from '../../store/modules/auth.js';
 
 const props = defineProps({
   seat: {
@@ -74,10 +87,52 @@ const props = defineProps({
 
 const emit = defineEmits(['join-seat']);
 
-const { myHoleCards } = usePokerGame();
+const { myHoleCards, currentGame } = usePokerGame();
+const authStore = useAuthStore();
 
 const holeCards = computed(() => {
   return props.isMe ? myHoleCards.value : [];
+});
+
+// Check if current user is already seated anywhere
+const isAlreadySeated = computed(() => {
+  if (!currentGame.value) return false;
+  const userId = authStore.user?.uid;
+  return Object.values(currentGame.value.seats || {})
+    .some((seat) => seat && seat.odId === userId);
+});
+
+// Timer logic
+const timeRemaining = ref(0);
+const turnTimeout = computed(() => currentGame.value?.table?.turnTimeout || 30);
+let timerInterval = null;
+
+const timerPercentage = computed(() => {
+  return (timeRemaining.value / turnTimeout.value) * 100;
+});
+
+// Watch for turn changes
+watch(() => props.isCurrentTurn, (isTurn) => {
+  if (isTurn) {
+    // Start timer
+    timeRemaining.value = turnTimeout.value;
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      if (timeRemaining.value > 0) {
+        timeRemaining.value--;
+      } else {
+        clearInterval(timerInterval);
+      }
+    }, 1000);
+  } else {
+    // Clear timer
+    clearInterval(timerInterval);
+    timeRemaining.value = 0;
+  }
+}, { immediate: true });
+
+onBeforeUnmount(() => {
+  clearInterval(timerInterval);
 });
 
 const handleJoinClick = () => {
@@ -218,6 +273,35 @@ const handleJoinClick = () => {
   color: white;
 }
 
+.turn-timer {
+  position: relative;
+  margin-top: 8px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.timer-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50 0%, #FFC107 50%, #f44336 100%);
+  transition: width 1s linear;
+}
+
+.timer-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
 .hole-cards {
   display: flex;
   gap: 4px;
@@ -244,6 +328,11 @@ const handleJoinClick = () => {
   justify-content: center;
   gap: 8px;
   padding: 20px;
+}
+
+.empty-seat.locked {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .join-icon {

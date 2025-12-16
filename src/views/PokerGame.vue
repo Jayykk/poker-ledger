@@ -23,6 +23,13 @@
           <span class="separator">|</span>
           <span>Hand: #{{ currentGame.handNumber }}</span>
         </div>
+        <button 
+          v-if="isCreator && currentGame.status === 'playing'"
+          @click="handleEndAfterHand" 
+          class="btn-end"
+        >
+          🛑 End After Hand
+        </button>
       </div>
 
       <!-- Main Poker Table -->
@@ -32,15 +39,17 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePokerGame } from '../composables/usePokerGame.js';
 import { usePokerStore } from '../store/modules/poker.js';
+import { useAuthStore } from '../store/modules/auth.js';
 import PokerTable from '../components/game/PokerTable.vue';
 
 const route = useRoute();
 const router = useRouter();
 const pokerStore = usePokerStore();
+const authStore = useAuthStore();
 
 const {
   currentGame,
@@ -50,6 +59,10 @@ const {
   joinGame,
   leaveSeat,
 } = usePokerGame();
+
+const isCreator = computed(() => {
+  return currentGame.value?.meta?.createdBy === authStore.user?.uid;
+});
 
 onMounted(async () => {
   const id = route.params.gameId;
@@ -74,6 +87,16 @@ const handleLeave = async () => {
       goBack();
     } catch (error) {
       console.error('Failed to leave:', error);
+    }
+  }
+};
+
+const handleEndAfterHand = async () => {
+  if (confirm('End the game after this hand completes?')) {
+    try {
+      await pokerStore.endGameAfterHand(gameId.value);
+    } catch (error) {
+      console.error('Failed to end game:', error);
     }
   }
 };
@@ -158,6 +181,23 @@ const goBack = () => {
 .btn-leave:hover {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.4);
+}
+
+.btn-end {
+  background: rgba(244, 67, 54, 0.2);
+  color: #ff6b6b;
+  border: 1px solid rgba(244, 67, 54, 0.4);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px;
+}
+
+.btn-end:hover {
+  background: rgba(244, 67, 54, 0.3);
+  border-color: rgba(244, 67, 54, 0.6);
 }
 
 .game-info {

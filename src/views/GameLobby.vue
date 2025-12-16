@@ -75,12 +75,8 @@
         </div>
 
         <div class="form-group">
-          <label>Max Players</label>
-          <select v-model.number="newRoom.maxPlayers">
-            <option :value="2">2</option>
-            <option :value="6">6</option>
-            <option :value="9">9</option>
-          </select>
+          <label>Turn Timeout (seconds)</label>
+          <input v-model.number="newRoom.turnTimeout" type="number" min="10" max="120" />
         </div>
 
         <div class="modal-actions">
@@ -111,7 +107,8 @@ const newRoom = ref({
   bigBlind: 20,
   minBuyIn: 1000,
   maxBuyIn: 5000,
-  maxPlayers: 6,
+  maxPlayers: 10,
+  turnTimeout: 30,
   mode: 'cash',
 });
 

@@ -235,6 +235,21 @@ export const usePokerStore = defineStore('poker', {
     },
 
     /**
+     * End game after current hand
+     */
+    async endGameAfterHand(gameId) {
+      try {
+        const functions = getFunctions(app);
+        const endAfterHand = httpsCallable(functions, 'setEndAfterHand');
+        
+        await endAfterHand({ gameId });
+      } catch (error) {
+        console.error('Error setting end after hand:', error);
+        throw error;
+      }
+    },
+
+    /**
      * Start listening to game updates
      */
     async joinGameListener(gameId, userId) {

@@ -214,13 +214,37 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
   // Distribute pot among winners
   const seats = { ...game.seats };
   const amountPerWinner = Math.floor(result.pot / result.winners.length);
+  const remainder = result.pot % result.winners.length;
 
-  result.winners.forEach((winner) => {
+  // Find winner closest to dealer for remainder
+  let closestWinnerIndex = -1;
+  let minDistance = Infinity;
+  
+  result.winners.forEach((winner, idx) => {
     const seatEntry = Object.entries(seats)
       .find(([, seat]) => seat && seat.odId === winner.playerId);
     if (seatEntry) {
       const [seatNum] = seatEntry;
-      seats[seatNum].chips += amountPerWinner;
+      const distance = (parseInt(seatNum) - game.table.dealerSeat + Object.keys(seats).length) % Object.keys(seats).length;
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestWinnerIndex = idx;
+      }
+    }
+  });
+
+  // Distribute chips
+  result.winners.forEach((winner, idx) => {
+    const seatEntry = Object.entries(seats)
+      .find(([, seat]) => seat && seat.odId === winner.playerId);
+    if (seatEntry) {
+      const [seatNum] = seatEntry;
+      let amount = amountPerWinner;
+      // Give remainder to closest winner to dealer
+      if (idx === closestWinnerIndex) {
+        amount += remainder;
+      }
+      seats[seatNum].chips += amount;
     }
   });
 
@@ -228,14 +252,22 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
   transaction.set(handRef, {
     communityCards: game.table.communityCards,
     result: {
-      winners: result.winners.map((w) => ({
+      winners: result.winners.map((w, idx) => ({
         odId: w.playerId,
-        amount: amountPerWinner,
+        amount: amountPerWinner + (idx === closestWinnerIndex ? remainder : 0),
         hand: w.hand.name,
       })),
       pot: result.pot,
     },
   }, { merge: true });
+
+  // Clean up private hole cards after showdown
+  privateDocsSnapshot.forEach((doc) => {
+    transaction.delete(doc.ref);
+  });
+
+  // Check if game should end after this hand
+  const shouldEndGame = game.meta?.pauseAfterHand === true;
 
   return {
     ...game,
@@ -246,6 +278,20 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
       pot: 0,
       currentTurn: null,
     },
-    status: 'waiting',
+    status: shouldEndGame ? 'ended' : 'waiting',
   };
+}
+
+/**
+ * Set game to end after current hand
+ * @param {string} gameId - Game ID
+ * @return {Promise<void>}
+ */
+export async function setEndAfterHand(gameId) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+  
+  await gameRef.update({
+    'meta.pauseAfterHand': true,
+  });
 }
