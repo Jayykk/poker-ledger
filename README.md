@@ -216,6 +216,75 @@ This project is licensed under the MIT License.
 - Tailwind CSS for the utility-first CSS framework
 - Font Awesome for the icon library
 
+## 🎰 線上德州撲克 (Live Texas Hold'em)
+
+**新功能**: 與朋友即時對戰的線上德州撲克遊戲！
+
+### 功能特色
+- 🃏 **公平發牌** - 伺服器端處理，確保遊戲公平性
+- 👥 **多人對戰** - 最多 6 人同桌競技
+- 💰 **整合記帳** - 與現有記帳系統完美整合
+- 📱 **手機友好** - 觸控優化的操作介面
+- ⚡ **即時同步** - Firestore 即時更新遊戲狀態
+- 🎯 **智慧下注** - 滑桿 + 快捷按鈕的下注控制
+
+### 遊戲規則
+- **德州撲克** (Texas Hold'em) - 最受歡迎的撲克變體
+- **盲注結構** - 可自訂大小盲注
+- **買入範圍** - 設定最小/最大買入籌碼
+- **完整回合** - Preflop → Flop → Turn → River → Showdown
+
+### 技術架構
+- **前端**: Vue 3 + Pinia + Composition API
+- **後端**: Firebase Cloud Functions (Node.js)
+- **即時同步**: Firestore Real-time Listeners
+- **認證**: Firebase Authentication
+- **遊戲引擎**: 伺服器端德州撲克引擎
+
+### Cloud Functions 設定
+
+初次部署需要設定 Firebase Functions：
+
+```bash
+# 安裝 Firebase CLI
+npm install -g firebase-tools
+
+# 登入 Firebase
+firebase login
+
+# 初始化 Functions（若尚未初始化）
+firebase init functions
+
+# 部署 Cloud Functions
+cd functions
+npm install
+firebase deploy --only functions
+
+# 部署 Firestore 安全規則
+firebase deploy --only firestore:rules
+```
+
+### 遊戲數據結構
+
+詳細的 Firestore 數據結構請參考 [TODO.md](./TODO.md)
+
+主要集合：
+- `/pokerGames/{gameId}` - 遊戲房間資訊
+- `/pokerGames/{gameId}/hands/{handId}` - 每手牌記錄
+- `/pokerGames/{gameId}/private/{userId}` - 玩家私密手牌
+
+### 開發路線圖
+
+完整的功能開發計畫請查看 [TODO.md](./TODO.md)
+
+**Phase 1**: 基礎架構 (Foundation) 🚧  
+**Phase 2**: 核心遊戲功能 (Core Game) 📝  
+**Phase 3**: UI/UX 優化 (User Experience) 📝  
+**Phase 4**: 社交功能 (Social Features) 📝  
+**Phase 5**: 進階功能 (Advanced) 📝
+
+---
+
 ## 📞 Support
 
 For issues, questions, or suggestions, please open an issue on GitHub.

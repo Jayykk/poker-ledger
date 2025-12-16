@@ -14,6 +14,8 @@ import GameView from './views/GameView.vue';
 import ReportView from './views/ReportView.vue';
 import ProfileView from './views/ProfileView.vue';
 import FriendsView from './views/FriendsView.vue';
+import GameLobby from './views/GameLobby.vue';
+import PokerGame from './views/PokerGame.vue';
 
 // Create router
 const router = createRouter({
@@ -25,7 +27,9 @@ const router = createRouter({
     { path: '/game', name: 'Game', component: GameView, meta: { requiresAuth: true } },
     { path: '/report', name: 'Report', component: ReportView, meta: { requiresAuth: true } },
     { path: '/profile', name: 'Profile', component: ProfileView, meta: { requiresAuth: true } },
-    { path: '/friends', name: 'Friends', component: FriendsView, meta: { requiresAuth: true } }
+    { path: '/friends', name: 'Friends', component: FriendsView, meta: { requiresAuth: true } },
+    { path: '/poker-lobby', name: 'GameLobby', component: GameLobby, meta: { requiresAuth: true } },
+    { path: '/poker-game/:gameId', name: 'PokerGame', component: PokerGame, meta: { requiresAuth: true } }
   ]
 });
 

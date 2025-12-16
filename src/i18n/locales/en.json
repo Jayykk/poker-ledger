@@ -56,7 +56,8 @@
     "game": "Game",
     "report": "Report",
     "profile": "Profile",
-    "friends": "Friends"
+    "friends": "Friends",
+    "poker": "Poker"
   },
   "lobby": {
     "title": "Lobby",
