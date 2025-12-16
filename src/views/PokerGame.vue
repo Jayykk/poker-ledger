@@ -23,13 +23,22 @@
           <span class="separator">|</span>
           <span>Hand: #{{ currentGame.handNumber }}</span>
         </div>
-        <button 
-          v-if="isCreator && currentGame.status === 'playing'"
-          @click="handleEndAfterHand" 
-          class="btn-end"
-        >
-          🛑 End After Hand
-        </button>
+        <div class="header-actions">
+          <button 
+            v-if="isCreator && currentGame.status === 'playing'"
+            @click="handleEndAfterHand" 
+            class="btn-end"
+          >
+            🛑 End After Hand
+          </button>
+          <button 
+            v-if="isCreator"
+            @click="handleDeleteRoom" 
+            class="btn-delete"
+          >
+            🗑️ Delete Room
+          </button>
+        </div>
       </div>
 
       <!-- Main Poker Table -->
@@ -110,8 +119,21 @@ const handleEndAfterHand = async () => {
   if (confirm('End the game after this hand completes?')) {
     try {
       await pokerStore.endGameAfterHand(gameId.value);
+      success('Game will end after this hand completes.');
     } catch (error) {
       console.error('Failed to end game:', error);
+    }
+  }
+};
+
+const handleDeleteRoom = async () => {
+  if (confirm('Are you sure you want to delete this room? All players will be kicked out.')) {
+    try {
+      await pokerStore.deleteRoom(gameId.value);
+      success('Room deleted successfully.');
+      router.push('/poker-lobby');
+    } catch (error) {
+      console.error('Failed to delete room:', error);
     }
   }
 };
@@ -213,6 +235,29 @@ const goBack = () => {
 .btn-end:hover {
   background: rgba(244, 67, 54, 0.3);
   border-color: rgba(244, 67, 54, 0.6);
+}
+
+.btn-delete {
+  background: rgba(220, 38, 38, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px;
+}
+
+.btn-delete:hover {
+  background: rgba(220, 38, 38, 0.3);
+  border-color: rgba(220, 38, 38, 0.6);
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .game-info {

@@ -240,11 +240,34 @@ export const usePokerStore = defineStore('poker', {
     async endGameAfterHand(gameId) {
       try {
         const functions = getFunctions(app);
-        const endAfterHand = httpsCallable(functions, 'setEndAfterHand');
+        const endAfterHand = httpsCallable(functions, 'endGameAfterHand');
         
         await endAfterHand({ gameId });
       } catch (error) {
         console.error('Error setting end after hand:', error);
+        throw error;
+      }
+    },
+
+    /**
+     * Delete a poker room (creator only)
+     */
+    async deleteRoom(gameId) {
+      try {
+        const functions = getFunctions(app);
+        const deleteRoom = httpsCallable(functions, 'deletePokerRoom');
+        
+        await deleteRoom({ gameId });
+        
+        // Clean up local state
+        if (this.gameId === gameId) {
+          this.stopListeners();
+          this.currentGame = null;
+          this.gameId = null;
+          this.myHoleCards = [];
+        }
+      } catch (error) {
+        console.error('Error deleting room:', error);
         throw error;
       }
     },

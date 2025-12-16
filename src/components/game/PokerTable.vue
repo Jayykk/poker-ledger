@@ -186,24 +186,31 @@ const handleAllIn = async () => {
   height: 70vh;
   margin: 5vh auto;
   background: 
-    radial-gradient(ellipse at center, #1a5c3a 0%, #0f3d26 50%, #0a2818 100%);
-  border: 16px solid #8b6914;
+    radial-gradient(ellipse at center, #2d7a52 0%, #1a5c3a 40%, #0f3d26 70%, #0a2818 100%);
+  border: 18px solid #8b6914;
   border-radius: 50%;
   box-shadow: 
-    inset 0 0 80px rgba(0, 0, 0, 0.8),
-    inset 0 -20px 40px rgba(0, 0, 0, 0.4),
-    0 15px 50px rgba(0, 0, 0, 0.9),
-    0 0 0 4px #654321,
-    0 0 0 8px #3d2817;
+    inset 0 0 100px rgba(0, 0, 0, 0.7),
+    inset 0 -30px 60px rgba(0, 0, 0, 0.5),
+    inset 0 5px 30px rgba(255, 255, 255, 0.05),
+    0 20px 60px rgba(0, 0, 0, 0.9),
+    0 0 0 6px #654321,
+    0 0 0 12px #3d2817,
+    0 0 40px rgba(139, 105, 20, 0.4);
   position: relative;
 }
 
 .poker-table::before {
   content: '';
   position: absolute;
-  inset: 20px;
+  inset: 30px;
   border-radius: 50%;
-  background: radial-gradient(ellipse at 30% 30%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+  background: 
+    radial-gradient(
+      ellipse at 35% 30%, 
+      rgba(255, 255, 255, 0.08) 0%, 
+      transparent 40%
+    );
   pointer-events: none;
 }
 
@@ -216,11 +223,12 @@ const handleAllIn = async () => {
     repeating-linear-gradient(
       0deg,
       transparent,
-      transparent 2px,
-      rgba(0, 0, 0, 0.03) 2px,
-      rgba(0, 0, 0, 0.03) 4px
+      transparent 3px,
+      rgba(0, 0, 0, 0.02) 3px,
+      rgba(0, 0, 0, 0.02) 6px
     );
   pointer-events: none;
+  opacity: 0.5;
 }
 
 .community-cards-area {
@@ -234,19 +242,71 @@ const handleAllIn = async () => {
 /* Position seats around the table */
 .player-seat-wrapper {
   position: absolute;
+  z-index: 10;
 }
 
-/* 10-player seat positions arranged in oval */
-.seat-0 { bottom: 20%; left: 50%; transform: translateX(-50%); }
-.seat-1 { bottom: 25%; left: 25%; }
-.seat-2 { top: 45%; left: 8%; transform: translateY(-50%); }
-.seat-3 { top: 20%; left: 15%; }
-.seat-4 { top: 8%; left: 35%; }
-.seat-5 { top: 5%; left: 50%; transform: translateX(-50%); }
-.seat-6 { top: 8%; right: 35%; }
-.seat-7 { top: 20%; right: 15%; }
-.seat-8 { top: 45%; right: 8%; transform: translateY(-50%); }
-.seat-9 { bottom: 25%; right: 25%; }
+/* 10-player seat positions arranged in oval
+ * Layout:
+ *        [5]
+ *    [4]     [6]
+ *  [3]         [7]
+ * [2]           [8]
+ *  [1]         [9]
+ *      [0]
+ */
+.seat-0 { 
+  bottom: 5%; 
+  left: 50%; 
+  transform: translateX(-50%); 
+}
+
+.seat-1 { 
+  bottom: 15%; 
+  left: 15%; 
+}
+
+.seat-2 { 
+  top: 50%; 
+  left: 2%; 
+  transform: translateY(-50%); 
+}
+
+.seat-3 { 
+  top: 30%; 
+  left: 8%; 
+}
+
+.seat-4 { 
+  top: 12%; 
+  left: 28%; 
+}
+
+.seat-5 { 
+  top: 5%; 
+  left: 50%; 
+  transform: translateX(-50%); 
+}
+
+.seat-6 { 
+  top: 12%; 
+  right: 28%; 
+}
+
+.seat-7 { 
+  top: 30%; 
+  right: 8%; 
+}
+
+.seat-8 { 
+  top: 50%; 
+  right: 2%; 
+  transform: translateY(-50%); 
+}
+
+.seat-9 { 
+  bottom: 15%; 
+  right: 15%; 
+}
 
 .action-controls {
   position: fixed;
@@ -299,15 +359,55 @@ const handleAllIn = async () => {
     height: 60vh;
   }
 
-  .seat-0 { bottom: 15%; left: 50%; }
-  .seat-1 { bottom: 20%; left: 30%; }
-  .seat-2 { top: 40%; left: 10%; }
-  .seat-3 { top: 25%; left: 18%; }
-  .seat-4 { top: 15%; left: 38%; }
-  .seat-5 { top: 10%; left: 50%; }
-  .seat-6 { top: 15%; right: 38%; }
-  .seat-7 { top: 25%; right: 18%; }
-  .seat-8 { top: 40%; right: 10%; }
-  .seat-9 { bottom: 20%; right: 30%; }
+  /* Adjust seat positions for mobile */
+  .seat-0 { 
+    bottom: 3%; 
+    left: 50%; 
+  }
+  
+  .seat-1 { 
+    bottom: 12%; 
+    left: 18%; 
+  }
+  
+  .seat-2 { 
+    top: 48%; 
+    left: 5%; 
+  }
+  
+  .seat-3 { 
+    top: 28%; 
+    left: 10%; 
+  }
+  
+  .seat-4 { 
+    top: 12%; 
+    left: 30%; 
+  }
+  
+  .seat-5 { 
+    top: 5%; 
+    left: 50%; 
+  }
+  
+  .seat-6 { 
+    top: 12%; 
+    right: 30%; 
+  }
+  
+  .seat-7 { 
+    top: 28%; 
+    right: 10%; 
+  }
+  
+  .seat-8 { 
+    top: 48%; 
+    right: 5%; 
+  }
+  
+  .seat-9 { 
+    bottom: 12%; 
+    right: 18%; 
+  }
 }
 </style>
