@@ -39,10 +39,10 @@ export function usePushNotification() {
    * @param {number} options.duration - Duration in milliseconds
    * @param {Function} options.onConfirm - Confirm callback
    * @param {Function} options.onDecline - Decline callback
-   * @param {boolean} options.force - If true, bypass user notification settings (for critical game notifications)
+   * @param {boolean} options.force - If true, bypass user notification preferences (for critical game notifications)
    */
   const sendNotification = (title, options = {}) => {
-    // If not forced and notifications are disabled, skip
+    // If not forced and user has disabled notifications in preferences, skip
     if (!options.force && !canSendNotifications.value) {
       return null;
     }

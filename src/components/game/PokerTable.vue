@@ -59,7 +59,7 @@
         <input
           v-model="buyInAmount"
           type="number"
-          placeholder="1000"
+          :placeholder="String(DEFAULT_BUY_IN)"
           class="buy-in-input"
           @keyup.enter="handleBuyInConfirm"
         />
@@ -81,6 +81,7 @@ import { computed, ref } from 'vue';
 import { usePokerGame } from '../../composables/usePokerGame.js';
 import { useGameActions } from '../../composables/useGameActions.js';
 import { useAuthStore } from '../../store/modules/auth.js';
+import { useNotification } from '../../composables/useNotification.js';
 import CommunityCards from './CommunityCards.vue';
 import PotDisplay from './PotDisplay.vue';
 import PlayerSeat from './PlayerSeat.vue';
@@ -88,6 +89,7 @@ import ActionButtons from './ActionButtons.vue';
 import BaseModal from '../common/BaseModal.vue';
 
 const authStore = useAuthStore();
+const { error: showError } = useNotification();
 const {
   currentGame,
   isMyTurn,
@@ -105,9 +107,12 @@ const {
 
 const { fold, check, call, raise, allIn } = useGameActions();
 
+// Constants
+const DEFAULT_BUY_IN = 1000;
+
 // Buy-in modal state
 const showBuyInModalDialog = ref(false);
-const buyInAmount = ref('1000');
+const buyInAmount = ref(String(DEFAULT_BUY_IN));
 const selectedSeatNumber = ref(null);
 
 // Computed
@@ -190,14 +195,14 @@ const isMySeat = (seatNum) => {
 
 const showBuyInModal = (seatNumber) => {
   selectedSeatNumber.value = seatNumber;
-  buyInAmount.value = '1000'; // Reset to default
+  buyInAmount.value = String(DEFAULT_BUY_IN); // Reset to default
   showBuyInModalDialog.value = true;
 };
 
 const handleBuyInConfirm = async () => {
   const amount = parseInt(buyInAmount.value);
   if (isNaN(amount) || amount <= 0) {
-    console.error('Invalid buy-in amount');
+    showError('Please enter a valid buy-in amount');
     return;
   }
   
