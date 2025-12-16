@@ -32,6 +32,7 @@
         :can-raise="canRaise"
         :call-amount="callAmount"
         :my-chips="myChips"
+        :is-my-turn="isMyTurn"
         @fold="handleFold"
         @check="handleCheck"
         @call="handleCall"

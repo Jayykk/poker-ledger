@@ -1,7 +1,7 @@
 <template>
   <div class="action-buttons">
     <!-- Fold Button -->
-    <button class="btn btn-fold" @click="emit('fold')">
+    <button class="btn btn-fold" :disabled="!isMyTurn" @click="emit('fold')">
       Fold
     </button>
 
@@ -9,6 +9,7 @@
     <button
       v-if="canCheck"
       class="btn btn-check"
+      :disabled="!isMyTurn"
       @click="emit('check')"
     >
       Check
@@ -16,6 +17,7 @@
     <button
       v-else
       class="btn btn-call"
+      :disabled="!isMyTurn"
       @click="emit('call')"
     >
       Call {{ callAmount }}
@@ -25,13 +27,14 @@
     <button
       v-if="canRaise"
       class="btn btn-raise"
+      :disabled="!isMyTurn"
       @click="toggleBetControls"
     >
       Raise
     </button>
 
     <!-- All-In Button -->
-    <button class="btn btn-allin" @click="handleAllIn">
+    <button class="btn btn-allin" :disabled="!isMyTurn" @click="handleAllIn">
       All-In {{ myChips }}
     </button>
 
@@ -50,13 +53,13 @@
       </div>
       
       <div class="quick-bet-buttons">
-        <button @click="setBetAmount(minBet)" class="quick-bet">Min</button>
-        <button @click="setBetAmount(halfPot)" class="quick-bet">½ Pot</button>
-        <button @click="setBetAmount(threeFourthPot)" class="quick-bet">¾ Pot</button>
-        <button @click="setBetAmount(potSize)" class="quick-bet">Pot</button>
+        <button @click="setBetAmount(minBet)" :disabled="!isMyTurn" class="quick-bet">Min</button>
+        <button @click="setBetAmount(halfPot)" :disabled="!isMyTurn" class="quick-bet">½ Pot</button>
+        <button @click="setBetAmount(threeFourthPot)" :disabled="!isMyTurn" class="quick-bet">¾ Pot</button>
+        <button @click="setBetAmount(potSize)" :disabled="!isMyTurn" class="quick-bet">Pot</button>
       </div>
 
-      <button @click="confirmRaise" class="btn btn-confirm">
+      <button @click="confirmRaise" :disabled="!isMyTurn" class="btn btn-confirm">
         Confirm Raise
       </button>
     </div>
@@ -83,6 +86,10 @@ const props = defineProps({
   myChips: {
     type: Number,
     default: 0,
+  },
+  isMyTurn: {
+    type: Boolean,
+    default: false,
   },
 });
 
@@ -160,12 +167,23 @@ const handleAllIn = () => {
   letter-spacing: 1px;
 }
 
-.btn:hover {
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover,
+.btn:disabled:active {
+  transform: none;
+  box-shadow: none;
+}
+
+.btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.btn:active {
+.btn:active:not(:disabled) {
   transform: translateY(0);
 }
 
@@ -174,7 +192,7 @@ const handleAllIn = () => {
   color: white;
 }
 
-.btn-fold:hover {
+.btn-fold:hover:not(:disabled) {
   background: linear-gradient(135deg, #777 0%, #555 100%);
 }
 
@@ -276,7 +294,12 @@ const handleAllIn = () => {
   transition: all 0.2s ease;
 }
 
-.quick-bet:hover {
+.quick-bet:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.quick-bet:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.4);
 }

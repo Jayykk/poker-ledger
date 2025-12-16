@@ -6,7 +6,7 @@
         v-for="(card, index) in displayCards"
         :key="index"
         class="card"
-        :class="{ 'card-hidden': !card }"
+        :class="[{ 'card-hidden': !card }, getCardColor(card)]"
       >
         {{ card || '?' }}
       </div>
@@ -61,6 +61,14 @@ const displayCards = computed(() => {
 
   return cards.slice(0, count);
 });
+
+const getCardColor = (card) => {
+  if (!card || typeof card !== 'string') return '';
+  if (card.includes('♥') || card.includes('♦')) {
+    return 'text-red-500';
+  }
+  return 'text-gray-900';
+};
 </script>
 
 <style scoped>
