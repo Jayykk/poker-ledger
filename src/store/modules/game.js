@@ -17,7 +17,7 @@ import {
 import { db } from '../../firebase-init.js';
 import { useAuthStore } from './auth.js';
 import { useUserStore } from './user.js';
-import { GAME_STATUS, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';
+import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';
 
 export const useGameStore = defineStore('game', () => {
   const authStore = useAuthStore();
@@ -46,8 +46,12 @@ export const useGameStore = defineStore('game', () => {
 
   /**
    * Create a new game
+   * @param {string} name - Game name
+   * @param {number} buyInAmount - Buy-in amount
+   * @param {string} type - Game type ('live' or 'online')
+   * @param {object} options - Additional options for online games (blinds, maxPlayers, etc.)
    */
-  const createGame = async (name, buyInAmount = DEFAULT_BUY_IN) => {
+  const createGame = async (name, buyInAmount = DEFAULT_BUY_IN, type = GAME_TYPE.LIVE, options = {}) => {
     if (!authStore.user) return null;
     
     loading.value = true;
@@ -55,12 +59,13 @@ export const useGameStore = defineStore('game', () => {
     
     try {
       const hostName = authStore.displayName;
-      const docRef = await addDoc(collection(db, 'games'), {
+      const gameData = {
         name: name || 'Poker Game',
-        roomCode: Math.floor(1000 + Math.random() * 9000).toString(),
+        roomCode: Math.floor(100000 + Math.random() * 900000).toString(), // 6-digit code
         hostUid: authStore.user.uid,
         hostName,
-        status: GAME_STATUS.ACTIVE,
+        type, // Add game type
+        status: type === GAME_TYPE.LIVE ? GAME_STATUS.ACTIVE : GAME_STATUS.WAITING,
         createdAt: Date.now(),
         baseBuyIn: parseInt(buyInAmount),
         players: [{
@@ -70,7 +75,16 @@ export const useGameStore = defineStore('game', () => {
           buyIn: parseInt(buyInAmount),
           stack: 0
         }]
-      });
+      };
+
+      // Add online-specific fields
+      if (type === GAME_TYPE.ONLINE) {
+        gameData.maxPlayers = options.maxPlayers || 10;
+        gameData.blinds = options.blinds || { small: 1, big: 2 };
+        gameData.invitedUsers = options.invitedUsers || [];
+      }
+      
+      const docRef = await addDoc(collection(db, 'games'), gameData);
       
       await joinGameListener(docRef.id);
       return docRef.id;
@@ -353,6 +367,7 @@ export const useGameStore = defineStore('game', () => {
             rate: exchangeRate,
             gameName: gameData.name,
             gameId: gameId.value,
+            type: gameData.type || 'live', // Include game type
             // Save complete settlement data
             settlement: players.map(p => ({
               name: p.name,

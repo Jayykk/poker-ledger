@@ -54,10 +54,22 @@
   "nav": {
     "lobby": "ロビー",
     "game": "ゲーム",
+    "stats": "戦績",
+    "action": "開始",
+    "social": "友達",
     "report": "レポート",
     "profile": "プロフィール",
     "friends": "友達",
     "poker": "ポーカー"
+  },
+  "action": {
+    "title": "アクション選択",
+    "liveTrack": "ライブ記録",
+    "liveTrackDesc": "自分でプレイして記録する",
+    "createOnline": "ルーム作成",
+    "createOnlineDesc": "オンラインルームを作成して友達を招待",
+    "joinOnline": "ルーム参加",
+    "joinOnlineDesc": "ルームIDを入力して友達のゲームに参加"
   },
   "lobby": {
     "title": "ロビー",
@@ -69,6 +81,16 @@
     "players": "プレイヤー",
     "createdAt": "作成日時",
     "enterRoom": "ルーム参加",
+    "liveLabel": "ライブ",
+    "onlineLabel": "オンライン",
+    "blinds": "ブラインド",
+    "currentPlayers": "現在",
+    "maxPlayers": "最大",
+    "hostName": "ホスト",
+    "roomStatus": "ステータス",
+    "statusWaiting": "待機中",
+    "statusPlaying": "プレイ中",
+    "statusEnded": "終了",
     "stats": {
       "totalProfit": "累計損益",
       "games": "ゲーム数",
@@ -133,6 +155,9 @@
     "noRecords": "記録なし",
     "profitTrend": "損益トレンド",
     "winRate": "勝率統計",
+    "filterAll": "全て",
+    "filterLive": "ライブ",
+    "filterOnline": "オンライン",
     "timePeriod": {
       "week": "週",
       "month": "月",

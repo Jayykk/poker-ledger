@@ -47,7 +47,7 @@ export function useInvitation() {
     // Sanitize user inputs
     const sanitizedFriendName = String(friendName || 'Friend').replace(/[<>]/g, '').substring(0, 50);
     const sanitizedGameName = String(gameName || 'Poker Game').replace(/[<>]/g, '').substring(0, 50);
-    const sanitizedRoomCode = String(roomCode).replace(/[^0-9]/g, '').substring(0, 4);
+    const sanitizedRoomCode = String(roomCode).replace(/[^0-9]/g, '').substring(0, 6); // Support 6-digit codes
     
     loading.value = true;
     error.value = '';

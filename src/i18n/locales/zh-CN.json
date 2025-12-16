@@ -54,10 +54,22 @@
   "nav": {
     "lobby": "大厅",
     "game": "牌局",
+    "stats": "战绩",
+    "action": "开局",
+    "social": "好友",
     "report": "报表",
     "profile": "我的",
     "friends": "好友",
     "poker": "德扑"
+  },
+  "action": {
+    "title": "选择开局方式",
+    "liveTrack": "现场记账",
+    "liveTrackDesc": "自己玩，自己记录损益",
+    "createOnline": "创建房间",
+    "createOnlineDesc": "开一个线上房间，邀请朋友加入",
+    "joinOnline": "加入房间",
+    "joinOnlineDesc": "输入房间 ID 加入朋友的局"
   },
   "lobby": {
     "title": "大厅",
@@ -67,8 +79,18 @@
     "noRooms": "目前没有活跃房间",
     "roomCode": "房间码",
     "players": "玩家",
-    "createdAt": "建立时间",
+    "createdAt": "创建时间",
     "enterRoom": "进入房间",
+    "liveLabel": "现场",
+    "onlineLabel": "线上",
+    "blinds": "盲注",
+    "currentPlayers": "当前人数",
+    "maxPlayers": "最大人数",
+    "hostName": "房主",
+    "roomStatus": "房间状态",
+    "statusWaiting": "等待中",
+    "statusPlaying": "游戏中",
+    "statusEnded": "已结束",
     "stats": {
       "totalProfit": "生涯损益",
       "games": "场次",
@@ -133,6 +155,9 @@
     "noRecords": "暂无记录",
     "profitTrend": "盈亏趋势",
     "winRate": "胜率统计",
+    "filterAll": "全部",
+    "filterLive": "现场",
+    "filterOnline": "线上",
     "timePeriod": {
       "week": "周",
       "month": "月",

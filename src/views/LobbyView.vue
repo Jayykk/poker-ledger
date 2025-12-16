@@ -62,29 +62,61 @@
     <div v-if="myRooms.length > 0" class="mb-6">
       <h3 class="text-lg font-bold text-white mb-3">{{ $t('lobby.myRooms') }}</h3>
       <div class="space-y-2">
-        <BaseCard
+        <div
           v-for="room in myRooms"
           :key="room.id"
-          padding="md"
-          clickable
           @click="handleEnterRoom(room.id)"
+          :class="getRoomCardClass(room)"
+          class="rounded-2xl border transition p-4 cursor-pointer active:scale-95 hover:border-opacity-60"
         >
+          <!-- Room Type Badge -->
+          <div class="flex items-start gap-3 mb-2">
+            <span
+              class="px-2 py-0.5 rounded text-xs font-bold"
+              :class="room.type === 'online' ? 'bg-purple-600/50 text-purple-200' : 'bg-slate-600/50 text-slate-200'"
+            >
+              {{ room.type === 'online' ? '🌐 ' + $t('lobby.onlineLabel') : '🎰 ' + $t('lobby.liveLabel') }}
+            </span>
+            <span
+              v-if="room.hostUid === user?.uid"
+              class="px-2 py-0.5 rounded text-xs bg-amber-600 text-white"
+            >
+              {{ $t('game.host') }}
+            </span>
+          </div>
+
           <div class="flex justify-between items-center">
-            <div>
+            <div class="flex-1">
               <div class="flex items-center gap-2">
                 <span class="text-white font-bold">{{ room.name }}</span>
-                <span
-                  v-if="room.hostUid === user?.uid"
-                  class="text-xs bg-amber-600 text-white px-2 py-0.5 rounded"
-                >
-                  {{ $t('game.host') }}
-                </span>
               </div>
-              <div class="text-xs text-gray-400">
-                {{ $t('lobby.roomCode') }}: {{ room.roomCode }} · 
+              
+              <!-- Common info -->
+              <div class="text-xs text-gray-400 mt-1">
+                {{ $t('lobby.roomCode') }}: {{ room.roomCode }}
+              </div>
+
+              <!-- Online-specific info -->
+              <div v-if="room.type === 'online'" class="text-xs text-gray-400 mt-1 space-y-0.5">
+                <div>{{ $t('lobby.blinds') }}: {{ room.blinds?.small || 1 }}/{{ room.blinds?.big || 2 }}</div>
+                <div>
+                  {{ $t('lobby.currentPlayers') }}: {{ room.players?.length || 0 }} / 
+                  {{ $t('lobby.maxPlayers') }}: {{ room.maxPlayers || 10 }}
+                </div>
+                <div>
+                  {{ $t('lobby.roomStatus') }}: 
+                  <span :class="getRoomStatusClass(room.status)">
+                    {{ getRoomStatusText(room.status) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Live-specific info -->
+              <div v-else class="text-xs text-gray-400 mt-1">
                 {{ $t('lobby.players') }}: {{ room.players?.length || 0 }}
               </div>
-              <div class="text-xs text-gray-500">
+
+              <div class="text-xs text-gray-500 mt-1">
                 {{ formatDate(room.createdAt) }}
               </div>
             </div>
@@ -92,7 +124,7 @@
               <i class="fas fa-chevron-right"></i>
             </div>
           </div>
-        </BaseCard>
+        </div>
       </div>
     </div>
 
@@ -253,6 +285,28 @@ const formatDate = (timestamp) => {
   const date = new Date(timestamp);
   return formatShortDate(date);
 };
+
+const getRoomCardClass = (room) => {
+  if (room.type === 'online') {
+    return 'bg-gradient-to-br from-purple-900/30 to-purple-800/20 border-purple-700/30';
+  }
+  return 'bg-gradient-to-br from-slate-800/50 to-slate-700/30 border-slate-600/30';
+};
+
+const getRoomStatusClass = (status) => {
+  if (status === 'waiting') return 'text-yellow-400';
+  if (status === 'playing' || status === 'active') return 'text-emerald-400';
+  if (status === 'ended' || status === 'completed') return 'text-gray-500';
+  return 'text-gray-400';
+};
+
+const getRoomStatusText = (status) => {
+  if (status === 'waiting') return t('lobby.statusWaiting');
+  if (status === 'playing' || status === 'active') return t('lobby.statusPlaying');
+  if (status === 'ended' || status === 'completed') return t('lobby.statusEnded');
+  return status;
+};
+
 
 const incrementCreateBuyIn = () => {
   createBuyIn.value = (createBuyIn.value || 0) + CHIP_STEP;
