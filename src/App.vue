@@ -168,8 +168,8 @@ const handleJoinOnline = () => {
 };
 
 const handleJoinRoom = async () => {
-  if (!joinRoomCode.value) {
-    showError(t('common.error'));
+  if (!joinRoomCode.value || joinRoomCode.value.length !== 6) {
+    showError(t('lobby.joinGame') + ': ' + t('lobby.roomCode') + ' (6 digits)');
     return;
   }
   
