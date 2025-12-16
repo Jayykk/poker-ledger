@@ -48,11 +48,15 @@ export async function startHand(gameId) {
     // Deal hole cards
     const { game: updatedGame, holeCards } = dealHoleCards(game);
 
-    // Update game state
-    transaction.update(gameRef, {
+    // Update game state with turnStartedAt merged into table
+    const gameToUpdate = {
       ...updatedGame,
-      'table.turnStartedAt': FieldValue.serverTimestamp(),
-    });
+      table: {
+        ...updatedGame.table,
+        turnStartedAt: FieldValue.serverTimestamp(),
+      },
+    };
+    transaction.update(gameRef, gameToUpdate);
 
     // Store private hole cards
     Object.entries(holeCards).forEach(([playerId, cards]) => {
@@ -129,11 +133,15 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
       game.table.currentTurn = nextTurn;
     }
 
-    // Update game state
-    transaction.update(gameRef, {
+    // Update game state with turnStartedAt merged into table
+    const gameToUpdate = {
       ...game,
-      'table.turnStartedAt': FieldValue.serverTimestamp(),
-    });
+      table: {
+        ...game.table,
+        turnStartedAt: FieldValue.serverTimestamp(),
+      },
+    };
+    transaction.update(gameRef, gameToUpdate);
 
     return {
       gameId,
@@ -204,12 +212,18 @@ async function advanceRound(game, transaction, gameRef, handRef) {
  * @return {Promise<Object>} Updated game state
  */
 async function handleShowdown(game, transaction, gameRef, handRef) {
-  // Get all hole cards
-  const privateDocsSnapshot = await gameRef.collection('private').get();
+  // Get all hole cards - list documents and get them individually in transaction
+  const privateCollection = gameRef.collection('private');
+  const privateDocs = await privateCollection.listDocuments();
   const holeCards = {};
-  privateDocsSnapshot.forEach((doc) => {
-    holeCards[doc.id] = doc.data().holeCards;
-  });
+  
+  // Get each document within the transaction
+  for (const docRef of privateDocs) {
+    const docSnap = await transaction.get(docRef);
+    if (docSnap.exists) {
+      holeCards[docSnap.id] = docSnap.data().holeCards;
+    }
+  }
 
   // Calculate winners
   const result = calculateWinners(game, holeCards);
@@ -273,9 +287,9 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
   }, { merge: true });
 
   // Clean up private hole cards after showdown
-  privateDocsSnapshot.forEach((doc) => {
-    transaction.delete(doc.ref);
-  });
+  for (const docRef of privateDocs) {
+    transaction.delete(docRef);
+  }
 
   // Check if game should end after this hand
   const shouldEndGame = game.meta?.pauseAfterHand === true;

@@ -265,6 +265,27 @@ export const usePokerStore = defineStore('poker', {
     },
 
     /**
+     * Delete a poker room (only creator can delete)
+     */
+    async deleteRoom(gameId) {
+      try {
+        const functions = getFunctions(app);
+        const deleteRoom = httpsCallable(functions, 'deletePokerRoom');
+        
+        await deleteRoom({ gameId });
+        
+        // Clean up local state
+        this.stopListeners();
+        this.currentGame = null;
+        this.gameId = null;
+        this.myHoleCards = [];
+      } catch (error) {
+        console.error('Error deleting room:', error);
+        throw error;
+      }
+    },
+
+    /**
      * Start listening to game updates
      */
     async joinGameListener(gameId, userId) {

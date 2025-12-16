@@ -23,13 +23,22 @@
           <span class="separator">|</span>
           <span>Hand: #{{ currentGame.handNumber }}</span>
         </div>
-        <button 
-          v-if="isCreator && currentGame.status === 'playing'"
-          @click="handleEndAfterHand" 
-          class="btn-end"
-        >
-          🛑 End After Hand
-        </button>
+        <div class="header-actions">
+          <button 
+            v-if="isCreator && currentGame.status === 'playing'"
+            @click="handleEndAfterHand" 
+            class="btn-end"
+          >
+            🛑 End After Hand
+          </button>
+          <button 
+            v-if="isCreator && (currentGame.status === 'waiting' || currentGame.status === 'ended')"
+            @click="handleDeleteRoom" 
+            class="btn-delete"
+          >
+            🗑️ Delete Room
+          </button>
+        </div>
       </div>
 
       <!-- Main Poker Table -->
@@ -116,6 +125,17 @@ const handleEndAfterHand = async () => {
   }
 };
 
+const handleDeleteRoom = async () => {
+  if (confirm('Are you sure you want to delete this room? This action cannot be undone.')) {
+    try {
+      await pokerStore.deleteRoom(gameId.value);
+      goBack();
+    } catch (error) {
+      console.error('Failed to delete room:', error);
+    }
+  }
+};
+
 const goBack = () => {
   router.push({ name: 'GameLobby' });
 };
@@ -182,6 +202,12 @@ const goBack = () => {
   border-bottom: 2px solid rgba(255, 215, 0, 0.3);
 }
 
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .btn-leave {
   background: rgba(255, 255, 255, 0.1);
   color: white;
@@ -213,6 +239,23 @@ const goBack = () => {
 .btn-end:hover {
   background: rgba(244, 67, 54, 0.3);
   border-color: rgba(244, 67, 54, 0.6);
+}
+
+.btn-delete {
+  background: rgba(156, 39, 176, 0.2);
+  color: #ce93d8;
+  border: 1px solid rgba(156, 39, 176, 0.4);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px;
+}
+
+.btn-delete:hover {
+  background: rgba(156, 39, 176, 0.3);
+  border-color: rgba(156, 39, 176, 0.6);
 }
 
 .game-info {
