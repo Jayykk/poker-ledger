@@ -1,7 +1,7 @@
 <template>
   <div class="action-buttons">
     <!-- Fold Button -->
-    <button class="btn btn-fold" @click="emit('fold')">
+    <button class="btn btn-fold" :disabled="!isMyTurn" @click="emit('fold')">
       Fold
     </button>
 
@@ -9,6 +9,7 @@
     <button
       v-if="canCheck"
       class="btn btn-check"
+      :disabled="!isMyTurn"
       @click="emit('check')"
     >
       Check
@@ -16,6 +17,7 @@
     <button
       v-else
       class="btn btn-call"
+      :disabled="!isMyTurn"
       @click="emit('call')"
     >
       Call {{ callAmount }}
@@ -25,13 +27,14 @@
     <button
       v-if="canRaise"
       class="btn btn-raise"
+      :disabled="!isMyTurn"
       @click="toggleBetControls"
     >
       Raise
     </button>
 
     <!-- All-In Button -->
-    <button class="btn btn-allin" @click="handleAllIn">
+    <button class="btn btn-allin" :disabled="!isMyTurn" @click="handleAllIn">
       All-In {{ myChips }}
     </button>
 
@@ -83,6 +86,10 @@ const props = defineProps({
   myChips: {
     type: Number,
     default: 0,
+  },
+  isMyTurn: {
+    type: Boolean,
+    default: false,
   },
 });
 
@@ -160,12 +167,18 @@ const handleAllIn = () => {
   letter-spacing: 1px;
 }
 
-.btn:hover {
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.btn:active {
+.btn:active:not(:disabled) {
   transform: translateY(0);
 }
 

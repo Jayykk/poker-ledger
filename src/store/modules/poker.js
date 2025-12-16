@@ -211,7 +211,7 @@ export const usePokerStore = defineStore('poker', {
     async performAction(action, amount = 0) {
       if (!this.gameId) return;
 
-      this.loading = true;
+      // Removed global loading state to prevent full-screen spinner during game actions
       this.error = null;
 
       try {
@@ -229,8 +229,6 @@ export const usePokerStore = defineStore('poker', {
         console.error('Error performing action:', error);
         this.error = error.message;
         throw error;
-      } finally {
-        this.loading = false;
       }
     },
 
