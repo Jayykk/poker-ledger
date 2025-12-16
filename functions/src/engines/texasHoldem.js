@@ -9,7 +9,7 @@ import { determineWinners } from '../utils/handEvaluator.js';
 /**
  * Initialize a new hand
  * @param {Object} game - Current game state
- * @returns {Object} Updated game state with new hand setup
+ * @return {Object} Updated game state with new hand setup
  */
 export function initializeHand(game) {
   // Create and shuffle deck
@@ -45,8 +45,8 @@ export function initializeHand(game) {
 
   // Rotate dealer button
   const activePlayers = Object.entries(seats)
-      .filter(([, seat]) => seat && seat.chips > 0)
-      .map(([num]) => parseInt(num));
+    .filter(([, seat]) => seat && seat.chips > 0)
+    .map(([num]) => parseInt(num));
 
   if (activePlayers.length < 2) {
     throw new Error('Not enough players to start hand');
@@ -104,7 +104,7 @@ export function initializeHand(game) {
 /**
  * Deal hole cards to players
  * @param {Object} game - Current game state
- * @returns {{ game: Object, holeCards: Object }} Updated game and hole cards
+ * @return {{ game: Object, holeCards: Object }} Updated game and hole cards
  */
 export function dealHoleCards(game) {
   let { deck } = game.table;
@@ -131,7 +131,7 @@ export function dealHoleCards(game) {
 /**
  * Deal flop (3 community cards)
  * @param {Object} game - Current game state
- * @returns {Object} Updated game state
+ * @return {Object} Updated game state
  */
 export function dealFlop(game) {
   let { deck } = game.table;
@@ -158,7 +158,7 @@ export function dealFlop(game) {
  * Deal turn or river (1 community card)
  * @param {Object} game - Current game state
  * @param {string} round - 'turn' or 'river'
- * @returns {Object} Updated game state
+ * @return {Object} Updated game state
  */
 export function dealTurnOrRiver(game, round) {
   let { deck } = game.table;
@@ -187,19 +187,19 @@ export function dealTurnOrRiver(game, round) {
  * @param {string} playerId - Player ID
  * @param {string} action - Action type
  * @param {number} amount - Bet amount
- * @returns {Object} Updated game state
+ * @return {Object} Updated game state
  */
 export function processAction(game, playerId, action, amount = 0) {
   const seats = { ...game.seats };
   const playerSeat = Object.values(seats)
-      .find((seat) => seat && seat.odId === playerId);
+    .find((seat) => seat && seat.odId === playerId);
 
   if (!playerSeat) {
     throw new Error('Player not found');
   }
 
   const seatNum = Object.keys(seats)
-      .find((num) => seats[num]?.odId === playerId);
+    .find((num) => seats[num]?.odId === playerId);
 
   const table = { ...game.table };
 
@@ -214,8 +214,8 @@ export function processAction(game, playerId, action, amount = 0) {
 
   case 'call': {
     const callAmount = Math.min(
-        table.currentBet - playerSeat.currentBet,
-        playerSeat.chips,
+      table.currentBet - playerSeat.currentBet,
+      playerSeat.chips,
     );
     seats[seatNum].chips -= callAmount;
     seats[seatNum].currentBet += callAmount;
@@ -258,20 +258,20 @@ export function processAction(game, playerId, action, amount = 0) {
 /**
  * Determine next player to act
  * @param {Object} game - Current game state
- * @returns {string|null} Next player ID or null if round complete
+ * @return {string|null} Next player ID or null if round complete
  */
 export function getNextPlayer(game) {
   const activePlayers = Object.entries(game.seats)
-      .filter(([, seat]) => seat && seat.status === 'active' && seat.chips > 0)
-      .map(([num, seat]) => ({ seatNum: parseInt(num), odId: seat.odId }));
+    .filter(([, seat]) => seat && seat.status === 'active' && seat.chips > 0)
+    .map(([num, seat]) => ({ seatNum: parseInt(num), odId: seat.odId }));
 
   if (activePlayers.length === 0) return null;
 
   const currentSeatNum = Object.entries(game.seats)
-      .find(([, seat]) => seat?.odId === game.table.currentTurn)?.[0];
+    .find(([, seat]) => seat?.odId === game.table.currentTurn)?.[0];
 
   const currentIndex = activePlayers
-      .findIndex((p) => p.seatNum === parseInt(currentSeatNum));
+    .findIndex((p) => p.seatNum === parseInt(currentSeatNum));
   const nextIndex = (currentIndex + 1) % activePlayers.length;
 
   return activePlayers[nextIndex].odId;
@@ -281,15 +281,15 @@ export function getNextPlayer(game) {
  * Determine hand winners and calculate payouts
  * @param {Object} game - Current game state
  * @param {Object} holeCards - Map of player IDs to hole cards
- * @returns {Object} Winners and payout information
+ * @return {Object} Winners and payout information
  */
 export function calculateWinners(game, holeCards) {
   const activePlayers = Object.values(game.seats)
-      .filter((seat) => seat && seat.status !== 'folded')
-      .map((seat) => ({
-        playerId: seat.odId,
-        cards: holeCards[seat.odId] || [],
-      }));
+    .filter((seat) => seat && seat.status !== 'folded')
+    .map((seat) => ({
+      playerId: seat.odId,
+      cards: holeCards[seat.odId] || [],
+    }));
 
   if (activePlayers.length === 0) {
     return { winners: [], pot: 0 };

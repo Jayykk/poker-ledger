@@ -18,7 +18,7 @@ import { validateGameStart, validatePlayerAction } from '../utils/validators.js'
 /**
  * Start a new hand
  * @param {string} gameId - Game ID
- * @returns {Promise<Object>} Updated game state
+ * @return {Promise<Object>} Updated game state
  */
 export async function startHand(gameId) {
   const db = getFirestore();
@@ -71,7 +71,7 @@ export async function startHand(gameId) {
  * @param {string} userId - User ID
  * @param {string} action - Action type
  * @param {number} amount - Bet amount
- * @returns {Promise<Object>} Updated game state
+ * @return {Promise<Object>} Updated game state
  */
 export async function handlePlayerAction(gameId, userId, action, amount = 0) {
   const db = getFirestore();
@@ -110,10 +110,10 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
 
     // Check if betting round is complete
     const activePlayers = Object.values(game.seats)
-        .filter((seat) => seat && seat.status === 'active');
+      .filter((seat) => seat && seat.status === 'active');
 
     const allMatched = activePlayers.every(
-        (seat) => seat.currentBet === game.table.currentBet,
+      (seat) => seat.currentBet === game.table.currentBet,
     );
 
     let nextTurn = getNextPlayer(game);
@@ -147,7 +147,7 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
  * @param {Object} transaction - Firestore transaction
  * @param {Object} gameRef - Game document reference
  * @param {Object} handRef - Hand document reference
- * @returns {Promise<Object>} Updated game state
+ * @return {Promise<Object>} Updated game state
  */
 async function advanceRound(game, transaction, gameRef, handRef) {
   const { currentRound } = game.table;
@@ -181,8 +181,8 @@ async function advanceRound(game, transaction, gameRef, handRef) {
   // Set next player to act
   if (updatedGame.table.currentRound !== 'showdown') {
     const activePlayers = Object.entries(updatedGame.seats)
-        .filter(([, seat]) => seat && seat.status === 'active')
-        .map(([num, seat]) => ({ seatNum: parseInt(num), odId: seat.odId }));
+      .filter(([, seat]) => seat && seat.status === 'active')
+      .map(([num, seat]) => ({ seatNum: parseInt(num), odId: seat.odId }));
 
     if (activePlayers.length > 0) {
       updatedGame.table.currentTurn = activePlayers[0].odId;
@@ -198,7 +198,7 @@ async function advanceRound(game, transaction, gameRef, handRef) {
  * @param {Object} transaction - Firestore transaction
  * @param {Object} gameRef - Game document reference
  * @param {Object} handRef - Hand document reference
- * @returns {Promise<Object>} Updated game state
+ * @return {Promise<Object>} Updated game state
  */
 async function handleShowdown(game, transaction, gameRef, handRef) {
   // Get all hole cards
@@ -217,7 +217,7 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
 
   result.winners.forEach((winner) => {
     const seatEntry = Object.entries(seats)
-        .find(([, seat]) => seat && seat.odId === winner.playerId);
+      .find(([, seat]) => seat && seat.odId === winner.playerId);
     if (seatEntry) {
       const [seatNum] = seatEntry;
       seats[seatNum].chips += amountPerWinner;

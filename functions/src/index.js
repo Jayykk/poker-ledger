@@ -1,6 +1,6 @@
 /**
  * Firebase Cloud Functions for Poker Game
- * Main entry point for all poker game functions 
+ * Main entry point for all poker game functions
  */
 
 import { initializeApp } from 'firebase-admin/app';

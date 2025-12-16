@@ -9,7 +9,7 @@
  * @param {string} playerId - Player making the action
  * @param {string} action - Action type (fold, check, call, raise, all_in)
  * @param {number} amount - Bet amount (for raise)
- * @returns {{ valid: boolean, error: string }}
+ * @return {{ valid: boolean, error: string }}
  */
 export function validatePlayerAction(game, playerId, action, amount = 0) {
   // Check if it's the player's turn
@@ -19,7 +19,7 @@ export function validatePlayerAction(game, playerId, action, amount = 0) {
 
   // Get player's seat
   const playerSeat = Object.values(game.seats)
-      .find((seat) => seat && seat.odId === playerId);
+    .find((seat) => seat && seat.odId === playerId);
 
   if (!playerSeat) {
     return { valid: false, error: 'Player not in game' };
@@ -58,7 +58,7 @@ export function validatePlayerAction(game, playerId, action, amount = 0) {
     }
     return { valid: true, error: null };
 
-  case 'raise':
+  case 'raise': {
     // Must specify valid raise amount
     if (!amount || amount <= 0) {
       return { valid: false, error: 'Invalid raise amount' };
@@ -77,7 +77,7 @@ export function validatePlayerAction(game, playerId, action, amount = 0) {
       return { valid: false, error: 'Not enough chips to raise' };
     }
     return { valid: true, error: null };
-
+  }
   case 'all_in':
     // Always valid if player has chips
     if (playerChips <= 0) {
@@ -93,12 +93,12 @@ export function validatePlayerAction(game, playerId, action, amount = 0) {
 /**
  * Validate game can start
  * @param {Object} game - Game state
- * @returns {{ valid: boolean, error: string }}
+ * @return {{ valid: boolean, error: string }}
  */
 export function validateGameStart(game) {
   // Count active players
   const activePlayers = Object.values(game.seats)
-      .filter((seat) => seat && seat.chips > 0);
+    .filter((seat) => seat && seat.chips > 0);
 
   if (activePlayers.length < 2) {
     return { valid: false, error: 'Need at least 2 players to start' };
@@ -116,7 +116,7 @@ export function validateGameStart(game) {
  * @param {Object} game - Game state
  * @param {number} seatNumber - Seat to join
  * @param {number} buyIn - Buy-in amount
- * @returns {{ valid: boolean, error: string }}
+ * @return {{ valid: boolean, error: string }}
  */
 export function validateJoinSeat(game, seatNumber, buyIn) {
   // Check seat number is valid

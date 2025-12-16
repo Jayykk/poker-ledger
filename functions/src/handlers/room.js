@@ -10,7 +10,7 @@ import { validateJoinSeat } from '../utils/validators.js';
  * Create a new poker game room
  * @param {Object} config - Room configuration
  * @param {string} userId - Creator user ID
- * @returns {Promise<Object>} Created room data
+ * @return {Promise<Object>} Created room data
  */
 export async function createRoom(config, userId) {
   const db = getFirestore();
@@ -67,7 +67,7 @@ export async function createRoom(config, userId) {
  * @param {Object} userInfo - User information
  * @param {number} seatNumber - Seat to join
  * @param {number} buyIn - Buy-in amount
- * @returns {Promise<Object>} Updated game state
+ * @return {Promise<Object>} Updated game state
  */
 export async function joinSeat(gameId, userId, userInfo, seatNumber, buyIn) {
   const db = getFirestore();
@@ -117,7 +117,7 @@ export async function joinSeat(gameId, userId, userInfo, seatNumber, buyIn) {
  * Leave a poker room
  * @param {string} gameId - Game ID
  * @param {string} userId - User ID
- * @returns {Promise<void>}
+ * @return {Promise<void>}
  */
 export async function leaveSeat(gameId, userId) {
   const db = getFirestore();
@@ -134,7 +134,7 @@ export async function leaveSeat(gameId, userId) {
 
     // Find player's seat
     const seatEntry = Object.entries(game.seats)
-        .find(([, seat]) => seat && seat.odId === userId);
+      .find(([, seat]) => seat && seat.odId === userId);
 
     if (!seatEntry) {
       throw new Error('Player not in game');
@@ -157,7 +157,7 @@ export async function leaveSeat(gameId, userId) {
 /**
  * Get game room details
  * @param {string} gameId - Game ID
- * @returns {Promise<Object>} Game data
+ * @return {Promise<Object>} Game data
  */
 export async function getRoom(gameId) {
   const db = getFirestore();

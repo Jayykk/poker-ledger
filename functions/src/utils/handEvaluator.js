@@ -35,7 +35,7 @@ export const HAND_NAMES = {
 /**
  * Parse card string
  * @param {string} card - Card like 'As' or 'Kh'
- * @returns {{ rank: string, suit: string }}
+ * @return {{ rank: string, suit: string }}
  */
 function parseCard(card) {
   const rank = card.slice(0, -1);
@@ -46,7 +46,7 @@ function parseCard(card) {
 /**
  * Get numeric value for rank
  * @param {string} rank - Card rank
- * @returns {number} Numeric value (2-14, Ace=14)
+ * @return {number} Numeric value (2-14, Ace=14)
  */
 function getRankValue(rank) {
   const index = RANKS.indexOf(rank);
@@ -57,7 +57,7 @@ function getRankValue(rank) {
 /**
  * Count card ranks
  * @param {Array} cards - Array of card objects
- * @returns {Object} Map of rank to count
+ * @return {Object} Map of rank to count
  */
 function countRanks(cards) {
   const counts = {};
@@ -70,7 +70,7 @@ function countRanks(cards) {
 /**
  * Count card suits
  * @param {Array} cards - Array of card objects
- * @returns {Object} Map of suit to count
+ * @return {Object} Map of suit to count
  */
 function countSuits(cards) {
   const counts = {};
@@ -83,7 +83,7 @@ function countSuits(cards) {
 /**
  * Check for flush
  * @param {Array} cards - Array of card objects
- * @returns {boolean}
+ * @return {boolean}
  */
 function isFlush(cards) {
   const suitCounts = countSuits(cards);
@@ -93,7 +93,7 @@ function isFlush(cards) {
 /**
  * Check for straight
  * @param {Array} cards - Array of card objects
- * @returns {{ isStraight: boolean, highCard: number }}
+ * @return {{ isStraight: boolean, highCard: number }}
  */
 function isStraight(cards) {
   const values = cards.map((c) => getRankValue(c.rank)).sort((a, b) => b - a);
@@ -119,7 +119,7 @@ function isStraight(cards) {
 /**
  * Evaluate best 5-card hand from 7 cards
  * @param {string[]} cardStrings - Array of card strings
- * @returns {{ rank: number, name: string, value: number[] }}
+ * @return {{ rank: number, name: string, value: number[] }}
  */
 export function evaluateHand(cardStrings) {
   const cards = cardStrings.map(parseCard);
@@ -128,8 +128,8 @@ export function evaluateHand(cardStrings) {
 
   // Get rank frequencies
   const frequencies = Object.entries(rankCounts)
-      .map(([rank, count]) => ({ rank, count, value: getRankValue(rank) }))
-      .sort((a, b) => b.count - a.count || b.value - a.value);
+    .map(([rank, count]) => ({ rank, count, value: getRankValue(rank) }))
+    .sort((a, b) => b.count - a.count || b.value - a.value);
 
   const hasFlush = isFlush(cards);
   const straightResult = isStraight(cards);
@@ -173,12 +173,12 @@ export function evaluateHand(cardStrings) {
   // Flush
   if (hasFlush) {
     const flushSuit = Object.entries(suitCounts)
-        .find(([, count]) => count >= 5)[0];
+      .find(([, count]) => count >= 5)[0];
     const flushCards = cards
-        .filter((c) => c.suit === flushSuit)
-        .map((c) => getRankValue(c.rank))
-        .sort((a, b) => b - a)
-        .slice(0, 5);
+      .filter((c) => c.suit === flushSuit)
+      .map((c) => getRankValue(c.rank))
+      .sort((a, b) => b - a)
+      .slice(0, 5);
     return {
       rank: HAND_RANKINGS.FLUSH,
       name: HAND_NAMES[HAND_RANKINGS.FLUSH],
@@ -247,7 +247,7 @@ export function evaluateHand(cardStrings) {
  * Compare two hands
  * @param {Object} hand1 - First hand evaluation
  * @param {Object} hand2 - Second hand evaluation
- * @returns {number} 1 if hand1 wins, -1 if hand2 wins, 0 if tie
+ * @return {number} 1 if hand1 wins, -1 if hand2 wins, 0 if tie
  */
 export function compareHands(hand1, hand2) {
   // Compare rank first
@@ -267,7 +267,7 @@ export function compareHands(hand1, hand2) {
  * Determine winners from multiple players
  * @param {Array} players - Array of { playerId, cards }
  * @param {string[]} communityCards - Community cards
- * @returns {Array} Array of winner player IDs
+ * @return {Array} Array of winner player IDs
  */
 export function determineWinners(players, communityCards) {
   const evaluations = players.map((player) => {
@@ -289,11 +289,11 @@ export function determineWinners(players, communityCards) {
 
   // Get all players with best hand (could be multiple winners)
   const winners = evaluations
-      .filter((e) => compareHands(e.evaluation, bestHand) === 0)
-      .map((e) => ({
-        playerId: e.playerId,
-        hand: e.evaluation,
-      }));
+    .filter((e) => compareHands(e.evaluation, bestHand) === 0)
+    .map((e) => ({
+      playerId: e.playerId,
+      hand: e.evaluation,
+    }));
 
   return winners;
 }
