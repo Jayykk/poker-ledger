@@ -109,9 +109,46 @@ npm run preview
 
 ## 🚀 Deployment
 
+### 自動部署設定
+
+本專案使用 GitHub Actions 自動部署到 Firebase。
+
+#### 首次設定步驟
+
+1. **取得 Firebase Token**
+   ```bash
+   firebase login:ci
+   ```
+   這會給你一個 token
+
+2. **設定 GitHub Secret**
+   - 前往 Repository → Settings → Secrets and variables → Actions
+   - 點擊 "New repository secret"
+   - Name: `FIREBASE_TOKEN`
+   - Value: 貼上剛才取得的 token
+
+3. **完成！**
+   之後每次 push 到 main 分支，就會自動部署
+
+#### 手動部署
+
+如果需要手動部署：
+```bash
+# 部署 Functions
+cd functions && npm install
+firebase deploy --only functions
+
+# 部署 Hosting
+npm run build
+firebase deploy --only hosting
+
+# 部署全部
+firebase deploy
+```
+
 ### GitHub Pages Deployment
 
-The app is configured for deployment to GitHub Pages at `/poker-ledger/`.
+The app is also configured for deployment to GitHub Pages at `/poker-ledger/`.
 
 1. Build the project:
 ```bash
