@@ -62,9 +62,9 @@ export function initializeHand(game) {
 
   // Assign blinds
   const dealerIndex = activePlayers.indexOf(dealerSeat);
-  
+
   // Special rule for heads-up (2 players): dealer is small blind
-  let smallBlindSeat, bigBlindSeat;
+  let smallBlindSeat; let bigBlindSeat;
   if (activePlayers.length === 2) {
     smallBlindSeat = dealerSeat; // Dealer is small blind in heads-up
     bigBlindSeat = activePlayers[(dealerIndex + 1) % activePlayers.length];
