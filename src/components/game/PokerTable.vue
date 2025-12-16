@@ -110,8 +110,6 @@ const showBuyInModalDialog = ref(false);
 const buyInAmount = ref('1000');
 const selectedSeatNumber = ref(null);
 
-const { fold, check, call, raise, allIn } = useGameActions();
-
 // Computed
 const maxSeats = computed(() => currentGame.value?.meta?.maxPlayers || 10);
 
