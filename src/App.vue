@@ -72,6 +72,7 @@
     <!-- Action Modal -->
     <ActionModal
       v-model="showActionModal"
+      @create-live="handleCreateLive"
       @create-online="handleCreateOnline"
       @join-online="handleJoinOnline"
     />
@@ -156,6 +157,15 @@ const loadingText = computed(() => loadingStore.loadingText);
 
 const handleConfirm = (result) => {
   notificationStore.resolveConfirm(result);
+};
+
+const handleCreateLive = async () => {
+  // Create a new Live game every time
+  const gameName = 'Live Game ' + new Date().toLocaleDateString();
+  const gameId = await gameStore.createGame(gameName, 2000, 'live');
+  if (gameId) {
+    router.push('/game');
+  }
 };
 
 const handleCreateOnline = () => {

@@ -58,7 +58,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:modelValue', 'create-online', 'join-online']);
+const emit = defineEmits(['update:modelValue', 'create-online', 'join-online', 'create-live']);
 
 const router = useRouter();
 
@@ -69,7 +69,7 @@ const isOpen = computed({
 
 const handleLiveTrack = () => {
   isOpen.value = false;
-  router.push('/game');
+  emit('create-live');
 };
 
 const handleCreateOnline = () => {
