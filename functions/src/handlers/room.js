@@ -173,3 +173,43 @@ export async function getRoom(gameId) {
     ...gameDoc.data(),
   };
 }
+
+/**
+ * Delete a poker room (only creator can delete)
+ * @param {string} gameId - Game ID
+ * @param {string} userId - User ID (must be creator)
+ * @return {Promise<void>}
+ */
+export async function deleteRoom(gameId, userId) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+
+  return db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+
+    if (!gameDoc.exists) {
+      throw new Error('Game not found');
+    }
+
+    const game = gameDoc.data();
+
+    // Only creator can delete
+    if (game.meta.createdBy !== userId) {
+      throw new Error('Only room creator can delete the room');
+    }
+
+    // Can only delete if game is waiting or ended
+    if (game.status === 'playing') {
+      throw new Error('Cannot delete room while game is in progress');
+    }
+
+    // Delete the game document
+    transaction.delete(gameRef);
+
+    // Note: Subcollections (hands, private) are not automatically deleted in Firestore.
+    // For this poker game implementation:
+    // - 'hands' subcollection: Historical data, can be kept or cleaned by a scheduled function
+    // - 'private' subcollection: Should be empty after each hand (cleaned in handleShowdown)
+    // If immediate cleanup is needed, implement a recursive delete function
+  });
+}

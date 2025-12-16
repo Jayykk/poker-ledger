@@ -11,14 +11,14 @@
       <!-- Player Seats (arranged in circle) -->
       <div
         v-for="seatNum in maxSeats"
-        :key="seatNum"
-        :class="['player-seat-wrapper', `seat-${seatNum}`]"
+        :key="seatNum - 1"
+        :class="['player-seat-wrapper', `seat-${seatNum - 1}`]"
       >
         <PlayerSeat
-          :seat="seats[seatNum]"
-          :seatNumber="seatNum"
-          :isCurrentTurn="isCurrentTurn(seatNum)"
-          :isMe="isMySeat(seatNum)"
+          :seat="seats[seatNum - 1]"
+          :seatNumber="seatNum - 1"
+          :isCurrentTurn="isCurrentTurn(seatNum - 1)"
+          :isMe="isMySeat(seatNum - 1)"
           @join-seat="handleJoinSeat"
         />
       </div>

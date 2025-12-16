@@ -5,8 +5,13 @@
 
 import { initializeApp } from 'firebase-admin/app';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { createRoom, joinSeat, leaveSeat, getRoom } from './handlers/room.js';
-import { startHand, handlePlayerAction } from './handlers/game.js';
+import { createRoom, joinSeat, leaveSeat, getRoom, deleteRoom } from './handlers/room.js';
+import {
+  startHand,
+  handlePlayerAction,
+  setEndAfterHand as setEndAfterHandHandler,
+  settlePokerGame as settlePokerGameHandler,
+} from './handlers/game.js';
 
 // Initialize Firebase Admin
 initializeApp();
@@ -126,6 +131,62 @@ export const pokerPlayerAction = onCall(async (request) => {
     return { success: true, result };
   } catch (error) {
     console.error('Error processing action:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Set game to end after current hand
+ */
+export const setEndAfterHand = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId } = request.data;
+    await setEndAfterHandHandler(gameId);
+    return { success: true };
+  } catch (error) {
+    console.error('Error setting end after hand:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Settle poker game and save to history
+ */
+export const settlePokerGame = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId } = request.data;
+    await settlePokerGameHandler(gameId);
+    return { success: true };
+  } catch (error) {
+    console.error('Error settling game:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Delete a poker room (only creator can delete)
+ */
+export const deletePokerRoom = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId } = request.data;
+    const userId = request.auth.uid;
+
+    await deleteRoom(gameId, userId);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting room:', error);
     throw new HttpsError('internal', error.message);
   }
 });
