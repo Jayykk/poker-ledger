@@ -8,17 +8,18 @@
         <PotDisplay :pot="potSize" />
       </div>
 
-      <!-- Player Seats (arranged in circle) -->
+      <!-- Player Seats (arranged in circle with rotation) -->
       <div
-        v-for="seatNum in maxSeats"
-        :key="seatNum - 1"
-        :class="['player-seat-wrapper', `seat-${seatNum - 1}`]"
+        v-for="seatInfo in visibleSeats"
+        :key="seatInfo.actualSeatNum"
+        :class="['player-seat-wrapper', `seat-${seatInfo.displayPosition}`]"
       >
         <PlayerSeat
-          :seat="seats[seatNum - 1]"
-          :seatNumber="seatNum - 1"
-          :isCurrentTurn="isCurrentTurn(seatNum - 1)"
-          :isMe="isMySeat(seatNum - 1)"
+          :seat="seatInfo.seat"
+          :seatNumber="seatInfo.actualSeatNum"
+          :isCurrentTurn="isCurrentTurn(seatInfo.actualSeatNum)"
+          :isMe="isMySeat(seatInfo.actualSeatNum)"
+          :visible="true"
           @join-seat="handleJoinSeat"
         />
       </div>
@@ -89,6 +90,51 @@ const seats = computed(() => {
     seatMap[i] = currentGame.value?.seats?.[i] || null;
   }
   return seatMap;
+});
+
+// Find my seat number
+const mySeatNumber = computed(() => {
+  const userId = authStore.user?.uid;
+  if (!userId) return null;
+  
+  for (let i = 0; i < maxSeats.value; i++) {
+    const seat = seats.value[i];
+    if (seat && seat.odId === userId) {
+      return i;
+    }
+  }
+  return null;
+});
+
+// Calculate display position based on seat rotation (first-person view)
+const getDisplayPosition = (actualSeatNum) => {
+  if (mySeatNumber.value === null) {
+    // No rotation if not seated
+    return actualSeatNum;
+  }
+  // Rotate so my seat appears at position 0 (bottom center)
+  return (actualSeatNum - mySeatNumber.value + maxSeats.value) % maxSeats.value;
+};
+
+// Get visible seats (only show occupied seats)
+const visibleSeats = computed(() => {
+  const visible = [];
+  for (let i = 0; i < maxSeats.value; i++) {
+    const seat = seats.value[i];
+    // Show seat if:
+    // 1. It's my seat (even if I haven't sat yet for joining)
+    // 2. Seat is occupied
+    // 3. I'm not seated yet (show all seats for joining)
+    if (mySeatNumber.value === null || i === mySeatNumber.value || seat !== null) {
+      const displayPos = getDisplayPosition(i);
+      visible.push({
+        actualSeatNum: i,
+        displayPosition: displayPos,
+        seat: seat,
+      });
+    }
+  }
+  return visible;
 });
 
 const canStartHand = computed(() => {

@@ -83,6 +83,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  visible: {
+    type: Boolean,
+    default: true,
+  },
 });
 
 const emit = defineEmits(['join-seat']);

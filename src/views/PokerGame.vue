@@ -25,6 +25,13 @@
         </div>
         <div class="header-actions">
           <button 
+            v-if="mySeat && currentGame.status === 'playing'"
+            @click="handleLeaveSeat" 
+            class="btn-leave-seat"
+          >
+            Leave Seat
+          </button>
+          <button 
             v-if="isCreator && currentGame.status === 'playing'"
             @click="handleEndAfterHand" 
             class="btn-end"
@@ -72,6 +79,7 @@ const {
   error,
   joinGame,
   leaveSeat,
+  mySeat,
 } = usePokerGame();
 
 const isCreator = computed(() => {
@@ -111,6 +119,17 @@ const handleLeave = async () => {
       goBack();
     } catch (error) {
       console.error('Failed to leave:', error);
+    }
+  }
+};
+
+const handleLeaveSeat = async () => {
+  if (confirm('Leave your seat but stay at the table as spectator?')) {
+    try {
+      await leaveSeat();
+      success('You left your seat');
+    } catch (error) {
+      console.error('Failed to leave seat:', error);
     }
   }
 };
@@ -222,6 +241,23 @@ const goBack = () => {
 .btn-leave:hover {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.4);
+}
+
+.btn-leave-seat {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ffb74d;
+  border: 1px solid rgba(255, 152, 0, 0.4);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px;
+}
+
+.btn-leave-seat:hover {
+  background: rgba(255, 152, 0, 0.3);
+  border-color: rgba(255, 152, 0, 0.6);
 }
 
 .btn-end {
