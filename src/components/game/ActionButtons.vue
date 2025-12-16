@@ -53,13 +53,13 @@
       </div>
       
       <div class="quick-bet-buttons">
-        <button @click="setBetAmount(minBet)" class="quick-bet">Min</button>
-        <button @click="setBetAmount(halfPot)" class="quick-bet">½ Pot</button>
-        <button @click="setBetAmount(threeFourthPot)" class="quick-bet">¾ Pot</button>
-        <button @click="setBetAmount(potSize)" class="quick-bet">Pot</button>
+        <button @click="setBetAmount(minBet)" :disabled="!isMyTurn" class="quick-bet">Min</button>
+        <button @click="setBetAmount(halfPot)" :disabled="!isMyTurn" class="quick-bet">½ Pot</button>
+        <button @click="setBetAmount(threeFourthPot)" :disabled="!isMyTurn" class="quick-bet">¾ Pot</button>
+        <button @click="setBetAmount(potSize)" :disabled="!isMyTurn" class="quick-bet">Pot</button>
       </div>
 
-      <button @click="confirmRaise" class="btn btn-confirm">
+      <button @click="confirmRaise" :disabled="!isMyTurn" class="btn btn-confirm">
         Confirm Raise
       </button>
     </div>
@@ -294,7 +294,12 @@ const handleAllIn = () => {
   transition: all 0.2s ease;
 }
 
-.quick-bet:hover {
+.quick-bet:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.quick-bet:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.4);
 }
