@@ -252,7 +252,7 @@ export async function joinAsSpectator(gameId, userId, userInfo) {
     // Add spectator event to events subcollection
     // Note: Changed from arrayUnion to subcollection documents because
     // FieldValue.serverTimestamp() cannot be used inside array elements
-    await addGameEvent(
+    addGameEvent(
       gameId,
       {
         type: 'spectatorJoin',
@@ -288,7 +288,7 @@ export async function leaveSpectator(gameId, userId) {
     }
 
     // Add spectator leave event to track when spectators leave
-    await addGameEvent(
+    addGameEvent(
       gameId,
       {
         type: 'spectatorLeave',

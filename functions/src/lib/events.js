@@ -22,10 +22,10 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
  * @param {string} gameId - Game document ID
  * @param {Object} eventObj - Event data object
  * @param {string} eventObj.type - Event type (e.g., 'action', 'shownCards', 'spectatorJoin')
- * @param {Object|null} transactionOrDb - Optional Firestore transaction or db instance
+ * @param {Object|null} transaction - Optional Firestore transaction
  * @return {Promise<Object>} Created event with ID
  */
-export async function addGameEvent(gameId, eventObj, transactionOrDb = null) {
+export async function addGameEvent(gameId, eventObj, transaction = null) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
   const eventsRef = gameRef.collection('events');
@@ -37,10 +37,10 @@ export async function addGameEvent(gameId, eventObj, transactionOrDb = null) {
   };
 
   // If a transaction is provided, use it to create the event document
-  if (transactionOrDb && typeof transactionOrDb.set === 'function') {
-    // It's a transaction
+  if (transaction && typeof transaction.set === 'function') {
+    // It's a transaction - schedule the write
     const newEventRef = eventsRef.doc();
-    transactionOrDb.set(newEventRef, eventData);
+    transaction.set(newEventRef, eventData);
     return {
       id: newEventRef.id,
       ...eventData,
