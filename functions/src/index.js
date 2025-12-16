@@ -5,13 +5,20 @@
 
 import { initializeApp } from 'firebase-admin/app';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { createRoom, joinSeat, leaveSeat, getRoom, deleteRoom } from './handlers/room.js';
+import { createRoom, joinSeat, leaveSeat, getRoom, deleteRoom, joinAsSpectator, leaveSpectator } from './handlers/room.js';
 import {
   startHand,
   handlePlayerAction,
   setEndAfterHand as setEndAfterHandHandler,
   settlePokerGame as settlePokerGameHandler,
+  showCards as showCardsHandler,
+  handlePlayerTimeout as handlePlayerTimeoutHandler,
 } from './handlers/game.js';
+import {
+  sendMessage,
+  getMessages,
+  deleteMessage,
+} from './handlers/chat.js';
 
 // Initialize Firebase Admin
 initializeApp();
@@ -187,6 +194,152 @@ export const deletePokerRoom = onCall(async (request) => {
     return { success: true };
   } catch (error) {
     console.error('Error deleting room:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Show cards voluntarily
+ */
+export const showPokerCards = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId } = request.data;
+    const userId = request.auth.uid;
+
+    const result = await showCardsHandler(gameId, userId);
+    return { success: true, result };
+  } catch (error) {
+    console.error('Error showing cards:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Handle player timeout
+ */
+export const playerTimeout = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId } = request.data;
+    const userId = request.auth.uid;
+
+    const result = await handlePlayerTimeoutHandler(gameId, userId);
+    return { success: true, result };
+  } catch (error) {
+    console.error('Error handling timeout:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Send chat message
+ */
+export const sendChatMessage = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId, message } = request.data;
+    const userId = request.auth.uid;
+    const userInfo = {
+      name: request.auth.token.name || 'Player',
+      avatar: request.auth.token.picture || '',
+    };
+
+    const result = await sendMessage(gameId, userId, message, userInfo);
+    return { success: true, result };
+  } catch (error) {
+    console.error('Error sending message:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Get chat messages
+ */
+export const getChatMessages = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId, limit } = request.data;
+    const messages = await getMessages(gameId, limit);
+    return { success: true, messages };
+  } catch (error) {
+    console.error('Error getting messages:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Delete chat message
+ */
+export const deleteChatMessage = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId, messageId } = request.data;
+    const userId = request.auth.uid;
+
+    await deleteMessage(gameId, messageId, userId);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Join as spectator
+ */
+export const joinPokerSpectator = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId } = request.data;
+    const userId = request.auth.uid;
+    const userInfo = {
+      name: request.auth.token.name || 'Spectator',
+      avatar: request.auth.token.picture || '',
+    };
+
+    const result = await joinAsSpectator(gameId, userId, userInfo);
+    return { success: true, result };
+  } catch (error) {
+    console.error('Error joining as spectator:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Leave spectator mode
+ */
+export const leavePokerSpectator = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId } = request.data;
+    const userId = request.auth.uid;
+
+    await leaveSpectator(gameId, userId);
+    return { success: true };
+  } catch (error) {
+    console.error('Error leaving spectator:', error);
     throw new HttpsError('internal', error.message);
   }
 });

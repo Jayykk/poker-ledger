@@ -314,3 +314,110 @@ export function calculateWinners(game, holeCards) {
     pot: game.table.pot,
   };
 }
+
+/**
+ * Calculate side pots for multiple all-in scenarios
+ * @param {Object} game - Current game state
+ * @return {Array<Object>} Array of side pots with eligible players
+ */
+export function calculateSidePots(game) {
+  const seats = Object.values(game.seats).filter((seat) => seat !== null);
+
+  // Get all players who contributed to the pot
+  const players = seats
+    .map((seat, index) => ({
+      odId: seat.odId,
+      odName: seat.odName,
+      seatNum: index,
+      totalBet: seat.currentBet,
+      status: seat.status,
+    }))
+    .filter((p) => p.totalBet > 0)
+    .sort((a, b) => a.totalBet - b.totalBet);
+
+  if (players.length === 0) {
+    return [];
+  }
+
+  const sidePots = [];
+  let previousBet = 0;
+
+  players.forEach((player, idx) => {
+    const betLevel = player.totalBet;
+
+    if (betLevel > previousBet) {
+      // Create a new side pot for this bet level
+      const potAmount = (betLevel - previousBet) * (players.length - idx);
+      const eligiblePlayers = players
+        .slice(idx)
+        .filter((p) => p.status !== 'folded')
+        .map((p) => p.odId);
+
+      if (eligiblePlayers.length > 0) {
+        sidePots.push({
+          amount: potAmount,
+          eligiblePlayers,
+          level: sidePots.length + 1,
+        });
+      }
+
+      previousBet = betLevel;
+    }
+  });
+
+  return sidePots;
+}
+
+/**
+ * Run It Twice - Deal board twice for all-in situations
+ * @param {Object} game - Current game state
+ * @param {Array<string>} players - Player IDs who agreed to run it twice
+ * @return {Object} Result with two board runouts
+ */
+export function runItTwice(game, players) {
+  if (players.length !== 2) {
+    throw new Error('Run it twice requires exactly 2 players');
+  }
+
+  // Verify both players are all-in
+  const allInPlayers = Object.values(game.seats)
+    .filter((seat) => seat && seat.status === 'all_in' && players.includes(seat.odId));
+
+  if (allInPlayers.length !== 2) {
+    throw new Error('Both players must be all-in');
+  }
+
+  const currentBoard = game.table.communityCards;
+  const cardsNeeded = 5 - currentBoard.length;
+
+  if (cardsNeeded === 0) {
+    throw new Error('Board already complete');
+  }
+
+  let deck1 = [...game.table.deck];
+  let deck2 = [...game.table.deck];
+
+  // First runout
+  const runout1 = [...currentBoard];
+  for (let i = 0; i < cardsNeeded; i++) {
+    deck1 = burnCard(deck1);
+    const dealt = dealCards(deck1, 1);
+    runout1.push(...dealt.cards);
+    deck1 = dealt.remainingDeck;
+  }
+
+  // Second runout (from same starting deck)
+  const runout2 = [...currentBoard];
+  for (let i = 0; i < cardsNeeded; i++) {
+    deck2 = burnCard(deck2);
+    const dealt = dealCards(deck2, 1);
+    runout2.push(...dealt.cards);
+    deck2 = dealt.remainingDeck;
+  }
+
+  return {
+    runout1,
+    runout2,
+    originalPot: game.table.pot,
+  };
+}
