@@ -2,20 +2,20 @@
   <div class="community-cards">
     <div class="round-label">{{ roundLabel }}</div>
     <div class="cards-display">
-      <div
+      <PlayingCard
         v-for="(card, index) in displayCards"
         :key="index"
-        class="card"
-        :class="[{ 'card-hidden': !card }, getCardColor(card)]"
-      >
-        {{ card || '?' }}
-      </div>
+        :card="card"
+        :hidden="!card"
+        size="normal"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue';
+import PlayingCard from './PlayingCard.vue';
 
 const props = defineProps({
   cards: {
@@ -61,14 +61,6 @@ const displayCards = computed(() => {
 
   return cards.slice(0, count);
 });
-
-const getCardColor = (card) => {
-  if (!card || typeof card !== 'string') return '';
-  if (card.includes('♥') || card.includes('♦')) {
-    return 'text-red-500';
-  }
-  return 'text-gray-900';
-};
 </script>
 
 <style scoped>
@@ -93,37 +85,8 @@ const getCardColor = (card) => {
   gap: 8px;
 }
 
-.card {
-  width: 60px;
-  height: 84px;
-  background: white;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  font-weight: bold;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-  transition: transform 0.3s ease;
-}
-
-.card:hover {
-  transform: translateY(-4px);
-}
-
-.card-hidden {
-  background: linear-gradient(135deg, #2c5f3f 0%, #1a3d28 100%);
-  color: #1a3d28;
-}
-
 /* Responsive */
 @media (max-width: 768px) {
-  .card {
-    width: 48px;
-    height: 67px;
-    font-size: 22px;
-  }
-
   .round-label {
     font-size: 14px;
   }
