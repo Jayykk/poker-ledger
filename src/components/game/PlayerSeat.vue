@@ -143,11 +143,8 @@ onBeforeUnmount(() => {
 });
 
 const handleJoinClick = () => {
-  // Simple buy-in dialog (in real app, would show modal)
-  const buyIn = prompt('Enter buy-in amount:', '1000');
-  if (buyIn) {
-    emit('join-seat', props.seatNumber, parseInt(buyIn));
-  }
+  // Emit event to parent to show buy-in modal (non-blocking)
+  emit('join-seat', props.seatNumber);
 };
 </script>
 

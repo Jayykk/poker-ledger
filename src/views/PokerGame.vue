@@ -25,7 +25,7 @@
         </div>
         <div class="header-actions">
           <button 
-            v-if="mySeat && currentGame.status === 'playing'"
+            v-if="mySeat && (currentGame.status === 'playing' || currentGame.status === 'waiting')"
             @click="handleLeaveSeat" 
             class="btn-leave-seat"
           >
@@ -61,6 +61,7 @@ import { usePokerGame } from '../composables/usePokerGame.js';
 import { usePokerStore } from '../store/modules/poker.js';
 import { useAuthStore } from '../store/modules/auth.js';
 import { useNotification } from '../composables/useNotification.js';
+import { useConfirm } from '../composables/useConfirm.js';
 import PokerTable from '../components/game/PokerTable.vue';
 
 const route = useRoute();
@@ -68,6 +69,7 @@ const router = useRouter();
 const pokerStore = usePokerStore();
 const authStore = useAuthStore();
 const { success } = useNotification();
+const { confirm } = useConfirm();
 
 // Constants
 const NAVIGATION_DELAY_MS = 2000;
@@ -113,7 +115,12 @@ onUnmounted(() => {
 });
 
 const handleLeave = async () => {
-  if (confirm('Are you sure you want to leave this table?')) {
+  const confirmed = await confirm({
+    message: 'Are you sure you want to leave this table?',
+    type: 'warning'
+  });
+  
+  if (confirmed) {
     try {
       await leaveSeat();
       goBack();
@@ -124,7 +131,12 @@ const handleLeave = async () => {
 };
 
 const handleLeaveSeat = async () => {
-  if (confirm('Leave your seat but stay at the table as spectator?')) {
+  const confirmed = await confirm({
+    message: 'Leave your seat but stay at the table as spectator?',
+    type: 'warning'
+  });
+  
+  if (confirmed) {
     try {
       await leaveSeat();
       success('You left your seat');
@@ -135,7 +147,12 @@ const handleLeaveSeat = async () => {
 };
 
 const handleEndAfterHand = async () => {
-  if (confirm('End the game after this hand completes?')) {
+  const confirmed = await confirm({
+    message: 'End the game after this hand completes?',
+    type: 'warning'
+  });
+  
+  if (confirmed) {
     try {
       await pokerStore.endGameAfterHand(gameId.value);
     } catch (error) {
@@ -145,7 +162,12 @@ const handleEndAfterHand = async () => {
 };
 
 const handleDeleteRoom = async () => {
-  if (confirm('Are you sure you want to delete this room? This action cannot be undone.')) {
+  const confirmed = await confirm({
+    message: 'Are you sure you want to delete this room? This action cannot be undone.',
+    type: 'danger'
+  });
+  
+  if (confirmed) {
     try {
       await pokerStore.deleteRoom(gameId.value);
       goBack();

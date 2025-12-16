@@ -31,9 +31,19 @@ export function usePushNotification() {
 
   /**
    * Send in-app action notification
+   * @param {string} title - Notification title
+   * @param {Object} options - Notification options
+   * @param {string} options.type - Notification type
+   * @param {string} options.body - Notification body message
+   * @param {string} options.message - Alternative to body
+   * @param {number} options.duration - Duration in milliseconds
+   * @param {Function} options.onConfirm - Confirm callback
+   * @param {Function} options.onDecline - Decline callback
+   * @param {boolean} options.force - If true, bypass user notification preferences (for critical game notifications)
    */
   const sendNotification = (title, options = {}) => {
-    if (!canSendNotifications.value) {
+    // If not forced and user has disabled notifications in preferences, skip
+    if (!options.force && !canSendNotifications.value) {
       return null;
     }
 
