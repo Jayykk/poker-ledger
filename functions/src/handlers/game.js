@@ -48,11 +48,16 @@ export async function startHand(gameId) {
     // Deal hole cards
     const { game: updatedGame, holeCards } = dealHoleCards(game);
 
-    // Update game state
-    transaction.update(gameRef, {
+    // Update game state with timestamp
+    const updateData = {
       ...updatedGame,
-      'table.turnStartedAt': FieldValue.serverTimestamp(),
-    });
+      table: {
+        ...updatedGame.table,
+        turnStartedAt: FieldValue.serverTimestamp(),
+      },
+    };
+
+    transaction.update(gameRef, updateData);
 
     // Store private hole cards
     Object.entries(holeCards).forEach(([playerId, cards]) => {
@@ -129,11 +134,16 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
       game.table.currentTurn = nextTurn;
     }
 
-    // Update game state
-    transaction.update(gameRef, {
+    // Update game state with timestamp
+    const updateData = {
       ...game,
-      'table.turnStartedAt': FieldValue.serverTimestamp(),
-    });
+      table: {
+        ...game.table,
+        turnStartedAt: FieldValue.serverTimestamp(),
+      },
+    };
+
+    transaction.update(gameRef, updateData);
 
     return {
       gameId,

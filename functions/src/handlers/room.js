@@ -82,8 +82,11 @@ export async function joinSeat(gameId, userId, userInfo, seatNumber, buyIn) {
 
     const game = gameDoc.data();
 
+    // Ensure seat number is an integer
+    const seatNum = parseInt(seatNumber, 10);
+
     // Validate join
-    const validation = validateJoinSeat(game, seatNumber, buyIn, userId);
+    const validation = validateJoinSeat(game, seatNum, buyIn, userId);
     if (!validation.valid) {
       throw new Error(validation.error);
     }
@@ -103,12 +106,12 @@ export async function joinSeat(gameId, userId, userInfo, seatNumber, buyIn) {
     };
 
     transaction.update(gameRef, {
-      [`seats.${seatNumber}`]: seatData,
+      [`seats.${seatNum}`]: seatData,
     });
 
     return {
       gameId,
-      seatNumber,
+      seatNumber: seatNum,
       ...seatData,
     };
   });
@@ -172,4 +175,52 @@ export async function getRoom(gameId) {
     id: gameDoc.id,
     ...gameDoc.data(),
   };
+}
+
+/**
+ * Delete a poker room (only by creator)
+ * @param {string} gameId - Game ID
+ * @param {string} userId - User ID requesting deletion
+ * @return {Promise<void>}
+ */
+export async function deleteRoom(gameId, userId) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+
+  return db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+
+    if (!gameDoc.exists) {
+      throw new Error('Game not found');
+    }
+
+    const game = gameDoc.data();
+
+    // Verify user is the creator
+    if (game.meta?.createdBy !== userId) {
+      throw new Error('Only the room creator can delete the room');
+    }
+
+    // Delete the game document
+    transaction.delete(gameRef);
+  });
+
+  // Delete subcollections (private cards and hands) after transaction
+  // These don't need to be in the transaction since we're deleting everything
+  const privateSnapshot = await gameRef.collection('private').get();
+  const handsSnapshot = await gameRef.collection('hands').get();
+
+  const batch = db.batch();
+  
+  privateSnapshot.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+
+  handsSnapshot.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+
+  if (!privateSnapshot.empty || !handsSnapshot.empty) {
+    await batch.commit();
+  }
 }
