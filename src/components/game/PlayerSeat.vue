@@ -89,9 +89,9 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['join-seat']);
+const emit = defineEmits(['join-seat', 'auto-action']);
 
-const { myHoleCards, currentGame } = usePokerGame();
+const { myHoleCards, currentGame, canCheck, callAmount, currentBet } = usePokerGame();
 const authStore = useAuthStore();
 
 // Constants
@@ -118,6 +118,15 @@ const timerPercentage = computed(() => {
   return (timeRemaining.value / turnTimeout.value) * 100;
 });
 
+// Auto-action when timer reaches 0
+const handleTimeoutAction = () => {
+  if (props.isMe && props.isCurrentTurn) {
+    // Priority: CHECK if possible, otherwise FOLD
+    const action = canCheck.value ? 'check' : 'fold';
+    emit('auto-action', action);
+  }
+};
+
 // Watch for turn changes
 watch(() => props.isCurrentTurn, (isTurn) => {
   if (isTurn) {
@@ -129,6 +138,8 @@ watch(() => props.isCurrentTurn, (isTurn) => {
         timeRemaining.value--;
       } else {
         clearInterval(timerInterval);
+        // Trigger auto-action when timer expires
+        handleTimeoutAction();
       }
     }, 1000);
   } else {
