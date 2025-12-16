@@ -20,6 +20,31 @@
       </button>
     </div>
 
+    <!-- Game Type Filter -->
+    <div class="flex gap-2 mb-4">
+      <button
+        @click="gameTypeFilter = 'all'"
+        class="px-3 py-1 rounded-lg text-sm transition"
+        :class="gameTypeFilter === 'all' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-gray-300'"
+      >
+        {{ $t('report.filterAll') }}
+      </button>
+      <button
+        @click="gameTypeFilter = 'live'"
+        class="px-3 py-1 rounded-lg text-sm transition"
+        :class="gameTypeFilter === 'live' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-gray-300'"
+      >
+        🎰 {{ $t('report.filterLive') }}
+      </button>
+      <button
+        @click="gameTypeFilter = 'online'"
+        class="px-3 py-1 rounded-lg text-sm transition"
+        :class="gameTypeFilter === 'online' ? 'bg-purple-600 text-white' : 'bg-slate-700 text-gray-300'"
+      >
+        🌐 {{ $t('report.filterOnline') }}
+      </button>
+    </div>
+
     <!-- Recent Records Tab -->
     <div v-if="activeTab === 'recent'">
       <!-- Game count selector -->
@@ -128,18 +153,26 @@ const { createLineChart } = useChart();
 const activeTab = ref('recent');
 const selectedGameCount = ref(10);
 const gameCounts = [5, 10, 20];
+const gameTypeFilter = ref('all'); // 'all', 'live', 'online'
 const recentChartId = ref(`recent-chart-${Date.now()}-${Math.floor(Math.random() * 1000)}`);
 let recentChartInstance = null;
 
 const recentRecords = computed(() => {
   // Get sorted history (newest first)
-  const sorted = [...userStore.history]
+  let sorted = [...userStore.history]
     .sort((a, b) => {
       const dateA = typeof a.createdAt === 'number' ? a.createdAt : (Date.parse(a.createdAt || a.date) || 0);
       const dateB = typeof b.createdAt === 'number' ? b.createdAt : (Date.parse(b.createdAt || b.date) || 0);
       return dateB - dateA;
-    })
-    .slice(0, selectedGameCount.value);
+    });
+
+  // Apply game type filter
+  if (gameTypeFilter.value !== 'all') {
+    sorted = sorted.filter(h => h.type === gameTypeFilter.value);
+  }
+
+  // Take only the requested count
+  sorted = sorted.slice(0, selectedGameCount.value);
   
   // Format with date strings
   return sorted.map(h => ({
@@ -247,8 +280,8 @@ const renderRecentChart = () => {
   });
 };
 
-// Watch for changes in selectedGameCount to re-render chart
-watch(selectedGameCount, () => {
+// Watch for changes in selectedGameCount or filter to re-render chart
+watch([selectedGameCount, gameTypeFilter], () => {
   renderRecentChart();
 });
 
