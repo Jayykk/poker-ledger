@@ -268,6 +268,13 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
 
   // Check if game should end after this hand
   const shouldEndGame = game.meta?.pauseAfterHand === true;
+  
+  const finalStatus = shouldEndGame ? 'ended' : 'waiting';
+
+  // If game is ending, settle it
+  if (shouldEndGame) {
+    // Settle will be called separately via settlePokerGame
+  }
 
   return {
     ...game,
@@ -278,7 +285,7 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
       pot: 0,
       currentTurn: null,
     },
-    status: shouldEndGame ? 'ended' : 'waiting',
+    status: finalStatus,
   };
 }
 
@@ -293,5 +300,73 @@ export async function setEndAfterHand(gameId) {
   
   await gameRef.update({
     'meta.pauseAfterHand': true,
+  });
+}
+
+/**
+ * Settle and complete poker game
+ * Saves chip changes to user history
+ * @param {string} gameId - Game ID
+ * @return {Promise<void>}
+ */
+export async function settlePokerGame(gameId) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+
+  return db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+
+    if (!gameDoc.exists) {
+      throw new Error('Game not found');
+    }
+
+    const game = gameDoc.data();
+    const seats = game.seats || {};
+    
+    // Get all seated players
+    const seatedPlayers = Object.values(seats).filter((seat) => seat !== null);
+
+    // For each player, calculate profit/loss and save to their history
+    for (const player of seatedPlayers) {
+      const userId = player.odId;
+      const userRef = db.collection('users').doc(userId);
+      const userDoc = await transaction.get(userRef);
+
+      // Calculate profit/loss (current chips - initial buy-in)
+      const initialBuyIn = player.initialBuyIn || game.meta.minBuyIn || 1000;
+      const profit = player.chips - initialBuyIn;
+
+      const record = {
+        date: new Date().toISOString(),
+        createdAt: Date.now(),
+        profit: profit,
+        rate: 1, // Online poker uses chip values directly
+        gameName: `Poker Game #${gameId.slice(0, 8)}`,
+        gameType: 'online_poker',
+        settlement: seatedPlayers.map((p) => ({
+          name: p.odName,
+          buyIn: p.initialBuyIn || game.meta.minBuyIn || 1000,
+          stack: p.chips,
+          profit: p.chips - (p.initialBuyIn || game.meta.minBuyIn || 1000),
+        })),
+      };
+
+      if (userDoc.exists()) {
+        transaction.update(userRef, {
+          history: FieldValue.arrayUnion(record),
+        });
+      } else {
+        transaction.set(userRef, {
+          history: [record],
+          createdAt: Date.now(),
+        });
+      }
+    }
+
+    // Mark game as completed
+    transaction.update(gameRef, {
+      status: 'completed',
+      completedAt: FieldValue.serverTimestamp(),
+    });
   });
 }

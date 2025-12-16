@@ -94,6 +94,7 @@ export async function joinSeat(gameId, userId, userInfo, seatNumber, buyIn) {
       odName: userInfo.name || 'Player',
       odAvatar: userInfo.avatar || '',
       chips: buyIn,
+      initialBuyIn: buyIn, // Track initial buy-in for settlement
       status: 'active',
       currentBet: 0,
       isDealer: false,

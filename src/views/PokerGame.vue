@@ -39,17 +39,19 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePokerGame } from '../composables/usePokerGame.js';
 import { usePokerStore } from '../store/modules/poker.js';
 import { useAuthStore } from '../store/modules/auth.js';
+import { useNotification } from '../composables/useNotification.js';
 import PokerTable from '../components/game/PokerTable.vue';
 
 const route = useRoute();
 const router = useRouter();
 const pokerStore = usePokerStore();
 const authStore = useAuthStore();
+const { success } = useNotification();
 
 const {
   currentGame,
@@ -62,6 +64,16 @@ const {
 
 const isCreator = computed(() => {
   return currentGame.value?.meta?.createdBy === authStore.user?.uid;
+});
+
+// Watch for game completion
+watch(() => currentGame.value?.status, (status, oldStatus) => {
+  if (status === 'completed' && oldStatus !== 'completed') {
+    success('Game completed! Results saved to your history.');
+    setTimeout(() => {
+      router.push('/report');
+    }, 2000);
+  }
 });
 
 onMounted(async () => {

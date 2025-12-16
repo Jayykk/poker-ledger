@@ -250,6 +250,21 @@ export const usePokerStore = defineStore('poker', {
     },
 
     /**
+     * Settle poker game and save to history
+     */
+    async settleGame(gameId) {
+      try {
+        const functions = getFunctions(app);
+        const settleGame = httpsCallable(functions, 'settlePokerGame');
+        
+        await settleGame({ gameId });
+      } catch (error) {
+        console.error('Error settling game:', error);
+        throw error;
+      }
+    },
+
+    /**
      * Start listening to game updates
      */
     async joinGameListener(gameId, userId) {
@@ -260,12 +275,23 @@ export const usePokerStore = defineStore('poker', {
 
       // Listen to game state
       const gameRef = doc(db, 'pokerGames', gameId);
-      this.gameUnsubscribe = onSnapshot(gameRef, (snapshot) => {
+      this.gameUnsubscribe = onSnapshot(gameRef, async (snapshot) => {
         if (snapshot.exists()) {
-          this.currentGame = {
+          const gameData = {
             id: snapshot.id,
             ...snapshot.data(),
           };
+          
+          this.currentGame = gameData;
+          
+          // If game just ended, settle it automatically
+          if (gameData.status === 'ended' && !gameData.completedAt) {
+            try {
+              await this.settleGame(gameId);
+            } catch (error) {
+              console.error('Auto-settle failed:', error);
+            }
+          }
         }
       });
 
