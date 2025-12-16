@@ -221,11 +221,11 @@ export const useGameStore = defineStore('game', () => {
   /**
    * Add player (host only)
    */
-  const addPlayer = async (name) => {
+  const addPlayer = async (name, buyIn) => {
     if (!gameId.value || !isHost.value) return false;
     
     try {
-      const buyInAmount = game.value?.baseBuyIn || DEFAULT_BUY_IN;
+      const buyInAmount = buyIn || game.value?.baseBuyIn || DEFAULT_BUY_IN;
       const newPlayer = {
         id: Date.now().toString(),
         name: name || 'Player',

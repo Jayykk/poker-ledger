@@ -11,6 +11,8 @@ export const CURRENCIES = {
 // Default buy-in amounts
 export const DEFAULT_BUY_IN = 2000;
 export const BUY_IN_INCREMENT = 100;
+export const CHIP_STEP = 100;
+export const MIN_BUY_IN = 100;
 
 // Default exchange rate (chips to cash)
 export const DEFAULT_EXCHANGE_RATE = 10;

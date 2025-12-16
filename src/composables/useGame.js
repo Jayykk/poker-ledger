@@ -38,8 +38,8 @@ export function useGame() {
     return await gameStore.joinGameListener(id);
   };
 
-  const addPlayer = async (name) => {
-    return await gameStore.addPlayer(name);
+  const addPlayer = async (name, buyIn) => {
+    return await gameStore.addPlayer(name, buyIn);
   };
 
   const updatePlayer = async (player) => {

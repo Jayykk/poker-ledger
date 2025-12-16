@@ -3,6 +3,59 @@
 import { formatDate, formatCash, calculateNet, formatNumber } from './formatters.js';
 
 /**
+ * Calculate minimum cash flow transfers
+ * Uses greedy algorithm to minimize number of transactions
+ * @param {Array} players - Array of player objects
+ * @returns {Array} Array of transfer objects {from, to, amount}
+ */
+const calculateMinimumTransfers = (players) => {
+  // Calculate net balance for each player
+  const balances = players.map(p => ({
+    name: p.name,
+    balance: calculateNet(p)
+  })).filter(b => b.balance !== 0); // Only include players with non-zero balance
+
+  const transfers = [];
+  
+  // Create copies for manipulation
+  const creditors = balances.filter(b => b.balance > 0).map(b => ({ ...b })); // People who should receive
+  const debtors = balances.filter(b => b.balance < 0).map(b => ({ ...b, balance: -b.balance })); // People who should pay (positive amount)
+  
+  // Greedy algorithm: match largest debtor with largest creditor
+  while (creditors.length > 0 && debtors.length > 0) {
+    // Sort by balance (descending)
+    creditors.sort((a, b) => b.balance - a.balance);
+    debtors.sort((a, b) => b.balance - a.balance);
+    
+    const creditor = creditors[0];
+    const debtor = debtors[0];
+    
+    // Transfer amount is minimum of what debtor owes and what creditor is owed
+    const transferAmount = Math.min(debtor.balance, creditor.balance);
+    
+    transfers.push({
+      from: debtor.name,
+      to: creditor.name,
+      amount: transferAmount
+    });
+    
+    // Update balances
+    creditor.balance -= transferAmount;
+    debtor.balance -= transferAmount;
+    
+    // Remove if settled
+    if (creditor.balance === 0) {
+      creditors.shift();
+    }
+    if (debtor.balance === 0) {
+      debtors.shift();
+    }
+  }
+  
+  return transfers;
+};
+
+/**
  * Generate text report for a game
  * @param {Object} game - Game object
  * @param {number} rate - Exchange rate
@@ -26,7 +79,16 @@ export const generateTextReport = (game, rate = 10) => {
   });
   
   if (gap !== 0) {
-    text += `---\n⚠️ 誤差: ${formatNumber(gap)}`;
+    text += `---\n⚠️ 誤差: ${formatNumber(gap)}\n`;
+  }
+  
+  // Add minimum transfer suggestions
+  const transfers = calculateMinimumTransfers(game.players);
+  if (transfers.length > 0) {
+    text += `---\n=== 轉帳建議 ===\n`;
+    transfers.forEach(t => {
+      text += `${t.from} → ${t.to}: ${formatCash(t.amount, rate)}\n`;
+    });
   }
   
   return text;

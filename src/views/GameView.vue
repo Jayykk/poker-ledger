@@ -81,6 +81,20 @@
     <!-- Add Player Modal -->
     <BaseModal v-model="showAddPlayer" :title="$t('game.addPlayer')">
       <BaseInput v-model="newPlayerName" :placeholder="$t('game.playerName')" class="mb-4" />
+      <div class="mb-4">
+        <label class="text-xs text-gray-400 block mb-2">{{ $t('game.buyIn') }}</label>
+        <div class="flex gap-2 items-center">
+          <BaseButton @click="decrementNewPlayerBuyIn" size="sm">-100</BaseButton>
+          <BaseInput
+            v-model.number="newPlayerBuyIn"
+            type="number"
+            :min="100"
+            :step="100"
+            class="flex-1 text-center"
+          />
+          <BaseButton @click="incrementNewPlayerBuyIn" size="sm">+100</BaseButton>
+        </div>
+      </div>
       <BaseButton @click="handleAddPlayer" variant="primary" fullWidth>
         {{ $t('common.confirm') }}
       </BaseButton>
@@ -101,9 +115,9 @@
         <div>
           <label class="text-xs text-gray-400 block mb-2">{{ $t('game.buyIn') }}</label>
           <div class="flex gap-2 items-center">
-            <BaseButton @click="editingPlayer.buyIn += 100" size="sm">+</BaseButton>
-            <span class="text-white font-mono flex-1 text-center">{{ editingPlayer?.buyIn }}</span>
             <BaseButton @click="editingPlayer.buyIn -= 100" size="sm">-</BaseButton>
+            <span class="text-white font-mono flex-1 text-center">{{ editingPlayer?.buyIn }}</span>
+            <BaseButton @click="editingPlayer.buyIn += 100" size="sm">+</BaseButton>
           </div>
         </div>
         <BaseInput
@@ -187,7 +201,7 @@ import HandHistoryList from '../components/game/HandHistoryList.vue';
 import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
 import { formatNumber, formatCash, calculateNet } from '../utils/formatters.js';
 import { generateTextReport } from '../utils/exportReport.js';
-import { DEFAULT_EXCHANGE_RATE } from '../utils/constants.js';
+import { DEFAULT_EXCHANGE_RATE, DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from '../utils/constants.js';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -204,6 +218,7 @@ const showSettlement = ref(false);
 const showHandRecord = ref(false);
 const showHandDetail = ref(false);
 const newPlayerName = ref('');
+const newPlayerBuyIn = ref(DEFAULT_BUY_IN);
 const editingPlayer = ref(null);
 const exchangeRate = ref(DEFAULT_EXCHANGE_RATE);
 const selectedHand = ref(null);
@@ -217,16 +232,34 @@ watch(() => gameId.value, (newGameId) => {
   }
 }, { immediate: true });
 
+// Reset newPlayerBuyIn when add player modal opens
+watch(() => showAddPlayer.value, (isOpen) => {
+  if (isOpen) {
+    newPlayerBuyIn.value = game.value?.baseBuyIn || DEFAULT_BUY_IN;
+  }
+});
+
 const sortedPlayers = computed(() => {
   if (!game.value) return [];
   return [...game.value.players].sort((a, b) => calculateNet(b) - calculateNet(a));
 });
 
+const incrementNewPlayerBuyIn = () => {
+  newPlayerBuyIn.value = (newPlayerBuyIn.value || 0) + CHIP_STEP;
+};
+
+const decrementNewPlayerBuyIn = () => {
+  if (newPlayerBuyIn.value > MIN_BUY_IN) {
+    newPlayerBuyIn.value = Math.max(MIN_BUY_IN, newPlayerBuyIn.value - CHIP_STEP);
+  }
+};
+
 const handleAddPlayer = async () => {
   await withLoading(async () => {
-    await addPlayer(newPlayerName.value || 'Player');
+    await addPlayer(newPlayerName.value || 'Player', newPlayerBuyIn.value);
     showAddPlayer.value = false;
     newPlayerName.value = '';
+    newPlayerBuyIn.value = game.value?.baseBuyIn || DEFAULT_BUY_IN;
   }, t('loading.saving'));
 };
 
