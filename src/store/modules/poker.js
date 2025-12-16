@@ -324,6 +324,8 @@ export const usePokerStore = defineStore('poker', {
         this.privateUnsubscribe = onSnapshot(privateRef, (snapshot) => {
           if (snapshot.exists()) {
             this.myHoleCards = snapshot.data().holeCards || [];
+          } else {
+            this.myHoleCards = [];
           }
         });
       }

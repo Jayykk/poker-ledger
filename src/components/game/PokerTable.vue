@@ -22,6 +22,7 @@
         :isMe="isMySeat(seatInfo.actualSeatNum)"
         :visible="true"
         @join-seat="showBuyInModal"
+        @auto-action="handleAutoAction"
       />
     </div>
 
@@ -265,6 +266,18 @@ const handleAllIn = async () => {
     console.error('Failed to go all-in:', error);
   }
 };
+
+const handleAutoAction = async (action) => {
+  try {
+    if (action === 'check') {
+      await check();
+    } else if (action === 'fold') {
+      await fold();
+    }
+  } catch (error) {
+    console.error('Failed to perform auto-action:', error);
+  }
+};
 </script>
 
 <style scoped>
@@ -347,7 +360,7 @@ const handleAllIn = async () => {
   bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 15;
+  z-index: 5;
 }
 
 .start-hand-controls {
@@ -355,7 +368,7 @@ const handleAllIn = async () => {
   bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 15;
+  z-index: 5;
 }
 
 .btn-primary {

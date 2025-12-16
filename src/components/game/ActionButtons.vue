@@ -2,30 +2,9 @@
   <div class="action-buttons">
     <!-- Main action buttons - horizontal layout -->
     <div class="main-buttons">
-      <!-- Fold Button -->
-      <button 
-        class="btn btn-fold" 
-        :class="{ 'btn-active': isMyTurn, 'btn-locked': !isMyTurn }"
-        :disabled="!isMyTurn" 
-        @click="emit('fold')"
-      >
-        <span class="btn-icon">🚫</span>
-        <span class="btn-label">FOLD</span>
-      </button>
-
-      <!-- Check/Call Button -->
+      <!-- Call Button -->
       <button
-        v-if="canCheck"
-        class="btn btn-check"
-        :class="{ 'btn-active': isMyTurn, 'btn-locked': !isMyTurn }"
-        :disabled="!isMyTurn"
-        @click="emit('check')"
-      >
-        <span class="btn-icon">✓</span>
-        <span class="btn-label">CHECK</span>
-      </button>
-      <button
-        v-else
+        v-if="!canCheck"
         class="btn btn-call"
         :class="{ 'btn-active': isMyTurn, 'btn-locked': !isMyTurn }"
         :disabled="!isMyTurn"
@@ -46,6 +25,29 @@
       >
         <span class="btn-icon">📈</span>
         <span class="btn-label">RAISE</span>
+      </button>
+
+      <!-- Check Button -->
+      <button
+        v-if="canCheck"
+        class="btn btn-check"
+        :class="{ 'btn-active': isMyTurn, 'btn-locked': !isMyTurn }"
+        :disabled="!isMyTurn"
+        @click="emit('check')"
+      >
+        <span class="btn-icon">✓</span>
+        <span class="btn-label">CHECK</span>
+      </button>
+
+      <!-- Fold Button -->
+      <button 
+        class="btn btn-fold" 
+        :class="{ 'btn-active': isMyTurn, 'btn-locked': !isMyTurn }"
+        :disabled="!isMyTurn" 
+        @click="emit('fold')"
+      >
+        <span class="btn-icon">🚫</span>
+        <span class="btn-label">FOLD</span>
       </button>
     </div>
 
