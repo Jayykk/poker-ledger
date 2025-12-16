@@ -128,17 +128,19 @@
         :placeholder="$t('game.playerName')"
         class="mb-4"
       />
-      <div class="flex gap-2 mb-4">
+      <div class="flex gap-2 mb-4 items-center">
+        <BaseButton @click="decrementCreateBuyIn" size="sm">-100</BaseButton>
         <label class="flex-1">
           <BaseInput
             v-model.number="createBuyIn"
             type="number"
-            :min="100"
-            :step="100"
+            :min="MIN_BUY_IN"
+            :step="CHIP_STEP"
             class="w-full"
           />
         </label>
-        <span class="text-white text-sm pt-3">{{ $t('game.chips') }}</span>
+        <BaseButton @click="incrementCreateBuyIn" size="sm">+100</BaseButton>
+        <span class="text-white text-sm">{{ $t('game.chips') }}</span>
       </div>
       <BaseButton @click="handleCreateGame" variant="primary" fullWidth>
         {{ $t('common.confirm') }}
@@ -210,7 +212,7 @@ import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
 import { formatNumber, formatShortDate } from '../utils/formatters.js';
-import { DEFAULT_BUY_IN } from '../utils/constants.js';
+import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from '../utils/constants.js';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -250,6 +252,16 @@ const formatDate = (timestamp) => {
   if (!timestamp) return '';
   const date = new Date(timestamp);
   return formatShortDate(date);
+};
+
+const incrementCreateBuyIn = () => {
+  createBuyIn.value = (createBuyIn.value || 0) + CHIP_STEP;
+};
+
+const decrementCreateBuyIn = () => {
+  if (createBuyIn.value > MIN_BUY_IN) {
+    createBuyIn.value = Math.max(MIN_BUY_IN, createBuyIn.value - CHIP_STEP);
+  }
 };
 
 const handleCreateGame = async () => {
