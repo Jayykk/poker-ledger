@@ -106,7 +106,7 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
     // Record action in events subcollection
     // Note: Changed from arrayUnion to subcollection documents because
     // FieldValue.serverTimestamp() cannot be used inside array elements
-    addGameEvent(
+    await addGameEvent(
       gameId,
       {
         type: 'action',
@@ -472,7 +472,7 @@ export async function showCards(gameId, userId) {
     // Record shown cards in events subcollection
     // Note: Changed from arrayUnion to subcollection documents because
     // FieldValue.serverTimestamp() cannot be used inside array elements
-    addGameEvent(
+    await addGameEvent(
       gameId,
       {
         type: 'shownCards',
