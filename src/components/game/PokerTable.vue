@@ -305,7 +305,10 @@ const handleAllIn = async () => {
 .poker-table::after {
   content: '';
   position: absolute;
-  inset: 20px;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
   border-radius: 50%;
   background: radial-gradient(ellipse at 30% 30%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
   pointer-events: none;
