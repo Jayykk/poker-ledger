@@ -276,17 +276,46 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
   });
 
   // Record result in hand history
-  transaction.set(handRef, {
+  const bigBlind = game.meta?.blinds?.big || 20;
+  const potInBB = result.pot / bigBlind;
+
+  // Check if this is a notable hand
+  const hasHighRank = result.winners.some((w) => w.hand.rank >= 6); // Full House or better
+  const hasLargePot = potInBB >= 50; // Pot >= 50BB
+  const hadAllIn = Object.values(game.seats)
+    .some((seat) => seat && seat.status === 'all_in');
+
+  const isNotable = hasHighRank || hasLargePot || hadAllIn;
+
+  const handData = {
     communityCards: game.table.communityCards,
     result: {
       winners: result.winners.map((w, idx) => ({
         odId: w.playerId,
         amount: amountPerWinner + (idx === closestWinnerIndex ? remainder : 0),
         hand: w.hand.name,
+        handRank: w.hand.rank,
       })),
       pot: result.pot,
+      potInBB,
     },
-  }, { merge: true });
+    notable: isNotable,
+    notableReasons: {
+      highRank: hasHighRank,
+      largePot: hasLargePot,
+      allIn: hadAllIn,
+    },
+  };
+
+  // Save hole cards if notable hand or cards were shown
+  if (isNotable) {
+    handData.playerCards = {};
+    Object.entries(holeCards).forEach(([playerId, cards]) => {
+      handData.playerCards[playerId] = cards;
+    });
+  }
+
+  transaction.set(handRef, handData, { merge: true });
 
   // Clean up private hole cards after showdown
   for (const docRef of privateDocs) {
@@ -395,5 +424,123 @@ export async function settlePokerGame(gameId) {
       status: 'completed',
       completedAt: FieldValue.serverTimestamp(),
     });
+  });
+}
+
+/**
+ * Show cards voluntarily (before or after showdown)
+ * @param {string} gameId - Game ID
+ * @param {string} userId - User ID
+ * @return {Promise<void>}
+ */
+export async function showCards(gameId, userId) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+
+  return db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+
+    if (!gameDoc.exists) {
+      throw new Error('Game not found');
+    }
+
+    const game = gameDoc.data();
+
+    // Verify user is in the game
+    const playerSeat = Object.entries(game.seats).find(
+      ([, seat]) => seat && seat.odId === userId,
+    );
+
+    if (!playerSeat) {
+      throw new Error('Player not in game');
+    }
+
+    // Get player's hole cards from private collection
+    const privateRef = gameRef.collection('private').doc(userId);
+    const privateDoc = await transaction.get(privateRef);
+
+    if (!privateDoc.exists) {
+      throw new Error('No cards to show');
+    }
+
+    const holeCards = privateDoc.data().holeCards;
+
+    // Record shown cards in hand history
+    const handRef = gameRef.collection('hands').doc(`hand_${game.handNumber}`);
+    transaction.set(handRef, {
+      shownCards: FieldValue.arrayUnion({
+        odId: userId,
+        cards: holeCards,
+        timestamp: FieldValue.serverTimestamp(),
+      }),
+    }, { merge: true });
+
+    return {
+      gameId,
+      userId,
+      cards: holeCards,
+    };
+  });
+}
+
+/**
+ * Handle player timeout
+ * Auto-fold if there's a bet to call, otherwise check
+ * @param {string} gameId - Game ID
+ * @param {string} userId - User ID
+ * @return {Promise<Object>} Result of timeout action
+ */
+export async function handlePlayerTimeout(gameId, userId) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+
+  return db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+
+    if (!gameDoc.exists) {
+      throw new Error('Game not found');
+    }
+
+    const game = gameDoc.data();
+
+    // Verify it's the player's turn
+    if (game.table.currentTurn !== userId) {
+      throw new Error('Not player\'s turn');
+    }
+
+    // Find player seat
+    const playerSeat = Object.entries(game.seats).find(
+      ([, seat]) => seat && seat.odId === userId,
+    );
+
+    if (!playerSeat) {
+      throw new Error('Player not in game');
+    }
+
+    const [seatNum, seat] = playerSeat;
+
+    // Determine action: fold if bet to call, otherwise check
+    const hasBetToCall = seat.currentBet < game.table.currentBet;
+    const action = hasBetToCall ? 'fold' : 'check';
+
+    // Mark player as timed out
+    const seats = { ...game.seats };
+    seats[seatNum] = {
+      ...seat,
+      timedOut: true,
+      lastTimeout: FieldValue.serverTimestamp(),
+    };
+
+    // Update game with timeout marker
+    transaction.update(gameRef, { seats });
+
+    // Process the automatic action through the normal flow
+    // This ensures all game logic is consistently applied
+    return {
+      gameId,
+      userId,
+      action,
+      automatic: true,
+    };
   });
 }

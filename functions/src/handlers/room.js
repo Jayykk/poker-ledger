@@ -213,3 +213,88 @@ export async function deleteRoom(gameId, userId) {
     // If immediate cleanup is needed, implement a recursive delete function
   });
 }
+
+/**
+ * Join as spectator
+ * @param {string} gameId - Game ID
+ * @param {string} userId - User ID
+ * @param {Object} userInfo - User information
+ * @return {Promise<Object>} Result
+ */
+export async function joinAsSpectator(gameId, userId, userInfo) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+
+  return db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+
+    if (!gameDoc.exists) {
+      throw new Error('Game not found');
+    }
+
+    const game = gameDoc.data();
+
+    // Check if already a player
+    const isPlayer = Object.values(game.seats || {})
+      .some((seat) => seat && seat.odId === userId);
+
+    if (isPlayer) {
+      throw new Error('Already seated as player');
+    }
+
+    // Check if already spectator
+    const spectators = game.spectators || [];
+    if (spectators.some((s) => s.userId === userId)) {
+      throw new Error('Already spectating');
+    }
+
+    // Add to spectators
+    const spectatorData = {
+      userId,
+      userName: userInfo.name || 'Spectator',
+      userAvatar: userInfo.avatar || '',
+      joinedAt: FieldValue.serverTimestamp(),
+    };
+
+    transaction.update(gameRef, {
+      spectators: FieldValue.arrayUnion(spectatorData),
+    });
+
+    return {
+      gameId,
+      role: 'spectator',
+    };
+  });
+}
+
+/**
+ * Leave spectator mode
+ * @param {string} gameId - Game ID
+ * @param {string} userId - User ID
+ * @return {Promise<void>}
+ */
+export async function leaveSpectator(gameId, userId) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+
+  return db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+
+    if (!gameDoc.exists) {
+      throw new Error('Game not found');
+    }
+
+    const game = gameDoc.data();
+    const spectators = game.spectators || [];
+
+    // Find and remove spectator
+    const spectatorData = spectators.find((s) => s.userId === userId);
+    if (!spectatorData) {
+      throw new Error('Not a spectator');
+    }
+
+    transaction.update(gameRef, {
+      spectators: FieldValue.arrayRemove(spectatorData),
+    });
+  });
+}
