@@ -32,8 +32,8 @@ const sizeMap = {
 
 const containerClasses = computed(() => {
   if (props.fullScreen) {
-    // pointer-events-auto is needed to ensure the overlay blocks all clicks
-    return 'h-screen w-screen fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[9999] pointer-events-auto';
+    // Semi-transparent overlay - doesn't completely block the view
+    return 'h-screen w-screen fixed inset-0 bg-black/40 backdrop-blur-sm z-50 pointer-events-none';
   }
   return '';
 });

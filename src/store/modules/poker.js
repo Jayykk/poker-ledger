@@ -154,7 +154,7 @@ export const usePokerStore = defineStore('poker', {
     },
 
     /**
-     * Leave current poker game
+     * Leave current poker seat (but stay in room as spectator)
      */
     async leaveSeat() {
       if (!this.gameId) return;
@@ -168,9 +168,8 @@ export const usePokerStore = defineStore('poker', {
         
         await leaveSeat({ gameId: this.gameId });
         
-        this.stopListeners();
-        this.currentGame = null;
-        this.gameId = null;
+        // DON'T stop listeners or clear game - stay in room as spectator
+        // Only clear hole cards since we're no longer seated
         this.myHoleCards = [];
       } catch (error) {
         console.error('Error leaving seat:', error);

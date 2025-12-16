@@ -2,7 +2,7 @@
   <Transition name="fade">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-4"
+      class="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4"
       @click.self="handleClose"
     >
       <Transition name="slide-up">
