@@ -62,8 +62,17 @@ export function initializeHand(game) {
 
   // Assign blinds
   const dealerIndex = activePlayers.indexOf(dealerSeat);
-  const smallBlindSeat = activePlayers[(dealerIndex + 1) % activePlayers.length];
-  const bigBlindSeat = activePlayers[(dealerIndex + 2) % activePlayers.length];
+  
+  // Special rule for heads-up (2 players): dealer is small blind
+  let smallBlindSeat, bigBlindSeat;
+  if (activePlayers.length === 2) {
+    smallBlindSeat = dealerSeat; // Dealer is small blind in heads-up
+    bigBlindSeat = activePlayers[(dealerIndex + 1) % activePlayers.length];
+  } else {
+    // Normal multi-way: small blind is next to dealer, big blind is after that
+    smallBlindSeat = activePlayers[(dealerIndex + 1) % activePlayers.length];
+    bigBlindSeat = activePlayers[(dealerIndex + 2) % activePlayers.length];
+  }
 
   seats[dealerSeat].isDealer = true;
   seats[smallBlindSeat].isSmallBlind = true;

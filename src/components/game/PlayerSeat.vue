@@ -26,7 +26,7 @@
 
       <!-- Status Indicators -->
       <div class="status-indicators">
-        <span v-if="seat.isDealer" class="badge dealer">D</span>
+        <DealerButton v-if="seat.isDealer" size="small" />
         <span v-if="seat.isSmallBlind" class="badge sb">SB</span>
         <span v-if="seat.isBigBlind" class="badge bb">BB</span>
         <span v-if="seat.status === 'folded'" class="badge folded">Folded</span>
@@ -41,9 +41,12 @@
 
       <!-- Hole Cards (only show for current player) -->
       <div v-if="isMe && holeCards.length > 0" class="hole-cards">
-        <div v-for="(card, i) in holeCards" :key="i" class="card-mini">
-          {{ card }}
-        </div>
+        <PlayingCard
+          v-for="(card, i) in holeCards"
+          :key="i"
+          :card="card"
+          size="mini"
+        />
       </div>
     </div>
 
@@ -65,6 +68,8 @@
 import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import { usePokerGame } from '../../composables/usePokerGame.js';
 import { useAuthStore } from '../../store/modules/auth.js';
+import PlayingCard from './PlayingCard.vue';
+import DealerButton from './DealerButton.vue';
 
 const props = defineProps({
   seat: {
@@ -242,6 +247,7 @@ const handleJoinClick = () => {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .badge {
@@ -250,11 +256,6 @@ const handleJoinClick = () => {
   border-radius: 4px;
   font-weight: bold;
   text-transform: uppercase;
-}
-
-.badge.dealer {
-  background: #ffd700;
-  color: #000;
 }
 
 .badge.sb {
@@ -310,19 +311,6 @@ const handleJoinClick = () => {
   display: flex;
   gap: 4px;
   justify-content: center;
-}
-
-.card-mini {
-  width: 32px;
-  height: 45px;
-  background: white;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: bold;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .empty-seat {
