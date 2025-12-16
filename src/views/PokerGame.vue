@@ -35,10 +35,12 @@
 import { onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePokerGame } from '../composables/usePokerGame.js';
+import { usePokerStore } from '../store/modules/poker.js';
 import PokerTable from '../components/game/PokerTable.vue';
 
 const route = useRoute();
 const router = useRouter();
+const pokerStore = usePokerStore();
 
 const {
   currentGame,
@@ -62,10 +64,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   // Clean up listeners when leaving
-  const { stopListeners } = usePokerGame();
-  if (stopListeners) {
-    stopListeners();
-  }
+  pokerStore.stopListeners();
 });
 
 const handleLeave = async () => {

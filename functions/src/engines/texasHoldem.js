@@ -84,8 +84,13 @@ export function initializeHand(game) {
   table.pot = smallBlind + bigBlind;
   table.currentBet = bigBlind;
 
-  // First to act is after big blind
-  table.currentTurn = activePlayers[(dealerIndex + 3) % activePlayers.length];
+  // First to act preflop
+  // In heads-up, dealer (small blind) acts first preflop
+  // In multi-way, player after big blind acts first
+  const firstToActIndex = activePlayers.length === 2 ?
+    dealerIndex :
+    (dealerIndex + 3) % activePlayers.length;
+  table.currentTurn = activePlayers[firstToActIndex];
 
   return {
     ...game,

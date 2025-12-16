@@ -14,6 +14,7 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useAuthStore } from './auth.js';
 
 export const usePokerStore = defineStore('poker', {
   state: () => ({
@@ -43,7 +44,10 @@ export const usePokerStore = defineStore('poker', {
     mySeat: (state) => {
       if (!state.currentGame) return null;
       
-      const userId = state.currentGame.meta?.createdBy; // TODO: Get from auth
+      const authStore = useAuthStore();
+      const userId = authStore.user?.uid;
+      if (!userId) return null;
+      
       return Object.values(state.currentGame.seats || {})
         .find((seat) => seat && seat.odId === userId);
     },
@@ -65,7 +69,8 @@ export const usePokerStore = defineStore('poker', {
     isMyTurn: (state) => {
       if (!state.currentGame) return false;
       
-      const userId = state.currentGame.meta?.createdBy; // TODO: Get from auth
+      const authStore = useAuthStore();
+      const userId = authStore.user?.uid;
       return state.currentGame.table?.currentTurn === userId;
     },
 

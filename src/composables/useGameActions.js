@@ -8,7 +8,7 @@ import { useNotification } from './useNotification.js';
 
 export function useGameActions() {
   const pokerStore = usePokerStore();
-  const { showNotification } = useNotification();
+  const { success, error: showError } = useNotification();
 
   /**
    * Fold current hand
@@ -16,9 +16,9 @@ export function useGameActions() {
   const fold = async () => {
     try {
       await pokerStore.performAction('fold');
-      showNotification('You folded', 'info');
+      success('You folded');
     } catch (error) {
-      showNotification(`Error: ${error.message}`, 'error');
+      showError(`Error: ${error.message}`);
       throw error;
     }
   };
@@ -29,9 +29,9 @@ export function useGameActions() {
   const check = async () => {
     try {
       await pokerStore.performAction('check');
-      showNotification('You checked', 'info');
+      success('You checked');
     } catch (error) {
-      showNotification(`Error: ${error.message}`, 'error');
+      showError(`Error: ${error.message}`);
       throw error;
     }
   };
@@ -42,9 +42,9 @@ export function useGameActions() {
   const call = async () => {
     try {
       await pokerStore.performAction('call');
-      showNotification('You called', 'info');
+      success('You called');
     } catch (error) {
-      showNotification(`Error: ${error.message}`, 'error');
+      showError(`Error: ${error.message}`);
       throw error;
     }
   };
@@ -55,9 +55,9 @@ export function useGameActions() {
   const raise = async (amount) => {
     try {
       await pokerStore.performAction('raise', amount);
-      showNotification(`You raised ${amount}`, 'info');
+      success(`You raised ${amount}`);
     } catch (error) {
-      showNotification(`Error: ${error.message}`, 'error');
+      showError(`Error: ${error.message}`);
       throw error;
     }
   };
@@ -68,9 +68,9 @@ export function useGameActions() {
   const allIn = async () => {
     try {
       await pokerStore.performAction('all_in');
-      showNotification('You went all-in!', 'warning');
+      success('You went all-in!');
     } catch (error) {
-      showNotification(`Error: ${error.message}`, 'error');
+      showError(`Error: ${error.message}`);
       throw error;
     }
   };
