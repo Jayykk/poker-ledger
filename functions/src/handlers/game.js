@@ -14,6 +14,7 @@ import {
   calculateWinners,
 } from '../engines/texasHoldem.js';
 import { validateGameStart, validatePlayerAction } from '../utils/validators.js';
+import { addGameEvent } from '../lib/events.js';
 
 // Constants
 const DEFAULT_BUY_IN = 1000;
@@ -102,18 +103,21 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
     // Process the action
     game = processAction(game, userId, action, amount);
 
-    // Record action in hand history
-    const handRef = gameRef.collection('hands').doc(`hand_${game.handNumber}`);
-    transaction.set(handRef, {
-      handNumber: game.handNumber,
-      actions: FieldValue.arrayUnion({
+    // Record action in events subcollection
+    // Note: Changed from arrayUnion to subcollection documents because
+    // FieldValue.serverTimestamp() cannot be used inside array elements
+    await addGameEvent(
+      gameId,
+      {
+        type: 'action',
+        handNumber: game.handNumber,
         odId: userId,
         action,
         amount,
         round: game.table.currentRound,
-        timestamp: FieldValue.serverTimestamp(),
-      }),
-    }, { merge: true });
+      },
+      transaction,
+    );
 
     // Check if betting round is complete
     const activePlayers = Object.values(game.seats)
@@ -127,7 +131,7 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
 
     // Advance to next round if betting complete
     if (allMatched || activePlayers.length <= 1) {
-      game = await advanceRound(game, transaction, gameRef, handRef);
+      game = await advanceRound(game, transaction, gameRef);
       nextTurn = game.table.currentTurn;
     } else {
       game.table.currentTurn = nextTurn;
@@ -157,10 +161,9 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
  * @param {Object} game - Current game state
  * @param {Object} transaction - Firestore transaction
  * @param {Object} gameRef - Game document reference
- * @param {Object} handRef - Hand document reference
  * @return {Promise<Object>} Updated game state
  */
-async function advanceRound(game, transaction, gameRef, handRef) {
+async function advanceRound(game, transaction, gameRef) {
   const { currentRound } = game.table;
 
   // Reset current bets for new round
@@ -185,7 +188,7 @@ async function advanceRound(game, transaction, gameRef, handRef) {
     break;
   case 'river':
     // Showdown
-    updatedGame = await handleShowdown(updatedGame, transaction, gameRef, handRef);
+    updatedGame = await handleShowdown(updatedGame, transaction, gameRef);
     break;
   }
 
@@ -208,10 +211,9 @@ async function advanceRound(game, transaction, gameRef, handRef) {
  * @param {Object} game - Current game state
  * @param {Object} transaction - Firestore transaction
  * @param {Object} gameRef - Game document reference
- * @param {Object} handRef - Hand document reference
  * @return {Promise<Object>} Updated game state
  */
-async function handleShowdown(game, transaction, gameRef, handRef) {
+async function handleShowdown(game, transaction, gameRef) {
   // Get all hole cards - list documents and get them individually in transaction
   // Note: listDocuments() gets references only (not data), which is safe.
   // The actual data read happens with transaction.get() inside the transaction.
@@ -315,6 +317,8 @@ async function handleShowdown(game, transaction, gameRef, handRef) {
     });
   }
 
+  // Save hand history to hands subcollection
+  const handRef = gameRef.collection('hands').doc(`hand_${game.handNumber}`);
   transaction.set(handRef, handData, { merge: true });
 
   // Clean up private hole cards after showdown
@@ -465,15 +469,19 @@ export async function showCards(gameId, userId) {
 
     const holeCards = privateDoc.data().holeCards;
 
-    // Record shown cards in hand history
-    const handRef = gameRef.collection('hands').doc(`hand_${game.handNumber}`);
-    transaction.set(handRef, {
-      shownCards: FieldValue.arrayUnion({
+    // Record shown cards in events subcollection
+    // Note: Changed from arrayUnion to subcollection documents because
+    // FieldValue.serverTimestamp() cannot be used inside array elements
+    await addGameEvent(
+      gameId,
+      {
+        type: 'shownCards',
+        handNumber: game.handNumber,
         odId: userId,
         cards: holeCards,
-        timestamp: FieldValue.serverTimestamp(),
-      }),
-    }, { merge: true });
+      },
+      transaction,
+    );
 
     return {
       gameId,

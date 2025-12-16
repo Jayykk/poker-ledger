@@ -309,6 +309,40 @@ firebase deploy --only firestore:rules
 - `/pokerGames/{gameId}` - 遊戲房間資訊
 - `/pokerGames/{gameId}/hands/{handId}` - 每手牌記錄
 - `/pokerGames/{gameId}/private/{userId}` - 玩家私密手牌
+- `/pokerGames/{gameId}/events/{eventId}` - 遊戲事件記錄 (actions, shownCards, spectators)
+
+### 數據遷移 (Data Migration)
+
+**Important**: If you have existing game data with actions, shownCards, or spectators stored in array fields, you need to run a migration to move them to the new events subcollection structure.
+
+**Why migrate?** Firestore does not allow `FieldValue.serverTimestamp()` inside array elements, which caused runtime errors in the previous implementation. The new structure stores each event as a separate document in a subcollection, enabling proper timestamp handling and better queryability.
+
+**Migration steps**:
+
+1. Install Firebase Admin SDK dependencies:
+   ```bash
+   cd functions
+   npm install
+   ```
+
+2. Set up Firebase credentials (choose one):
+   - Place service account JSON in project root as `serviceAccountKey.json`
+   - Set `GOOGLE_APPLICATION_CREDENTIALS` environment variable
+   - Use default application credentials
+
+3. Run migration (dry run first to preview):
+   ```bash
+   # Preview what will be migrated
+   node scripts/migrate_entries_to_events.js --dry-run
+   
+   # Run actual migration (keeps original arrays)
+   node scripts/migrate_entries_to_events.js
+   
+   # Run migration and delete old arrays
+   node scripts/migrate_entries_to_events.js --delete-old
+   ```
+
+For more details, see [scripts/README.md](./scripts/README.md).
 
 ### 開發路線圖
 

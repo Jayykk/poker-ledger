@@ -5,6 +5,7 @@
 
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { validateJoinSeat } from '../utils/validators.js';
+import { addGameEvent } from '../lib/events.js';
 
 /**
  * Create a new poker game room
@@ -248,17 +249,19 @@ export async function joinAsSpectator(gameId, userId, userInfo) {
       throw new Error('Already spectating');
     }
 
-    // Add to spectators
-    const spectatorData = {
-      userId,
-      userName: userInfo.name || 'Spectator',
-      userAvatar: userInfo.avatar || '',
-      joinedAt: FieldValue.serverTimestamp(),
-    };
-
-    transaction.update(gameRef, {
-      spectators: FieldValue.arrayUnion(spectatorData),
-    });
+    // Add spectator event to events subcollection
+    // Note: Changed from arrayUnion to subcollection documents because
+    // FieldValue.serverTimestamp() cannot be used inside array elements
+    await addGameEvent(
+      gameId,
+      {
+        type: 'spectatorJoin',
+        userId,
+        userName: userInfo.name || 'Spectator',
+        userAvatar: userInfo.avatar || '',
+      },
+      transaction,
+    );
 
     return {
       gameId,
@@ -284,17 +287,14 @@ export async function leaveSpectator(gameId, userId) {
       throw new Error('Game not found');
     }
 
-    const game = gameDoc.data();
-    const spectators = game.spectators || [];
-
-    // Find and remove spectator
-    const spectatorData = spectators.find((s) => s.userId === userId);
-    if (!spectatorData) {
-      throw new Error('Not a spectator');
-    }
-
-    transaction.update(gameRef, {
-      spectators: FieldValue.arrayRemove(spectatorData),
-    });
+    // Add spectator leave event to track when spectators leave
+    await addGameEvent(
+      gameId,
+      {
+        type: 'spectatorLeave',
+        userId,
+      },
+      transaction,
+    );
   });
 }
