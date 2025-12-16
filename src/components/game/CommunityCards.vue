@@ -63,6 +63,7 @@ const displayCards = computed(() => {
 });
 
 const getCardColor = (card) => {
+  if (!card || typeof card !== 'string') return '';
   if (card.includes('♥') || card.includes('♦')) {
     return 'text-red-500';
   }

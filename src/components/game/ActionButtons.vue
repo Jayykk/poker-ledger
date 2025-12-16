@@ -170,7 +170,12 @@ const handleAllIn = () => {
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none !important;
+}
+
+.btn:disabled:hover,
+.btn:disabled:active {
+  transform: none;
+  box-shadow: none;
 }
 
 .btn:hover:not(:disabled) {
