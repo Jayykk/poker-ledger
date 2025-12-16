@@ -54,10 +54,22 @@
   "nav": {
     "lobby": "大廳",
     "game": "牌局",
+    "stats": "戰績",
+    "action": "開局",
+    "social": "好友",
     "report": "報表",
     "profile": "我的",
     "friends": "好友",
     "poker": "德撲"
+  },
+  "action": {
+    "title": "選擇開局方式",
+    "liveTrack": "現場記帳",
+    "liveTrackDesc": "自己玩，自己記錄損益",
+    "createOnline": "建立房間",
+    "createOnlineDesc": "開一個線上房間，邀請朋友加入",
+    "joinOnline": "加入房間",
+    "joinOnlineDesc": "輸入房間 ID 加入朋友的局"
   },
   "lobby": {
     "title": "大廳",
@@ -69,6 +81,16 @@
     "players": "玩家",
     "createdAt": "建立時間",
     "enterRoom": "進入房間",
+    "liveLabel": "現場",
+    "onlineLabel": "線上",
+    "blinds": "盲注",
+    "currentPlayers": "當前人數",
+    "maxPlayers": "最大人數",
+    "hostName": "房主",
+    "roomStatus": "房間狀態",
+    "statusWaiting": "等待中",
+    "statusPlaying": "遊戲中",
+    "statusEnded": "已結束",
     "stats": {
       "totalProfit": "生涯損益",
       "games": "場次",
@@ -133,6 +155,9 @@
     "noRecords": "暫無紀錄",
     "profitTrend": "盈虧趨勢",
     "winRate": "勝率統計",
+    "filterAll": "全部",
+    "filterLive": "現場",
+    "filterOnline": "線上",
     "timePeriod": {
       "week": "週",
       "month": "月",

@@ -21,11 +21,20 @@ export const BLIND_TIMER_PRESETS = [15, 20, 30, 45, 60];
 export const DEFAULT_BLIND_DURATION = 20;
 export const DEFAULT_BREAK_DURATION = 5;
 
+// Game types
+export const GAME_TYPE = {
+  LIVE: 'live',     // 現場記帳 (Live tracking)
+  ONLINE: 'online'  // 線上房間 (Online room)
+};
+
 // Game status
 export const GAME_STATUS = {
   ACTIVE: 'active',
   COMPLETED: 'completed',
-  CANCELLED: 'cancelled'
+  CANCELLED: 'cancelled',
+  WAITING: 'waiting',  // For online rooms waiting for players
+  PLAYING: 'playing',  // For online rooms currently playing
+  ENDED: 'ended'       // For ended games
 };
 
 // Friend request status

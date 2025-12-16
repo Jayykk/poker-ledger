@@ -54,10 +54,22 @@
   "nav": {
     "lobby": "Lobby",
     "game": "Game",
+    "stats": "Stats",
+    "action": "Action",
+    "social": "Social",
     "report": "Report",
     "profile": "Profile",
     "friends": "Friends",
     "poker": "Poker"
+  },
+  "action": {
+    "title": "Choose Action",
+    "liveTrack": "Live Track",
+    "liveTrackDesc": "Track your own game and profits",
+    "createOnline": "Create Room",
+    "createOnlineDesc": "Create an online room and invite friends",
+    "joinOnline": "Join Room",
+    "joinOnlineDesc": "Enter room ID to join a friend's game"
   },
   "lobby": {
     "title": "Lobby",
@@ -69,6 +81,16 @@
     "players": "Players",
     "createdAt": "Created",
     "enterRoom": "Enter Room",
+    "liveLabel": "Live",
+    "onlineLabel": "Online",
+    "blinds": "Blinds",
+    "currentPlayers": "Current",
+    "maxPlayers": "Max",
+    "hostName": "Host",
+    "roomStatus": "Status",
+    "statusWaiting": "Waiting",
+    "statusPlaying": "Playing",
+    "statusEnded": "Ended",
     "stats": {
       "totalProfit": "Total Profit",
       "games": "Games",
@@ -133,6 +155,9 @@
     "noRecords": "No records",
     "profitTrend": "Profit Trend",
     "winRate": "Win Rate",
+    "filterAll": "All",
+    "filterLive": "Live",
+    "filterOnline": "Online",
     "timePeriod": {
       "week": "Week",
       "month": "Month",

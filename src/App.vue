@@ -15,7 +15,8 @@
 
     <!-- Bottom navigation (only show when authenticated) -->
     <nav v-if="isAuthenticated && $route.path !== '/login'" class="fixed-bottom-nav glass">
-      <div class="flex justify-around items-center h-16 max-w-md mx-auto">
+      <div class="flex justify-around items-center h-16 max-w-md mx-auto relative">
+        <!-- Lobby -->
         <router-link
           to="/lobby"
           class="flex flex-col items-center gap-1 w-full h-full justify-center"
@@ -25,34 +26,28 @@
           <span class="text-[10px]">{{ $t('nav.lobby') }}</span>
         </router-link>
         
-        <router-link
-          to="/game"
-          class="flex flex-col items-center gap-1 w-full h-full justify-center relative"
-          :class="$route.path === '/game' ? 'text-amber-500' : 'text-gray-500'"
-        >
-          <i class="fas fa-gamepad text-xl"></i>
-          <span class="text-[10px]">{{ $t('nav.game') }}</span>
-          <span v-if="isInGame" class="absolute top-2 right-8 w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-        </router-link>
-        
-        <router-link
-          to="/poker-lobby"
-          class="flex flex-col items-center gap-1 w-full h-full justify-center"
-          :class="$route.path.startsWith('/poker') ? 'text-amber-500' : 'text-gray-500'"
-        >
-          <i class="fas fa-cards text-xl"></i>
-          <span class="text-[10px]">{{ $t('nav.poker') }}</span>
-        </router-link>
-        
+        <!-- Stats (Report) -->
         <router-link
           to="/report"
           class="flex flex-col items-center gap-1 w-full h-full justify-center"
           :class="$route.path === '/report' ? 'text-amber-500' : 'text-gray-500'"
         >
           <i class="fas fa-chart-line text-xl"></i>
-          <span class="text-[10px]">{{ $t('nav.report') }}</span>
+          <span class="text-[10px]">{{ $t('nav.stats') }}</span>
         </router-link>
         
+        <!-- Center Action Button (Elevated) -->
+        <div class="flex flex-col items-center gap-1 w-full h-full justify-center relative">
+          <button
+            @click="showActionModal = true"
+            class="absolute -top-6 w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center text-white text-2xl shadow-lg hover:shadow-xl active:scale-95 transition-all border-4 border-slate-800"
+          >
+            <i class="fas fa-plus"></i>
+          </button>
+          <span class="text-[10px] text-gray-500 mt-6">{{ $t('nav.action') }}</span>
+        </div>
+        
+        <!-- Friends -->
         <router-link
           to="/friends"
           class="flex flex-col items-center gap-1 w-full h-full justify-center"
@@ -62,6 +57,7 @@
           <span class="text-[10px]">{{ $t('nav.friends') }}</span>
         </router-link>
         
+        <!-- Profile -->
         <router-link
           to="/profile"
           class="flex flex-col items-center gap-1 w-full h-full justify-center"
@@ -72,6 +68,26 @@
         </router-link>
       </div>
     </nav>
+
+    <!-- Action Modal -->
+    <ActionModal
+      v-model="showActionModal"
+      @create-online="handleCreateOnline"
+      @join-online="handleJoinOnline"
+    />
+
+    <!-- Join Room Modal -->
+    <BaseModal v-model="showJoinRoomModal" :title="$t('action.joinOnline')">
+      <BaseInput
+        v-model="joinRoomCode"
+        :placeholder="$t('lobby.roomCode')"
+        class="mb-4"
+        maxlength="6"
+      />
+      <BaseButton @click="handleJoinRoom" variant="primary" fullWidth>
+        {{ $t('common.confirm') }}
+      </BaseButton>
+    </BaseModal>
 
     <!-- Toast notifications -->
     <ToastNotification />
@@ -103,10 +119,15 @@ import { useUserStore } from './store/modules/user.js';
 import { useNotificationStore } from './store/modules/notification.js';
 import { useLoadingStore } from './store/modules/loading.js';
 import { useConfirm } from './composables/useConfirm.js';
+import { useNotification } from './composables/useNotification.js';
 import LoadingSpinner from './components/common/LoadingSpinner.vue';
 import ToastNotification from './components/common/ToastNotification.vue';
 import ActionNotification from './components/common/ActionNotification.vue';
 import ConfirmDialog from './components/common/ConfirmDialog.vue';
+import ActionModal from './components/common/ActionModal.vue';
+import BaseModal from './components/common/BaseModal.vue';
+import BaseInput from './components/common/BaseInput.vue';
+import BaseButton from './components/common/BaseButton.vue';
 import { STORAGE_KEYS, THEMES } from './utils/constants.js';
 
 const router = useRouter();
@@ -117,11 +138,15 @@ const userStore = useUserStore();
 const notificationStore = useNotificationStore();
 const loadingStore = useLoadingStore();
 const { confirm } = useConfirm();
+const { error: showError } = useNotification();
 
 const loading = ref(true);
 const theme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
 const pendingInvite = ref(null);
 const inviteProcessedInMount = ref(false);
+const showActionModal = ref(false);
+const showJoinRoomModal = ref(false);
+const joinRoomCode = ref('');
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const isInGame = computed(() => gameStore.isInGame);
@@ -132,6 +157,29 @@ const loadingText = computed(() => loadingStore.loadingText);
 const handleConfirm = (result) => {
   notificationStore.resolveConfirm(result);
 };
+
+const handleCreateOnline = () => {
+  // Navigate to poker lobby to create online room
+  router.push('/poker-lobby');
+};
+
+const handleJoinOnline = () => {
+  showJoinRoomModal.value = true;
+};
+
+const handleJoinRoom = async () => {
+  if (!joinRoomCode.value) {
+    showError(t('common.error'));
+    return;
+  }
+  
+  // Navigate to poker game with the room code
+  // For now, we'll use the existing game join flow
+  router.push(`/poker-game/${joinRoomCode.value}`);
+  showJoinRoomModal.value = false;
+  joinRoomCode.value = '';
+};
+
 
 // Process pending invite
 const processPendingInvite = async () => {
