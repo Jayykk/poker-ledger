@@ -1,68 +1,82 @@
 <template>
   <div class="action-buttons">
-    <!-- Fold Button -->
-    <button class="btn btn-fold" :disabled="!isMyTurn" @click="emit('fold')">
-      Fold
-    </button>
+    <!-- Main action buttons - horizontal layout -->
+    <div class="main-buttons">
+      <!-- Fold Button -->
+      <button 
+        class="btn btn-fold" 
+        :class="{ 'btn-active': isMyTurn, 'btn-locked': !isMyTurn }"
+        :disabled="!isMyTurn" 
+        @click="emit('fold')"
+      >
+        <span class="btn-icon">🚫</span>
+        <span class="btn-label">FOLD</span>
+      </button>
 
-    <!-- Check/Call Button -->
-    <button
-      v-if="canCheck"
-      class="btn btn-check"
-      :disabled="!isMyTurn"
-      @click="emit('check')"
-    >
-      Check
-    </button>
-    <button
-      v-else
-      class="btn btn-call"
-      :disabled="!isMyTurn"
-      @click="emit('call')"
-    >
-      Call {{ callAmount }}
-    </button>
+      <!-- Check/Call Button -->
+      <button
+        v-if="canCheck"
+        class="btn btn-check"
+        :class="{ 'btn-active': isMyTurn, 'btn-locked': !isMyTurn }"
+        :disabled="!isMyTurn"
+        @click="emit('check')"
+      >
+        <span class="btn-icon">✓</span>
+        <span class="btn-label">CHECK</span>
+      </button>
+      <button
+        v-else
+        class="btn btn-call"
+        :class="{ 'btn-active': isMyTurn, 'btn-locked': !isMyTurn }"
+        :disabled="!isMyTurn"
+        @click="emit('call')"
+      >
+        <span class="btn-icon">💰</span>
+        <span class="btn-label">CALL</span>
+        <span class="btn-amount">{{ callAmount }}</span>
+      </button>
 
-    <!-- Raise Button (opens bet controls) -->
-    <button
-      v-if="canRaise"
-      class="btn btn-raise"
-      :disabled="!isMyTurn"
-      @click="toggleBetControls"
-    >
-      Raise
-    </button>
-
-    <!-- All-In Button -->
-    <button class="btn btn-allin" :disabled="!isMyTurn" @click="handleAllIn">
-      All-In {{ myChips }}
-    </button>
-
-    <!-- Bet Controls (shown when raising) -->
-    <div v-if="showBetControls" class="bet-controls">
-      <div class="bet-slider-container">
-        <input
-          v-model.number="betAmount"
-          type="range"
-          :min="minBet"
-          :max="maxBet"
-          :step="bigBlind"
-          class="bet-slider"
-        />
-        <div class="bet-amount-display">{{ betAmount }}</div>
-      </div>
-      
-      <div class="quick-bet-buttons">
-        <button @click="setBetAmount(minBet)" :disabled="!isMyTurn" class="quick-bet">Min</button>
-        <button @click="setBetAmount(halfPot)" :disabled="!isMyTurn" class="quick-bet">½ Pot</button>
-        <button @click="setBetAmount(threeFourthPot)" :disabled="!isMyTurn" class="quick-bet">¾ Pot</button>
-        <button @click="setBetAmount(potSize)" :disabled="!isMyTurn" class="quick-bet">Pot</button>
-      </div>
-
-      <button @click="confirmRaise" :disabled="!isMyTurn" class="btn btn-confirm">
-        Confirm Raise
+      <!-- Raise Button -->
+      <button
+        v-if="canRaise"
+        class="btn btn-raise"
+        :class="{ 'btn-active': isMyTurn && !showBetControls, 'btn-locked': !isMyTurn, 'btn-selected': showBetControls }"
+        :disabled="!isMyTurn"
+        @click="toggleBetControls"
+      >
+        <span class="btn-icon">📈</span>
+        <span class="btn-label">RAISE</span>
       </button>
     </div>
+
+    <!-- Bet Controls (shown above main buttons when raising) -->
+    <Transition name="slide-up">
+      <div v-if="showBetControls" class="bet-controls">
+        <div class="bet-slider-container">
+          <div class="bet-amount-display">💵 {{ betAmount }}</div>
+          <input
+            v-model.number="betAmount"
+            type="range"
+            :min="minBet"
+            :max="maxBet"
+            :step="bigBlind"
+            class="bet-slider"
+          />
+        </div>
+        
+        <div class="quick-bet-buttons">
+          <button @click="setBetAmount(minBet)" :disabled="!isMyTurn" class="quick-bet">Min</button>
+          <button @click="setBetAmount(halfPot)" :disabled="!isMyTurn" class="quick-bet">½ Pot</button>
+          <button @click="setBetAmount(threeFourthPot)" :disabled="!isMyTurn" class="quick-bet">¾ Pot</button>
+          <button @click="setBetAmount(potSize)" :disabled="!isMyTurn" class="quick-bet">Pot</button>
+          <button @click="setBetAmount(maxBet)" :disabled="!isMyTurn" class="quick-bet">All-In</button>
+        </div>
+
+        <button @click="confirmRaise" :disabled="!isMyTurn" class="btn-confirm">
+          Confirm Raise {{ betAmount }}
+        </button>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -135,107 +149,175 @@ const confirmRaise = () => {
   emit('raise', betAmount.value);
   showBetControls.value = false;
 };
-
-const handleAllIn = () => {
-  if (confirm(`Go all-in with ${props.myChips} chips?`)) {
-    emit('all-in');
-  }
-};
 </script>
 
 <style scoped>
 .action-buttons {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 12px;
-  background: rgba(0, 0, 0, 0.8);
-  padding: 20px;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  min-width: 400px;
+}
+
+/* Main buttons container - horizontal layout */
+.main-buttons {
+  display: flex;
+  gap: 16px;
+  align-items: center;
 }
 
 .btn {
-  padding: 14px 28px;
-  font-size: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 24px;
+  min-width: 120px;
   font-weight: bold;
-  border: none;
-  border-radius: 8px;
+  border: 3px solid transparent;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
 }
 
-.btn:disabled {
-  opacity: 0.5;
+.btn-icon {
+  font-size: 28px;
+  filter: grayscale(100%);
+  transition: all 0.3s ease;
+}
+
+.btn-label {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-amount {
+  font-size: 12px;
+  font-weight: bold;
+  color: rgba(255, 215, 0, 0.5);
+  font-family: 'Courier New', monospace;
+  transition: all 0.3s ease;
+}
+
+/* Locked state - not player's turn */
+.btn-locked {
+  opacity: 0.3;
   cursor: not-allowed;
+  background: rgba(100, 100, 100, 0.2);
+  border-color: rgba(150, 150, 150, 0.2);
 }
 
-.btn:disabled:hover,
-.btn:disabled:active {
-  transform: none;
-  box-shadow: none;
+.btn-locked .btn-icon {
+  filter: grayscale(100%);
 }
 
-.btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+.btn-locked .btn-label {
+  color: rgba(150, 150, 150, 0.4);
 }
 
-.btn:active:not(:disabled) {
-  transform: translateY(0);
+/* Active state - player's turn, button lights up */
+.btn-active {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  opacity: 1;
+  cursor: pointer;
 }
 
-.btn-fold {
-  background: linear-gradient(135deg, #666 0%, #444 100%);
-  color: white;
+.btn-active .btn-icon {
+  filter: grayscale(0%);
+  transform: scale(1.1);
 }
 
-.btn-fold:hover:not(:disabled) {
-  background: linear-gradient(135deg, #777 0%, #555 100%);
+.btn-active .btn-label {
+  color: rgba(255, 255, 255, 0.9);
 }
 
-.btn-check {
-  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-  color: white;
+.btn-active:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
-.btn-call {
-  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
-  color: white;
+/* Specific button colors when active */
+.btn-fold.btn-active {
+  border-color: rgba(244, 67, 54, 0.6);
+  background: rgba(244, 67, 54, 0.15);
 }
 
-.btn-raise {
-  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-  color: white;
+.btn-fold.btn-active:hover {
+  background: rgba(244, 67, 54, 0.25);
+  box-shadow: 0 8px 20px rgba(244, 67, 54, 0.4);
 }
 
-.btn-allin {
-  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
-  color: white;
+.btn-check.btn-active {
+  border-color: rgba(76, 175, 80, 0.6);
+  background: rgba(76, 175, 80, 0.15);
 }
 
-.btn-confirm {
-  background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);
-  color: white;
-  margin-top: 12px;
+.btn-check.btn-active:hover {
+  background: rgba(76, 175, 80, 0.25);
+  box-shadow: 0 8px 20px rgba(76, 175, 80, 0.4);
 }
 
+.btn-call.btn-active {
+  border-color: rgba(33, 150, 243, 0.6);
+  background: rgba(33, 150, 243, 0.15);
+}
+
+.btn-call.btn-active:hover {
+  background: rgba(33, 150, 243, 0.25);
+  box-shadow: 0 8px 20px rgba(33, 150, 243, 0.4);
+}
+
+.btn-call.btn-active .btn-amount {
+  color: rgba(255, 215, 0, 1);
+}
+
+.btn-raise.btn-active {
+  border-color: rgba(255, 152, 0, 0.6);
+  background: rgba(255, 152, 0, 0.15);
+}
+
+.btn-raise.btn-active:hover,
+.btn-raise.btn-selected {
+  background: rgba(255, 152, 0, 0.25);
+  box-shadow: 0 8px 20px rgba(255, 152, 0, 0.4);
+}
+
+/* Bet Controls - appears above buttons */
 .bet-controls {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  margin-top: 8px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  border: 2px solid rgba(255, 152, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  min-width: 400px;
 }
 
 .bet-slider-container {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+}
+
+.bet-amount-display {
+  text-align: center;
+  font-size: 32px;
+  font-weight: bold;
+  color: #ffd700;
+  font-family: 'Courier New', monospace;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .bet-slider {
@@ -243,82 +325,133 @@ const handleAllIn = () => {
   height: 8px;
   border-radius: 4px;
   outline: none;
-  background: #ddd;
+  background: rgba(255, 255, 255, 0.2);
   -webkit-appearance: none;
+  cursor: pointer;
 }
 
 .bet-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: #ff9800;
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  border: 3px solid rgba(255, 255, 255, 0.3);
 }
 
 .bet-slider::-moz-range-thumb {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: #ff9800;
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  border: none;
-}
-
-.bet-amount-display {
-  text-align: center;
-  font-size: 24px;
-  font-weight: bold;
-  color: #ffd700;
-  font-family: 'Courier New', monospace;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  border: 3px solid rgba(255, 255, 255, 0.3);
 }
 
 .quick-bet-buttons {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 8px;
 }
 
 .quick-bet {
-  padding: 8px;
+  padding: 10px;
   background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
   color: white;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: bold;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .quick-bet:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .quick-bet:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 152, 0, 0.3);
+  border-color: rgba(255, 152, 0, 0.6);
+  transform: translateY(-2px);
+}
+
+.btn-confirm {
+  padding: 14px 28px;
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.btn-confirm:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.5);
+}
+
+.btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Slide up animation */
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .action-buttons {
+  .main-buttons {
+    gap: 8px;
+  }
+
+  .btn {
+    min-width: 90px;
+    padding: 12px 16px;
+  }
+
+  .btn-icon {
+    font-size: 24px;
+  }
+
+  .btn-label {
+    font-size: 11px;
+  }
+
+  .bet-controls {
     min-width: unset;
     width: calc(100vw - 40px);
     padding: 16px;
   }
 
-  .btn {
-    padding: 12px 20px;
-    font-size: 14px;
+  .bet-amount-display {
+    font-size: 24px;
   }
 
-  .bet-amount-display {
-    font-size: 20px;
+  .quick-bet-buttons {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 </style>

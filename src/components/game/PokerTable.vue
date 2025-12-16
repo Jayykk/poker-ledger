@@ -1,32 +1,32 @@
 <template>
   <div class="poker-table-container">
-    <!-- Poker Table -->
-    <div class="poker-table">
-      <!-- Community Cards Area -->
-      <div class="community-cards-area">
-        <CommunityCards :cards="communityCards" :round="currentRound" />
-        <PotDisplay :pot="potSize" />
-      </div>
+    <!-- Poker Table Background (just the green felt surface) -->
+    <div class="poker-table"></div>
 
-      <!-- Player Seats (arranged in circle with rotation) -->
-      <div
-        v-for="seatInfo in visibleSeats"
-        :key="seatInfo.actualSeatNum"
-        :class="['player-seat-wrapper', `seat-${seatInfo.displayPosition}`]"
-      >
-        <PlayerSeat
-          :seat="seatInfo.seat"
-          :seatNumber="seatInfo.actualSeatNum"
-          :isCurrentTurn="isCurrentTurn(seatInfo.actualSeatNum)"
-          :isMe="isMySeat(seatInfo.actualSeatNum)"
-          :visible="true"
-          @join-seat="showBuyInModal"
-        />
-      </div>
+    <!-- Community Cards Area (centered on table) -->
+    <div class="community-cards-area">
+      <CommunityCards :cards="communityCards" :round="currentRound" />
+      <PotDisplay :pot="potSize" />
     </div>
 
-    <!-- Action Controls (bottom of screen) -->
-    <div v-if="isMyTurn" class="action-controls">
+    <!-- Player Seats (floating around table, NOT inside it) -->
+    <div
+      v-for="seatInfo in visibleSeats"
+      :key="seatInfo.actualSeatNum"
+      :class="['player-seat-wrapper', `seat-${seatInfo.displayPosition}`]"
+    >
+      <PlayerSeat
+        :seat="seatInfo.seat"
+        :seatNumber="seatInfo.actualSeatNum"
+        :isCurrentTurn="isCurrentTurn(seatInfo.actualSeatNum)"
+        :isMe="isMySeat(seatInfo.actualSeatNum)"
+        :visible="true"
+        @join-seat="showBuyInModal"
+      />
+    </div>
+
+    <!-- Action Controls (bottom of screen) - Always visible with proper states -->
+    <div class="action-controls">
       <ActionButtons
         :can-check="canCheck"
         :can-raise="canRaise"
@@ -279,25 +279,17 @@ const handleAllIn = async () => {
   justify-content: center;
 }
 
-/* Wrapper to hold table and floating seats */
+/* Poker Table - Just the green felt background, no children */
 .poker-table {
-  position: relative;
-  width: 90%;
-  max-width: 1000px;
-  height: 60vh;
-  max-height: 600px;
-}
-
-/* Table surface - centered background only */
-.poker-table::before {
-  content: '';
   position: absolute;
-  top: 15%;
-  left: 10%;
-  right: 10%;
-  bottom: 15%;
-  background: 
-    radial-gradient(ellipse at center, #1a5c3a 0%, #0f3d26 50%, #0a2818 100%);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 70%;
+  max-width: 900px;
+  height: 50%;
+  max-height: 500px;
+  background: radial-gradient(ellipse at center, #1a5c3a 0%, #0f3d26 50%, #0a2818 100%);
   border: 16px solid #8b6914;
   border-radius: 50%;
   box-shadow: 
@@ -306,22 +298,17 @@ const handleAllIn = async () => {
     0 15px 50px rgba(0, 0, 0, 0.9),
     0 0 0 4px #654321,
     0 0 0 8px #3d2817;
-  pointer-events: none;
   z-index: 0;
+  pointer-events: none;
 }
 
-/* Table shine effect */
 .poker-table::after {
   content: '';
   position: absolute;
-  top: 15%;
-  left: 10%;
-  right: 10%;
-  bottom: 15%;
+  inset: 20px;
   border-radius: 50%;
   background: radial-gradient(ellipse at 30% 30%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
   pointer-events: none;
-  z-index: 1;
 }
 
 .community-cards-area {
@@ -330,41 +317,42 @@ const handleAllIn = async () => {
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
-  z-index: 2;
+  z-index: 5;
+  pointer-events: none;
 }
 
-/* Position seats around the table - floating outside the table border */
+/* Position seats around the table - floating OUTSIDE, not inside poker-table */
 .player-seat-wrapper {
   position: absolute;
   z-index: 10;
 }
 
 /* 10-player seat positions arranged in oval around the table */
-.seat-0 { bottom: 5%; left: 50%; transform: translateX(-50%); }
-.seat-1 { bottom: 12%; left: 20%; }
-.seat-2 { top: 50%; left: 2%; transform: translateY(-50%); }
-.seat-3 { top: 25%; left: 8%; }
-.seat-4 { top: 10%; left: 28%; }
-.seat-5 { top: 5%; left: 50%; transform: translateX(-50%); }
-.seat-6 { top: 10%; right: 28%; }
-.seat-7 { top: 25%; right: 8%; }
-.seat-8 { top: 50%; right: 2%; transform: translateY(-50%); }
-.seat-9 { bottom: 12%; right: 20%; }
+.seat-0 { bottom: 8%; left: 50%; transform: translateX(-50%); }
+.seat-1 { bottom: 15%; left: 22%; }
+.seat-2 { top: 50%; left: 5%; transform: translateY(-50%); }
+.seat-3 { top: 28%; left: 12%; }
+.seat-4 { top: 15%; left: 30%; }
+.seat-5 { top: 10%; left: 50%; transform: translateX(-50%); }
+.seat-6 { top: 15%; right: 30%; }
+.seat-7 { top: 28%; right: 12%; }
+.seat-8 { top: 50%; right: 5%; transform: translateY(-50%); }
+.seat-9 { bottom: 15%; right: 22%; }
 
 .action-controls {
   position: fixed;
-  bottom: 20px;
+  bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 100;
+  z-index: 15;
 }
 
 .start-hand-controls {
   position: fixed;
-  bottom: 20px;
+  bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 100;
+  z-index: 15;
 }
 
 .btn-primary {
