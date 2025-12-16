@@ -206,7 +206,10 @@ export async function deleteRoom(gameId, userId) {
     // Delete the game document
     transaction.delete(gameRef);
 
-    // Note: Subcollections (hands, private) are not automatically deleted
-    // They can be cleaned up by a background job if needed
+    // Note: Subcollections (hands, private) are not automatically deleted in Firestore.
+    // For this poker game implementation:
+    // - 'hands' subcollection: Historical data, can be kept or cleaned by a scheduled function
+    // - 'private' subcollection: Should be empty after each hand (cleaned in handleShowdown)
+    // If immediate cleanup is needed, implement a recursive delete function
   });
 }

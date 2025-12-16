@@ -213,6 +213,8 @@ async function advanceRound(game, transaction, gameRef, handRef) {
  */
 async function handleShowdown(game, transaction, gameRef, handRef) {
   // Get all hole cards - list documents and get them individually in transaction
+  // Note: listDocuments() gets references only (not data), which is safe.
+  // The actual data read happens with transaction.get() inside the transaction.
   const privateCollection = gameRef.collection('private');
   const privateDocs = await privateCollection.listDocuments();
   const holeCards = {};
