@@ -43,8 +43,6 @@ const SUIT_CODES_TO_SYMBOLS = {
   'c': '♣',
 };
 
-const SUIT_SYMBOLS = ['♠', '♥', '♦', '♣'];
-
 // Parse card notation (e.g., "As" or "A♠" -> { rank: "A", suit: "s", suitSymbol: "♠" })
 const parsedCard = computed(() => {
   if (!props.card || typeof props.card !== 'string') return null;
@@ -62,11 +60,10 @@ const parsedCard = computed(() => {
   }
 
   // Check if last char is already a suit symbol
-  if (SUIT_SYMBOLS.includes(lastChar)) {
-    // Find the suit code from symbol
-    const suitCode = Object.keys(SUIT_CODES_TO_SYMBOLS).find(
-      (code) => SUIT_CODES_TO_SYMBOLS[code] === lastChar
-    );
+  const suitCode = Object.keys(SUIT_CODES_TO_SYMBOLS).find(
+    (code) => SUIT_CODES_TO_SYMBOLS[code] === lastChar
+  );
+  if (suitCode) {
     return {
       rank,
       suit: suitCode,
@@ -141,7 +138,7 @@ const cardClass = computed(() => {
   color: #1a3d28;
 }
 
-.card-mini .card-back {
+.playing-card.card-mini .card-back {
   font-size: 20px;
 }
 
@@ -151,11 +148,11 @@ const cardClass = computed(() => {
   margin-bottom: 2px;
 }
 
-.card-mini .card-rank {
+.playing-card.card-mini .card-rank {
   font-size: 14px;
 }
 
-.card-small .card-rank {
+.playing-card.card-small .card-rank {
   font-size: 18px;
 }
 
@@ -164,11 +161,11 @@ const cardClass = computed(() => {
   line-height: 1;
 }
 
-.card-mini .card-suit {
+.playing-card.card-mini .card-suit {
   font-size: 16px;
 }
 
-.card-small .card-suit {
+.playing-card.card-small .card-suit {
   font-size: 22px;
 }
 
