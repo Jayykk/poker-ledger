@@ -62,13 +62,12 @@
     <div v-if="myRooms.length > 0" class="mb-6">
       <h3 class="text-lg font-bold text-white mb-3">{{ $t('lobby.myRooms') }}</h3>
       <div class="space-y-2">
-        <BaseCard
+        <div
           v-for="room in myRooms"
           :key="room.id"
-          padding="md"
-          clickable
           @click="handleEnterRoom(room.id)"
           :class="getRoomCardClass(room)"
+          class="rounded-2xl border transition p-4 cursor-pointer active:scale-95 hover:border-opacity-60"
         >
           <!-- Room Type Badge -->
           <div class="flex items-start gap-3 mb-2">
@@ -125,7 +124,7 @@
               <i class="fas fa-chevron-right"></i>
             </div>
           </div>
-        </BaseCard>
+        </div>
       </div>
     </div>
 
