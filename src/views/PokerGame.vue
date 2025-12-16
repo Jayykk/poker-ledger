@@ -53,6 +53,9 @@ const pokerStore = usePokerStore();
 const authStore = useAuthStore();
 const { success } = useNotification();
 
+// Constants
+const NAVIGATION_DELAY_MS = 2000;
+
 const {
   currentGame,
   gameId,
@@ -72,7 +75,7 @@ watch(() => currentGame.value?.status, (status, oldStatus) => {
     success('Game completed! Results saved to your history.');
     setTimeout(() => {
       router.push('/report');
-    }, 2000);
+    }, NAVIGATION_DELAY_MS);
   }
 });
 

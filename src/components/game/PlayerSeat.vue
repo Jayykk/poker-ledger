@@ -90,6 +90,9 @@ const emit = defineEmits(['join-seat']);
 const { myHoleCards, currentGame } = usePokerGame();
 const authStore = useAuthStore();
 
+// Constants
+const DEFAULT_TURN_TIMEOUT = 30;
+
 const holeCards = computed(() => {
   return props.isMe ? myHoleCards.value : [];
 });
@@ -104,7 +107,7 @@ const isAlreadySeated = computed(() => {
 
 // Timer logic
 const timeRemaining = ref(0);
-const turnTimeout = computed(() => currentGame.value?.table?.turnTimeout || 30);
+const turnTimeout = computed(() => currentGame.value?.table?.turnTimeout || DEFAULT_TURN_TIMEOUT);
 let timerInterval = null;
 
 const timerPercentage = computed(() => {

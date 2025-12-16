@@ -285,11 +285,16 @@ export const usePokerStore = defineStore('poker', {
           this.currentGame = gameData;
           
           // If game just ended, settle it automatically
-          if (gameData.status === 'ended' && !gameData.completedAt) {
+          // Only settle once - check if not already completed
+          if (gameData.status === 'ended' && !gameData.completedAt && !gameData.settling) {
             try {
+              // Mark as settling to prevent race conditions
+              await doc(db, 'pokerGames', gameId).update({ settling: true });
               await this.settleGame(gameId);
             } catch (error) {
               console.error('Auto-settle failed:', error);
+              // Clear settling flag on error
+              await doc(db, 'pokerGames', gameId).update({ settling: false });
             }
           }
         }

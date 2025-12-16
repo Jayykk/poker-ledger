@@ -15,6 +15,9 @@ import {
 } from '../engines/texasHoldem.js';
 import { validateGameStart, validatePlayerAction } from '../utils/validators.js';
 
+// Constants
+const DEFAULT_BUY_IN = 1000;
+
 /**
  * Start a new hand
  * @param {string} gameId - Game ID
@@ -333,7 +336,7 @@ export async function settlePokerGame(gameId) {
       const userDoc = await transaction.get(userRef);
 
       // Calculate profit/loss (current chips - initial buy-in)
-      const initialBuyIn = player.initialBuyIn || game.meta.minBuyIn || 1000;
+      const initialBuyIn = player.initialBuyIn || game.meta.minBuyIn || DEFAULT_BUY_IN;
       const profit = player.chips - initialBuyIn;
 
       const record = {
@@ -345,9 +348,9 @@ export async function settlePokerGame(gameId) {
         gameType: 'online_poker',
         settlement: seatedPlayers.map((p) => ({
           name: p.odName,
-          buyIn: p.initialBuyIn || game.meta.minBuyIn || 1000,
+          buyIn: p.initialBuyIn || game.meta.minBuyIn || DEFAULT_BUY_IN,
           stack: p.chips,
-          profit: p.chips - (p.initialBuyIn || game.meta.minBuyIn || 1000),
+          profit: p.chips - (p.initialBuyIn || game.meta.minBuyIn || DEFAULT_BUY_IN),
         })),
       };
 
