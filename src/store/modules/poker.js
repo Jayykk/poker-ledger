@@ -112,7 +112,8 @@ export const usePokerStore = defineStore('poker', {
         
         if (result.data.success) {
           this.gameId = result.data.room.id;
-          await this.joinGameListener(result.data.room.id);
+          const authStore = useAuthStore();
+          await this.joinGameListener(result.data.room.id, authStore.user?.uid);
           return result.data.room;
         }
       } catch (error) {
@@ -140,7 +141,8 @@ export const usePokerStore = defineStore('poker', {
         if (result.data.success) {
           // Start listening to game updates if not already
           if (!this.gameUnsubscribe) {
-            await this.joinGameListener(gameId);
+            const authStore = useAuthStore();
+            await this.joinGameListener(gameId, authStore.user?.uid);
           }
           return result.data.result;
         }

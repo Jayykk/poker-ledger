@@ -90,7 +90,8 @@ export function initializeHand(game) {
   const firstToActIndex = activePlayers.length === 2 ?
     dealerIndex :
     (dealerIndex + 3) % activePlayers.length;
-  table.currentTurn = activePlayers[firstToActIndex];
+  const firstToActSeatNum = activePlayers[firstToActIndex];
+  table.currentTurn = seats[firstToActSeatNum].odId;
 
   return {
     ...game,
