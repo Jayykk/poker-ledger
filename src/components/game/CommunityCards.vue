@@ -6,7 +6,8 @@
         v-for="(card, index) in displayCards"
         :key="index"
         :card="card"
-        :hidden="!card"
+        :hidden="!card || !shouldShowCard(index)"
+        :revealing="isCardRevealing(index)"
         size="normal"
       />
     </div>
@@ -14,8 +15,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import PlayingCard from './PlayingCard.vue';
+import { useGameAnimation } from '../../composables/useGameAnimation.js';
 
 const props = defineProps({
   cards: {
@@ -27,6 +29,8 @@ const props = defineProps({
     default: 'waiting',
   },
 });
+
+const { animatingRound, flopCardIndex, animateFlop, animateTurn, animateRiver } = useGameAnimation();
 
 const roundLabel = computed(() => {
   const labels = {
@@ -61,6 +65,47 @@ const displayCards = computed(() => {
 
   return cards.slice(0, count);
 });
+
+// Determine if a card should be shown (not hidden)
+const shouldShowCard = (index) => {
+  // During animation, show cards progressively
+  if (animatingRound.value === 'flop') {
+    return index <= flopCardIndex.value;
+  }
+  
+  // After animation or if card exists, show it
+  return !!props.cards[index];
+};
+
+// Determine if a card is currently revealing (for flip animation)
+const isCardRevealing = (index) => {
+  if (animatingRound.value === 'flop') {
+    return index === flopCardIndex.value;
+  }
+  
+  if (animatingRound.value === 'turn' && index === 3) {
+    return true;
+  }
+  
+  if (animatingRound.value === 'river' && index === 4) {
+    return true;
+  }
+  
+  return false;
+};
+
+// Watch for round changes and trigger animations
+let previousRound = props.round;
+watch(() => props.round, (newRound, oldRound) => {
+  if (oldRound === 'preflop' && newRound === 'flop') {
+    animateFlop();
+  } else if (oldRound === 'flop' && newRound === 'turn') {
+    animateTurn();
+  } else if (oldRound === 'turn' && newRound === 'river') {
+    animateTurn();
+  }
+  previousRound = newRound;
+}, { immediate: false });
 </script>
 
 <style scoped>
