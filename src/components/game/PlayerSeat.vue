@@ -15,8 +15,9 @@
           <!-- Dealer Button Overlay -->
           <div v-if="seat.isDealer" class="dealer-badge">D</div>
           
-          <!-- Status Badge (Check/Fold) -->
+          <!-- Status Badge (Check/Fold/All-in) -->
           <div v-if="seat.status === 'folded'" class="status-badge badge-fold">✗</div>
+          <div v-if="seat.status === 'all_in'" class="status-badge badge-all-in">★</div>
           
           <!-- Turn Timer Ring -->
           <div v-if="isCurrentTurn && turnExpiresAt" class="timer-ring">
@@ -244,6 +245,11 @@ const handleJoinClick = () => {
 
 .badge-fold {
   background: #ef4444;
+  color: white;
+}
+
+.badge-all-in {
+  background: #f59e0b;
   color: white;
 }
 

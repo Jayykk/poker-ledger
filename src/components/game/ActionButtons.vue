@@ -161,6 +161,7 @@ const confirmRaise = () => {
   z-index: 100;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.8));
   padding: 8px 12px;
+  padding-bottom: 8px;
   padding-bottom: max(8px, env(safe-area-inset-bottom)); /* iPhone safe area */
   display: flex;
   flex-direction: column;
@@ -443,7 +444,8 @@ const confirmRaise = () => {
 @media (max-width: 768px) {
   .action-buttons {
     padding: 6px 8px;
-    padding-bottom: max(6px, env(safe-area-inset-bottom));
+    padding-bottom: 6px;
+  padding-bottom: max(6px, env(safe-area-inset-bottom));
   }
 
   .main-buttons {
