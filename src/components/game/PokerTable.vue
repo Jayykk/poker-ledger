@@ -285,33 +285,34 @@ const handleAutoAction = async (action) => {
   position: relative;
   width: 100%;
   height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile */
   background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 50%, #0d1b2a 100%);
-  overflow: hidden;
+  overflow: hidden; /* Prevent scrolling */
   display: flex;
   align-items: center;
   justify-content: center;
+  padding-bottom: 140px; /* Reserve space for fixed action buttons */
 }
 
-/* Poker Table - Just the green felt background, no children */
-/* Vertical ellipse for mobile portrait orientation */
+/* Poker Table - Smaller and more compact */
 .poker-table {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 85%;
-  max-width: 380px;
-  height: 60vh;
-  max-height: 550px;
+  width: 75%;
+  max-width: 320px;
+  height: 45vh;
+  max-height: 400px;
   background: radial-gradient(ellipse at center, #1a5c3a 0%, #0f3d26 50%, #0a2818 100%);
-  border: 16px solid #8b6914;
+  border: 12px solid #8b6914;
   border-radius: 50%;
   box-shadow: 
-    inset 0 0 80px rgba(0, 0, 0, 0.8),
-    inset 0 -20px 40px rgba(0, 0, 0, 0.4),
-    0 15px 50px rgba(0, 0, 0, 0.9),
-    0 0 0 4px #654321,
-    0 0 0 8px #3d2817;
+    inset 0 0 60px rgba(0, 0, 0, 0.8),
+    inset 0 -15px 30px rgba(0, 0, 0, 0.4),
+    0 10px 40px rgba(0, 0, 0, 0.9),
+    0 0 0 3px #654321,
+    0 0 0 6px #3d2817;
   z-index: 0;
   pointer-events: none;
 }
@@ -319,10 +320,10 @@ const handleAutoAction = async (action) => {
 .poker-table::after {
   content: '';
   position: absolute;
-  top: 20px;
-  left: 20px;
-  right: 20px;
-  bottom: 20px;
+  top: 15px;
+  left: 15px;
+  right: 15px;
+  bottom: 15px;
   border-radius: 50%;
   background: radial-gradient(ellipse at 30% 30%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
   pointer-events: none;
@@ -338,31 +339,31 @@ const handleAutoAction = async (action) => {
   pointer-events: none;
 }
 
-/* Position seats around the table - floating OUTSIDE, not inside poker-table */
+/* Position seats around the table - more compact positioning */
 .player-seat-wrapper {
   position: absolute;
   z-index: 10;
 }
 
-/* 10-player seat positions for vertical ellipse layout */
-/* Hero (seat-0) at bottom center, seats distributed along left and right sides */
-.seat-0 { bottom: 2%; left: 50%; transform: translateX(-50%); }  /* Hero - bottom center */
-.seat-1 { bottom: 12%; left: 8%; }   /* Left-bottom */
-.seat-2 { bottom: 35%; left: 2%; }   /* Left-middle-bottom */
-.seat-3 { top: 35%; left: 2%; }      /* Left-middle-top */
-.seat-4 { top: 12%; left: 8%; }      /* Left-top */
-.seat-5 { top: 2%; left: 50%; transform: translateX(-50%); }     /* Top center */
-.seat-6 { top: 12%; right: 8%; }     /* Right-top */
-.seat-7 { top: 35%; right: 2%; }     /* Right-middle-top */
-.seat-8 { bottom: 35%; right: 2%; }  /* Right-middle-bottom */
-.seat-9 { bottom: 12%; right: 8%; }  /* Right-bottom */
+/* Compact 10-player seat positions */
+/* Hero (seat-0) positioned above action buttons */
+.seat-0 { bottom: 150px; left: 50%; transform: translateX(-50%); }  /* Hero - above action buttons */
+.seat-1 { bottom: 20%; left: 10%; }   /* Left-bottom */
+.seat-2 { bottom: 40%; left: 3%; }    /* Left-middle-bottom */
+.seat-3 { top: 40%; left: 3%; }       /* Left-middle-top */
+.seat-4 { top: 20%; left: 10%; }      /* Left-top */
+.seat-5 { top: 10%; left: 50%; transform: translateX(-50%); }  /* Top center */
+.seat-6 { top: 20%; right: 10%; }     /* Right-top */
+.seat-7 { top: 40%; right: 3%; }      /* Right-middle-top */
+.seat-8 { bottom: 40%; right: 3%; }   /* Right-middle-bottom */
+.seat-9 { bottom: 20%; right: 10%; }  /* Right-bottom */
 
 .action-controls {
   position: fixed;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
 }
 
 .start-hand-controls {
@@ -370,7 +371,7 @@ const handleAutoAction = async (action) => {
   bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 5;
+  z-index: 100;
 }
 
 .btn-primary {
@@ -397,30 +398,45 @@ const handleAutoAction = async (action) => {
 }
 
 .btn-lg {
-  padding: 16px 48px;
-  font-size: 20px;
+  padding: 14px 40px;
+  font-size: 18px;
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .poker-table-container {
+    padding-bottom: 160px; /* More space for action buttons on mobile */
+  }
+
   .poker-table {
-    width: 90%;
-    max-width: 340px;
-    height: 65vh;
-    max-height: 600px;
+    width: 80%;
+    max-width: 280px;
+    height: 40vh;
+    max-height: 350px;
+    border-width: 10px;
   }
 
   /* Adjusted seat positions for smaller screens */
-  .seat-0 { bottom: 2%; left: 50%; }
-  .seat-1 { bottom: 10%; left: 6%; }
-  .seat-2 { bottom: 32%; left: 1%; }
-  .seat-3 { top: 32%; left: 1%; }
-  .seat-4 { top: 10%; left: 6%; }
-  .seat-5 { top: 2%; left: 50%; }
-  .seat-6 { top: 10%; right: 6%; }
-  .seat-7 { top: 32%; right: 1%; }
-  .seat-8 { bottom: 32%; right: 1%; }
-  .seat-9 { bottom: 10%; right: 6%; }
+  .seat-0 { bottom: 170px; left: 50%; }
+  .seat-1 { bottom: 22%; left: 8%; }
+  .seat-2 { bottom: 38%; left: 2%; }
+  .seat-3 { top: 38%; left: 2%; }
+  .seat-4 { top: 22%; left: 8%; }
+  .seat-5 { top: 12%; left: 50%; }
+  .seat-6 { top: 22%; right: 8%; }
+  .seat-7 { top: 38%; right: 2%; }
+  .seat-8 { bottom: 38%; right: 2%; }
+  .seat-9 { bottom: 22%; right: 8%; }
+
+  .btn-primary {
+    padding: 10px 24px;
+    font-size: 16px;
+  }
+
+  .btn-lg {
+    padding: 12px 32px;
+    font-size: 16px;
+  }
 }
 
 /* Buy-in Modal Styles */

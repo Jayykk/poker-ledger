@@ -154,17 +154,29 @@ const confirmRaise = () => {
 
 <style scoped>
 .action-buttons {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.8));
+  padding: 8px 12px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom)); /* iPhone safe area */
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
 }
 
 /* Main buttons container - horizontal layout */
 .main-buttons {
   display: flex;
-  gap: 16px;
+  gap: 10px;
   align-items: center;
+  width: 100%;
+  max-width: 600px;
+  justify-content: center;
 }
 
 .btn {
@@ -172,13 +184,14 @@ const confirmRaise = () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 16px 24px;
-  min-width: 120px;
-  min-height: 48px; /* Touch-friendly minimum target */
+  gap: 2px;
+  padding: 12px 16px;
+  flex: 1;
+  max-width: 140px;
+  min-height: 64px; /* Touch-friendly minimum target */
   font-weight: bold;
-  border: 3px solid transparent;
-  border-radius: 12px;
+  border: 2px solid transparent;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.3s ease;
   background: rgba(255, 255, 255, 0.05);
@@ -188,21 +201,21 @@ const confirmRaise = () => {
 }
 
 .btn-icon {
-  font-size: 28px;
+  font-size: 24px;
   filter: grayscale(100%);
   transition: all 0.3s ease;
 }
 
 .btn-label {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
-  letter-spacing: 1.5px;
+  letter-spacing: 1px;
   color: rgba(255, 255, 255, 0.3);
   transition: all 0.3s ease;
 }
 
 .btn-amount {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: bold;
   color: rgba(255, 215, 0, 0.5);
   font-family: 'Courier New', monospace;
@@ -235,7 +248,7 @@ const confirmRaise = () => {
 
 .btn-active .btn-icon {
   filter: grayscale(0%);
-  transform: scale(1.1);
+  transform: scale(1.05);
 }
 
 .btn-active .btn-label {
@@ -243,11 +256,11 @@ const confirmRaise = () => {
 }
 
 .btn-active:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
-/* Specific button colors when active - using gradient backgrounds */
+/* Specific button colors when active */
 .btn-fold.btn-active {
   border-color: rgba(244, 67, 54, 0.6);
   background: linear-gradient(135deg, rgba(244, 67, 54, 0.2) 0%, rgba(211, 47, 47, 0.15) 100%);
@@ -255,7 +268,7 @@ const confirmRaise = () => {
 
 .btn-fold.btn-active:hover {
   background: linear-gradient(135deg, rgba(244, 67, 54, 0.3) 0%, rgba(211, 47, 47, 0.25) 100%);
-  box-shadow: 0 8px 20px rgba(244, 67, 54, 0.4);
+  box-shadow: 0 6px 16px rgba(244, 67, 54, 0.4);
 }
 
 .btn-check.btn-active {
@@ -265,7 +278,7 @@ const confirmRaise = () => {
 
 .btn-check.btn-active:hover {
   background: linear-gradient(135deg, rgba(76, 175, 80, 0.3) 0%, rgba(56, 142, 60, 0.25) 100%);
-  box-shadow: 0 8px 20px rgba(76, 175, 80, 0.4);
+  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
 }
 
 .btn-call.btn-active {
@@ -275,7 +288,7 @@ const confirmRaise = () => {
 
 .btn-call.btn-active:hover {
   background: linear-gradient(135deg, rgba(76, 175, 80, 0.3) 0%, rgba(56, 142, 60, 0.25) 100%);
-  box-shadow: 0 8px 20px rgba(76, 175, 80, 0.4);
+  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
 }
 
 .btn-call.btn-active .btn-amount {
@@ -290,32 +303,33 @@ const confirmRaise = () => {
 .btn-raise.btn-active:hover,
 .btn-raise.btn-selected {
   background: linear-gradient(135deg, rgba(255, 193, 7, 0.3) 0%, rgba(255, 152, 0, 0.25) 100%);
-  box-shadow: 0 8px 20px rgba(255, 193, 7, 0.4);
+  box-shadow: 0 6px 16px rgba(255, 193, 7, 0.4);
 }
 
 /* Bet Controls - appears above buttons */
 .bet-controls {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.8);
+  gap: 8px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.9);
   backdrop-filter: blur(10px);
-  border-radius: 16px;
+  border-radius: 12px;
   border: 2px solid rgba(255, 152, 0, 0.4);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  min-width: 400px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  width: 100%;
+  max-width: 600px;
 }
 
 .bet-slider-container {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .bet-amount-display {
   text-align: center;
-  font-size: 32px;
+  font-size: 24px;
   font-weight: bold;
   color: #ffd700;
   font-family: 'Courier New', monospace;
@@ -324,8 +338,8 @@ const confirmRaise = () => {
 
 .bet-slider {
   width: 100%;
-  height: 8px;
-  border-radius: 4px;
+  height: 6px;
+  border-radius: 3px;
   outline: none;
   background: rgba(255, 255, 255, 0.2);
   -webkit-appearance: none;
@@ -335,41 +349,42 @@ const confirmRaise = () => {
 .bet-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  border: 3px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .bet-slider::-moz-range-thumb {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  border: 3px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .quick-bet-buttons {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  gap: 6px;
 }
 
 .quick-bet {
-  padding: 10px;
+  padding: 8px 6px;
   background: rgba(255, 255, 255, 0.1);
   border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: 6px;
   color: white;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: bold;
   cursor: pointer;
   transition: all 0.2s ease;
+  min-height: 44px; /* Touch-friendly */
 }
 
 .quick-bet:disabled {
@@ -380,21 +395,22 @@ const confirmRaise = () => {
 .quick-bet:hover:not(:disabled) {
   background: rgba(255, 152, 0, 0.3);
   border-color: rgba(255, 152, 0, 0.6);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .btn-confirm {
-  padding: 14px 28px;
+  padding: 12px 24px;
   background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
   border: none;
   border-radius: 8px;
   color: white;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: bold;
   cursor: pointer;
   transition: all 0.2s ease;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
+  min-height: 48px; /* Touch-friendly */
 }
 
 .btn-confirm:hover:not(:disabled) {
@@ -425,42 +441,57 @@ const confirmRaise = () => {
 
 /* Responsive */
 @media (max-width: 768px) {
+  .action-buttons {
+    padding: 6px 8px;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+  }
+
   .main-buttons {
-    gap: 10px;
+    gap: 8px;
   }
 
   .btn {
-    min-width: 100px;
-    min-height: 48px; /* Ensure minimum touch target */
-    padding: 14px 18px;
+    min-width: 70px;
+    max-width: 110px;
+    min-height: 60px;
+    padding: 10px 12px;
   }
 
   .btn-icon {
-    font-size: 24px;
+    font-size: 20px;
   }
 
   .btn-label {
-    font-size: 12px;
+    font-size: 10px;
+  }
+
+  .btn-amount {
+    font-size: 10px;
   }
 
   .bet-controls {
-    min-width: unset;
-    width: calc(100vw - 40px);
-    padding: 16px;
+    padding: 10px;
   }
 
   .bet-amount-display {
-    font-size: 24px;
+    font-size: 20px;
   }
 
   .quick-bet-buttons {
     grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
   }
 
   .quick-bet {
-    min-height: 48px; /* Touch-friendly target */
-    padding: 12px;
-    font-size: 12px;
+    min-height: 40px;
+    padding: 8px 4px;
+    font-size: 10px;
+  }
+
+  .btn-confirm {
+    padding: 10px 20px;
+    font-size: 13px;
+    min-height: 44px;
   }
 }
 </style>

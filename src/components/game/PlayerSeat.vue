@@ -1,46 +1,49 @@
 <template>
-  <div
-    class="player-seat"
-    :class="{
-      'is-current-turn': isCurrentTurn,
-      'is-me': isMe,
-      'is-empty': !seat,
-    }"
-  >
+  <div class="player-seat-compact">
     <div v-if="seat" class="seat-content">
-      <!-- Player Info -->
-      <div class="player-info">
-        <div class="player-avatar">
+      <!-- Circular Avatar with Status Badge -->
+      <div class="avatar-wrapper">
+        <div 
+          class="avatar-circle"
+          :class="{
+            'is-current-turn': isCurrentTurn,
+            'is-me': isMe,
+          }"
+        >
           {{ seat.odName?.charAt(0) || '?' }}
+          
+          <!-- Dealer Button Overlay -->
+          <div v-if="seat.isDealer" class="dealer-badge">D</div>
+          
+          <!-- Status Badge (Check/Fold) -->
+          <div v-if="seat.status === 'folded'" class="status-badge badge-fold">✗</div>
+          
+          <!-- Turn Timer Ring -->
+          <div v-if="isCurrentTurn && turnExpiresAt" class="timer-ring">
+            <TurnTimer 
+              :expiresAt="turnExpiresAt"
+              :totalTime="turnTimeout"
+              :size="52"
+              :strokeWidth="3"
+            />
+          </div>
         </div>
-        <div class="player-details">
-          <div class="player-name">{{ seat.odName }}</div>
-          <div class="player-chips">💵 {{ seat.chips }}</div>
-        </div>
       </div>
 
-      <!-- Current Bet -->
-      <div v-if="seat.currentBet > 0" class="current-bet">
-        Bet: {{ seat.currentBet }}
+      <!-- Player Label (Name + Chips) -->
+      <div class="player-label">
+        <span class="player-name">{{ seat.odName }}</span>
+        <span class="player-stack">
+          <span v-if="seat.isSmallBlind" class="blind-badge">SB</span>
+          <span v-if="seat.isBigBlind" class="blind-badge">BB</span>
+          ${{ seat.chips }}
+        </span>
       </div>
 
-      <!-- Status Indicators -->
-      <div class="status-indicators">
-        <DealerButton v-if="seat.isDealer" size="small" />
-        <span v-if="seat.isSmallBlind" class="badge sb">SB</span>
-        <span v-if="seat.isBigBlind" class="badge bb">BB</span>
-        <span v-if="seat.status === 'folded'" class="badge folded">Folded</span>
-        <span v-if="seat.status === 'all_in'" class="badge all-in">All-In</span>
-      </div>
-
-      <!-- Turn Timer with SVG circular progress -->
-      <div v-if="isCurrentTurn && turnExpiresAt" class="turn-timer">
-        <TurnTimer 
-          :expiresAt="turnExpiresAt"
-          :totalTime="turnTimeout"
-          :size="40"
-          :strokeWidth="4"
-        />
+      <!-- Bet Chip Display -->
+      <div v-if="seat.currentBet > 0" class="bet-chip">
+        <span class="chip-icon">🪙</span>
+        <span class="bet-amount">${{ seat.currentBet }}</span>
       </div>
 
       <!-- Hole Cards (only show for current player) -->
@@ -57,13 +60,11 @@
     <!-- Empty Seat (Join Button) -->
     <div v-else-if="!isAlreadySeated" class="empty-seat" @click="handleJoinClick">
       <div class="join-icon">+</div>
-      <div class="join-text">Join</div>
     </div>
 
     <!-- Empty Seat (Locked - Already Seated) -->
     <div v-else class="empty-seat locked">
       <div class="join-icon">🔒</div>
-      <div class="join-text">Locked</div>
     </div>
   </div>
 </template>
@@ -73,7 +74,6 @@ import { computed } from 'vue';
 import { usePokerGame } from '../../composables/usePokerGame.js';
 import { useAuthStore } from '../../store/modules/auth.js';
 import PlayingCard from './PlayingCard.vue';
-import DealerButton from './DealerButton.vue';
 import TurnTimer from './TurnTimer.vue';
 
 const props = defineProps({
@@ -143,186 +143,251 @@ const handleJoinClick = () => {
 </script>
 
 <style scoped>
-.player-seat {
-  background: rgba(0, 0, 0, 0.4);
-  border: 2px solid #555;
-  border-radius: 12px;
-  padding: 12px;
-  min-width: 140px;
-  transition: all 0.3s ease;
-}
-
-.player-seat.is-current-turn {
-  border-color: #ffd700;
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.6); }
-  50% { box-shadow: 0 0 30px rgba(255, 215, 0, 0.9); }
-}
-
-.player-seat.is-me {
-  border-color: #4CAF50;
-}
-
-.player-seat.is-empty {
-  background: rgba(0, 0, 0, 0.2);
-  border-style: dashed;
-  cursor: pointer;
-}
-
-.player-seat.is-empty:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: #888;
+.player-seat-compact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  position: relative;
 }
 
 .seat-content {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 4px;
+  position: relative;
 }
 
-.player-info {
+/* Avatar Wrapper */
+.avatar-wrapper {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
 }
 
-.player-avatar {
-  width: 40px;
-  height: 40px;
+/* Circular Avatar */
+.avatar-circle {
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #667eea, #764ba2);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
   font-weight: bold;
   color: white;
+  position: relative;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+  z-index: 2;
 }
 
-.player-details {
-  flex: 1;
+.avatar-circle.is-current-turn {
+  border-color: #ffd700;
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.8);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(255, 215, 0, 0.8); }
+  50% { box-shadow: 0 0 24px rgba(255, 215, 0, 1); }
+}
+
+.avatar-circle.is-me {
+  border-color: #4CAF50;
+  border-width: 3px;
+}
+
+/* Dealer Badge (top-right of avatar) */
+.dealer-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  color: #000;
+  font-size: 10px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  z-index: 3;
+}
+
+/* Status Badge (bottom-right of avatar) */
+.status-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  z-index: 3;
+  border: 2px solid rgba(0, 0, 0, 0.5);
+}
+
+.badge-check {
+  background: #22c55e;
+  color: white;
+}
+
+.badge-fold {
+  background: #ef4444;
+  color: white;
+}
+
+/* Turn Timer Ring */
+.timer-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Player Label (Name + Chips below avatar) */
+.player-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 2px 8px;
+  border-radius: 8px;
+  min-width: 60px;
+  text-align: center;
 }
 
 .player-name {
-  font-size: 14px;
-  font-weight: bold;
-  color: white;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.8);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 80px;
 }
 
-.player-chips {
-  font-size: 12px;
+.player-stack {
+  font-size: 11px;
+  font-weight: bold;
   color: #ffd700;
+  font-family: 'Courier New', monospace;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.blind-badge {
+  font-size: 8px;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: rgba(76, 175, 80, 0.6);
+  color: white;
+  font-weight: bold;
+}
+
+/* Bet Chip Display */
+.bet-chip {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  color: #ffd700;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  z-index: 4;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.chip-icon {
+  font-size: 12px;
+}
+
+.bet-amount {
   font-family: 'Courier New', monospace;
 }
 
-.current-bet {
-  font-size: 12px;
-  color: #ff6b6b;
-  font-weight: bold;
-  text-align: center;
-  background: rgba(255, 107, 107, 0.2);
-  padding: 4px 8px;
-  border-radius: 4px;
-}
-
-.status-indicators {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.badge {
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: bold;
-  text-transform: uppercase;
-}
-
-.badge.sb {
-  background: #4CAF50;
-  color: white;
-}
-
-.badge.bb {
-  background: #2196F3;
-  color: white;
-}
-
-.badge.folded {
-  background: #666;
-  color: white;
-}
-
-.badge.all-in {
-  background: #f44336;
-  color: white;
-}
-
-.turn-timer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 8px;
-}
-
+/* Hole Cards */
 .hole-cards {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   justify-content: center;
+  margin-top: 2px;
 }
 
+/* Empty Seat */
 .empty-seat {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.2);
+  border: 2px dashed #555;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.empty-seat:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #888;
+  transform: scale(1.1);
 }
 
 .empty-seat.locked {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.4;
+}
+
+.empty-seat.locked:hover {
+  transform: none;
 }
 
 .join-icon {
-  font-size: 36px;
+  font-size: 24px;
   color: #888;
 }
 
-.join-text {
-  font-size: 14px;
-  color: #888;
-  font-weight: bold;
-}
-
+/* Responsive */
 @media (max-width: 768px) {
-  .player-seat {
-    min-width: 100px;
-    padding: 8px;
-  }
-
-  .player-avatar {
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
+  .avatar-circle {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
   }
 
   .player-name {
-    font-size: 12px;
+    font-size: 9px;
+    max-width: 70px;
   }
 
-  .player-chips {
+  .player-stack {
     font-size: 10px;
+  }
+
+  .bet-chip {
+    font-size: 10px;
+    padding: 1px 6px;
   }
 }
 </style>
