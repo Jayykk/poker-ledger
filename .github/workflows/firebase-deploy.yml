@@ -15,8 +15,10 @@ on:
 jobs:
   deploy-functions:
     runs-on: ubuntu-latest
+    # 【關鍵修改 1】加入權限設定，允許與 Google 換證
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       
@@ -26,22 +28,35 @@ jobs:
           node-version: '18'
           cache: 'npm'          
           cache-dependency-path: functions/package-lock.json
+
       - name: Install Functions Dependencies
         run: |
           cd functions
           npm ci
       
-      - name: Deploy to Firebase
-        uses: w9jds/firebase-action@master
+      # 【關鍵修改 2】Google 身分驗證 (WIF)
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v2'
         with:
-          args: deploy --only functions --force
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          # 我們刚刚建立成功的 Provider ID
+          workload_identity_provider: 'projects/825053137358/locations/global/workloadIdentityPools/github-actions/providers/github-final'
+          # 你的 Service Account
+          service_account: 'firebase-adminsdk-fbsvc@poker-ledger-a0e06.iam.gserviceaccount.com'
+
+      # 【關鍵修改 3】安裝 Firebase 工具並部署
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy to Firebase Functions
+        run: firebase deploy --only functions --force
 
   deploy-hosting:
     runs-on: ubuntu-latest
+    # 【關鍵修改 1】這裡也要加權限
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       
@@ -50,6 +65,7 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'          
+          # 注意：這裡維持你原本的設定 (若 hosting 的依賴在根目錄，建議檢查一下 cache path 是否正確，但這裡我先不改壞它)
           cache-dependency-path: functions/package-lock.json
       
       - name: Install Dependencies
@@ -58,9 +74,17 @@ jobs:
       - name: Build
         run: npm run build
       
-      - name: Deploy to Firebase Hosting
-        uses: w9jds/firebase-action@master
+      # 【關鍵修改 2】Google 身分驗證 (Hosting 也要做一次)
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v2'
         with:
-          args: deploy --only hosting
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          workload_identity_provider: 'projects/825053137358/locations/global/workloadIdentityPools/github-actions/providers/github-final'
+          service_account: 'firebase-adminsdk-fbsvc@poker-ledger-a0e06.iam.gserviceaccount.com'
+
+      # 【關鍵修改 3】安裝工具並部署
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy to Firebase Hosting
+        run: firebase deploy --only hosting
