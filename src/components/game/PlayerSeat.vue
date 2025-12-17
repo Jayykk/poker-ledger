@@ -47,15 +47,27 @@
         <span class="bet-amount">${{ seat.currentBet }}</span>
       </div>
 
-      <!-- Hole Cards (only show for current player) -->
-      <div v-if="isMe && holeCards.length > 0" class="hole-cards">
+      <!-- Hole Cards (show for current player or during showdown) -->
+      <div v-if="shouldShowCards && holeCards.length > 0" class="hole-cards">
         <PlayingCard
           v-for="(card, i) in holeCards"
           :key="i"
           :card="card"
           size="mini"
+          :revealing="isShowdownRevealing"
+          :winning="isWinningCard(card)"
+          :losing="isLosingInShowdown"
         />
       </div>
+
+      <!-- Hand Result Badge (showdown only) -->
+      <HandResultBadge
+        v-if="showHandResult"
+        :show="showHandResult"
+        :hand-name="handResultName"
+        :amount="winAmount"
+        :is-winner="isWinner"
+      />
     </div>
 
     <!-- Empty Seat (Join Button) -->
@@ -76,6 +88,7 @@ import { usePokerGame } from '../../composables/usePokerGame.js';
 import { useAuthStore } from '../../store/modules/auth.js';
 import PlayingCard from './PlayingCard.vue';
 import TurnTimer from './TurnTimer.vue';
+import HandResultBadge from './HandResultBadge.vue';
 
 const props = defineProps({
   seat: {
@@ -109,7 +122,79 @@ const authStore = useAuthStore();
 const DEFAULT_TURN_TIMEOUT = 30;
 
 const holeCards = computed(() => {
-  return props.isMe ? myHoleCards.value : [];
+  // Show cards if it's my seat
+  if (props.isMe) return myHoleCards.value;
+
+  // Show cards during showdown for all active players
+  const gameStage = currentGame.value?.table?.stage;
+  const gameRound = currentGame.value?.table?.currentRound;
+  const isShowdown = gameStage === 'showdown_complete' || gameRound === 'showdown';
+
+  if (isShowdown && props.seat && props.seat.status !== 'folded') {
+    // Get cards from handResult
+    const handResult = currentGame.value?.table?.handResult;
+    if (handResult && handResult.allResults) {
+      const playerResult = handResult.allResults.find(
+        (r) => r.odId === props.seat.odId,
+      );
+      return playerResult?.holeCards || [];
+    }
+  }
+
+  return [];
+});
+
+// Check if we should show cards
+const shouldShowCards = computed(() => {
+  return holeCards.value.length > 0;
+});
+
+// Showdown-related computed properties
+const isShowdownRevealing = computed(() => {
+  const gameStage = currentGame.value?.table?.stage;
+  return gameStage === 'showdown_complete';
+});
+
+const showHandResult = computed(() => {
+  if (!props.seat) return false;
+  const gameStage = currentGame.value?.table?.stage;
+  const handResult = currentGame.value?.table?.handResult;
+  return gameStage === 'showdown_complete' && handResult;
+});
+
+const handResultName = computed(() => {
+  if (!showHandResult.value) return '';
+  const handResult = currentGame.value?.table?.handResult;
+  const playerResult = handResult.allResults?.find(
+    (r) => r.odId === props.seat.odId,
+  );
+  return playerResult?.handName || '';
+});
+
+const winAmount = computed(() => {
+  if (!showHandResult.value) return 0;
+  const handResult = currentGame.value?.table?.handResult;
+  const winner = handResult.winners?.find(
+    (w) => w.odId === props.seat.odId,
+  );
+  return winner?.amount || 0;
+});
+
+const isWinner = computed(() => {
+  return winAmount.value > 0;
+});
+
+const isWinningCard = (card) => {
+  if (!showHandResult.value || !isWinner.value) return false;
+  const handResult = currentGame.value?.table?.handResult;
+  const winner = handResult.winners?.find(
+    (w) => w.odId === props.seat.odId,
+  );
+  return winner?.winningCards?.includes(card) || false;
+};
+
+const isLosingInShowdown = computed(() => {
+  return showHandResult.value && !isWinner.value;
 });
 
 // Check if current user is already seated anywhere
