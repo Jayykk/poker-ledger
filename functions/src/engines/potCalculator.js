@@ -3,7 +3,8 @@
  * Calculates main pot and side pots for poker games
  */
 
-import { Hand } from 'pokersolver';
+import pokersolver from 'pokersolver';
+const { Hand } = pokersolver;
 
 /**
  * Calculate side pots for multiple all-in scenarios
