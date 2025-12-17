@@ -15,7 +15,7 @@ const backgroundImages = {
 
 export function useBackground() {
   const setBackground = (backgroundKey) => {
-    if (backgroundImages.hasOwnProperty(backgroundKey)) {
+    if (Object.hasOwn(backgroundImages, backgroundKey)) {
       currentBackground.value = backgroundKey;
     }
   };

@@ -456,10 +456,11 @@ const confirmRaise = () => {
   .quick-bet-buttons {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .quick-bet {
     min-height: 48px; /* Touch-friendly target */
     padding: 12px;
+    font-size: 12px;
   }
 }
 </style>

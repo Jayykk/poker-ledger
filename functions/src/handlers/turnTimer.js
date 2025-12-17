@@ -11,6 +11,8 @@ const DEFAULT_TURN_TIMEOUT = 30; // seconds
 const PROJECT_ID = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
 const LOCATION = process.env.CLOUD_TASKS_LOCATION || 'us-central1';
 const QUEUE_NAME = 'poker-turn-timeouts';
+const GRPC_NOT_FOUND = 5; // gRPC status code for NOT_FOUND
+const TIMEOUT_ACTION = 'fold'; // Action to perform on timeout
 
 // Initialize Cloud Tasks client
 let tasksClient = null;
@@ -84,7 +86,7 @@ export async function cancelTurnTimeoutTask(taskName) {
     console.log(`Cancelled turn timeout task: ${taskName}`);
   } catch (error) {
     // Task may have already executed or been deleted
-    if (error.code !== 5) { // NOT_FOUND
+    if (error.code !== GRPC_NOT_FOUND) {
       console.error('Error cancelling task:', error);
     }
   }
@@ -125,7 +127,7 @@ export async function handleTurnTimeout(gameId, playerId) {
 
     // Return success - the actual fold action will be handled by the HTTP endpoint
     // to avoid transaction issues
-    return { success: true, action: 'fold', playerId };
+    return { success: true, action: TIMEOUT_ACTION, playerId };
   });
 }
 

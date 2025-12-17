@@ -26,6 +26,9 @@ import {
   cancelTurnTimeoutTask,
 } from './handlers/turnTimer.js';
 
+// Constants
+const TIMEOUT_ACTION = 'fold';
+
 // Initialize Firebase Admin
 initializeApp();
 
@@ -376,8 +379,8 @@ export const handleTurnTimeout = onRequest(async (req, res) => {
 
     if (result.success) {
       // If timeout was valid, execute the fold action
-      await handlePlayerAction(gameId, playerId, 'fold', 0);
-      res.status(200).json({ success: true, action: 'fold' });
+      await handlePlayerAction(gameId, playerId, TIMEOUT_ACTION, 0);
+      res.status(200).json({ success: true, action: TIMEOUT_ACTION });
     } else {
       res.status(200).json({ success: false, reason: result.reason });
     }
