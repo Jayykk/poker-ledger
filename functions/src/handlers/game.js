@@ -10,7 +10,6 @@ import {
   dealFlop,
   dealTurnOrRiver,
   processAction,
-  calculateWinners,
 } from '../engines/texasHoldem.js';
 import { validateGameStart } from '../utils/validators.js';
 import { validatePlayerAction as validateAction } from '../engines/actionValidator.js';
@@ -300,20 +299,22 @@ async function advanceRound(game, transaction, gameRef) {
 
 /**
  * Handle showdown and distribute winnings
+ * Uses proper transaction ordering: READ → COMPUTE → WRITE
  * @param {Object} game - Current game state
  * @param {Object} transaction - Firestore transaction
  * @param {Object} gameRef - Game document reference
  * @return {Promise<Object>} Updated game state
  */
 async function handleShowdown(game, transaction, gameRef) {
+  const db = getFirestore();
+
+  // ===== READ PHASE =====
   // Get all hole cards - list documents and get them individually in transaction
-  // Note: listDocuments() gets references only (not data), which is safe.
-  // The actual data read happens with transaction.get() inside the transaction.
   const privateCollection = gameRef.collection('private');
   const privateDocs = await privateCollection.listDocuments();
   const holeCards = {};
 
-  // Get each document within the transaction
+  // Read each private document within the transaction
   for (const docRef of privateDocs) {
     const docSnap = await transaction.get(docRef);
     if (docSnap.exists) {
@@ -321,77 +322,137 @@ async function handleShowdown(game, transaction, gameRef) {
     }
   }
 
-  // Calculate winners
-  const result = calculateWinners(game, holeCards);
+  // Get active players who haven't folded (for showdown evaluation)
+  const activePlayers = Object.entries(game.seats)
+    .filter(([, seat]) => seat !== null && seat.status !== 'folded')
+    .map(([seatNum, seat]) => ({
+      odId: seat.odId,
+      odName: seat.odName,
+      seatNum: parseInt(seatNum, 10),
+      holeCards: holeCards[seat.odId] || [],
+      totalBet: seat.currentBet || 0,
+      chips: seat.chips,
+      status: seat.status,
+    }));
 
-  // Distribute pot among winners
-  const seats = { ...game.seats };
-  const amountPerWinner = Math.floor(result.pot / result.winners.length);
-  const remainder = result.pot % result.winners.length;
+  // Get ALL players who contributed to pot (including folded players for dead money)
+  const allContributors = Object.entries(game.seats)
+    .filter(([, seat]) => seat !== null && (seat.currentBet || 0) > 0)
+    .map(([seatNum, seat]) => ({
+      odId: seat.odId,
+      odName: seat.odName,
+      seatNum: parseInt(seatNum, 10),
+      totalBet: seat.currentBet || 0,
+      status: seat.status,
+    }));
 
-  // Find winner closest to dealer for remainder
-  let closestWinnerIndex = -1;
-  let minDistance = Infinity;
+  // Read user docs for statistics update (if they exist)
+  const userRefs = activePlayers.map((p) =>
+    db.collection('users').doc(p.odId),
+  );
+  const userDocs = await Promise.all(userRefs.map((ref) => transaction.get(ref)));
 
-  result.winners.forEach((winner, idx) => {
-    const seatEntry = Object.entries(seats)
-      .find(([, seat]) => seat && seat.odId === winner.playerId);
-    if (seatEntry) {
-      const [seatNum] = seatEntry;
+  // ===== COMPUTE PHASE =====
+  // 1. Calculate side pots (including dead money from folded players)
+  const { calculateSidePots, distributePots } = await import(
+    '../engines/potCalculator.js'
+  );
+  const { determineWinners } = await import('../utils/handEvaluator.js');
 
-      // 把總座位數先提出來，讓程式碼變短且更有效率 (不用算兩次)
-      const totalSeats = Object.keys(seats).length;
+  const pots = calculateSidePots(allContributors);
 
-      // 拆解計算公式，解決 max-len 問題
-      // (目標座位 - 莊家座位 + 總數) % 總數 = 順時針距離
-      const relativePos = parseInt(seatNum, 10) - game.table.dealerSeat;
-      const distance = (relativePos + totalSeats) % totalSeats;
+  // 2. Determine winners using pokersolver
+  const showdownResults = determineWinners(
+    activePlayers,
+    game.table.communityCards,
+  );
 
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestWinnerIndex = idx;
-      }
+  // 3. Distribute winnings from each pot
+  const winnings = distributePots(pots, showdownResults, activePlayers);
+
+  // 4. Update seats with winnings
+  const updatedSeats = { ...game.seats };
+  for (const [odId, amount] of Object.entries(winnings)) {
+    const seatNum = Object.keys(updatedSeats).find(
+      (key) => updatedSeats[key]?.odId === odId,
+    );
+    if (seatNum) {
+      updatedSeats[seatNum].chips += amount;
     }
+  }
+
+  // 5. Prepare hand result for display
+  const handResult = {
+    winners: showdownResults.winners.map((w) => ({
+      odId: w.odId,
+      odName: w.odName,
+      handName: w.name,
+      handDescr: w.descr,
+      winningCards: w.cards,
+      amount: winnings[w.odId] || 0,
+    })),
+    allResults: showdownResults.results.map((r) => ({
+      odId: r.odId,
+      odName: r.odName,
+      handName: r.name,
+      handDescr: r.descr,
+      cards: r.cards,
+      holeCards: activePlayers.find((p) => p.odId === r.odId)?.holeCards || [],
+    })),
+    pots,
+    timestamp: FieldValue.serverTimestamp(),
+  };
+
+  // 6. Prepare user statistics updates
+  const userUpdates = userDocs.map((doc, index) => {
+    const odId = activePlayers[index].odId;
+    const won = winnings[odId] || 0;
+    const isWinner = showdownResults.winners.some((w) => w.odId === odId);
+
+    return {
+      ref: userRefs[index],
+      exists: doc.exists,
+      data: {
+        'stats.handsPlayed': FieldValue.increment(1),
+        'stats.handsWon': FieldValue.increment(isWinner ? 1 : 0),
+        'stats.totalWinnings': FieldValue.increment(won),
+      },
+    };
   });
 
-  // Distribute chips
-  result.winners.forEach((winner, idx) => {
-    const seatEntry = Object.entries(seats)
-      .find(([, seat]) => seat && seat.odId === winner.playerId);
-    if (seatEntry) {
-      const [seatNum] = seatEntry;
-      let amount = amountPerWinner;
-      // Give remainder to closest winner to dealer
-      if (idx === closestWinnerIndex) {
-        amount += remainder;
-      }
-      seats[seatNum].chips += amount;
-    }
-  });
-
-  // Record result in hand history
+  // 7. Prepare hand history
   const bigBlind = game.meta?.blinds?.big || 20;
-  const potInBB = result.pot / bigBlind;
+  const potInBB = game.table.pot / bigBlind;
 
   // Check if this is a notable hand
-  const hasHighRank = result.winners.some((w) => w.hand.rank >= 6); // Full House or better
-  const hasLargePot = potInBB >= 50; // Pot >= 50BB
-  const hadAllIn = Object.values(game.seats)
-    .some((seat) => seat && seat.status === 'all_in');
-
+  const hasHighRank = showdownResults.winners.some((w) => w.rank >= 6);
+  const hasLargePot = potInBB >= 50;
+  const hadAllIn = activePlayers.some((p) => p.status === 'all_in');
   const isNotable = hasHighRank || hasLargePot || hadAllIn;
 
-  const handData = {
+  const handHistoryRef = gameRef
+    .collection('hands')
+    .doc(`hand_${game.handNumber}`);
+
+  const handHistoryData = {
+    handNumber: game.handNumber,
     communityCards: game.table.communityCards,
+    players: activePlayers.map((p) => {
+      const finalSeat = updatedSeats[p.seatNum];
+      return {
+        odId: p.odId,
+        odName: p.odName,
+        holeCards: p.holeCards,
+        finalChips: finalSeat ? finalSeat.chips : p.chips,
+      };
+    }),
+    actions: game.table.actionLog || [],
     result: {
-      winners: result.winners.map((w, idx) => ({
-        odId: w.playerId,
-        amount: amountPerWinner + (idx === closestWinnerIndex ? remainder : 0),
-        hand: w.hand.name,
-        handRank: w.hand.rank,
-      })),
-      pot: result.pot,
+      winners: handResult.winners,
+      allResults: handResult.allResults,
+      pot: game.table.pot,
       potInBB,
+      pots,
     },
     notable: isNotable,
     notableReasons: {
@@ -399,44 +460,61 @@ async function handleShowdown(game, transaction, gameRef) {
       largePot: hasLargePot,
       allIn: hadAllIn,
     },
+    timestamp: FieldValue.serverTimestamp(),
   };
 
-  // Save hole cards if notable hand or cards were shown
+  // Save player cards if notable
   if (isNotable) {
-    handData.playerCards = {};
+    handHistoryData.playerCards = {};
     Object.entries(holeCards).forEach(([playerId, cards]) => {
-      handData.playerCards[playerId] = cards;
+      handHistoryData.playerCards[playerId] = cards;
     });
-  }
-
-  // Save hand history to hands subcollection
-  const handRef = gameRef.collection('hands').doc(`hand_${game.handNumber}`);
-  transaction.set(handRef, handData, { merge: true });
-
-  // Clean up private hole cards after showdown
-  for (const docRef of privateDocs) {
-    transaction.delete(docRef);
   }
 
   // Check if game should end after this hand
   const shouldEndGame = game.meta?.pauseAfterHand === true;
-
   const finalStatus = shouldEndGame ? 'ended' : 'waiting';
 
-  // If game is ending, settle it
-  if (shouldEndGame) {
-    // Settle will be called separately via settlePokerGame
+  // ===== WRITE PHASE =====
+  // Update game state
+  transaction.update(gameRef, {
+    'seats': updatedSeats,
+    'table.pot': 0,
+    'table.stage': 'showdown_complete',
+    'table.currentRound': 'showdown',
+    'table.handResult': handResult,
+    'table.currentTurn': null,
+    'table.communityCards': game.table.communityCards, // Keep visible
+    'status': finalStatus,
+  });
+
+  // Update user statistics
+  userUpdates.forEach(({ ref, exists, data }) => {
+    if (exists) {
+      transaction.update(ref, data);
+    }
+  });
+
+  // Write hand history
+  transaction.set(handHistoryRef, handHistoryData);
+
+  // Clean up private hole cards
+  for (const docRef of privateDocs) {
+    transaction.delete(docRef);
   }
 
+  // Return updated game state
   return {
     ...game,
-    seats,
+    seats: updatedSeats,
     table: {
       ...game.table,
-      currentRound: 'showdown',
       pot: 0,
+      stage: 'showdown_complete',
+      currentRound: 'showdown',
+      handResult,
       currentTurn: null,
-      communityCards: game.table.communityCards, // Keep community cards visible
+      communityCards: game.table.communityCards,
     },
     status: finalStatus,
   };
