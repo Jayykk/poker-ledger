@@ -102,7 +102,7 @@ watch(() => props.round, (newRound, oldRound) => {
   } else if (oldRound === 'flop' && newRound === 'turn') {
     animateTurn();
   } else if (oldRound === 'turn' && newRound === 'river') {
-    animateTurn();
+    animateRiver();
   }
   previousRound = newRound;
 }, { immediate: false });
