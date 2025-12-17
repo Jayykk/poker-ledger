@@ -4,7 +4,8 @@
  */
 
 import { initializeApp } from 'firebase-admin/app';
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onCall, HttpsError, onRequest } from 'firebase-functions/v2/https';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { createRoom, joinSeat, leaveSeat, getRoom, deleteRoom, joinAsSpectator, leaveSpectator } from './handlers/room.js';
 import {
   startHand,
@@ -19,6 +20,11 @@ import {
   getMessages,
   deleteMessage,
 } from './handlers/chat.js';
+import {
+  handleTurnTimeout as handleTurnTimeoutHandler,
+  createTurnTimeoutTask,
+  cancelTurnTimeoutTask,
+} from './handlers/turnTimer.js';
 
 // Initialize Firebase Admin
 initializeApp();
@@ -341,5 +347,83 @@ export const leavePokerSpectator = onCall(async (request) => {
   } catch (error) {
     console.error('Error leaving spectator:', error);
     throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Handle turn timeout (called by Cloud Tasks)
+ * This endpoint is called by Cloud Tasks when a player's turn times out
+ */
+export const handleTurnTimeout = onRequest(async (req, res) => {
+  try {
+    // Verify it's a POST request
+    if (req.method !== 'POST') {
+      res.status(405).send('Method Not Allowed');
+      return;
+    }
+
+    const { gameId, playerId, timestamp } = req.body;
+    
+    if (!gameId || !playerId) {
+      res.status(400).send('Missing required parameters');
+      return;
+    }
+
+    console.log(`Turn timeout triggered for player ${playerId} in game ${gameId} (timestamp: ${timestamp})`);
+
+    // Process the timeout
+    const result = await handleTurnTimeoutHandler(gameId, playerId);
+    
+    if (result.success) {
+      // If timeout was valid, execute the fold action
+      await handlePlayerAction(gameId, playerId, 'fold', 0);
+      res.status(200).json({ success: true, action: 'fold' });
+    } else {
+      res.status(200).json({ success: false, reason: result.reason });
+    }
+  } catch (error) {
+    console.error('Error handling turn timeout:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Firestore trigger to manage turn timeout tasks
+ * Triggered when the game document is updated
+ */
+export const onTurnChange = onDocumentWritten('pokerGames/{gameId}', async (event) => {
+  const beforeData = event.data?.before?.data();
+  const afterData = event.data?.after?.data();
+  
+  if (!afterData) return; // Document deleted
+  
+  const gameId = event.params.gameId;
+  const beforeTurn = beforeData?.table?.currentTurn;
+  const afterTurn = afterData?.table?.currentTurn;
+  const turnTaskName = beforeData?.table?.currentTurnTaskName;
+  
+  // Check if the turn has changed
+  if (beforeTurn !== afterTurn && afterTurn) {
+    console.log(`Turn changed in game ${gameId}: ${beforeTurn} -> ${afterTurn}`);
+    
+    // Cancel previous turn's timeout task if it exists
+    if (turnTaskName) {
+      await cancelTurnTimeoutTask(turnTaskName);
+    }
+    
+    // Create new timeout task for the new turn
+    try {
+      const turnTimeout = afterData.table?.turnTimeout || 30;
+      const taskName = await createTurnTimeoutTask(gameId, afterTurn, turnTimeout);
+      
+      // Store the task name in Firestore so we can cancel it later
+      const { getFirestore } = await import('firebase-admin/firestore');
+      const db = getFirestore();
+      await db.collection('pokerGames').doc(gameId).update({
+        'table.currentTurnTaskName': taskName,
+      });
+    } catch (error) {
+      console.error('Error creating turn timeout task:', error);
+    }
   }
 });
