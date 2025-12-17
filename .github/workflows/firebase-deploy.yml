@@ -49,6 +49,31 @@ jobs:
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
+      - name: 🕵️ Detective - Check Auth Environment
+        run: |
+          echo "=== 1. Check Environment Variable ==="
+          if [ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+            echo "❌ ERROR: GOOGLE_APPLICATION_CREDENTIALS is NOT set!"
+          else
+            echo "✅ GOOGLE_APPLICATION_CREDENTIALS is set to: $GOOGLE_APPLICATION_CREDENTIALS"
+            
+            echo "=== 2. Check File Existence ==="
+            if [ -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+              echo "✅ Credential file exists."
+              echo "File content preview (first 2 lines):"
+              head -n 2 "$GOOGLE_APPLICATION_CREDENTIALS"
+            else
+              echo "❌ ERROR: The file at $GOOGLE_APPLICATION_CREDENTIALS does not exist!"
+            fi
+          fi
+
+      - name: 🕵️ Detective - Who Am I?
+        run: |
+          echo "=== 3. Verify Identity with Firebase CLI ==="
+          # 嘗試列出專案，這是最簡單的驗證方式
+          # 如果這步失敗，代表憑證無效或權限不足
+          firebase projects:list --debug
+          
       - name: Deploy to Firebase Functions
         run: firebase deploy --only functions --force --project poker-ledger-a0e06
 
@@ -86,6 +111,31 @@ jobs:
       # 【關鍵修改 3】安裝工具並部署
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
+
+      - name: 🕵️ Detective - Check Auth Environment
+        run: |
+          echo "=== 1. Check Environment Variable ==="
+          if [ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+            echo "❌ ERROR: GOOGLE_APPLICATION_CREDENTIALS is NOT set!"
+          else
+            echo "✅ GOOGLE_APPLICATION_CREDENTIALS is set to: $GOOGLE_APPLICATION_CREDENTIALS"
+            
+            echo "=== 2. Check File Existence ==="
+            if [ -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+              echo "✅ Credential file exists."
+              echo "File content preview (first 2 lines):"
+              head -n 2 "$GOOGLE_APPLICATION_CREDENTIALS"
+            else
+              echo "❌ ERROR: The file at $GOOGLE_APPLICATION_CREDENTIALS does not exist!"
+            fi
+          fi
+
+      - name: 🕵️ Detective - Who Am I?
+        run: |
+          echo "=== 3. Verify Identity with Firebase CLI ==="
+          # 嘗試列出專案，這是最簡單的驗證方式
+          # 如果這步失敗，代表憑證無效或權限不足
+          firebase projects:list --debug
 
       - name: Deploy to Firebase Hosting
         run: firebase deploy --only hosting --project poker-ledger-a0e06
