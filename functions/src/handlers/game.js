@@ -10,10 +10,9 @@ import {
   dealFlop,
   dealTurnOrRiver,
   processAction,
-  getNextPlayer,
   calculateWinners,
 } from '../engines/texasHoldem.js';
-import { validateGameStart, validatePlayerAction } from '../utils/validators.js';
+import { validateGameStart } from '../utils/validators.js';
 import { validatePlayerAction as validateAction } from '../engines/actionValidator.js';
 import {
   isLastManStanding,
@@ -177,7 +176,7 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
  */
 async function handleLastManStanding(transaction, gameRef, game) {
   const activePlayers = getActivePlayers(game);
-  
+
   if (activePlayers.length !== 1) {
     throw createGameError(GameErrorCodes.INVALID_ACTION, {
       message: 'Invalid last man standing state',

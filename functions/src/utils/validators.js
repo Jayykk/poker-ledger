@@ -3,8 +3,6 @@
  * Ensures game integrity and fair play
  */
 
-import { GameErrorCodes, createGameError } from '../errors/gameErrors.js';
-
 /**
  * Validate player action
  * @param {Object} game - Current game state

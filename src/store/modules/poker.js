@@ -226,6 +226,20 @@ export const usePokerStore = defineStore('poker', {
         return result.data.result;
       } catch (error) {
         console.error('Error performing action:', error);
+        
+        // Extract error code from Firebase Functions error
+        // Firebase Functions errors have the format: code/message
+        // For structured errors, the message is the error code
+        if (error.code === 'functions/failed-precondition') {
+          // This is a structured error, message contains the error code
+          const errorCode = error.message;
+          const enhancedError = new Error(errorCode);
+          enhancedError.code = errorCode;
+          enhancedError.details = error.details;
+          this.error = errorCode;
+          throw enhancedError;
+        }
+        
         this.error = error.message;
         throw error;
       }

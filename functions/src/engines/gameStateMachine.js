@@ -1,7 +1,7 @@
 /**
  * Game State Machine
  * Manages poker game state transitions
- * 
+ *
  * States:
  * WAITING -> DEALING -> PREFLOP -> FLOP -> TURN -> RIVER -> SHOWDOWN -> SETTLING -> WAITING
  *                                    |                                      ^
@@ -33,7 +33,7 @@ export const GameStates = {
 export function isLastManStanding(game) {
   const activePlayers = Object.values(game.seats)
     .filter((seat) => seat && seat.status === 'active');
-  
+
   return activePlayers.length === 1;
 }
 
@@ -64,17 +64,17 @@ export function getPlayersInHand(game) {
  */
 export function isRoundComplete(game) {
   const activePlayers = getActivePlayers(game);
-  
+
   // If only one or zero active players, round is complete
   if (activePlayers.length <= 1) {
     return true;
   }
-  
+
   // Check if all active players have matched the current bet
   const allMatched = activePlayers.every(
     (seat) => seat.currentBet === game.table.currentBet,
   );
-  
+
   return allMatched;
 }
 
@@ -85,20 +85,20 @@ export function isRoundComplete(game) {
  */
 export function getNextState(game) {
   const currentRound = game.table.currentRound;
-  
+
   // Check for last man standing
   if (isLastManStanding(game)) {
     return GameStates.LAST_MAN;
   }
-  
+
   // Check if all players are all-in (go straight to showdown)
   const playersInHand = getPlayersInHand(game);
   const allAllIn = playersInHand.every((seat) => seat.status === 'all_in');
-  
+
   if (allAllIn && playersInHand.length > 1) {
     return GameStates.SHOWDOWN;
   }
-  
+
   // Normal progression
   switch (currentRound) {
   case 'preflop':
@@ -151,10 +151,10 @@ export function getFirstToAct(game) {
   if (activePlayers.length === 0) return null;
 
   const dealerSeat = game.table.dealerSeat;
-  
+
   // Find first player after dealer
   let firstPlayer = activePlayers.find((p) => p.seatNum > dealerSeat);
-  
+
   // If no player after dealer, wrap around
   if (!firstPlayer) {
     firstPlayer = activePlayers[0];
@@ -167,6 +167,7 @@ export function getFirstToAct(game) {
  * Validate state transition
  * @param {string} currentState - Current game state
  * @param {string} nextState - Proposed next state
+ * @return {boolean} True if valid, throws error otherwise
  * @throws {Error} If transition is invalid
  */
 export function validateStateTransition(currentState, nextState) {
@@ -183,7 +184,7 @@ export function validateStateTransition(currentState, nextState) {
   };
 
   const allowed = validTransitions[currentState] || [];
-  
+
   if (!allowed.includes(nextState)) {
     throw createGameError(GameErrorCodes.INVALID_ACTION, {
       message: `Invalid state transition from ${currentState} to ${nextState}`,

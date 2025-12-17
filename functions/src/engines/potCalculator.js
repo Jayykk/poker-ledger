@@ -68,16 +68,16 @@ export function calculateSidePots(game) {
 export function distributePot(game, winners, holeCards) {
   const seats = { ...game.seats };
   const sidePots = calculateSidePots(game);
-  
+
   // If no side pots, distribute main pot equally
   if (sidePots.length === 0) {
     const totalPot = game.table.pot;
     const amountPerWinner = Math.floor(totalPot / winners.length);
     const remainder = totalPot % winners.length;
-    
+
     // Find winner closest to dealer for remainder
     const closestWinnerIndex = findClosestToDealer(game, winners, seats);
-    
+
     winners.forEach((winner, idx) => {
       const seatEntry = Object.entries(seats)
         .find(([, seat]) => seat && seat.odId === winner.playerId);
@@ -90,21 +90,21 @@ export function distributePot(game, winners, holeCards) {
         seats[seatNum].chips += amount;
       }
     });
-    
+
     return seats;
   }
-  
+
   // Distribute each side pot to eligible winners
   sidePots.forEach((pot) => {
-    const eligibleWinners = winners.filter((w) => 
+    const eligibleWinners = winners.filter((w) =>
       pot.eligiblePlayers.includes(w.playerId),
     );
-    
+
     if (eligibleWinners.length > 0) {
       const amountPerWinner = Math.floor(pot.amount / eligibleWinners.length);
       const remainder = pot.amount % eligibleWinners.length;
       const closestWinnerIndex = findClosestToDealer(game, eligibleWinners, seats);
-      
+
       eligibleWinners.forEach((winner, idx) => {
         const seatEntry = Object.entries(seats)
           .find(([, seat]) => seat && seat.odId === winner.playerId);
@@ -119,7 +119,7 @@ export function distributePot(game, winners, holeCards) {
       });
     }
   });
-  
+
   return seats;
 }
 

@@ -11,6 +11,7 @@ import { GameErrorCodes, createGameError } from '../errors/gameErrors.js';
  * @param {string} playerId - Player making the action
  * @param {string} action - Action type (fold, check, call, raise, all_in)
  * @param {number} amount - Bet amount (for raise)
+ * @return {boolean} True if valid, throws error otherwise
  * @throws {Error} Throws structured error if validation fails
  */
 export function validatePlayerAction(game, playerId, action, amount = 0) {
@@ -31,9 +32,9 @@ export function validatePlayerAction(game, playerId, action, amount = 0) {
   if (playerSeat.status === 'folded') {
     throw createGameError(GameErrorCodes.ALREADY_FOLDED);
   }
-  
+
   if (playerSeat.status === 'all_in') {
-    throw createGameError(GameErrorCodes.INVALID_PLAYER_STATUS, { 
+    throw createGameError(GameErrorCodes.INVALID_PLAYER_STATUS, {
       status: 'all_in',
       message: '你已經全下了',
     });
@@ -80,18 +81,18 @@ export function validatePlayerAction(game, playerId, action, amount = 0) {
         message: '加注金額必須大於0',
       });
     }
-    
+
     // Total bet must be at least minimum raise
     const totalBet = playerCurrentBet + amount;
     const minRaise = currentBet + (game.table.minRaise || game.meta.blinds.big);
-    
+
     if (totalBet < minRaise) {
       throw createGameError(GameErrorCodes.INVALID_RAISE_AMOUNT, {
         minRaise: minRaise - playerCurrentBet,
         provided: amount,
       });
     }
-    
+
     // Player must have enough chips
     if (amount > playerChips) {
       throw createGameError(GameErrorCodes.INSUFFICIENT_CHIPS, {
@@ -101,7 +102,7 @@ export function validatePlayerAction(game, playerId, action, amount = 0) {
     }
     return true;
   }
-  
+
   case 'all_in':
     // Always valid if player has chips
     if (playerChips <= 0) {
@@ -117,6 +118,7 @@ export function validatePlayerAction(game, playerId, action, amount = 0) {
 /**
  * Validate game can start
  * @param {Object} game - Game state
+ * @return {boolean} True if valid, throws error otherwise
  * @throws {Error} Throws structured error if validation fails
  */
 export function validateGameStart(game) {
