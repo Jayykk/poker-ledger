@@ -15,9 +15,11 @@ import {
 } from '../engines/texasHoldem.js';
 import { validateGameStart, validatePlayerAction } from '../utils/validators.js';
 import { addGameEvent } from '../lib/events.js';
+import { createTurnExpiresAt } from './turnTimer.js';
 
 // Constants
 const DEFAULT_BUY_IN = 1000;
+const DEFAULT_TURN_TIMEOUT = 30;
 
 /**
  * Start a new hand
@@ -49,12 +51,17 @@ export async function startHand(gameId) {
     // Deal hole cards
     const { game: updatedGame, holeCards } = dealHoleCards(game);
 
-    // Update game state with turnStartedAt merged into table
+    // Get turn timeout setting
+    const turnTimeout = updatedGame.table?.turnTimeout || DEFAULT_TURN_TIMEOUT;
+
+    // Update game state with turnStartedAt and turnExpiresAt merged into table
     const gameToUpdate = {
       ...updatedGame,
       table: {
         ...updatedGame.table,
         turnStartedAt: FieldValue.serverTimestamp(),
+        turnExpiresAt: createTurnExpiresAt(turnTimeout),
+        turnTimeout,
       },
     };
     transaction.update(gameRef, gameToUpdate);
@@ -137,12 +144,17 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
       game.table.currentTurn = nextTurn;
     }
 
-    // Update game state with turnStartedAt merged into table
+    // Get turn timeout setting
+    const turnTimeout = game.table?.turnTimeout || DEFAULT_TURN_TIMEOUT;
+
+    // Update game state with turnStartedAt and turnExpiresAt merged into table
     const gameToUpdate = {
       ...game,
       table: {
         ...game.table,
         turnStartedAt: FieldValue.serverTimestamp(),
+        turnExpiresAt: createTurnExpiresAt(turnTimeout),
+        turnTimeout,
       },
     };
     transaction.update(gameRef, gameToUpdate);
