@@ -11,8 +11,8 @@
     </div>
 
     <div v-else-if="currentGame" class="game-screen">
-      <!-- Game Header -->
-      <div class="game-header">
+      <!-- Top Bar (15vh) - Game Header -->
+      <div class="top-bar">
         <button @click="handleLeave" class="btn-leave">
           ← Leave Table
         </button>
@@ -48,8 +48,12 @@
         </div>
       </div>
 
-      <!-- Main Poker Table -->
-      <PokerTable />
+      <!-- Middle Section (70vh) - Poker Table -->
+      <div class="middle-section">
+        <PokerTable />
+      </div>
+
+      <!-- Bottom Bar (15vh) - Action Buttons (rendered inside PokerTable) -->
     </div>
   </div>
 </template>
@@ -232,15 +236,26 @@ const goBack = () => {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  height: 100vh;
 }
 
-.game-header {
+.top-bar {
+  height: 15vh;
+  min-height: 60px;
   background: rgba(0, 0, 0, 0.5);
   padding: 16px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.middle-section {
+  height: 70vh;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
 }
 
 .header-actions {
@@ -328,10 +343,12 @@ const goBack = () => {
 }
 
 @media (max-width: 768px) {
-  .game-header {
+  .top-bar {
     flex-direction: column;
     gap: 12px;
     padding: 12px 16px;
+    height: auto;
+    min-height: 80px;
   }
 
   .game-info {
