@@ -293,15 +293,16 @@ const handleAutoAction = async (action) => {
 }
 
 /* Poker Table - Just the green felt background, no children */
+/* Vertical ellipse for mobile portrait orientation */
 .poker-table {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 70%;
-  max-width: 900px;
-  height: 50%;
-  max-height: 500px;
+  width: 85%;
+  max-width: 380px;
+  height: 60vh;
+  max-height: 550px;
   background: radial-gradient(ellipse at center, #1a5c3a 0%, #0f3d26 50%, #0a2818 100%);
   border: 16px solid #8b6914;
   border-radius: 50%;
@@ -343,17 +344,18 @@ const handleAutoAction = async (action) => {
   z-index: 10;
 }
 
-/* 10-player seat positions arranged in oval around the table */
-.seat-0 { bottom: 8%; left: 50%; transform: translateX(-50%); }
-.seat-1 { bottom: 15%; left: 22%; }
-.seat-2 { top: 50%; left: 5%; transform: translateY(-50%); }
-.seat-3 { top: 28%; left: 12%; }
-.seat-4 { top: 15%; left: 30%; }
-.seat-5 { top: 10%; left: 50%; transform: translateX(-50%); }
-.seat-6 { top: 15%; right: 30%; }
-.seat-7 { top: 28%; right: 12%; }
-.seat-8 { top: 50%; right: 5%; transform: translateY(-50%); }
-.seat-9 { bottom: 15%; right: 22%; }
+/* 10-player seat positions for vertical ellipse layout */
+/* Hero (seat-0) at bottom center, seats distributed along left and right sides */
+.seat-0 { bottom: 2%; left: 50%; transform: translateX(-50%); }  /* Hero - bottom center */
+.seat-1 { bottom: 12%; left: 8%; }   /* Left-bottom */
+.seat-2 { bottom: 35%; left: 2%; }   /* Left-middle-bottom */
+.seat-3 { top: 35%; left: 2%; }      /* Left-middle-top */
+.seat-4 { top: 12%; left: 8%; }      /* Left-top */
+.seat-5 { top: 2%; left: 50%; transform: translateX(-50%); }     /* Top center */
+.seat-6 { top: 12%; right: 8%; }     /* Right-top */
+.seat-7 { top: 35%; right: 2%; }     /* Right-middle-top */
+.seat-8 { bottom: 35%; right: 2%; }  /* Right-middle-bottom */
+.seat-9 { bottom: 12%; right: 8%; }  /* Right-bottom */
 
 .action-controls {
   position: fixed;
@@ -402,20 +404,23 @@ const handleAutoAction = async (action) => {
 /* Responsive Design */
 @media (max-width: 768px) {
   .poker-table {
-    width: 95%;
-    height: 55vh;
+    width: 90%;
+    max-width: 340px;
+    height: 65vh;
+    max-height: 600px;
   }
 
-  .seat-0 { bottom: 3%; left: 50%; }
-  .seat-1 { bottom: 10%; left: 22%; }
-  .seat-2 { top: 48%; left: 3%; }
-  .seat-3 { top: 28%; left: 10%; }
-  .seat-4 { top: 12%; left: 30%; }
-  .seat-5 { top: 6%; left: 50%; }
-  .seat-6 { top: 12%; right: 30%; }
-  .seat-7 { top: 28%; right: 10%; }
-  .seat-8 { top: 48%; right: 3%; }
-  .seat-9 { bottom: 10%; right: 22%; }
+  /* Adjusted seat positions for smaller screens */
+  .seat-0 { bottom: 2%; left: 50%; }
+  .seat-1 { bottom: 10%; left: 6%; }
+  .seat-2 { bottom: 32%; left: 1%; }
+  .seat-3 { top: 32%; left: 1%; }
+  .seat-4 { top: 10%; left: 6%; }
+  .seat-5 { top: 2%; left: 50%; }
+  .seat-6 { top: 10%; right: 6%; }
+  .seat-7 { top: 32%; right: 1%; }
+  .seat-8 { bottom: 32%; right: 1%; }
+  .seat-9 { bottom: 10%; right: 6%; }
 }
 
 /* Buy-in Modal Styles */

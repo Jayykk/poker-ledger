@@ -69,7 +69,6 @@
         <div class="quick-bet-buttons">
           <button @click="setBetAmount(minBet)" :disabled="!isMyTurn" class="quick-bet">Min</button>
           <button @click="setBetAmount(halfPot)" :disabled="!isMyTurn" class="quick-bet">½ Pot</button>
-          <button @click="setBetAmount(threeFourthPot)" :disabled="!isMyTurn" class="quick-bet">¾ Pot</button>
           <button @click="setBetAmount(potSize)" :disabled="!isMyTurn" class="quick-bet">Pot</button>
           <button @click="setBetAmount(maxBet)" :disabled="!isMyTurn" class="quick-bet">All-In</button>
         </div>
@@ -176,6 +175,7 @@ const confirmRaise = () => {
   gap: 4px;
   padding: 16px 24px;
   min-width: 120px;
+  min-height: 48px; /* Touch-friendly minimum target */
   font-weight: bold;
   border: 3px solid transparent;
   border-radius: 12px;
@@ -247,35 +247,35 @@ const confirmRaise = () => {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
-/* Specific button colors when active */
+/* Specific button colors when active - using gradient backgrounds */
 .btn-fold.btn-active {
   border-color: rgba(244, 67, 54, 0.6);
-  background: rgba(244, 67, 54, 0.15);
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.2) 0%, rgba(211, 47, 47, 0.15) 100%);
 }
 
 .btn-fold.btn-active:hover {
-  background: rgba(244, 67, 54, 0.25);
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.3) 0%, rgba(211, 47, 47, 0.25) 100%);
   box-shadow: 0 8px 20px rgba(244, 67, 54, 0.4);
 }
 
 .btn-check.btn-active {
   border-color: rgba(76, 175, 80, 0.6);
-  background: rgba(76, 175, 80, 0.15);
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(56, 142, 60, 0.15) 100%);
 }
 
 .btn-check.btn-active:hover {
-  background: rgba(76, 175, 80, 0.25);
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.3) 0%, rgba(56, 142, 60, 0.25) 100%);
   box-shadow: 0 8px 20px rgba(76, 175, 80, 0.4);
 }
 
 .btn-call.btn-active {
-  border-color: rgba(33, 150, 243, 0.6);
-  background: rgba(33, 150, 243, 0.15);
+  border-color: rgba(76, 175, 80, 0.6);
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(56, 142, 60, 0.15) 100%);
 }
 
 .btn-call.btn-active:hover {
-  background: rgba(33, 150, 243, 0.25);
-  box-shadow: 0 8px 20px rgba(33, 150, 243, 0.4);
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.3) 0%, rgba(56, 142, 60, 0.25) 100%);
+  box-shadow: 0 8px 20px rgba(76, 175, 80, 0.4);
 }
 
 .btn-call.btn-active .btn-amount {
@@ -283,14 +283,14 @@ const confirmRaise = () => {
 }
 
 .btn-raise.btn-active {
-  border-color: rgba(255, 152, 0, 0.6);
-  background: rgba(255, 152, 0, 0.15);
+  border-color: rgba(255, 193, 7, 0.6);
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.2) 0%, rgba(255, 152, 0, 0.15) 100%);
 }
 
 .btn-raise.btn-active:hover,
 .btn-raise.btn-selected {
-  background: rgba(255, 152, 0, 0.25);
-  box-shadow: 0 8px 20px rgba(255, 152, 0, 0.4);
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.3) 0%, rgba(255, 152, 0, 0.25) 100%);
+  box-shadow: 0 8px 20px rgba(255, 193, 7, 0.4);
 }
 
 /* Bet Controls - appears above buttons */
@@ -356,7 +356,7 @@ const confirmRaise = () => {
 
 .quick-bet-buttons {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
 }
 
@@ -426,12 +426,13 @@ const confirmRaise = () => {
 /* Responsive */
 @media (max-width: 768px) {
   .main-buttons {
-    gap: 8px;
+    gap: 10px;
   }
 
   .btn {
-    min-width: 90px;
-    padding: 12px 16px;
+    min-width: 100px;
+    min-height: 48px; /* Ensure minimum touch target */
+    padding: 14px 18px;
   }
 
   .btn-icon {
@@ -439,7 +440,7 @@ const confirmRaise = () => {
   }
 
   .btn-label {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .bet-controls {
@@ -453,7 +454,12 @@ const confirmRaise = () => {
   }
 
   .quick-bet-buttons {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .quick-bet {
+    min-height: 48px; /* Touch-friendly target */
+    padding: 12px;
   }
 }
 </style>

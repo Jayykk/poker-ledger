@@ -33,10 +33,14 @@
         <span v-if="seat.status === 'all_in'" class="badge all-in">All-In</span>
       </div>
 
-      <!-- Turn Timer -->
-      <div v-if="isCurrentTurn && timeRemaining > 0" class="turn-timer">
-        <div class="timer-bar" :style="{ width: timerPercentage + '%' }"></div>
-        <span class="timer-text">{{ timeRemaining }}s</span>
+      <!-- Turn Timer with SVG circular progress -->
+      <div v-if="isCurrentTurn && turnExpiresAt" class="turn-timer">
+        <TurnTimer 
+          :expiresAt="turnExpiresAt"
+          :totalTime="turnTimeout"
+          :size="40"
+          :strokeWidth="4"
+        />
       </div>
 
       <!-- Hole Cards (only show for current player) -->
@@ -65,11 +69,12 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onBeforeUnmount } from 'vue';
+import { computed } from 'vue';
 import { usePokerGame } from '../../composables/usePokerGame.js';
 import { useAuthStore } from '../../store/modules/auth.js';
 import PlayingCard from './PlayingCard.vue';
 import DealerButton from './DealerButton.vue';
+import TurnTimer from './TurnTimer.vue';
 
 const props = defineProps({
   seat: {
@@ -96,7 +101,7 @@ const props = defineProps({
 
 const emit = defineEmits(['join-seat', 'auto-action']);
 
-const { myHoleCards, currentGame, canCheck, callAmount, currentBet } = usePokerGame();
+const { myHoleCards, currentGame } = usePokerGame();
 const authStore = useAuthStore();
 
 // Constants
@@ -114,48 +119,21 @@ const isAlreadySeated = computed(() => {
     .some((seat) => seat && seat.odId === userId);
 });
 
-// Timer logic
-const timeRemaining = ref(0);
+// Get turn timeout and expiration from Firestore
 const turnTimeout = computed(() => currentGame.value?.table?.turnTimeout || DEFAULT_TURN_TIMEOUT);
-let timerInterval = null;
-
-const timerPercentage = computed(() => {
-  return (timeRemaining.value / turnTimeout.value) * 100;
-});
-
-// Auto-action when timer reaches 0
-const handleTimeoutAction = () => {
-  if (props.isMe && props.isCurrentTurn) {
-    // Priority: CHECK if possible, otherwise FOLD
-    const action = canCheck.value ? 'check' : 'fold';
-    emit('auto-action', action);
+const turnExpiresAt = computed(() => {
+  // Get the expiresAt timestamp from Firestore (should be set when turn starts)
+  const expiresAt = currentGame.value?.table?.turnExpiresAt;
+  if (!expiresAt) return null;
+  
+  // Convert Firestore timestamp to milliseconds
+  if (expiresAt.toMillis) {
+    return expiresAt.toMillis();
   }
-};
-
-// Watch for turn changes
-watch(() => props.isCurrentTurn, (isTurn) => {
-  if (isTurn) {
-    // Start timer
-    timeRemaining.value = turnTimeout.value;
-    clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-      if (timeRemaining.value > 0) {
-        timeRemaining.value--;
-      } else {
-        clearInterval(timerInterval);
-        // Trigger auto-action when timer expires
-        handleTimeoutAction();
-      }
-    }, 1000);
-  } else {
-    // Clear timer
-    clearInterval(timerInterval);
-    timeRemaining.value = 0;
+  if (expiresAt.seconds) {
+    return expiresAt.seconds * 1000;
   }
-}, { immediate: true });
-
-onBeforeUnmount(() => {
-  clearInterval(timerInterval);
+  return expiresAt;
 });
 
 const handleJoinClick = () => {
@@ -290,32 +268,10 @@ const handleJoinClick = () => {
 }
 
 .turn-timer {
-  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-top: 8px;
-  height: 20px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.timer-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  background: linear-gradient(90deg, #4CAF50 0%, #FFC107 50%, #f44336 100%);
-  transition: width 1s linear;
-}
-
-.timer-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 12px;
-  font-weight: bold;
-  color: white;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .hole-cards {
