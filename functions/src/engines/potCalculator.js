@@ -9,18 +9,16 @@
  * @return {Array<Object>} Array of pots with eligible players
  */
 export function calculateSidePots(game) {
-  const seats = Object.values(game.seats).filter((seat) => seat !== null);
-
-  // Get all players who contributed to the pot
-  const players = seats
-    .map((seat, index) => ({
+  // Get all players who contributed to the pot, preserving seat numbers
+  const players = Object.entries(game.seats)
+    .filter(([, seat]) => seat !== null && (seat.currentBet || 0) > 0)
+    .map(([seatNum, seat]) => ({
       odId: seat.odId,
       odName: seat.odName,
-      seatNum: index,
+      seatNum: parseInt(seatNum, 10),
       totalBet: seat.currentBet || 0,
       status: seat.status,
     }))
-    .filter((p) => p.totalBet > 0)
     .sort((a, b) => a.totalBet - b.totalBet);
 
   if (players.length === 0) {

@@ -26,6 +26,15 @@ const ERROR_MESSAGES = {
   NOT_ENOUGH_PLAYERS: '至少需要2位玩家才能開始',
 };
 
+// Success message mapping
+const SUCCESS_MESSAGES = {
+  FOLD: '你棄牌了',
+  CHECK: '你過牌了',
+  CALL: '你跟注了',
+  RAISE: (amount) => `你加注了 ${amount}`,
+  ALL_IN: '你全下了！',
+};
+
 /**
  * Get user-friendly error message from error code
  * @param {string} code - Error code
@@ -45,7 +54,7 @@ export function useGameActions() {
   const fold = async () => {
     try {
       await pokerStore.performAction('fold');
-      success('你棄牌了');
+      success(SUCCESS_MESSAGES.FOLD);
     } catch (error) {
       const message = getErrorMessage(error.code);
       showError(message);
@@ -59,7 +68,7 @@ export function useGameActions() {
   const check = async () => {
     try {
       await pokerStore.performAction('check');
-      success('你過牌了');
+      success(SUCCESS_MESSAGES.CHECK);
     } catch (error) {
       const message = getErrorMessage(error.code);
       showError(message);
@@ -73,7 +82,7 @@ export function useGameActions() {
   const call = async () => {
     try {
       await pokerStore.performAction('call');
-      success('你跟注了');
+      success(SUCCESS_MESSAGES.CALL);
     } catch (error) {
       const message = getErrorMessage(error.code);
       showError(message);
@@ -87,7 +96,7 @@ export function useGameActions() {
   const raise = async (amount) => {
     try {
       await pokerStore.performAction('raise', amount);
-      success(`你加注了 ${amount}`);
+      success(SUCCESS_MESSAGES.RAISE(amount));
     } catch (error) {
       const message = getErrorMessage(error.code);
       showError(message);
@@ -101,7 +110,7 @@ export function useGameActions() {
   const allIn = async () => {
     try {
       await pokerStore.performAction('all_in');
-      success('你全下了！');
+      success(SUCCESS_MESSAGES.ALL_IN);
     } catch (error) {
       const message = getErrorMessage(error.code);
       showError(message);
