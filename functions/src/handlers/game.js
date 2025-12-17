@@ -53,7 +53,7 @@ export async function startHand(gameId) {
 
     // Get turn timeout setting
     const turnTimeout = updatedGame.table?.turnTimeout || DEFAULT_TURN_TIMEOUT;
-    
+
     // Update game state with turnStartedAt and turnExpiresAt merged into table
     const gameToUpdate = {
       ...updatedGame,

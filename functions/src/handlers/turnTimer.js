@@ -4,7 +4,7 @@
  */
 
 import { CloudTasksClient } from '@google-cloud/tasks';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
 
 // Constants
 const DEFAULT_TURN_TIMEOUT = 30; // seconds
@@ -15,6 +15,10 @@ const QUEUE_NAME = 'poker-turn-timeouts';
 // Initialize Cloud Tasks client
 let tasksClient = null;
 
+/**
+ * Get or initialize the Cloud Tasks client
+ * @return {CloudTasksClient} The Cloud Tasks client instance
+ */
 function getTasksClient() {
   if (!tasksClient) {
     tasksClient = new CloudTasksClient();
@@ -32,10 +36,10 @@ function getTasksClient() {
 export async function createTurnTimeoutTask(gameId, playerId, delaySeconds = DEFAULT_TURN_TIMEOUT) {
   try {
     const client = getTasksClient();
-    
+
     // Construct the fully qualified queue name
     const parent = client.queuePath(PROJECT_ID, LOCATION, QUEUE_NAME);
-    
+
     // Construct the task
     const task = {
       httpRequest: {
@@ -54,11 +58,11 @@ export async function createTurnTimeoutTask(gameId, playerId, delaySeconds = DEF
         seconds: Math.floor(Date.now() / 1000) + delaySeconds,
       },
     };
-    
+
     // Create the task
     const [response] = await client.createTask({ parent, task });
     console.log(`Created turn timeout task: ${response.name}`);
-    
+
     return response.name;
   } catch (error) {
     console.error('Error creating turn timeout task:', error);
@@ -73,7 +77,7 @@ export async function createTurnTimeoutTask(gameId, playerId, delaySeconds = DEF
  */
 export async function cancelTurnTimeoutTask(taskName) {
   if (!taskName) return;
-  
+
   try {
     const client = getTasksClient();
     await client.deleteTask({ name: taskName });
@@ -95,35 +99,32 @@ export async function cancelTurnTimeoutTask(taskName) {
 export async function handleTurnTimeout(gameId, playerId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
-  
+
   return db.runTransaction(async (transaction) => {
     const gameDoc = await transaction.get(gameRef);
-    
+
     if (!gameDoc.exists) {
       throw new Error('Game not found');
     }
-    
+
     const game = gameDoc.data();
-    
+
     // Verify it's still this player's turn
     if (game.table?.currentTurn !== playerId) {
       console.log(`Turn timeout ignored - no longer player's turn (${playerId})`);
       return { success: false, reason: 'not_current_turn' };
     }
-    
+
     // Check if game is still active
     if (game.status !== 'playing') {
       console.log(`Turn timeout ignored - game not active (${game.status})`);
       return { success: false, reason: 'game_not_active' };
     }
-    
+
     console.log(`Processing turn timeout for player ${playerId} in game ${gameId}`);
-    
-    // Import the action processor
-    const { handlePlayerAction } = await import('./game.js');
-    
-    // Auto-fold the player (this will advance the game)
-    // Note: We need to call this outside the transaction since it creates its own transaction
+
+    // Return success - the actual fold action will be handled by the HTTP endpoint
+    // to avoid transaction issues
     return { success: true, action: 'fold', playerId };
   });
 }

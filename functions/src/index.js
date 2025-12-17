@@ -363,7 +363,7 @@ export const handleTurnTimeout = onRequest(async (req, res) => {
     }
 
     const { gameId, playerId, timestamp } = req.body;
-    
+
     if (!gameId || !playerId) {
       res.status(400).send('Missing required parameters');
       return;
@@ -373,7 +373,7 @@ export const handleTurnTimeout = onRequest(async (req, res) => {
 
     // Process the timeout
     const result = await handleTurnTimeoutHandler(gameId, playerId);
-    
+
     if (result.success) {
       // If timeout was valid, execute the fold action
       await handlePlayerAction(gameId, playerId, 'fold', 0);
@@ -394,28 +394,28 @@ export const handleTurnTimeout = onRequest(async (req, res) => {
 export const onTurnChange = onDocumentWritten('pokerGames/{gameId}', async (event) => {
   const beforeData = event.data?.before?.data();
   const afterData = event.data?.after?.data();
-  
+
   if (!afterData) return; // Document deleted
-  
+
   const gameId = event.params.gameId;
   const beforeTurn = beforeData?.table?.currentTurn;
   const afterTurn = afterData?.table?.currentTurn;
   const turnTaskName = beforeData?.table?.currentTurnTaskName;
-  
+
   // Check if the turn has changed
   if (beforeTurn !== afterTurn && afterTurn) {
     console.log(`Turn changed in game ${gameId}: ${beforeTurn} -> ${afterTurn}`);
-    
+
     // Cancel previous turn's timeout task if it exists
     if (turnTaskName) {
       await cancelTurnTimeoutTask(turnTaskName);
     }
-    
+
     // Create new timeout task for the new turn
     try {
       const turnTimeout = afterData.table?.turnTimeout || 30;
       const taskName = await createTurnTimeoutTask(gameId, afterTurn, turnTimeout);
-      
+
       // Store the task name in Firestore so we can cancel it later
       const { getFirestore } = await import('firebase-admin/firestore');
       const db = getFirestore();
