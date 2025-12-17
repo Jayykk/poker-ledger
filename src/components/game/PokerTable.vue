@@ -282,29 +282,27 @@ const handleAutoAction = async (action) => {
 
 <style scoped>
 .poker-table-container {
-  position: fixed;
-  inset: 0;
   width: 100%;
-  height: 100vh;
-  height: 100dvh; /* Dynamic viewport height for mobile */
+  height: 100%;
+  position: relative;
   background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 50%, #0d1b2a 100%);
-  overflow: hidden; /* Prevent scrolling */
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-bottom: 140px; /* Reserve space for fixed action buttons */
-  touch-action: pan-x pan-y; /* Allow necessary gestures while preventing unwanted scrolling */
 }
 
-/* Poker Table - Smaller and more compact, moved up */
+/* Poker Table - 80% of middle section height, centered */
 .poker-table {
   position: absolute;
-  top: 35%; /* Moved up from 40% */
+  top: 40%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 75%;
-  max-width: 320px;
-  aspect-ratio: 3/4; /* Vertical ellipse */
+  width: min(56vh, 80vw); /* 80% of 70vh = 56vh */
+  height: min(56vh, 80vw);
+  max-width: 500px;
+  max-height: 500px;
+  aspect-ratio: 1;
   background: radial-gradient(ellipse at center, #1a5c3a 0%, #0f3d26 50%, #0a2818 100%);
   border: 12px solid #8b6914;
   border-radius: 50%;
@@ -332,7 +330,7 @@ const handleAutoAction = async (action) => {
 
 .community-cards-area {
   position: absolute;
-  top: 35%; /* Match table position */
+  top: 40%;
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
@@ -340,27 +338,26 @@ const handleAutoAction = async (action) => {
   pointer-events: none;
 }
 
-/* Position seats around the table - more compact positioning */
+/* Position seats around the circular table */
 .player-seat-wrapper {
   position: absolute;
   z-index: 10;
 }
 
-/* Compact 10-player seat positions - adjusted for table at 35% */
-/* Hero (seat-0) positioned above action buttons */
-.seat-0 { bottom: 150px; left: 50%; transform: translateX(-50%); }  /* Hero - above action buttons */
-.seat-1 { bottom: 25%; left: 10%; }   /* Left-bottom */
-.seat-2 { bottom: 42%; left: 3%; }    /* Left-middle-bottom */
-.seat-3 { top: 42%; left: 3%; }       /* Left-middle-top */
-.seat-4 { top: 25%; left: 10%; }      /* Left-top */
-.seat-5 { top: 12%; left: 50%; transform: translateX(-50%); }  /* Top center */
-.seat-6 { top: 25%; right: 10%; }     /* Right-top */
-.seat-7 { top: 42%; right: 3%; }      /* Right-middle-top */
-.seat-8 { bottom: 42%; right: 3%; }   /* Right-middle-bottom */
-.seat-9 { bottom: 25%; right: 10%; }  /* Right-bottom */
+/* 10-player seat positions around circular table at 40% */
+.seat-0 { bottom: 5%; left: 50%; transform: translateX(-50%); }  /* Hero - bottom center */
+.seat-1 { bottom: 15%; left: 15%; }   /* Bottom-left */
+.seat-2 { bottom: 35%; left: 5%; }    /* Left-middle-bottom */
+.seat-3 { top: 35%; left: 5%; }       /* Left-middle-top */
+.seat-4 { top: 15%; left: 15%; }      /* Top-left */
+.seat-5 { top: 5%; left: 50%; transform: translateX(-50%); }  /* Top center */
+.seat-6 { top: 15%; right: 15%; }     /* Top-right */
+.seat-7 { top: 35%; right: 5%; }      /* Right-middle-top */
+.seat-8 { bottom: 35%; right: 5%; }   /* Right-middle-bottom */
+.seat-9 { bottom: 15%; right: 15%; }  /* Bottom-right */
 
 .action-controls {
-  position: fixed;
+  position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
@@ -368,7 +365,7 @@ const handleAutoAction = async (action) => {
 }
 
 .start-hand-controls {
-  position: fixed;
+  position: absolute;
   bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
@@ -405,33 +402,25 @@ const handleAutoAction = async (action) => {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .poker-table-container {
-    padding-bottom: 160px; /* More space for action buttons on mobile */
-    -webkit-overflow-scrolling: none; /* Disable momentum scrolling on iOS */
-  }
-
   .poker-table {
-    width: 80%;
-    max-width: 280px;
-    top: 35%; /* Keep consistent */
+    width: min(56vh, 85vw);
+    height: min(56vh, 85vw);
+    max-width: 400px;
+    max-height: 400px;
     border-width: 10px;
   }
 
-  .community-cards-area {
-    top: 35%; /* Keep consistent */
-  }
-
   /* Adjusted seat positions for smaller screens */
-  .seat-0 { bottom: 170px; left: 50%; }
-  .seat-1 { bottom: 27%; left: 8%; }
-  .seat-2 { bottom: 40%; left: 2%; }
-  .seat-3 { top: 40%; left: 2%; }
-  .seat-4 { top: 27%; left: 8%; }
-  .seat-5 { top: 14%; left: 50%; }
-  .seat-6 { top: 27%; right: 8%; }
-  .seat-7 { top: 40%; right: 2%; }
-  .seat-8 { bottom: 40%; right: 2%; }
-  .seat-9 { bottom: 27%; right: 8%; }
+  .seat-0 { bottom: 3%; }
+  .seat-1 { bottom: 12%; left: 12%; }
+  .seat-2 { bottom: 32%; left: 3%; }
+  .seat-3 { top: 32%; left: 3%; }
+  .seat-4 { top: 12%; left: 12%; }
+  .seat-5 { top: 3%; }
+  .seat-6 { top: 12%; right: 12%; }
+  .seat-7 { top: 32%; right: 3%; }
+  .seat-8 { bottom: 32%; right: 3%; }
+  .seat-9 { bottom: 12%; right: 12%; }
 
   .btn-primary {
     padding: 10px 24px;

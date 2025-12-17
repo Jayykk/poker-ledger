@@ -192,19 +192,27 @@ const cardClass = computed(() => {
   font-size: 20px;
 }
 
-/* Winning card highlight */
+/* Winning card highlight - enhanced gold pulse */
 .card-winning {
-  animation: winGlow 1s ease-in-out infinite alternate;
+  animation: winGlow 1.5s ease-in-out infinite;
 }
 
 .card-winning .card-front {
-  box-shadow: 0 0 20px 5px rgba(255, 215, 0, 0.8);
-  border: 2px solid #ffd700;
+  box-shadow: 
+    0 0 20px 5px rgba(255, 215, 0, 0.9),
+    0 0 40px 10px rgba(255, 215, 0, 0.6);
+  border: 3px solid #ffd700;
 }
 
 @keyframes winGlow {
-  from { filter: brightness(1); }
-  to { filter: brightness(1.2); }
+  0%, 100% { 
+    filter: brightness(1);
+    transform: scale(1);
+  }
+  50% { 
+    filter: brightness(1.3);
+    transform: scale(1.05);
+  }
 }
 
 /* Losing card (dimmed) */

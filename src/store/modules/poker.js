@@ -12,6 +12,7 @@ import {
   query,
   where,
   getDocs,
+  updateDoc,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuthStore } from './auth.js';
@@ -321,12 +322,12 @@ export const usePokerStore = defineStore('poker', {
           if (gameData.status === 'ended' && !gameData.completedAt && !gameData.settling) {
             try {
               // Mark as settling to prevent race conditions
-              await doc(db, 'pokerGames', gameId).update({ settling: true });
+              await updateDoc(doc(db, 'pokerGames', gameId), { settling: true });
               await this.settleGame(gameId);
             } catch (error) {
               console.error('Auto-settle failed:', error);
               // Clear settling flag on error
-              await doc(db, 'pokerGames', gameId).update({ settling: false });
+              await updateDoc(doc(db, 'pokerGames', gameId), { settling: false });
             }
           }
         }
