@@ -3,7 +3,8 @@
  * Evaluates poker hands and determines winners using pokersolver
  */
 
-import { Hand } from 'pokersolver';
+import pokersolver from 'pokersolver';
+const { Hand } = pokersolver;
 
 // Hand rankings (higher is better) - kept for backward compatibility
 export const HAND_RANKINGS = {
