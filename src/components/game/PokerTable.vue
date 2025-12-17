@@ -282,7 +282,8 @@ const handleAutoAction = async (action) => {
 
 <style scoped>
 .poker-table-container {
-  position: relative;
+  position: fixed;
+  inset: 0;
   width: 100%;
   height: 100vh;
   height: 100dvh; /* Dynamic viewport height for mobile */
@@ -294,10 +295,10 @@ const handleAutoAction = async (action) => {
   padding-bottom: 140px; /* Reserve space for fixed action buttons */
 }
 
-/* Poker Table - Smaller and more compact */
+/* Poker Table - Smaller and more compact, moved up */
 .poker-table {
   position: absolute;
-  top: 50%;
+  top: 40%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: 75%;
@@ -331,7 +332,7 @@ const handleAutoAction = async (action) => {
 
 .community-cards-area {
   position: absolute;
-  top: 50%;
+  top: 40%;
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;

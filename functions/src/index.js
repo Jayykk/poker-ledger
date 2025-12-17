@@ -127,6 +127,12 @@ export const startPokerHand = onCall(async (request) => {
     return { success: true, result };
   } catch (error) {
     console.error('Error starting hand:', error);
+    
+    // Return structured error if available
+    if (error.code && error.details) {
+      throw new HttpsError('failed-precondition', error.code, error.details);
+    }
+    
     throw new HttpsError('internal', error.message);
   }
 });
@@ -147,6 +153,12 @@ export const pokerPlayerAction = onCall(async (request) => {
     return { success: true, result };
   } catch (error) {
     console.error('Error processing action:', error);
+    
+    // Return structured error if available
+    if (error.code && error.details) {
+      throw new HttpsError('failed-precondition', error.code, error.details);
+    }
+    
     throw new HttpsError('internal', error.message);
   }
 });
