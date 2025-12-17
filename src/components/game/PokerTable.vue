@@ -293,22 +293,22 @@ const handleAutoAction = async (action) => {
   align-items: center;
   justify-content: center;
   padding-bottom: 140px; /* Reserve space for fixed action buttons */
+  touch-action: pan-x pan-y; /* Allow necessary gestures while preventing unwanted scrolling */
 }
 
 /* Poker Table - Smaller and more compact, moved up */
 .poker-table {
   position: absolute;
-  top: 40%;
+  top: 35%; /* Moved up from 40% */
   left: 50%;
   transform: translate(-50%, -50%);
   width: 75%;
   max-width: 320px;
-  height: 45vh;
-  max-height: 400px;
+  aspect-ratio: 3/4; /* Vertical ellipse */
   background: radial-gradient(ellipse at center, #1a5c3a 0%, #0f3d26 50%, #0a2818 100%);
   border: 12px solid #8b6914;
   border-radius: 50%;
-  box-shadow: 
+  box-shadow:
     inset 0 0 60px rgba(0, 0, 0, 0.8),
     inset 0 -15px 30px rgba(0, 0, 0, 0.4),
     0 10px 40px rgba(0, 0, 0, 0.9),
@@ -332,7 +332,7 @@ const handleAutoAction = async (action) => {
 
 .community-cards-area {
   position: absolute;
-  top: 40%;
+  top: 35%; /* Match table position */
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
@@ -346,18 +346,18 @@ const handleAutoAction = async (action) => {
   z-index: 10;
 }
 
-/* Compact 10-player seat positions */
+/* Compact 10-player seat positions - adjusted for table at 35% */
 /* Hero (seat-0) positioned above action buttons */
 .seat-0 { bottom: 150px; left: 50%; transform: translateX(-50%); }  /* Hero - above action buttons */
-.seat-1 { bottom: 20%; left: 10%; }   /* Left-bottom */
-.seat-2 { bottom: 40%; left: 3%; }    /* Left-middle-bottom */
-.seat-3 { top: 40%; left: 3%; }       /* Left-middle-top */
-.seat-4 { top: 20%; left: 10%; }      /* Left-top */
-.seat-5 { top: 10%; left: 50%; transform: translateX(-50%); }  /* Top center */
-.seat-6 { top: 20%; right: 10%; }     /* Right-top */
-.seat-7 { top: 40%; right: 3%; }      /* Right-middle-top */
-.seat-8 { bottom: 40%; right: 3%; }   /* Right-middle-bottom */
-.seat-9 { bottom: 20%; right: 10%; }  /* Right-bottom */
+.seat-1 { bottom: 25%; left: 10%; }   /* Left-bottom */
+.seat-2 { bottom: 42%; left: 3%; }    /* Left-middle-bottom */
+.seat-3 { top: 42%; left: 3%; }       /* Left-middle-top */
+.seat-4 { top: 25%; left: 10%; }      /* Left-top */
+.seat-5 { top: 12%; left: 50%; transform: translateX(-50%); }  /* Top center */
+.seat-6 { top: 25%; right: 10%; }     /* Right-top */
+.seat-7 { top: 42%; right: 3%; }      /* Right-middle-top */
+.seat-8 { bottom: 42%; right: 3%; }   /* Right-middle-bottom */
+.seat-9 { bottom: 25%; right: 10%; }  /* Right-bottom */
 
 .action-controls {
   position: fixed;
@@ -407,27 +407,31 @@ const handleAutoAction = async (action) => {
 @media (max-width: 768px) {
   .poker-table-container {
     padding-bottom: 160px; /* More space for action buttons on mobile */
+    -webkit-overflow-scrolling: none; /* Disable momentum scrolling on iOS */
   }
 
   .poker-table {
     width: 80%;
     max-width: 280px;
-    height: 40vh;
-    max-height: 350px;
+    top: 35%; /* Keep consistent */
     border-width: 10px;
+  }
+
+  .community-cards-area {
+    top: 35%; /* Keep consistent */
   }
 
   /* Adjusted seat positions for smaller screens */
   .seat-0 { bottom: 170px; left: 50%; }
-  .seat-1 { bottom: 22%; left: 8%; }
-  .seat-2 { bottom: 38%; left: 2%; }
-  .seat-3 { top: 38%; left: 2%; }
-  .seat-4 { top: 22%; left: 8%; }
-  .seat-5 { top: 12%; left: 50%; }
-  .seat-6 { top: 22%; right: 8%; }
-  .seat-7 { top: 38%; right: 2%; }
-  .seat-8 { bottom: 38%; right: 2%; }
-  .seat-9 { bottom: 22%; right: 8%; }
+  .seat-1 { bottom: 27%; left: 8%; }
+  .seat-2 { bottom: 40%; left: 2%; }
+  .seat-3 { top: 40%; left: 2%; }
+  .seat-4 { top: 27%; left: 8%; }
+  .seat-5 { top: 14%; left: 50%; }
+  .seat-6 { top: 27%; right: 8%; }
+  .seat-7 { top: 40%; right: 2%; }
+  .seat-8 { bottom: 40%; right: 2%; }
+  .seat-9 { bottom: 27%; right: 8%; }
 
   .btn-primary {
     padding: 10px 24px;

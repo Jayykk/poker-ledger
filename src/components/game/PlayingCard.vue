@@ -3,16 +3,28 @@
     class="playing-card"
     :class="[
       cardClass,
-      { 'card-hidden': hidden, 'card-small': size === 'small', 'card-mini': size === 'mini' }
+      {
+        'card-hidden': hidden,
+        'card-small': size === 'small',
+        'card-mini': size === 'mini',
+        'card-revealing': revealing,
+        'card-winning': winning,
+        'card-losing': losing,
+      }
     ]"
   >
-    <template v-if="!hidden && parsedCard">
-      <div class="card-rank">{{ parsedCard.rank }}</div>
-      <div class="card-suit" :class="suitColorClass">{{ parsedCard.suitSymbol }}</div>
-    </template>
-    <template v-else>
-      <div class="card-back">?</div>
-    </template>
+    <div class="card-inner">
+      <!-- Card Front (Face) -->
+      <div class="card-front" v-if="parsedCard">
+        <div class="card-rank">{{ parsedCard.rank }}</div>
+        <div class="card-suit" :class="suitColorClass">{{ parsedCard.suitSymbol }}</div>
+      </div>
+
+      <!-- Card Back -->
+      <div class="card-back">
+        <div class="card-back-pattern">?</div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -32,6 +44,18 @@ const props = defineProps({
     type: String,
     default: 'normal', // 'normal', 'small', 'mini'
     validator: (value) => ['normal', 'small', 'mini'].includes(value),
+  },
+  revealing: {
+    type: Boolean,
+    default: false,
+  },
+  winning: {
+    type: Boolean,
+    default: false,
+  },
+  losing: {
+    type: Boolean,
+    default: false,
   },
 });
 
@@ -91,17 +115,9 @@ const cardClass = computed(() => {
 <style scoped>
 .playing-card {
   position: relative;
-  background: white;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-  transition: transform 0.3s ease;
   width: 60px;
   height: 84px;
-  font-weight: bold;
+  perspective: 1000px;
   user-select: none;
 }
 
@@ -115,33 +131,94 @@ const cardClass = computed(() => {
   height: 50px;
 }
 
-.playing-card:hover:not(.card-hidden) {
-  transform: translateY(-4px);
+/* Card Inner Container for 3D Flip */
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s ease;
 }
 
-.playing-card.card-hidden {
-  background: linear-gradient(135deg, #2c5f3f 0%, #1a3d28 100%);
-  cursor: default;
+/* Default state - face down (rotated 180deg) */
+.card-hidden .card-inner {
+  transform: rotateY(180deg);
 }
 
-.card-face {
+/* Revealing animation - overrides hidden state */
+.card-revealing .card-inner {
+  animation: flipCard 0.6s ease forwards;
+  /* Animation overrides the transform from card-hidden */
+}
+
+@keyframes flipCard {
+  0% { transform: rotateY(180deg); }
+  100% { transform: rotateY(0deg); }
+}
+
+/* Card Front and Back Faces */
+.card-front,
+.card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  font-weight: bold;
+}
+
+.card-front {
   background: white;
   color: #000;
-}
-
-.card-back-style {
-  background: linear-gradient(135deg, #2c5f3f 0%, #1a3d28 100%);
+  transform: rotateY(0deg);
 }
 
 .card-back {
+  background: linear-gradient(135deg, #2c5f3f 0%, #1a3d28 100%);
+  transform: rotateY(180deg);
+}
+
+.card-back-pattern {
   font-size: 32px;
   color: #1a3d28;
 }
 
-.playing-card.card-mini .card-back {
+.playing-card.card-mini .card-back-pattern {
   font-size: 20px;
 }
 
+/* Winning card highlight */
+.card-winning {
+  animation: winGlow 1s ease-in-out infinite alternate;
+}
+
+.card-winning .card-front {
+  box-shadow: 0 0 20px 5px rgba(255, 215, 0, 0.8);
+  border: 2px solid #ffd700;
+}
+
+@keyframes winGlow {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.2); }
+}
+
+/* Losing card (dimmed) */
+.card-losing .card-front {
+  opacity: 0.4;
+  filter: grayscale(50%);
+}
+
+/* Hover effect (only for non-hidden cards) */
+.playing-card:not(.card-hidden):hover .card-inner {
+  transform: translateY(-4px);
+}
+
+/* Card content */
 .card-rank {
   font-size: 24px;
   line-height: 1;
@@ -192,7 +269,7 @@ const cardClass = computed(() => {
     font-size: 22px;
   }
 
-  .card-back {
+  .card-back-pattern {
     font-size: 24px;
   }
 }

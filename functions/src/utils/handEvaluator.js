@@ -1,11 +1,11 @@
 /**
  * Hand Evaluator for Texas Hold'em Poker
- * Evaluates poker hands and determines winners
+ * Evaluates poker hands and determines winners using pokersolver
  */
 
-import { RANKS } from './deck.js';
+import { Hand } from 'pokersolver';
 
-// Hand rankings (higher is better)
+// Hand rankings (higher is better) - kept for backward compatibility
 export const HAND_RANKINGS = {
   HIGH_CARD: 0,
   ONE_PAIR: 1,
@@ -33,267 +33,96 @@ export const HAND_NAMES = {
 };
 
 /**
- * Parse card string
- * @param {string} card - Card like 'As' or 'Kh'
- * @return {{ rank: string, suit: string }}
+ * Convert card format from our notation to pokersolver format
+ * Both use the same format (e.g., 'As', 'Kh'), so just pass through
+ * @param {string} card - Card in our format
+ * @return {string} Card in pokersolver format
  */
-function parseCard(card) {
-  const rank = card.slice(0, -1);
-  const suit = card.slice(-1);
-  return { rank, suit };
+function convertCardFormat(card) {
+  // pokersolver and our format are the same, just return as-is
+  return card;
 }
 
 /**
- * Get numeric value for rank
- * @param {string} rank - Card rank
- * @return {number} Numeric value (2-14, Ace=14)
+ * Calculate player's best hand using pokersolver
+ * @param {string[]} holeCards - Player's hole cards ['Ah', 'Kd']
+ * @param {string[]} communityCards - Community cards ['Qs', 'Jc', 'Tc', '2h', '5d']
+ * @return {Object} { hand, cards, name, descr, rank }
  */
-function getRankValue(rank) {
-  const index = RANKS.indexOf(rank);
-  if (index === -1) return 0;
-  return index === 0 ? 14 : index + 1; // Ace is highest (14)
-}
+export function evaluateHand(holeCards, communityCards = []) {
+  const allCards = [...holeCards, ...communityCards].map(convertCardFormat);
+  const hand = Hand.solve(allCards);
 
-/**
- * Count card ranks
- * @param {Array} cards - Array of card objects
- * @return {Object} Map of rank to count
- */
-function countRanks(cards) {
-  const counts = {};
-  cards.forEach((card) => {
-    counts[card.rank] = (counts[card.rank] || 0) + 1;
-  });
-  return counts;
-}
-
-/**
- * Count card suits
- * @param {Array} cards - Array of card objects
- * @return {Object} Map of suit to count
- */
-function countSuits(cards) {
-  const counts = {};
-  cards.forEach((card) => {
-    counts[card.suit] = (counts[card.suit] || 0) + 1;
-  });
-  return counts;
-}
-
-/**
- * Check for flush
- * @param {Array} cards - Array of card objects
- * @return {boolean}
- */
-function isFlush(cards) {
-  const suitCounts = countSuits(cards);
-  return Object.values(suitCounts).some((count) => count >= 5);
-}
-
-/**
- * Check for straight
- * @param {Array} cards - Array of card objects
- * @return {{ isStraight: boolean, highCard: number }}
- */
-function isStraight(cards) {
-  const values = cards.map((c) => getRankValue(c.rank)).sort((a, b) => b - a);
-  const uniqueValues = [...new Set(values)];
-
-  // Check for regular straight
-  for (let i = 0; i <= uniqueValues.length - 5; i++) {
-    if (uniqueValues[i] - uniqueValues[i + 4] === 4) {
-      return { isStraight: true, highCard: uniqueValues[i] };
-    }
-  }
-
-  // Check for A-2-3-4-5 (wheel)
-  if (uniqueValues.includes(14) && uniqueValues.includes(5) &&
-      uniqueValues.includes(4) && uniqueValues.includes(3) &&
-      uniqueValues.includes(2)) {
-    return { isStraight: true, highCard: 5 }; // 5 is high in wheel
-  }
-
-  return { isStraight: false, highCard: 0 };
-}
-
-/**
- * Evaluate best 5-card hand from 7 cards
- * @param {string[]} cardStrings - Array of card strings
- * @return {{ rank: number, name: string, value: number[] }}
- */
-export function evaluateHand(cardStrings) {
-  const cards = cardStrings.map(parseCard);
-  const rankCounts = countRanks(cards);
-  const suitCounts = countSuits(cards);
-
-  // Get rank frequencies
-  const frequencies = Object.entries(rankCounts)
-    .map(([rank, count]) => ({ rank, count, value: getRankValue(rank) }))
-    .sort((a, b) => b.count - a.count || b.value - a.value);
-
-  const hasFlush = isFlush(cards);
-  const straightResult = isStraight(cards);
-
-  // Royal Flush: A-K-Q-J-10 suited
-  if (hasFlush && straightResult.isStraight && straightResult.highCard === 14) {
-    return {
-      rank: HAND_RANKINGS.ROYAL_FLUSH,
-      name: HAND_NAMES[HAND_RANKINGS.ROYAL_FLUSH],
-      value: [14],
-    };
-  }
-
-  // Straight Flush
-  if (hasFlush && straightResult.isStraight) {
-    return {
-      rank: HAND_RANKINGS.STRAIGHT_FLUSH,
-      name: HAND_NAMES[HAND_RANKINGS.STRAIGHT_FLUSH],
-      value: [straightResult.highCard],
-    };
-  }
-
-  // Four of a Kind
-  if (frequencies[0].count === 4) {
-    return {
-      rank: HAND_RANKINGS.FOUR_OF_KIND,
-      name: HAND_NAMES[HAND_RANKINGS.FOUR_OF_KIND],
-      value: [frequencies[0].value, frequencies[1].value],
-    };
-  }
-
-  // Full House
-  if (frequencies[0].count === 3 && frequencies[1].count >= 2) {
-    return {
-      rank: HAND_RANKINGS.FULL_HOUSE,
-      name: HAND_NAMES[HAND_RANKINGS.FULL_HOUSE],
-      value: [frequencies[0].value, frequencies[1].value],
-    };
-  }
-
-  // Flush
-  if (hasFlush) {
-    const flushSuit = Object.entries(suitCounts)
-      .find(([, count]) => count >= 5)[0];
-    const flushCards = cards
-      .filter((c) => c.suit === flushSuit)
-      .map((c) => getRankValue(c.rank))
-      .sort((a, b) => b - a)
-      .slice(0, 5);
-    return {
-      rank: HAND_RANKINGS.FLUSH,
-      name: HAND_NAMES[HAND_RANKINGS.FLUSH],
-      value: flushCards,
-    };
-  }
-
-  // Straight
-  if (straightResult.isStraight) {
-    return {
-      rank: HAND_RANKINGS.STRAIGHT,
-      name: HAND_NAMES[HAND_RANKINGS.STRAIGHT],
-      value: [straightResult.highCard],
-    };
-  }
-
-  // Three of a Kind
-  if (frequencies[0].count === 3) {
-    return {
-      rank: HAND_RANKINGS.THREE_OF_KIND,
-      name: HAND_NAMES[HAND_RANKINGS.THREE_OF_KIND],
-      value: [
-        frequencies[0].value,
-        frequencies[1].value,
-        frequencies[2].value,
-      ],
-    };
-  }
-
-  // Two Pair
-  if (frequencies[0].count === 2 && frequencies[1].count === 2) {
-    return {
-      rank: HAND_RANKINGS.TWO_PAIR,
-      name: HAND_NAMES[HAND_RANKINGS.TWO_PAIR],
-      value: [
-        frequencies[0].value,
-        frequencies[1].value,
-        frequencies[2].value,
-      ],
-    };
-  }
-
-  // One Pair
-  if (frequencies[0].count === 2) {
-    return {
-      rank: HAND_RANKINGS.ONE_PAIR,
-      name: HAND_NAMES[HAND_RANKINGS.ONE_PAIR],
-      value: [
-        frequencies[0].value,
-        frequencies[1].value,
-        frequencies[2].value,
-        frequencies[3].value,
-      ],
-    };
-  }
-
-  // High Card
   return {
-    rank: HAND_RANKINGS.HIGH_CARD,
-    name: HAND_NAMES[HAND_RANKINGS.HIGH_CARD],
-    value: frequencies.slice(0, 5).map((f) => f.value),
+    hand, // pokersolver Hand object for internal comparison
+    // Convert card values for frontend display (T → 10)
+    cards: hand.cards.map((c) => {
+      let val = c.value;
+      if (val === 'T') val = '10';
+      return val + c.suit.toLowerCase();
+    }),
+    name: hand.name, // e.g., "Full House"
+    descr: hand.descr, // e.g., "Full House, Aces over Kings"
+    rank: hand.rank, // Numeric rank (higher is better)
   };
 }
 
 /**
+ * Compare multiple players' hands and find winners using pokersolver
+ * @param {Array} players - [{ odId, odName, holeCards }]
+ * @param {string[]} communityCards - Community cards
+ * @return {Object} { winners: [], results: [] }
+ */
+export function determineWinners(players, communityCards) {
+  const results = players.map((player) => {
+    const evaluation = evaluateHand(player.holeCards || player.cards, communityCards);
+    return {
+      playerId: player.odId || player.playerId,
+      odId: player.odId || player.playerId,
+      odName: player.odName || player.name || 'Unknown',
+      ...evaluation,
+    };
+  });
+
+  // Use pokersolver's winners function to find best hands
+  const hands = results.map((r) => r.hand);
+  const winningHands = Hand.winners(hands);
+
+  // Find all players with winning hands (handles ties)
+  const winners = results.filter((r) =>
+    winningHands.some((w) => w === r.hand),
+  );
+
+  return { winners, results };
+}
+
+/**
+ * Legacy function for backward compatibility
  * Compare two hands
  * @param {Object} hand1 - First hand evaluation
  * @param {Object} hand2 - Second hand evaluation
  * @return {number} 1 if hand1 wins, -1 if hand2 wins, 0 if tie
  */
 export function compareHands(hand1, hand2) {
-  // Compare rank first
+  // If using pokersolver hands, compare them directly
+  if (hand1.hand && hand2.hand) {
+    const winners = Hand.winners([hand1.hand, hand2.hand]);
+    if (winners.length === 2) return 0; // Tie
+    if (winners[0] === hand1.hand) return 1;
+    return -1;
+  }
+
+  // Fallback to rank comparison
   if (hand1.rank > hand2.rank) return 1;
   if (hand1.rank < hand2.rank) return -1;
 
-  // Same rank, compare values
-  for (let i = 0; i < hand1.value.length; i++) {
-    if (hand1.value[i] > hand2.value[i]) return 1;
-    if (hand1.value[i] < hand2.value[i]) return -1;
+  // Same rank, compare values if available
+  if (hand1.value && hand2.value) {
+    for (let i = 0; i < hand1.value.length; i++) {
+      if (hand1.value[i] > hand2.value[i]) return 1;
+      if (hand1.value[i] < hand2.value[i]) return -1;
+    }
   }
 
   return 0; // Exact tie
-}
-
-/**
- * Determine winners from multiple players
- * @param {Array} players - Array of { playerId, cards }
- * @param {string[]} communityCards - Community cards
- * @return {Array} Array of winner player IDs
- */
-export function determineWinners(players, communityCards) {
-  const evaluations = players.map((player) => {
-    const allCards = [...player.cards, ...communityCards];
-    const evaluation = evaluateHand(allCards);
-    return {
-      playerId: player.playerId,
-      evaluation,
-    };
-  });
-
-  // Find best hand
-  let bestHand = evaluations[0].evaluation;
-  evaluations.forEach((e) => {
-    if (compareHands(e.evaluation, bestHand) > 0) {
-      bestHand = e.evaluation;
-    }
-  });
-
-  // Get all players with best hand (could be multiple winners)
-  const winners = evaluations
-    .filter((e) => compareHands(e.evaluation, bestHand) === 0)
-    .map((e) => ({
-      playerId: e.playerId,
-      hand: e.evaluation,
-    }));
-
-  return winners;
 }
