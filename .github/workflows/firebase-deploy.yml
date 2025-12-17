@@ -11,6 +11,7 @@ on:
       - 'src/**'
       - 'index.html'
       - 'vite.config.js'
+      - '.github/workflows/firebase-deploy.yml'
 
 jobs:
   deploy-functions:
