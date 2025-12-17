@@ -42,12 +42,16 @@ app.use(router);
 
 app.mount('#app');
 
-// Register service worker with dynamic base path
+// 強制移除所有 Service Worker
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    const swPath = import.meta.env.BASE_URL + 'sw.js';
-    navigator.serviceWorker.register(swPath)
-      .then(registration => console.log('SW registered:', registration))
-      .catch(err => console.log('SW registration failed:', err));
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      console.log('正在移除殘留的 Service Worker:', registration);
+      registration.unregister(); // <--- 關鍵是這個 unregister (取消註冊)
+    }
+    // 如果發現有殘留並移除了，重新整理頁面確保乾淨
+    if (registrations.length > 0) {
+      window.location.reload();
+    }
   });
 }
