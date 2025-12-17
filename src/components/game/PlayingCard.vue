@@ -140,13 +140,15 @@ const cardClass = computed(() => {
   transition: transform 0.6s ease;
 }
 
-/* Flip animation when revealing */
+/* Default state - face down (rotated 180deg) */
 .card-hidden .card-inner {
   transform: rotateY(180deg);
 }
 
+/* Revealing animation - overrides hidden state */
 .card-revealing .card-inner {
   animation: flipCard 0.6s ease forwards;
+  /* Animation overrides the transform from card-hidden */
 }
 
 @keyframes flipCard {

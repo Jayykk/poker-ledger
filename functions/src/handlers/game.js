@@ -23,6 +23,8 @@ import {
 import { addGameEvent } from '../lib/events.js';
 import { createTurnExpiresAt } from './turnTimer.js';
 import { GameErrorCodes, createGameError } from '../errors/gameErrors.js';
+import { calculateSidePots, distributePots } from '../engines/potCalculator.js';
+import { determineWinners } from '../utils/handEvaluator.js';
 
 // Constants
 const DEFAULT_BUY_IN = 1000;
@@ -354,11 +356,6 @@ async function handleShowdown(game, transaction, gameRef) {
 
   // ===== COMPUTE PHASE =====
   // 1. Calculate side pots (including dead money from folded players)
-  const { calculateSidePots, distributePots } = await import(
-    '../engines/potCalculator.js'
-  );
-  const { determineWinners } = await import('../utils/handEvaluator.js');
-
   const pots = calculateSidePots(allContributors);
 
   // 2. Determine winners using pokersolver

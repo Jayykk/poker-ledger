@@ -293,7 +293,7 @@ const handleAutoAction = async (action) => {
   align-items: center;
   justify-content: center;
   padding-bottom: 140px; /* Reserve space for fixed action buttons */
-  touch-action: none; /* Disable touch scrolling */
+  touch-action: pan-x pan-y; /* Allow necessary gestures while preventing unwanted scrolling */
 }
 
 /* Poker Table - Smaller and more compact, moved up */

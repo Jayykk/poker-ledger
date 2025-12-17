@@ -60,7 +60,7 @@ export const GameErrorMessages = {
   [GameErrorCodes.INVALID_PLAYER_STATUS]: '玩家狀態無效',
 
   // Action errors
-  [GameErrorCodes.CANNOT_CHECK]: '目前無法過牌，需要跟注',
+  [GameErrorCodes.CANNOT_CHECK]: '不能過牌，必須跟注或棄牌',
   [GameErrorCodes.NOTHING_TO_CALL]: '沒有需要跟注的金額',
   [GameErrorCodes.NOT_ENOUGH_CHIPS]: '籌碼不足',
   [GameErrorCodes.NO_CHIPS_FOR_ALL_IN]: '沒有籌碼可以全下',

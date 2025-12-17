@@ -34,13 +34,12 @@ export const HAND_NAMES = {
 
 /**
  * Convert card format from our notation to pokersolver format
- * Our format: 'As', 'Kh', 'Qd', 'Jc'
- * Pokersolver format: same
+ * Both use the same format (e.g., 'As', 'Kh'), so just pass through
  * @param {string} card - Card in our format
  * @return {string} Card in pokersolver format
  */
 function convertCardFormat(card) {
-  // pokersolver uses the same format, just ensure uppercase
+  // pokersolver and our format are the same, just return as-is
   return card;
 }
 

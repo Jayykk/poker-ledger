@@ -95,7 +95,7 @@ export function distributePots(pots, showdownResults, players) {
 
     potWinners.forEach((winner, index) => {
       winnings[winner.odId] = (winnings[winner.odId] || 0) + share;
-      // Give remainder to first winner (closest to dealer would be better)
+      // Give remainder to first winner (in future could use dealer proximity)
       if (index === 0) {
         winnings[winner.odId] += remainder;
       }
