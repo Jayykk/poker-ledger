@@ -10,12 +10,20 @@ import {
   dealFlop,
   dealTurnOrRiver,
   processAction,
-  getNextPlayer,
   calculateWinners,
 } from '../engines/texasHoldem.js';
-import { validateGameStart, validatePlayerAction } from '../utils/validators.js';
+import { validateGameStart } from '../utils/validators.js';
+import { validatePlayerAction as validateAction } from '../engines/actionValidator.js';
+import {
+  isLastManStanding,
+  getActivePlayers,
+  isRoundComplete,
+  findNextPlayer,
+  getFirstToAct,
+} from '../engines/gameStateMachine.js';
 import { addGameEvent } from '../lib/events.js';
 import { createTurnExpiresAt } from './turnTimer.js';
+import { GameErrorCodes, createGameError } from '../errors/gameErrors.js';
 
 // Constants
 const DEFAULT_BUY_IN = 1000;
@@ -96,23 +104,18 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
-      throw new Error('Game not found');
+      throw createGameError(GameErrorCodes.GAME_NOT_FOUND);
     }
 
     let game = gameDoc.data();
 
-    // Validate action
-    const validation = validatePlayerAction(game, userId, action, amount);
-    if (!validation.valid) {
-      throw new Error(validation.error);
-    }
+    // Validate action using new validator
+    validateAction(game, userId, action, amount);
 
     // Process the action
     game = processAction(game, userId, action, amount);
 
     // Record action in events subcollection
-    // Note: Changed from arrayUnion to subcollection documents because
-    // FieldValue.serverTimestamp() cannot be used inside array elements
     await addGameEvent(
       gameId,
       {
@@ -126,22 +129,18 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
       transaction,
     );
 
+    // Check for Last Man Standing
+    if (isLastManStanding(game)) {
+      return await handleLastManStanding(transaction, gameRef, game);
+    }
+
     // Check if betting round is complete
-    const activePlayers = Object.values(game.seats)
-      .filter((seat) => seat && seat.status === 'active');
-
-    const allMatched = activePlayers.every(
-      (seat) => seat.currentBet === game.table.currentBet,
-    );
-
-    let nextTurn = getNextPlayer(game);
-
-    // Advance to next round if betting complete
-    if (allMatched || activePlayers.length <= 1) {
+    if (isRoundComplete(game)) {
       game = await advanceRound(game, transaction, gameRef);
-      nextTurn = game.table.currentTurn;
     } else {
-      game.table.currentTurn = nextTurn;
+      // Move to next player
+      const nextPlayer = findNextPlayer(game);
+      game.table.currentTurn = nextPlayer;
     }
 
     // Get turn timeout setting
@@ -163,9 +162,93 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
       gameId,
       action,
       nextRound: game.table.currentRound,
-      nextTurn,
+      nextTurn: game.table.currentTurn,
     };
   });
+}
+
+/**
+ * Handle Last Man Standing scenario
+ * @param {Object} transaction - Firestore transaction
+ * @param {Object} gameRef - Game document reference
+ * @param {Object} game - Current game state
+ * @return {Promise<Object>} Result
+ */
+async function handleLastManStanding(transaction, gameRef, game) {
+  const activePlayers = getActivePlayers(game);
+
+  if (activePlayers.length !== 1) {
+    throw createGameError(GameErrorCodes.INVALID_ACTION, {
+      message: 'Invalid last man standing state',
+    });
+  }
+
+  const winner = activePlayers[0];
+  const winAmount = game.table.pot;
+
+  // Find winner's seat and award pot
+  const winnerSeat = Object.entries(game.seats)
+    .find(([, seat]) => seat && seat.odId === winner.odId);
+
+  if (winnerSeat) {
+    const [seatNum] = winnerSeat;
+    game.seats[seatNum].chips += winAmount;
+  }
+
+  // Clear pot
+  game.table.pot = 0;
+
+  // Record result
+  await addGameEvent(
+    gameRef.id,
+    {
+      type: 'lastManStanding',
+      handNumber: game.handNumber,
+      winner: winner.odId,
+      winnerName: winner.odName,
+      amount: winAmount,
+    },
+    transaction,
+  );
+
+  // Save hand history
+  const handRef = gameRef.collection('hands').doc(`hand_${game.handNumber}`);
+  transaction.set(handRef, {
+    result: {
+      winners: [{
+        odId: winner.odId,
+        amount: winAmount,
+        reason: 'last_man_standing',
+      }],
+      pot: winAmount,
+    },
+    notable: true,
+    notableReasons: {
+      lastManStanding: true,
+    },
+  }, { merge: true });
+
+  // Clean up private hole cards
+  const privateCollection = gameRef.collection('private');
+  const privateDocs = await privateCollection.listDocuments();
+  for (const docRef of privateDocs) {
+    transaction.delete(docRef);
+  }
+
+  // Return to WAITING state (not auto-start)
+  game.status = 'waiting';
+  game.table.currentRound = null;
+  game.table.currentTurn = null;
+  game.table.communityCards = [];
+
+  transaction.update(gameRef, game);
+
+  return {
+    gameId: gameRef.id,
+    winner: winner.odId,
+    amount: winAmount,
+    reason: 'last_man_standing',
+  };
 }
 
 /**
@@ -206,12 +289,9 @@ async function advanceRound(game, transaction, gameRef) {
 
   // Set next player to act
   if (updatedGame.table.currentRound !== 'showdown') {
-    const activePlayers = Object.entries(updatedGame.seats)
-      .filter(([, seat]) => seat && seat.status === 'active')
-      .map(([num, seat]) => ({ seatNum: parseInt(num), odId: seat.odId }));
-
-    if (activePlayers.length > 0) {
-      updatedGame.table.currentTurn = activePlayers[0].odId;
+    const nextPlayer = getFirstToAct(updatedGame);
+    if (nextPlayer) {
+      updatedGame.table.currentTurn = nextPlayer;
     }
   }
 
@@ -356,6 +436,7 @@ async function handleShowdown(game, transaction, gameRef) {
       currentRound: 'showdown',
       pot: 0,
       currentTurn: null,
+      communityCards: game.table.communityCards, // Keep community cards visible
     },
     status: finalStatus,
   };

@@ -7,6 +7,43 @@ import { usePokerStore } from '../store/modules/poker.js';
 import { useNotification } from './useNotification.js';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
+// Error message mapping
+const ERROR_MESSAGES = {
+  NOT_YOUR_TURN: '還沒輪到你',
+  INSUFFICIENT_CHIPS: '籌碼不足',
+  INVALID_ACTION: '無效的操作',
+  GAME_NOT_ACTIVE: '遊戲尚未開始',
+  INVALID_RAISE_AMOUNT: '加注金額無效',
+  ALREADY_FOLDED: '你已經棄牌了',
+  PLAYER_NOT_FOUND: '找不到玩家',
+  GAME_NOT_FOUND: '找不到遊戲',
+  INVALID_PLAYER_STATUS: '玩家狀態無效',
+  CANNOT_CHECK: '不能過牌，必須跟注或棄牌',
+  NOTHING_TO_CALL: '沒有需要跟注的金額',
+  NOT_ENOUGH_CHIPS: '籌碼不足',
+  NO_CHIPS_FOR_ALL_IN: '沒有籌碼可以全下',
+  GAME_ALREADY_IN_PROGRESS: '遊戲已經開始',
+  NOT_ENOUGH_PLAYERS: '至少需要2位玩家才能開始',
+};
+
+// Success message mapping
+const SUCCESS_MESSAGES = {
+  FOLD: '你棄牌了',
+  CHECK: '你過牌了',
+  CALL: '你跟注了',
+  RAISE: (amount) => `你加注了 ${amount}`,
+  ALL_IN: '你全下了！',
+};
+
+/**
+ * Get user-friendly error message from error code
+ * @param {string} code - Error code
+ * @return {string} Error message
+ */
+function getErrorMessage(code) {
+  return ERROR_MESSAGES[code] || code || '發生錯誤';
+}
+
 export function useGameActions() {
   const pokerStore = usePokerStore();
   const { success, error: showError } = useNotification();
@@ -17,9 +54,10 @@ export function useGameActions() {
   const fold = async () => {
     try {
       await pokerStore.performAction('fold');
-      success('You folded');
+      success(SUCCESS_MESSAGES.FOLD);
     } catch (error) {
-      showError(`Error: ${error.message}`);
+      const message = getErrorMessage(error.code);
+      showError(message);
       throw error;
     }
   };
@@ -30,9 +68,10 @@ export function useGameActions() {
   const check = async () => {
     try {
       await pokerStore.performAction('check');
-      success('You checked');
+      success(SUCCESS_MESSAGES.CHECK);
     } catch (error) {
-      showError(`Error: ${error.message}`);
+      const message = getErrorMessage(error.code);
+      showError(message);
       throw error;
     }
   };
@@ -43,9 +82,10 @@ export function useGameActions() {
   const call = async () => {
     try {
       await pokerStore.performAction('call');
-      success('You called');
+      success(SUCCESS_MESSAGES.CALL);
     } catch (error) {
-      showError(`Error: ${error.message}`);
+      const message = getErrorMessage(error.code);
+      showError(message);
       throw error;
     }
   };
@@ -56,9 +96,10 @@ export function useGameActions() {
   const raise = async (amount) => {
     try {
       await pokerStore.performAction('raise', amount);
-      success(`You raised ${amount}`);
+      success(SUCCESS_MESSAGES.RAISE(amount));
     } catch (error) {
-      showError(`Error: ${error.message}`);
+      const message = getErrorMessage(error.code);
+      showError(message);
       throw error;
     }
   };
@@ -69,9 +110,10 @@ export function useGameActions() {
   const allIn = async () => {
     try {
       await pokerStore.performAction('all_in');
-      success('You went all-in!');
+      success(SUCCESS_MESSAGES.ALL_IN);
     } catch (error) {
-      showError(`Error: ${error.message}`);
+      const message = getErrorMessage(error.code);
+      showError(message);
       throw error;
     }
   };

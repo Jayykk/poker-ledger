@@ -10,6 +10,7 @@
  * @param {string} action - Action type (fold, check, call, raise, all_in)
  * @param {number} amount - Bet amount (for raise)
  * @return {{ valid: boolean, error: string }}
+ * @deprecated Use validatePlayerAction from actionValidator.js instead
  */
 export function validatePlayerAction(game, playerId, action, amount = 0) {
   // Check if it's the player's turn
@@ -94,6 +95,7 @@ export function validatePlayerAction(game, playerId, action, amount = 0) {
  * Validate game can start
  * @param {Object} game - Game state
  * @return {{ valid: boolean, error: string }}
+ * @deprecated Use validateGameStart from actionValidator.js instead
  */
 export function validateGameStart(game) {
   // Count active players
