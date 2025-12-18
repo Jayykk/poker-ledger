@@ -854,7 +854,7 @@ export async function togglePause(gameId, userId) {
       const remainingTime = game.table?.remainingTurnTime;
 
       // Calculate new expiration time based on remaining time
-      const newExpiresAt = remainingTime 
+      const newExpiresAt = (remainingTime !== null && remainingTime !== undefined)
         ? createTurnExpiresAt(Math.ceil(remainingTime / 1000))
         : createTurnExpiresAt(turnTimeout);
 

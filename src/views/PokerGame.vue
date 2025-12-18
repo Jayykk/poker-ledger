@@ -210,6 +210,9 @@ const authStore = useAuthStore();
 const { success } = useNotification();
 const { confirm } = useConfirm();
 
+// Import error notification
+const { error: showError } = useNotification();
+
 const {
   currentGame,
   gameId,
@@ -246,7 +249,7 @@ const isPendingLeave = ref(false);
 // Auto-start countdown state
 const autoStartCountdown = ref(0);
 const showAutoStartCountdown = ref(false);
-let autoStartInterval = null;
+const autoStartInterval = ref(null);
 
 const toggleMenu = () => {
   menuOpen.value = !menuOpen.value;
@@ -293,9 +296,9 @@ watch(() => [
   isCreator.value,
 ], ([stage, autoNext, status, creator]) => {
   // Clear any existing countdown
-  if (autoStartInterval) {
-    clearInterval(autoStartInterval);
-    autoStartInterval = null;
+  if (autoStartInterval.value) {
+    clearInterval(autoStartInterval.value);
+    autoStartInterval.value = null;
   }
   showAutoStartCountdown.value = false;
 
@@ -308,12 +311,12 @@ watch(() => [
     autoStartCountdown.value = autoStartDelay.value;
     showAutoStartCountdown.value = true;
 
-    autoStartInterval = setInterval(() => {
+    autoStartInterval.value = setInterval(() => {
       autoStartCountdown.value--;
       
       if (autoStartCountdown.value <= 0) {
-        clearInterval(autoStartInterval);
-        autoStartInterval = null;
+        clearInterval(autoStartInterval.value);
+        autoStartInterval.value = null;
         showAutoStartCountdown.value = false;
         
         // Start next hand
@@ -342,9 +345,9 @@ onUnmounted(() => {
   pokerStore.stopListeners();
   
   // Clean up auto-start countdown
-  if (autoStartInterval) {
-    clearInterval(autoStartInterval);
-    autoStartInterval = null;
+  if (autoStartInterval.value) {
+    clearInterval(autoStartInterval.value);
+    autoStartInterval.value = null;
   }
 });
 
@@ -471,6 +474,7 @@ const handleStopAutoStart = async () => {
     success('Auto-start cancelled');
   } catch (error) {
     console.error('Failed to cancel auto-start:', error);
+    showError('Failed to cancel auto-start');
   }
 };
 

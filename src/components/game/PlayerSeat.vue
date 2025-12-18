@@ -317,10 +317,7 @@ const canJoin = computed(() => {
   font-size: 22px;
   font-weight: bold;
   color: white;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  position: relative;
   border: 2px solid rgba(255, 255, 255, 0.3);
   transition: all 0.3s ease;
   z-index: 2;
