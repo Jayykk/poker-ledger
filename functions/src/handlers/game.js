@@ -73,6 +73,7 @@ export async function startHand(gameId) {
         turnStartedAt: FieldValue.serverTimestamp(),
         turnExpiresAt: createTurnExpiresAt(turnTimeout),
         turnTimeout,
+        isAutoNext: true, // Enable auto-start for next hand
       },
     };
     transaction.update(gameRef, gameToUpdate);
@@ -123,6 +124,11 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
     }
 
     let game = gameDoc.data();
+
+    // Check if game is paused
+    if (game.status === 'paused') {
+      throw createGameError(GameErrorCodes.GAME_PAUSED);
+    }
 
     // 🔑 Validate turnId to prevent stale actions
     if (turnId && turnId !== game.table.currentTurnId) {
@@ -792,6 +798,112 @@ export async function handlePlayerTimeout(gameId, userId) {
       action,
       automatic: true,
     };
+  });
+}
+
+/**
+ * Toggle pause state of a poker game
+ * Only the host can pause/unpause
+ * @param {string} gameId - Game ID
+ * @param {string} userId - User ID (host)
+ * @return {Promise<Object>} Result with success and new status
+ */
+export async function togglePause(gameId, userId) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+
+  return db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+
+    if (!gameDoc.exists) {
+      throw createGameError(GameErrorCodes.GAME_NOT_FOUND);
+    }
+
+    const game = gameDoc.data();
+
+    // Verify user is the host
+    if (game.meta?.createdBy !== userId) {
+      throw createGameError(GameErrorCodes.NOT_AUTHORIZED, 'Only the host can pause/unpause the game');
+    }
+
+    const currentStatus = game.status;
+
+    if (currentStatus === 'playing') {
+      // Pause the game
+      const now = Date.now();
+      const turnExpiresAt = game.table?.turnExpiresAt;
+      let remainingTurnTime = null;
+
+      // Calculate remaining turn time if there's an active turn
+      if (turnExpiresAt) {
+        const expiresMs = turnExpiresAt.toMillis ? turnExpiresAt.toMillis() : turnExpiresAt.seconds * 1000;
+        remainingTurnTime = Math.max(0, expiresMs - now);
+      }
+
+      transaction.update(gameRef, {
+        'status': 'paused',
+        'table.pausedAt': FieldValue.serverTimestamp(),
+        'table.remainingTurnTime': remainingTurnTime,
+        'table.pauseReason': 'host_paused',
+      });
+
+      return { success: true, status: 'paused' };
+    } else if (currentStatus === 'paused') {
+      // Resume the game
+      const turnTimeout = game.table?.turnTimeout || DEFAULT_TURN_TIMEOUT;
+      const remainingTime = game.table?.remainingTurnTime;
+
+      // Calculate new expiration time based on remaining time
+      const newExpiresAt = (remainingTime !== null && remainingTime !== undefined)
+        ? createTurnExpiresAt(Math.ceil(remainingTime / 1000))
+        : createTurnExpiresAt(turnTimeout);
+
+      transaction.update(gameRef, {
+        'status': 'playing',
+        'table.pausedAt': FieldValue.delete(),
+        'table.remainingTurnTime': FieldValue.delete(),
+        'table.pauseReason': FieldValue.delete(),
+        'table.turnExpiresAt': newExpiresAt,
+        'table.turnStartedAt': FieldValue.serverTimestamp(),
+      });
+
+      return { success: true, status: 'playing' };
+    } else {
+      throw createGameError(GameErrorCodes.INVALID_GAME_STATE, 'Game must be playing or paused to toggle pause');
+    }
+  });
+}
+
+/**
+ * Stop auto-next hand
+ * Only the host can stop auto-next
+ * @param {string} gameId - Game ID
+ * @param {string} userId - User ID (host)
+ * @return {Promise<Object>} Result with success
+ */
+export async function stopNextHand(gameId, userId) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+
+  return db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+
+    if (!gameDoc.exists) {
+      throw createGameError(GameErrorCodes.GAME_NOT_FOUND);
+    }
+
+    const game = gameDoc.data();
+
+    // Verify user is the host
+    if (game.meta?.createdBy !== userId) {
+      throw createGameError(GameErrorCodes.NOT_AUTHORIZED, 'Only the host can stop auto-next');
+    }
+
+    transaction.update(gameRef, {
+      'table.isAutoNext': false,
+    });
+
+    return { success: true };
   });
 }
 

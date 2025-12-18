@@ -40,16 +40,56 @@
             v-if="mySeat && (currentGame.status === 'playing' || currentGame.status === 'waiting')"
             @click="handleLeaveSeat" 
             class="menu-item"
+            :class="{ 'menu-item-pending': isPendingLeave }"
             role="menuitem"
           >
-            <span class="menu-icon">🚪</span>
-            <span>Leave Seat</span>
+            <span class="menu-icon">{{ isPendingLeave ? '⏳' : '🚪' }}</span>
+            <span>{{ isPendingLeave ? 'Cancel Leave' : 'Leave Seat' }}</span>
           </button>
           <button @click="handleShowTableInfo" class="menu-item" role="menuitem">
             <span class="menu-icon">ℹ️</span>
             <span>Table Info</span>
           </button>
           <div v-if="isCreator" class="menu-divider"></div>
+          
+          <!-- Host Control Buttons -->
+          <button 
+            v-if="isCreator && currentGame.status === 'waiting' && hasEnoughPlayers"
+            @click="handleStartGame" 
+            class="menu-item"
+            role="menuitem"
+          >
+            <span class="menu-icon">▶️</span>
+            <span>Start Game</span>
+          </button>
+          <button 
+            v-if="isCreator && currentGame.status === 'playing' && !isPaused"
+            @click="handlePauseGame" 
+            class="menu-item"
+            role="menuitem"
+          >
+            <span class="menu-icon">⏸️</span>
+            <span>Pause Game</span>
+          </button>
+          <button 
+            v-if="isCreator && currentGame.status === 'paused'"
+            @click="handleResumeGame" 
+            class="menu-item"
+            role="menuitem"
+          >
+            <span class="menu-icon">▶️</span>
+            <span>Resume Game</span>
+          </button>
+          <button 
+            v-if="isCreator && currentGame.status === 'playing' && isAutoNext"
+            @click="handleStopAfterHand" 
+            class="menu-item"
+            role="menuitem"
+          >
+            <span class="menu-icon">⏹️</span>
+            <span>Stop After This Hand</span>
+          </button>
+          
           <button 
             v-if="isCreator && currentGame.status === 'playing'"
             @click="handleEndAfterHand" 
@@ -122,6 +162,33 @@
         </div>
       </div>
     </Transition>
+
+    <!-- Pending Leave Toast -->
+    <Transition name="slide-up">
+      <div v-if="isPendingLeave" class="pending-leave-toast">
+        <span class="toast-icon">⏳</span>
+        <span class="toast-text">Leaving after this hand...</span>
+      </div>
+    </Transition>
+
+    <!-- Auto-Start Countdown Overlay -->
+    <Transition name="fade">
+      <div v-if="showAutoStartCountdown" class="auto-start-overlay">
+        <div class="auto-start-content">
+          <span class="countdown-icon">🎲</span>
+          <h3>Next hand in {{ autoStartCountdown }}...</h3>
+          <div class="countdown-bar-container">
+            <div 
+              class="countdown-bar"
+              :style="{ width: `${(autoStartCountdown / autoStartDelay) * 100}%` }"
+            ></div>
+          </div>
+          <button @click="handleStopAutoStart" class="btn-cancel-auto">
+            Cancel Auto-Start
+          </button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -143,6 +210,9 @@ const authStore = useAuthStore();
 const { success } = useNotification();
 const { confirm } = useConfirm();
 
+// Import error notification
+const { error: showError } = useNotification();
+
 const {
   currentGame,
   gameId,
@@ -157,6 +227,14 @@ const isCreator = computed(() => {
   return currentGame.value?.meta?.createdBy === authStore.user?.uid;
 });
 
+// Auto-next computed properties
+const isAutoNext = computed(() => currentGame.value?.table?.isAutoNext ?? false);
+const autoStartDelay = computed(() => currentGame.value?.meta?.autoStartDelay ?? 5);
+const hasEnoughPlayers = computed(() => {
+  const seats = currentGame.value?.seats || {};
+  return Object.values(seats).filter(s => s !== null).length >= 2;
+});
+
 // Pause state
 const isPaused = computed(() => currentGame.value?.status === 'paused');
 const pauseReason = computed(() => currentGame.value?.table?.pauseReason);
@@ -164,6 +242,14 @@ const pauseReason = computed(() => currentGame.value?.table?.pauseReason);
 // Menu state
 const menuOpen = ref(false);
 const showTableInfo = ref(false);
+
+// Pending leave state
+const isPendingLeave = ref(false);
+
+// Auto-start countdown state
+const autoStartCountdown = ref(0);
+const showAutoStartCountdown = ref(false);
+const autoStartInterval = ref(null);
 
 const toggleMenu = () => {
   menuOpen.value = !menuOpen.value;
@@ -186,6 +272,63 @@ watch(() => currentGame.value?.status, (status, oldStatus) => {
   }
 });
 
+// Watch for showdown_complete to execute pending leave
+watch(() => currentGame.value?.table?.stage, (stage) => {
+  if (stage === 'showdown_complete' && isPendingLeave.value) {
+    // Execute leave automatically
+    leaveSeat()
+      .then(() => {
+        isPendingLeave.value = false;
+        success('You left your seat');
+      })
+      .catch((error) => {
+        console.error('Failed to leave seat:', error);
+        isPendingLeave.value = false;
+      });
+  }
+});
+
+// Watch for showdown_complete to start auto-next countdown
+watch(() => [
+  currentGame.value?.table?.stage,
+  isAutoNext.value,
+  currentGame.value?.status,
+  isCreator.value,
+], ([stage, autoNext, status, creator]) => {
+  // Clear any existing countdown
+  if (autoStartInterval.value) {
+    clearInterval(autoStartInterval.value);
+    autoStartInterval.value = null;
+  }
+  showAutoStartCountdown.value = false;
+
+  // Start countdown if:
+  // 1. Stage is showdown_complete
+  // 2. Auto-next is enabled
+  // 3. Game is not paused
+  // 4. User is the creator
+  if (stage === 'showdown_complete' && autoNext && status !== 'paused' && creator) {
+    autoStartCountdown.value = autoStartDelay.value;
+    showAutoStartCountdown.value = true;
+
+    autoStartInterval.value = setInterval(() => {
+      autoStartCountdown.value--;
+      
+      if (autoStartCountdown.value <= 0) {
+        clearInterval(autoStartInterval.value);
+        autoStartInterval.value = null;
+        showAutoStartCountdown.value = false;
+        
+        // Start next hand
+        const { startHand } = usePokerGame();
+        startHand().catch((error) => {
+          console.error('Failed to auto-start next hand:', error);
+        });
+      }
+    }, 1000);
+  }
+});
+
 onMounted(async () => {
   const id = route.params.gameId;
   if (id) {
@@ -200,6 +343,12 @@ onMounted(async () => {
 onUnmounted(() => {
   // Clean up listeners when leaving
   pokerStore.stopListeners();
+  
+  // Clean up auto-start countdown
+  if (autoStartInterval.value) {
+    clearInterval(autoStartInterval.value);
+    autoStartInterval.value = null;
+  }
 });
 
 const handleLeave = async () => {
@@ -224,6 +373,28 @@ const handleLeave = async () => {
 };
 
 const handleLeaveSeat = async () => {
+  // If already pending leave, cancel it
+  if (isPendingLeave.value) {
+    isPendingLeave.value = false;
+    success('Leave cancelled');
+    closeMenu();
+    return;
+  }
+
+  // Check if game is playing and player is active
+  const isPlaying = currentGame.value?.status === 'playing';
+  const playerStatus = mySeat.value?.status;
+  const isActive = playerStatus !== 'folded' && playerStatus !== 'sitting_out';
+
+  if (isPlaying && isActive) {
+    // Set pending leave instead of leaving immediately
+    isPendingLeave.value = true;
+    success('Leaving after this hand...');
+    closeMenu();
+    return;
+  }
+
+  // Otherwise, proceed with normal leave confirmation
   const confirmed = await confirm({
     message: 'Leave your seat but stay at the table as spectator?',
     type: 'warning'
@@ -258,10 +429,52 @@ const handleEndAfterHand = async () => {
 
 const handleResumeGame = async () => {
   try {
-    await pokerStore.resumeGame(gameId.value);
-    success('遊戲已繼續');
+    await pokerStore.togglePause(gameId.value);
+    closeMenu();
   } catch (error) {
     console.error('Failed to resume game:', error);
+  }
+};
+
+const handleStartGame = async () => {
+  try {
+    const { startHand } = usePokerGame();
+    await startHand();
+    closeMenu();
+    success('Game started!');
+  } catch (error) {
+    console.error('Failed to start game:', error);
+  }
+};
+
+const handlePauseGame = async () => {
+  try {
+    await pokerStore.togglePause(gameId.value);
+    closeMenu();
+    success('Game paused');
+  } catch (error) {
+    console.error('Failed to pause game:', error);
+  }
+};
+
+const handleStopAfterHand = async () => {
+  try {
+    await pokerStore.stopNextHand(gameId.value);
+    closeMenu();
+    success('Auto-next disabled. Game will end after this hand.');
+  } catch (error) {
+    console.error('Failed to stop next hand:', error);
+  }
+};
+
+const handleStopAutoStart = async () => {
+  try {
+    await pokerStore.stopNextHand(gameId.value);
+    // The watcher will automatically clear the countdown when isAutoNext becomes false
+    success('Auto-start cancelled');
+  } catch (error) {
+    console.error('Failed to cancel auto-start:', error);
+    showError('Failed to cancel auto-start');
   }
 };
 
@@ -451,6 +664,15 @@ const goBack = () => {
   background: rgba(244, 67, 54, 0.2);
 }
 
+.menu-item-pending {
+  color: #ffa500;
+  font-weight: 600;
+}
+
+.menu-item-pending:hover {
+  background: rgba(255, 165, 0, 0.2);
+}
+
 .menu-icon {
   font-size: 16px;
   width: 20px;
@@ -588,6 +810,110 @@ const goBack = () => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* Pending Leave Toast */
+.pending-leave-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 165, 0, 0.95);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 999;
+}
+
+.toast-icon {
+  font-size: 20px;
+}
+
+.toast-text {
+  font-size: 14px;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
+}
+
+/* Auto-Start Countdown Overlay */
+.auto-start-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 998;
+  backdrop-filter: blur(4px);
+}
+
+.auto-start-content {
+  text-align: center;
+  color: white;
+  padding: 32px 48px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 16px;
+  border: 2px solid rgba(255, 215, 0, 0.3);
+  max-width: 400px;
+}
+
+.countdown-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.auto-start-content h3 {
+  font-size: 24px;
+  margin-bottom: 24px;
+  color: #ffd700;
+}
+
+.countdown-bar-container {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.countdown-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50 0%, #ffd700 100%);
+  transition: width 1s linear;
+  border-radius: 4px;
+}
+
+.btn-cancel-auto {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-cancel-auto:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 @media (max-width: 768px) {
