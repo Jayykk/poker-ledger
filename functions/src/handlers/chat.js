@@ -30,6 +30,7 @@ export async function sendMessage(gameId, userId, message, userInfo) {
   }
 
   return db.runTransaction(async (transaction) => {
+    // ===== READ PHASE =====
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
@@ -47,8 +48,9 @@ export async function sendMessage(gameId, userId, message, userInfo) {
       throw new Error('User not in game');
     }
 
-    // Add message to chat collection
-    const chatRef = gameRef.collection('chat');
+    // ===== WRITE PHASE =====
+    // Add message to chat collection using transaction
+    const chatRef = gameRef.collection('chat').doc(); // Create new document reference
     const messageData = {
       userId,
       userName: userInfo.name || 'Player',
@@ -58,11 +60,11 @@ export async function sendMessage(gameId, userId, message, userInfo) {
       createdAt: Date.now(),
     };
 
-    await chatRef.add(messageData);
+    transaction.set(chatRef, messageData);
 
     return {
       gameId,
-      messageId: 'pending', // Will be assigned by Firestore
+      messageId: chatRef.id,
       success: true,
     };
   });

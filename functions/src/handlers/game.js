@@ -206,12 +206,27 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
 
 /**
  * Handle Last Man Standing scenario
+ * Uses proper transaction ordering: READ → COMPUTE → WRITE
+ * Optimized to avoid listDocuments() call by using game state
  * @param {Object} transaction - Firestore transaction
  * @param {Object} gameRef - Game document reference
  * @param {Object} game - Current game state
  * @return {Promise<Object>} Result
  */
 export async function handleLastManStanding(transaction, gameRef, game) {
+  // ===== READ PHASE =====
+  // Efficiently get all private documents by deriving player IDs from seats
+  // This avoids the extra listDocuments() API call
+  const privateCollection = gameRef.collection('private');
+  const playerIds = Object.values(game.seats)
+    .filter((seat) => seat !== null)
+    .map((seat) => seat.odId);
+
+  // Read all private documents (even though we don't use them for last man standing,
+  // we need to delete them, so we need the references)
+  const privateDocs = playerIds.map((playerId) => privateCollection.doc(playerId));
+
+  // ===== COMPUTE PHASE =====
   const activePlayers = getActivePlayers(game);
 
   if (activePlayers.length !== 1) {
@@ -235,7 +250,18 @@ export async function handleLastManStanding(transaction, gameRef, game) {
   // Clear pot
   game.table.pot = 0;
 
-  // Record result
+  // Return to WAITING state (not auto-start)
+  game.status = 'waiting';
+  game.table.currentRound = null;
+  game.table.currentTurn = null;
+  game.table.currentTurnId = null;
+  game.table.communityCards = [];
+
+  // ===== WRITE PHASE =====
+  // Update game state
+  transaction.update(gameRef, game);
+
+  // Record result event
   await addGameEvent(
     gameRef.id,
     {
@@ -266,20 +292,9 @@ export async function handleLastManStanding(transaction, gameRef, game) {
   }, { merge: true });
 
   // Clean up private hole cards
-  const privateCollection = gameRef.collection('private');
-  const privateDocs = await privateCollection.listDocuments();
   for (const docRef of privateDocs) {
     transaction.delete(docRef);
   }
-
-  // Return to WAITING state (not auto-start)
-  game.status = 'waiting';
-  game.table.currentRound = null;
-  game.table.currentTurn = null;
-  game.table.currentTurnId = null;
-  game.table.communityCards = [];
-
-  transaction.update(gameRef, game);
 
   return {
     gameId: gameRef.id,
@@ -342,6 +357,7 @@ export async function advanceRound(game, transaction, gameRef) {
 /**
  * Handle showdown and distribute winnings
  * Uses proper transaction ordering: READ → COMPUTE → WRITE
+ * Optimized to avoid listDocuments() call by using game state
  * @param {Object} game - Current game state
  * @param {Object} transaction - Firestore transaction
  * @param {Object} gameRef - Game document reference
@@ -351,16 +367,21 @@ async function handleShowdown(game, transaction, gameRef) {
   const db = getFirestore();
 
   // ===== READ PHASE =====
-  // Get all hole cards - list documents and get them individually in transaction
+  // Efficiently get all private documents by deriving player IDs from seats
+  // This avoids the extra listDocuments() API call
   const privateCollection = gameRef.collection('private');
-  const privateDocs = await privateCollection.listDocuments();
+  const playerIds = Object.values(game.seats)
+    .filter((seat) => seat !== null)
+    .map((seat) => seat.odId);
+
   const holeCards = {};
 
   // Read each private document within the transaction
-  for (const docRef of privateDocs) {
+  for (const playerId of playerIds) {
+    const docRef = privateCollection.doc(playerId);
     const docSnap = await transaction.get(docRef);
     if (docSnap.exists) {
-      holeCards[docSnap.id] = docSnap.data().holeCards;
+      holeCards[playerId] = docSnap.data().holeCards;
     }
   }
 
@@ -536,7 +557,8 @@ async function handleShowdown(game, transaction, gameRef) {
   transaction.set(handHistoryRef, handHistoryData);
 
   // Clean up private hole cards
-  for (const docRef of privateDocs) {
+  for (const playerId of playerIds) {
+    const docRef = privateCollection.doc(playerId);
     transaction.delete(docRef);
   }
 
