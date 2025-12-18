@@ -141,21 +141,18 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
     game.table.consecutiveAutoActions = 0;
 
     // Record action in events subcollection
-    await addGameEvent(
-      gameId,
-      {
-        type: 'action',
-        handNumber: game.handNumber,
-        odId: userId,
-        action,
-        amount,
-        round: game.table.currentRound,
-      },
-      transaction,
-    );
+    const actionEventData = {
+      type: 'action',
+      handNumber: game.handNumber,
+      odId: userId,
+      action,
+      amount,
+      round: game.table.currentRound,
+    };
 
     // Check for Last Man Standing
     if (isLastManStanding(game)) {
+      await addGameEvent(gameId, actionEventData, transaction);
       return await handleLastManStanding(transaction, gameRef, game);
     }
 
@@ -169,6 +166,9 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
       game.table.currentTurnId = uuidv4(); // Generate new UUID
     }
 
+    // 1. 寫入剛剛暫存的 Action Event (延遲到這裡才寫)
+    await addGameEvent(gameId, actionEventData, transaction);
+    
     // Get turn timeout setting
     const turnTimeout = game.table?.turnTimeout || DEFAULT_TURN_TIMEOUT;
 
