@@ -40,10 +40,11 @@
             v-if="mySeat && (currentGame.status === 'playing' || currentGame.status === 'waiting')"
             @click="handleLeaveSeat" 
             class="menu-item"
+            :class="{ 'menu-item-pending': isPendingLeave }"
             role="menuitem"
           >
-            <span class="menu-icon">🚪</span>
-            <span>Leave Seat</span>
+            <span class="menu-icon">{{ isPendingLeave ? '⏳' : '🚪' }}</span>
+            <span>{{ isPendingLeave ? 'Cancel Leave' : 'Leave Seat' }}</span>
           </button>
           <button @click="handleShowTableInfo" class="menu-item" role="menuitem">
             <span class="menu-icon">ℹ️</span>
@@ -122,6 +123,14 @@
         </div>
       </div>
     </Transition>
+
+    <!-- Pending Leave Toast -->
+    <Transition name="slide-up">
+      <div v-if="isPendingLeave" class="pending-leave-toast">
+        <span class="toast-icon">⏳</span>
+        <span class="toast-text">Leaving after this hand...</span>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -165,6 +174,9 @@ const pauseReason = computed(() => currentGame.value?.table?.pauseReason);
 const menuOpen = ref(false);
 const showTableInfo = ref(false);
 
+// Pending leave state
+const isPendingLeave = ref(false);
+
 const toggleMenu = () => {
   menuOpen.value = !menuOpen.value;
 };
@@ -183,6 +195,22 @@ watch(() => currentGame.value?.status, (status, oldStatus) => {
   if (status === 'completed' && oldStatus !== 'completed') {
     success('Game completed! Results saved to your history.');
     // Don't navigate away - let player stay and view results
+  }
+});
+
+// Watch for showdown_complete to execute pending leave
+watch(() => currentGame.value?.table?.stage, (stage) => {
+  if (stage === 'showdown_complete' && isPendingLeave.value) {
+    // Execute leave automatically
+    leaveSeat()
+      .then(() => {
+        isPendingLeave.value = false;
+        success('You left your seat');
+      })
+      .catch((error) => {
+        console.error('Failed to leave seat:', error);
+        isPendingLeave.value = false;
+      });
   }
 });
 
@@ -224,6 +252,28 @@ const handleLeave = async () => {
 };
 
 const handleLeaveSeat = async () => {
+  // If already pending leave, cancel it
+  if (isPendingLeave.value) {
+    isPendingLeave.value = false;
+    success('Leave cancelled');
+    closeMenu();
+    return;
+  }
+
+  // Check if game is playing and player is active
+  const isPlaying = currentGame.value?.status === 'playing';
+  const playerStatus = mySeat.value?.status;
+  const isActive = playerStatus !== 'folded' && playerStatus !== 'sitting_out';
+
+  if (isPlaying && isActive) {
+    // Set pending leave instead of leaving immediately
+    isPendingLeave.value = true;
+    success('Leaving after this hand...');
+    closeMenu();
+    return;
+  }
+
+  // Otherwise, proceed with normal leave confirmation
   const confirmed = await confirm({
     message: 'Leave your seat but stay at the table as spectator?',
     type: 'warning'
@@ -451,6 +501,15 @@ const goBack = () => {
   background: rgba(244, 67, 54, 0.2);
 }
 
+.menu-item-pending {
+  color: #ffa500;
+  font-weight: 600;
+}
+
+.menu-item-pending:hover {
+  background: rgba(255, 165, 0, 0.2);
+}
+
 .menu-icon {
   font-size: 16px;
   width: 20px;
@@ -588,6 +647,43 @@ const goBack = () => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* Pending Leave Toast */
+.pending-leave-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 165, 0, 0.95);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 999;
+}
+
+.toast-icon {
+  font-size: 20px;
+}
+
+.toast-text {
+  font-size: 14px;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
 }
 
 @media (max-width: 768px) {
