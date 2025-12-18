@@ -326,6 +326,36 @@ export const usePokerStore = defineStore('poker', {
     },
 
     /**
+     * Toggle pause/resume game (host only)
+     */
+    async togglePause(gameId) {
+      try {
+        const functions = getFunctions(app);
+        const togglePause = httpsCallable(functions, 'togglePausePokerGame');
+        
+        await togglePause({ gameId });
+      } catch (error) {
+        console.error('Error toggling pause:', error);
+        throw error;
+      }
+    },
+
+    /**
+     * Stop auto-next hand (host only)
+     */
+    async stopNextHand(gameId) {
+      try {
+        const functions = getFunctions(app);
+        const stopNextHand = httpsCallable(functions, 'stopNextPokerHand');
+        
+        await stopNextHand({ gameId });
+      } catch (error) {
+        console.error('Error stopping next hand:', error);
+        throw error;
+      }
+    },
+
+    /**
      * Start listening to game updates
      */
     async joinGameListener(gameId, userId) {

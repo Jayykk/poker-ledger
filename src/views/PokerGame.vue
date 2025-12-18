@@ -51,6 +51,45 @@
             <span>Table Info</span>
           </button>
           <div v-if="isCreator" class="menu-divider"></div>
+          
+          <!-- Host Control Buttons -->
+          <button 
+            v-if="isCreator && currentGame.status === 'waiting' && hasEnoughPlayers"
+            @click="handleStartGame" 
+            class="menu-item"
+            role="menuitem"
+          >
+            <span class="menu-icon">▶️</span>
+            <span>Start Game</span>
+          </button>
+          <button 
+            v-if="isCreator && currentGame.status === 'playing' && !isPaused"
+            @click="handlePauseGame" 
+            class="menu-item"
+            role="menuitem"
+          >
+            <span class="menu-icon">⏸️</span>
+            <span>Pause Game</span>
+          </button>
+          <button 
+            v-if="isCreator && currentGame.status === 'paused'"
+            @click="handleResumeGame" 
+            class="menu-item"
+            role="menuitem"
+          >
+            <span class="menu-icon">▶️</span>
+            <span>Resume Game</span>
+          </button>
+          <button 
+            v-if="isCreator && currentGame.status === 'playing' && isAutoNext"
+            @click="handleStopAfterHand" 
+            class="menu-item"
+            role="menuitem"
+          >
+            <span class="menu-icon">⏹️</span>
+            <span>Stop After This Hand</span>
+          </button>
+          
           <button 
             v-if="isCreator && currentGame.status === 'playing'"
             @click="handleEndAfterHand" 
@@ -131,6 +170,25 @@
         <span class="toast-text">Leaving after this hand...</span>
       </div>
     </Transition>
+
+    <!-- Auto-Start Countdown Overlay -->
+    <Transition name="fade">
+      <div v-if="showAutoStartCountdown" class="auto-start-overlay">
+        <div class="auto-start-content">
+          <span class="countdown-icon">🎲</span>
+          <h3>Next hand in {{ autoStartCountdown }}...</h3>
+          <div class="countdown-bar-container">
+            <div 
+              class="countdown-bar"
+              :style="{ width: `${(autoStartCountdown / autoStartDelay) * 100}%` }"
+            ></div>
+          </div>
+          <button @click="handleStopAutoStart" class="btn-cancel-auto">
+            Cancel Auto-Start
+          </button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -166,6 +224,14 @@ const isCreator = computed(() => {
   return currentGame.value?.meta?.createdBy === authStore.user?.uid;
 });
 
+// Auto-next computed properties
+const isAutoNext = computed(() => currentGame.value?.table?.isAutoNext ?? false);
+const autoStartDelay = computed(() => currentGame.value?.meta?.autoStartDelay ?? 5);
+const hasEnoughPlayers = computed(() => {
+  const seats = currentGame.value?.seats || {};
+  return Object.values(seats).filter(s => s !== null).length >= 2;
+});
+
 // Pause state
 const isPaused = computed(() => currentGame.value?.status === 'paused');
 const pauseReason = computed(() => currentGame.value?.table?.pauseReason);
@@ -176,6 +242,11 @@ const showTableInfo = ref(false);
 
 // Pending leave state
 const isPendingLeave = ref(false);
+
+// Auto-start countdown state
+const autoStartCountdown = ref(0);
+const showAutoStartCountdown = ref(false);
+let autoStartInterval = null;
 
 const toggleMenu = () => {
   menuOpen.value = !menuOpen.value;
@@ -214,6 +285,47 @@ watch(() => currentGame.value?.table?.stage, (stage) => {
   }
 });
 
+// Watch for showdown_complete to start auto-next countdown
+watch(() => [
+  currentGame.value?.table?.stage,
+  isAutoNext.value,
+  currentGame.value?.status,
+  isCreator.value,
+], ([stage, autoNext, status, creator]) => {
+  // Clear any existing countdown
+  if (autoStartInterval) {
+    clearInterval(autoStartInterval);
+    autoStartInterval = null;
+  }
+  showAutoStartCountdown.value = false;
+
+  // Start countdown if:
+  // 1. Stage is showdown_complete
+  // 2. Auto-next is enabled
+  // 3. Game is not paused
+  // 4. User is the creator
+  if (stage === 'showdown_complete' && autoNext && status !== 'paused' && creator) {
+    autoStartCountdown.value = autoStartDelay.value;
+    showAutoStartCountdown.value = true;
+
+    autoStartInterval = setInterval(() => {
+      autoStartCountdown.value--;
+      
+      if (autoStartCountdown.value <= 0) {
+        clearInterval(autoStartInterval);
+        autoStartInterval = null;
+        showAutoStartCountdown.value = false;
+        
+        // Start next hand
+        const { startHand } = usePokerGame();
+        startHand().catch((error) => {
+          console.error('Failed to auto-start next hand:', error);
+        });
+      }
+    }, 1000);
+  }
+});
+
 onMounted(async () => {
   const id = route.params.gameId;
   if (id) {
@@ -228,6 +340,12 @@ onMounted(async () => {
 onUnmounted(() => {
   // Clean up listeners when leaving
   pokerStore.stopListeners();
+  
+  // Clean up auto-start countdown
+  if (autoStartInterval) {
+    clearInterval(autoStartInterval);
+    autoStartInterval = null;
+  }
 });
 
 const handleLeave = async () => {
@@ -308,10 +426,51 @@ const handleEndAfterHand = async () => {
 
 const handleResumeGame = async () => {
   try {
-    await pokerStore.resumeGame(gameId.value);
-    success('遊戲已繼續');
+    await pokerStore.togglePause(gameId.value);
+    closeMenu();
   } catch (error) {
     console.error('Failed to resume game:', error);
+  }
+};
+
+const handleStartGame = async () => {
+  try {
+    const { startHand } = usePokerGame();
+    await startHand();
+    closeMenu();
+    success('Game started!');
+  } catch (error) {
+    console.error('Failed to start game:', error);
+  }
+};
+
+const handlePauseGame = async () => {
+  try {
+    await pokerStore.togglePause(gameId.value);
+    closeMenu();
+    success('Game paused');
+  } catch (error) {
+    console.error('Failed to pause game:', error);
+  }
+};
+
+const handleStopAfterHand = async () => {
+  try {
+    await pokerStore.stopNextHand(gameId.value);
+    closeMenu();
+    success('Auto-next disabled. Game will end after this hand.');
+  } catch (error) {
+    console.error('Failed to stop next hand:', error);
+  }
+};
+
+const handleStopAutoStart = async () => {
+  try {
+    await pokerStore.stopNextHand(gameId.value);
+    // The watcher will automatically clear the countdown when isAutoNext becomes false
+    success('Auto-start cancelled');
+  } catch (error) {
+    console.error('Failed to cancel auto-start:', error);
   }
 };
 
@@ -684,6 +843,73 @@ const goBack = () => {
 .slide-up-leave-to {
   opacity: 0;
   transform: translateX(-50%) translateY(20px);
+}
+
+/* Auto-Start Countdown Overlay */
+.auto-start-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 998;
+  backdrop-filter: blur(4px);
+}
+
+.auto-start-content {
+  text-align: center;
+  color: white;
+  padding: 32px 48px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 16px;
+  border: 2px solid rgba(255, 215, 0, 0.3);
+  max-width: 400px;
+}
+
+.countdown-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.auto-start-content h3 {
+  font-size: 24px;
+  margin-bottom: 24px;
+  color: #ffd700;
+}
+
+.countdown-bar-container {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.countdown-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50 0%, #ffd700 100%);
+  transition: width 1s linear;
+  border-radius: 4px;
+}
+
+.btn-cancel-auto {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-cancel-auto:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 @media (max-width: 768px) {
