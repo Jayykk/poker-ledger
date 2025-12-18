@@ -596,6 +596,7 @@ export async function setEndAfterHand(gameId) {
 /**
  * Settle and complete poker game
  * Saves chip changes to user history
+ * Uses proper transaction ordering: READ → COMPUTE → WRITE
  * @param {string} gameId - Game ID
  * @return {Promise<void>}
  */
@@ -604,6 +605,7 @@ export async function settlePokerGame(gameId) {
   const gameRef = db.collection('pokerGames').doc(gameId);
 
   return db.runTransaction(async (transaction) => {
+    // ===== READ PHASE =====
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
@@ -616,13 +618,13 @@ export async function settlePokerGame(gameId) {
     // Get all seated players
     const seatedPlayers = Object.values(seats).filter((seat) => seat !== null);
 
-    // For each player, calculate profit/loss and save to their history
-    for (const player of seatedPlayers) {
-      const userId = player.odId;
-      const userRef = db.collection('users').doc(userId);
-      const userDoc = await transaction.get(userRef);
+    // Read all user documents first
+    const userRefs = seatedPlayers.map((player) => db.collection('users').doc(player.odId));
+    const userDocs = await Promise.all(userRefs.map((ref) => transaction.get(ref)));
 
-      // Calculate profit/loss (current chips - initial buy-in)
+    // ===== COMPUTE PHASE =====
+    // Calculate profit/loss for each player
+    const userUpdates = seatedPlayers.map((player, index) => {
       const initialBuyIn = player.initialBuyIn || game.meta.minBuyIn || DEFAULT_BUY_IN;
       const profit = player.chips - initialBuyIn;
 
@@ -641,17 +643,27 @@ export async function settlePokerGame(gameId) {
         })),
       };
 
-      if (userDoc.exists()) {
-        transaction.update(userRef, {
+      return {
+        ref: userRefs[index],
+        exists: userDocs[index].exists(),
+        record,
+      };
+    });
+
+    // ===== WRITE PHASE =====
+    // Update user histories
+    userUpdates.forEach(({ ref, exists, record }) => {
+      if (exists) {
+        transaction.update(ref, {
           history: FieldValue.arrayUnion(record),
         });
       } else {
-        transaction.set(userRef, {
+        transaction.set(ref, {
           history: [record],
           createdAt: Date.now(),
         });
       }
-    }
+    });
 
     // Mark game as completed
     transaction.update(gameRef, {
