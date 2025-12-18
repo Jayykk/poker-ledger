@@ -836,7 +836,9 @@ export async function togglePause(gameId, userId) {
 
       // Calculate remaining turn time if there's an active turn
       if (turnExpiresAt) {
-        const expiresMs = turnExpiresAt.toMillis ? turnExpiresAt.toMillis() : turnExpiresAt.seconds * 1000;
+        const expiresMs = turnExpiresAt.toMillis ?
+          turnExpiresAt.toMillis() :
+          turnExpiresAt.seconds * 1000;
         remainingTurnTime = Math.max(0, expiresMs - now);
       }
 
@@ -854,9 +856,9 @@ export async function togglePause(gameId, userId) {
       const remainingTime = game.table?.remainingTurnTime;
 
       // Calculate new expiration time based on remaining time
-      const newExpiresAt = (remainingTime !== null && remainingTime !== undefined)
-        ? createTurnExpiresAt(Math.ceil(remainingTime / 1000))
-        : createTurnExpiresAt(turnTimeout);
+      const newExpiresAt = (remainingTime !== null && remainingTime !== undefined) ?
+        createTurnExpiresAt(Math.ceil(remainingTime / 1000)) :
+        createTurnExpiresAt(turnTimeout);
 
       transaction.update(gameRef, {
         'status': 'playing',
