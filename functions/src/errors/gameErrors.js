@@ -15,6 +15,7 @@ export const GameErrorCodes = {
   GAME_NOT_FOUND: 'GAME_NOT_FOUND',
   GAME_ALREADY_IN_PROGRESS: 'GAME_ALREADY_IN_PROGRESS',
   GAME_ALREADY_STARTED: 'GAME_ALREADY_STARTED',
+  INVALID_GAME_STATE: 'INVALID_GAME_STATE',
 
   // Player errors
   INVALID_RAISE_AMOUNT: 'INVALID_RAISE_AMOUNT',
@@ -36,6 +37,9 @@ export const GameErrorCodes = {
   ALREADY_SEATED: 'ALREADY_SEATED',
   INVALID_SEAT_NUMBER: 'INVALID_SEAT_NUMBER',
   INVALID_BUY_IN: 'INVALID_BUY_IN',
+
+  // Authorization errors
+  NOT_AUTHORIZED: 'NOT_AUTHORIZED',
 };
 
 /**
@@ -50,6 +54,7 @@ export const GameErrorMessages = {
   [GameErrorCodes.GAME_NOT_FOUND]: '找不到遊戲房間',
   [GameErrorCodes.GAME_ALREADY_IN_PROGRESS]: '遊戲已經開始',
   [GameErrorCodes.GAME_ALREADY_STARTED]: '遊戲已經開始',
+  [GameErrorCodes.INVALID_GAME_STATE]: '遊戲狀態無效',
 
   // Player errors
   [GameErrorCodes.INVALID_RAISE_AMOUNT]: '加注金額無效',
@@ -71,6 +76,9 @@ export const GameErrorMessages = {
   [GameErrorCodes.ALREADY_SEATED]: '你已經坐在牌桌上了',
   [GameErrorCodes.INVALID_SEAT_NUMBER]: '無效的座位號碼',
   [GameErrorCodes.INVALID_BUY_IN]: '買入金額無效',
+
+  // Authorization errors
+  [GameErrorCodes.NOT_AUTHORIZED]: '沒有權限執行此操作',
 };
 
 /**
