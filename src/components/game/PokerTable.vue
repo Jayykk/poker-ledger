@@ -141,7 +141,7 @@ provide('uiResetKey', uiResetKey);
 
 // Watch for new hand to trigger UI reset
 watch(() => currentGame.value?.handNumber, (newHand, oldHand) => {
-  if (newHand !== undefined && oldHand !== undefined && newHand > oldHand) {
+  if (oldHand !== undefined && newHand !== oldHand) {
     uiResetKey.value++; // Trigger reset in child components
   }
 });

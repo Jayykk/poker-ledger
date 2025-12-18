@@ -20,23 +20,32 @@
           <div class="table-id">Table #{{ gameId?.slice(0, 6) }}</div>
           <div class="hand-number">Hand #{{ currentGame.handNumber }}</div>
         </div>
-        <button @click="toggleMenu" class="btn-hamburger">
+        <button 
+          @click="toggleMenu" 
+          @keydown.enter="toggleMenu"
+          @keydown.space.prevent="toggleMenu"
+          class="btn-hamburger"
+          aria-label="Open menu"
+          :aria-expanded="String(menuOpen)"
+          aria-haspopup="true"
+        >
           ☰
         </button>
       </div>
 
       <!-- Dropdown Menu -->
       <Transition name="slide-down">
-        <div v-if="menuOpen" class="dropdown-menu">
+        <div v-if="menuOpen" class="dropdown-menu" role="menu" aria-label="Table actions">
           <button 
             v-if="mySeat && (currentGame.status === 'playing' || currentGame.status === 'waiting')"
             @click="handleLeaveSeat" 
             class="menu-item"
+            role="menuitem"
           >
             <span class="menu-icon">🚪</span>
             <span>Leave Seat</span>
           </button>
-          <button @click="handleShowTableInfo" class="menu-item">
+          <button @click="handleShowTableInfo" class="menu-item" role="menuitem">
             <span class="menu-icon">ℹ️</span>
             <span>Table Info</span>
           </button>
@@ -45,6 +54,7 @@
             v-if="isCreator && currentGame.status === 'playing'"
             @click="handleEndAfterHand" 
             class="menu-item menu-item-danger"
+            role="menuitem"
           >
             <span class="menu-icon">🛑</span>
             <span>End After Hand</span>
@@ -53,6 +63,7 @@
             v-if="isCreator && (currentGame.status === 'waiting' || currentGame.status === 'ended')"
             @click="handleDeleteRoom" 
             class="menu-item menu-item-danger"
+            role="menuitem"
           >
             <span class="menu-icon">🗑️</span>
             <span>Delete Room</span>

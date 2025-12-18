@@ -177,6 +177,9 @@ watch(() => currentGame.value?.table?.stage, (newStage) => {
         }
       }
     }
+  } else if (newStage !== 'showdown_complete') {
+    // Reset local state when stage changes away from showdown
+    localShowdownCards.value = [];
   }
 });
 
