@@ -760,3 +760,54 @@ export async function handlePlayerTimeout(gameId, userId) {
     };
   });
 }
+
+/**
+ * Resume a paused poker game
+ * Only the host can resume
+ * @param {string} gameId - Game ID
+ * @param {string} userId - User ID (host)
+ * @return {Promise<Object>} Result with success and next turn
+ */
+export async function resumeGame(gameId, userId) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+
+  return db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+
+    if (!gameDoc.exists) {
+      throw createGameError(GameErrorCodes.GAME_NOT_FOUND);
+    }
+
+    const game = gameDoc.data();
+
+    // Verify user is the host
+    if (game.meta?.createdBy !== userId) {
+      throw createGameError(GameErrorCodes.NOT_AUTHORIZED, 'Only the host can resume the game');
+    }
+
+    // Verify game is paused
+    if (game.status !== 'paused') {
+      throw createGameError(GameErrorCodes.INVALID_GAME_STATE, 'Game is not paused');
+    }
+
+    // Find next active player
+    const nextPlayer = findNextPlayer(game, game.table?.currentTurn);
+    const newTurnId = `turn-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    const turnTimeout = game.table?.turnTimeout || DEFAULT_TURN_TIMEOUT;
+
+    // Resume the game
+    transaction.update(gameRef, {
+      'status': 'playing',
+      'table.pauseReason': FieldValue.delete(),
+      'table.currentTurn': nextPlayer,
+      'table.currentTurnId': newTurnId,
+      'table.consecutiveAutoActions': 0,
+      'table.turnStartedAt': FieldValue.serverTimestamp(),
+      'table.turnExpiresAt': createTurnExpiresAt(turnTimeout),
+    });
+
+    return { success: true, nextTurn: nextPlayer };
+  });
+}
+

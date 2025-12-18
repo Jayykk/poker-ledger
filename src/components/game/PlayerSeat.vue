@@ -1,6 +1,6 @@
 <template>
   <div class="player-seat-compact">
-    <div v-if="seat" class="seat-content">
+    <div v-if="seat" class="seat-content" :class="seatStatusClass">
       <!-- Circular Avatar with Status Badge -->
       <div class="avatar-wrapper">
         <div 
@@ -8,6 +8,8 @@
           :class="{
             'is-current-turn': isCurrentTurn,
             'is-me': isMe,
+            'is-folded': seat.status === 'folded',
+            'is-sitting-out': seat.status === 'sitting_out',
           }"
         >
           {{ seat.odName?.charAt(0) || '?' }}
@@ -15,9 +17,10 @@
           <!-- Dealer Button Overlay -->
           <div v-if="seat.isDealer" class="dealer-badge">D</div>
           
-          <!-- Status Badge (Check/Fold/All-in) -->
+          <!-- Status Badge (Check/Fold/All-in/Sitting Out) -->
           <div v-if="seat.status === 'folded'" class="status-badge badge-fold">✗</div>
-          <div v-if="seat.status === 'all_in'" class="status-badge badge-all-in">★</div>
+          <div v-else-if="seat.status === 'all_in'" class="status-badge badge-all-in">★</div>
+          <div v-else-if="seat.status === 'sitting_out'" class="status-badge badge-sitting-out">☕</div>
           
           <!-- Turn Timer Ring -->
           <div v-if="isCurrentTurn && turnExpiresAt" class="timer-ring">
@@ -41,10 +44,10 @@
         </span>
       </div>
 
-      <!-- Bet Chip Display -->
-      <div v-if="seat.currentBet > 0" class="bet-chip">
+      <!-- Bet Chip Display - use roundBet with fallback to currentBet -->
+      <div v-if="seatBet > 0" class="bet-chip">
         <span class="chip-icon">🪙</span>
-        <span class="bet-amount">${{ seat.currentBet }}</span>
+        <span class="bet-amount">${{ seatBet }}</span>
       </div>
 
       <!-- Hole Cards (show for current player or during showdown) -->
@@ -71,11 +74,14 @@
     </div>
 
     <!-- Empty Seat (Join Button) -->
-    <div v-else-if="!isAlreadySeated" class="empty-seat" @click="handleJoinClick">
-      <div class="join-icon">+</div>
+    <div v-else-if="!isAlreadySeated && canJoin" class="empty-seat" @click="handleJoinClick">
+      <div class="empty-seat-inner">
+        <div class="join-icon">+</div>
+        <span class="join-text">Sit Here</span>
+      </div>
     </div>
 
-    <!-- Empty Seat (Locked - Already Seated) -->
+    <!-- Empty Seat (Locked - Already Seated or Game in Progress) -->
     <div v-else class="empty-seat locked">
       <div class="join-icon">🔒</div>
     </div>
@@ -226,6 +232,29 @@ const handleJoinClick = () => {
   // Emit event to parent to show buy-in modal (non-blocking)
   emit('join-seat', props.seatNumber);
 };
+
+// Add computed for seat bet (use roundBet with fallback)
+const seatBet = computed(() => {
+  return props.seat?.roundBet ?? props.seat?.currentBet ?? 0;
+});
+
+// Add computed for seat status class
+const seatStatusClass = computed(() => {
+  if (!props.seat) return '';
+  return {
+    'status-playing': props.seat.status === 'playing' || props.seat.status === 'active',
+    'status-folded': props.seat.status === 'folded',
+    'status-allin': props.seat.status === 'all_in',
+    'status-sitting-out': props.seat.status === 'sitting_out',
+  };
+});
+
+// Add computed for canJoin
+const canJoin = computed(() => {
+  // Can join if game is waiting or playing (will be spectator until next hand)
+  const status = currentGame.value?.status;
+  return status === 'waiting' || status === 'playing';
+});
 </script>
 
 <style scoped>
@@ -282,9 +311,23 @@ const handleJoinClick = () => {
   50% { box-shadow: 0 0 24px rgba(255, 215, 0, 1); }
 }
 
+.avatar-circle.is-sitting-out {
+  filter: grayscale(80%);
+  opacity: 0.6;
+}
+
+.avatar-circle.is-folded {
+  filter: grayscale(100%);
+  opacity: 0.4;
+}
+
 .avatar-circle.is-me {
   border-color: #4CAF50;
   border-width: 3px;
+}
+
+.status-folded .player-label {
+  opacity: 0.5;
 }
 
 /* Dealer Badge (top-right of avatar) */
@@ -335,6 +378,11 @@ const handleJoinClick = () => {
 
 .badge-all-in {
   background: #f59e0b;
+  color: white;
+}
+
+.badge-sitting-out {
+  background: #607d8b;
   color: white;
 }
 
@@ -437,6 +485,23 @@ const handleJoinClick = () => {
   border: 2px dashed #555;
   cursor: pointer;
   transition: all 0.3s ease;
+}
+
+.empty-seat-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.join-text {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: bold;
+}
+
+.empty-seat:hover .join-text {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .empty-seat:hover {

@@ -207,6 +207,7 @@ export const usePokerStore = defineStore('poker', {
 
     /**
      * Perform player action
+     * Now includes turnId for concurrency control
      */
     async performAction(action, amount = 0) {
       if (!this.gameId) return;
@@ -218,10 +219,14 @@ export const usePokerStore = defineStore('poker', {
         const functions = getFunctions(app);
         const playerAction = httpsCallable(functions, 'pokerPlayerAction');
         
+        // 🔑 Include currentTurnId for validation
+        const turnId = this.currentGame?.table?.currentTurnId;
+        
         const result = await playerAction({
           gameId: this.gameId,
           action,
           amount,
+          turnId,  // ✨ NEW: Include turnId
         });
         
         return result.data.result;
@@ -234,6 +239,14 @@ export const usePokerStore = defineStore('poker', {
         if (error.code === 'functions/failed-precondition') {
           // This is a structured error, message contains the error code
           const errorCode = error.message;
+          
+          // Handle STALE_ACTION error specifically
+          if (errorCode === 'STALE_ACTION') {
+            // This action was stale, the UI should already reflect the new state
+            console.log('Stale action detected, ignoring');
+            return;
+          }
+          
           const enhancedError = new Error(errorCode);
           enhancedError.code = errorCode;
           enhancedError.details = error.details;
@@ -293,6 +306,21 @@ export const usePokerStore = defineStore('poker', {
         this.myHoleCards = [];
       } catch (error) {
         console.error('Error deleting room:', error);
+        throw error;
+      }
+    },
+
+    /**
+     * Resume a paused game (host only)
+     */
+    async resumeGame(gameId) {
+      try {
+        const functions = getFunctions(app);
+        const resumeGame = httpsCallable(functions, 'resumePokerGame');
+        
+        await resumeGame({ gameId });
+      } catch (error) {
+        console.error('Error resuming game:', error);
         throw error;
       }
     },
