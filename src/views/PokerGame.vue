@@ -11,42 +11,91 @@
     </div>
 
     <div v-else-if="currentGame" class="game-screen">
-      <!-- Top Bar (15vh) - Game Header -->
+      <!-- Top Bar (15vh) - Game Header with Hamburger Menu -->
       <div class="top-bar">
-        <button @click="handleLeave" class="btn-leave">
-          ← Leave Table
+        <button @click="handleLeave" class="btn-back">
+          ←
         </button>
         <div class="game-info">
-          <span>Table #{{ gameId?.slice(0, 8) }}</span>
-          <span class="separator">|</span>
-          <span>Blinds: {{ currentGame.meta.blinds.small }}/{{ currentGame.meta.blinds.big }}</span>
-          <span class="separator">|</span>
-          <span>Hand: #{{ currentGame.handNumber }}</span>
+          <div class="table-id">Table #{{ gameId?.slice(0, 6) }}</div>
+          <div class="hand-number">Hand #{{ currentGame.handNumber }}</div>
         </div>
-        <div class="header-actions">
+        <button 
+          @click="toggleMenu" 
+          @keydown.enter="toggleMenu"
+          @keydown.space.prevent="toggleMenu"
+          class="btn-hamburger"
+          aria-label="Open menu"
+          :aria-expanded="String(menuOpen)"
+          aria-haspopup="true"
+        >
+          ☰
+        </button>
+      </div>
+
+      <!-- Dropdown Menu -->
+      <Transition name="slide-down">
+        <div v-if="menuOpen" class="dropdown-menu" role="menu" aria-label="Table actions">
           <button 
             v-if="mySeat && (currentGame.status === 'playing' || currentGame.status === 'waiting')"
             @click="handleLeaveSeat" 
-            class="btn-leave-seat"
+            class="menu-item"
+            role="menuitem"
           >
-            Leave Seat
+            <span class="menu-icon">🚪</span>
+            <span>Leave Seat</span>
           </button>
+          <button @click="handleShowTableInfo" class="menu-item" role="menuitem">
+            <span class="menu-icon">ℹ️</span>
+            <span>Table Info</span>
+          </button>
+          <div v-if="isCreator" class="menu-divider"></div>
           <button 
             v-if="isCreator && currentGame.status === 'playing'"
             @click="handleEndAfterHand" 
-            class="btn-end"
+            class="menu-item menu-item-danger"
+            role="menuitem"
           >
-            🛑 End After Hand
+            <span class="menu-icon">🛑</span>
+            <span>End After Hand</span>
           </button>
           <button 
             v-if="isCreator && (currentGame.status === 'waiting' || currentGame.status === 'ended')"
             @click="handleDeleteRoom" 
-            class="btn-delete"
+            class="menu-item menu-item-danger"
+            role="menuitem"
           >
-            🗑️ Delete Room
+            <span class="menu-icon">🗑️</span>
+            <span>Delete Room</span>
           </button>
         </div>
-      </div>
+      </Transition>
+
+      <!-- Table Info Modal -->
+      <BaseModal v-model="showTableInfo" title="Table Information">
+        <div class="table-info-content">
+          <div class="info-row">
+            <span class="info-label">Table ID:</span>
+            <span class="info-value">#{{ gameId }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Blinds:</span>
+            <span class="info-value">${{ currentGame.meta.blinds.small }}/${{ currentGame.meta.blinds.big }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Max Players:</span>
+            <span class="info-value">{{ currentGame.meta.maxPlayers }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Hand Number:</span>
+            <span class="info-value">#{{ currentGame.handNumber }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Status:</span>
+            <span class="info-value">{{ currentGame.status }}</span>
+          </div>
+        </div>
+      </BaseModal>
 
       <!-- Middle Section (70vh) - Poker Table -->
       <div class="middle-section">
@@ -77,7 +126,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, watch } from 'vue';
+import { computed, onMounted, onUnmounted, watch, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePokerGame } from '../composables/usePokerGame.js';
 import { usePokerStore } from '../store/modules/poker.js';
@@ -85,6 +134,7 @@ import { useAuthStore } from '../store/modules/auth.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import PokerTable from '../components/game/PokerTable.vue';
+import BaseModal from '../components/common/BaseModal.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -110,6 +160,23 @@ const isCreator = computed(() => {
 // Pause state
 const isPaused = computed(() => currentGame.value?.status === 'paused');
 const pauseReason = computed(() => currentGame.value?.table?.pauseReason);
+
+// Menu state
+const menuOpen = ref(false);
+const showTableInfo = ref(false);
+
+const toggleMenu = () => {
+  menuOpen.value = !menuOpen.value;
+};
+
+const closeMenu = () => {
+  menuOpen.value = false;
+};
+
+const handleShowTableInfo = () => {
+  showTableInfo.value = true;
+  closeMenu();
+};
 
 // Watch for game completion - just show message, don't navigate away
 watch(() => currentGame.value?.status, (status, oldStatus) => {
@@ -166,6 +233,7 @@ const handleLeaveSeat = async () => {
     try {
       await leaveSeat();
       success('You left your seat');
+      closeMenu();
     } catch (error) {
       console.error('Failed to leave seat:', error);
     }
@@ -181,6 +249,7 @@ const handleEndAfterHand = async () => {
   if (confirmed) {
     try {
       await pokerStore.endGameAfterHand(gameId.value);
+      closeMenu();
     } catch (error) {
       console.error('Failed to end game:', error);
     }
@@ -205,6 +274,7 @@ const handleDeleteRoom = async () => {
   if (confirmed) {
     try {
       await pokerStore.deleteRoom(gameId.value);
+      closeMenu();
       goBack();
     } catch (error) {
       console.error('Failed to delete room:', error);
@@ -274,12 +344,161 @@ const goBack = () => {
   height: 15vh;
   min-height: 60px;
   background: rgba(0, 0, 0, 0.5);
-  padding: 16px 24px;
+  padding: 12px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 2px solid rgba(255, 215, 0, 0.3);
   flex-shrink: 0;
+  position: relative;
+}
+
+.btn-back {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 44px;
+}
+
+.btn-back:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.btn-hamburger {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 44px;
+}
+
+.btn-hamburger:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.game-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: bold;
+  text-align: center;
+}
+
+.table-id {
+  font-size: 14px;
+  color: #ffd700;
+}
+
+.hand-number {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 2px;
+}
+
+/* Dropdown Menu */
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  min-width: 200px;
+  overflow: hidden;
+}
+
+.menu-item {
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: background 0.2s ease;
+  text-align: left;
+}
+
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.menu-item-danger {
+  color: #ff6b6b;
+}
+
+.menu-item-danger:hover {
+  background: rgba(244, 67, 54, 0.2);
+}
+
+.menu-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+.menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 4px 0;
+}
+
+/* Slide down animation */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* Table Info Modal */
+.table-info-content {
+  color: white;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.info-value {
+  color: #ffd700;
+  font-weight: bold;
 }
 
 .middle-section {
@@ -287,12 +506,6 @@ const goBack = () => {
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
 }
 
 .btn-leave {
@@ -309,68 +522,6 @@ const goBack = () => {
 .btn-leave:hover {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.4);
-}
-
-.btn-leave-seat {
-  background: rgba(255, 152, 0, 0.2);
-  color: #ffb74d;
-  border: 1px solid rgba(255, 152, 0, 0.4);
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 13px;
-}
-
-.btn-leave-seat:hover {
-  background: rgba(255, 152, 0, 0.3);
-  border-color: rgba(255, 152, 0, 0.6);
-}
-
-.btn-end {
-  background: rgba(244, 67, 54, 0.2);
-  color: #ff6b6b;
-  border: 1px solid rgba(244, 67, 54, 0.4);
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 13px;
-}
-
-.btn-end:hover {
-  background: rgba(244, 67, 54, 0.3);
-  border-color: rgba(244, 67, 54, 0.6);
-}
-
-.btn-delete {
-  background: rgba(156, 39, 176, 0.2);
-  color: #ce93d8;
-  border: 1px solid rgba(156, 39, 176, 0.4);
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 13px;
-}
-
-.btn-delete:hover {
-  background: rgba(156, 39, 176, 0.3);
-  border-color: rgba(156, 39, 176, 0.6);
-}
-
-.game-info {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 14px;
-  font-weight: bold;
-}
-
-.separator {
-  margin: 0 12px;
-  color: rgba(255, 215, 0, 0.5);
 }
 
 /* Pause Overlay */
@@ -439,22 +590,28 @@ const goBack = () => {
   opacity: 0;
 }
 
-
 @media (max-width: 768px) {
   .top-bar {
-    flex-direction: column;
-    gap: 12px;
-    padding: 12px 16px;
-    height: auto;
-    min-height: 80px;
+    padding: 10px 16px;
+    min-height: 50px;
   }
 
-  .game-info {
+  .table-id {
     font-size: 12px;
   }
 
-  .separator {
-    margin: 0 8px;
+  .hand-number {
+    font-size: 11px;
+  }
+
+  .dropdown-menu {
+    right: 10px;
+    min-width: 180px;
+  }
+
+  .menu-item {
+    padding: 10px 14px;
+    font-size: 13px;
   }
 }
 </style>

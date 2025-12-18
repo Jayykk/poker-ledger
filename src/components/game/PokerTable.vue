@@ -9,11 +9,11 @@
       <PotDisplay :pot="potSize" />
     </div>
 
-    <!-- Player Seats (floating around table, NOT inside it) -->
+    <!-- Player Seats (positioned using ellipse math) -->
     <div
       v-for="seatInfo in visibleSeats"
       :key="seatInfo.actualSeatNum"
-      :class="['player-seat-wrapper', `seat-${seatInfo.displayPosition}`]"
+      :style="seatInfo.avatarStyle"
     >
       <PlayerSeat
         :seat="seatInfo.seat"
@@ -23,6 +23,18 @@
         :visible="true"
         @join-seat="showBuyInModal"
         @auto-action="handleAutoAction"
+      />
+    </div>
+
+    <!-- Bet Chips (positioned on inner ring) -->
+    <div
+      v-for="seatInfo in visibleSeats"
+      :key="`bet-${seatInfo.actualSeatNum}`"
+      :style="seatInfo.betStyle"
+    >
+      <BetChip
+        v-if="seatInfo.seat"
+        :amount="seatInfo.seat?.roundBet ?? seatInfo.seat?.currentBet ?? 0"
       />
     </div>
 
@@ -78,7 +90,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, provide, watch } from 'vue';
 import { usePokerGame } from '../../composables/usePokerGame.js';
 import { useGameActions } from '../../composables/useGameActions.js';
 import { useGameAnimations } from '../../composables/useGameAnimations.js';
@@ -89,6 +101,7 @@ import PotDisplay from './PotDisplay.vue';
 import PlayerSeat from './PlayerSeat.vue';
 import ActionButtons from './ActionButtons.vue';
 import BaseModal from '../common/BaseModal.vue';
+import BetChip from './BetChip.vue';
 
 const authStore = useAuthStore();
 const { error: showError } = useNotification();
@@ -114,11 +127,48 @@ const { fold, check, call, raise, allIn } = useGameActions();
 
 // Constants
 const DEFAULT_BUY_IN = 1000;
+const MAX_SEATS = 10;
+const CENTER_X = 50; // percentage
+const CENTER_Y = 42; // percentage
+const OUTER_RX = 46; // percentage - outer ring for avatars
+const OUTER_RY = 42; // percentage
+const INNER_RX = 30; // percentage - inner ring for bets
+const INNER_RY = 26; // percentage
+
+// UI Reset System - provide key that increments on hand changes
+const uiResetKey = ref(0);
+provide('uiResetKey', uiResetKey);
+
+// Watch for new hand to trigger UI reset
+watch(() => currentGame.value?.handNumber, (newHand, oldHand) => {
+  if (oldHand !== undefined && newHand !== oldHand) {
+    uiResetKey.value++; // Trigger reset in child components
+  }
+});
+
+// Watch for game start (waiting -> playing) to trigger UI reset
+watch(() => currentGame.value?.status, (newStatus, oldStatus) => {
+  if (oldStatus === 'waiting' && newStatus === 'playing') {
+    uiResetKey.value++; // Trigger reset in child components
+  }
+});
 
 // Buy-in modal state
 const showBuyInModalDialog = ref(false);
 const buyInAmount = ref(String(DEFAULT_BUY_IN));
 const selectedSeatNumber = ref(null);
+
+// Elliptical positioning function
+const calculateEllipsePosition = (seatIndex, rx, ry) => {
+  const angleOffset = -90; // Start from bottom (270 degrees in standard coords)
+  const angleDeg = angleOffset + (seatIndex / MAX_SEATS) * 360;
+  const angleRad = (angleDeg * Math.PI) / 180;
+
+  return {
+    left: `${CENTER_X + rx * Math.cos(angleRad)}%`,
+    top: `${CENTER_Y + ry * Math.sin(angleRad)}%`,
+  };
+};
 
 // Computed
 const maxSeats = computed(() => currentGame.value?.meta?.maxPlayers || 10);
@@ -166,10 +216,27 @@ const visibleSeats = computed(() => {
     // 3. I'm not seated yet (show all seats for joining)
     if (mySeatNumber.value === null || i === mySeatNumber.value || seat !== null) {
       const displayPos = getDisplayPosition(i);
+      const avatarPos = calculateEllipsePosition(displayPos, OUTER_RX, OUTER_RY);
+      const betPos = calculateEllipsePosition(displayPos, INNER_RX, INNER_RY);
+      
       visible.push({
         actualSeatNum: i,
         displayPosition: displayPos,
         seat: seat,
+        avatarStyle: {
+          position: 'absolute',
+          left: avatarPos.left,
+          top: avatarPos.top,
+          transform: 'translate(-50%, -50%)',
+          zIndex: 10,
+        },
+        betStyle: {
+          position: 'absolute',
+          left: betPos.left,
+          top: betPos.top,
+          transform: 'translate(-50%, -50%)',
+          zIndex: 5,
+        },
       });
     }
   }
@@ -342,24 +409,6 @@ const handleAutoAction = async (action) => {
   pointer-events: none;
 }
 
-/* Position seats around the circular table */
-.player-seat-wrapper {
-  position: absolute;
-  z-index: 10;
-}
-
-/* 10-player seat positions around circular table at 40% */
-.seat-0 { bottom: 5%; left: 50%; transform: translateX(-50%); }  /* Hero - bottom center */
-.seat-1 { bottom: 15%; left: 15%; }   /* Bottom-left */
-.seat-2 { bottom: 35%; left: 5%; }    /* Left-middle-bottom */
-.seat-3 { top: 35%; left: 5%; }       /* Left-middle-top */
-.seat-4 { top: 15%; left: 15%; }      /* Top-left */
-.seat-5 { top: 5%; left: 50%; transform: translateX(-50%); }  /* Top center */
-.seat-6 { top: 15%; right: 15%; }     /* Top-right */
-.seat-7 { top: 35%; right: 5%; }      /* Right-middle-top */
-.seat-8 { bottom: 35%; right: 5%; }   /* Right-middle-bottom */
-.seat-9 { bottom: 15%; right: 15%; }  /* Bottom-right */
-
 .action-controls {
   position: absolute;
   bottom: 0;
@@ -413,18 +462,6 @@ const handleAutoAction = async (action) => {
     max-height: 400px;
     border-width: 10px;
   }
-
-  /* Adjusted seat positions for smaller screens */
-  .seat-0 { bottom: 3%; }
-  .seat-1 { bottom: 12%; left: 12%; }
-  .seat-2 { bottom: 32%; left: 3%; }
-  .seat-3 { top: 32%; left: 3%; }
-  .seat-4 { top: 12%; left: 12%; }
-  .seat-5 { top: 3%; }
-  .seat-6 { top: 12%; right: 12%; }
-  .seat-7 { top: 32%; right: 3%; }
-  .seat-8 { bottom: 32%; right: 3%; }
-  .seat-9 { bottom: 12%; right: 12%; }
 
   .btn-primary {
     padding: 10px 24px;
