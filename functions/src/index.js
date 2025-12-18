@@ -15,6 +15,8 @@ import {
   showCards as showCardsHandler,
   handlePlayerTimeout as handlePlayerTimeoutHandler,
   resumeGame as resumeGameHandler,
+  togglePause as togglePauseHandler,
+  stopNextHand as stopNextHandHandler,
 } from './handlers/game.js';
 import {
   sendMessage,
@@ -232,6 +234,58 @@ export const resumePokerGame = onCall(async (request) => {
     return { success: true, result };
   } catch (error) {
     console.error('Error resuming game:', error);
+
+    // Check if it's a game error with a code
+    if (error.code) {
+      throw new HttpsError('failed-precondition', error.code, { details: error.message });
+    }
+
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Toggle pause/resume game
+ */
+export const togglePausePokerGame = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId } = request.data;
+    const userId = request.auth.uid;
+
+    const result = await togglePauseHandler(gameId, userId);
+    return { success: true, result };
+  } catch (error) {
+    console.error('Error toggling pause:', error);
+
+    // Check if it's a game error with a code
+    if (error.code) {
+      throw new HttpsError('failed-precondition', error.code, { details: error.message });
+    }
+
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Stop auto-next hand
+ */
+export const stopNextPokerHand = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId } = request.data;
+    const userId = request.auth.uid;
+
+    const result = await stopNextHandHandler(gameId, userId);
+    return { success: true, result };
+  } catch (error) {
+    console.error('Error stopping next hand:', error);
 
     // Check if it's a game error with a code
     if (error.code) {

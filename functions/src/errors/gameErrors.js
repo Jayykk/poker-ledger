@@ -16,6 +16,7 @@ export const GameErrorCodes = {
   GAME_ALREADY_IN_PROGRESS: 'GAME_ALREADY_IN_PROGRESS',
   GAME_ALREADY_STARTED: 'GAME_ALREADY_STARTED',
   INVALID_GAME_STATE: 'INVALID_GAME_STATE',
+  GAME_PAUSED: 'GAME_PAUSED',
 
   // Player errors
   INVALID_RAISE_AMOUNT: 'INVALID_RAISE_AMOUNT',
@@ -57,6 +58,7 @@ export const GameErrorMessages = {
   [GameErrorCodes.GAME_ALREADY_IN_PROGRESS]: '遊戲已經開始',
   [GameErrorCodes.GAME_ALREADY_STARTED]: '遊戲已經開始',
   [GameErrorCodes.INVALID_GAME_STATE]: '遊戲狀態無效',
+  [GameErrorCodes.GAME_PAUSED]: '遊戲已暫停',
 
   // Player errors
   [GameErrorCodes.INVALID_RAISE_AMOUNT]: '加注金額無效',

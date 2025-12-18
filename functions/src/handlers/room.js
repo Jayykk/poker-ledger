@@ -27,6 +27,7 @@ export async function createRoom(config, userId) {
       minBuyIn: config.minBuyIn || 1000,
       maxBuyIn: config.maxBuyIn || 5000,
       maxPlayers: 10, // Fixed to 10 players
+      autoStartDelay: config.autoStartDelay || 5, // seconds between hands
       createdBy: userId,
       createdAt: FieldValue.serverTimestamp(),
     },
@@ -43,6 +44,10 @@ export async function createRoom(config, userId) {
       minRaise: config.bigBlind || 20,
       lastRaise: 0,
       currentBet: 0,
+      isAutoNext: false, // whether to auto-start next hand
+      pausedAt: null, // timestamp when paused
+      remainingTurnTime: null, // ms remaining when paused
+      pauseReason: null, // 'host_paused' | 'afk_protection'
     },
     seats: {},
     handNumber: 0,
