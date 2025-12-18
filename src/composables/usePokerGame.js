@@ -46,11 +46,23 @@ export function usePokerGame() {
 
   const callAmount = computed(() => {
     if (!mySeat.value) return 0;
-    return currentBet.value - (mySeat.value.currentBet || 0);
+    const myBet = mySeat.value.roundBet ?? mySeat.value.currentBet ?? 0;
+    return currentBet.value - myBet;
   });
 
   const canCheck = computed(() => callAmount.value === 0);
   const canRaise = computed(() => myChips.value > callAmount.value);
+
+  // New computed properties for state machine
+  const currentTurnId = computed(() => currentGame.value?.table?.currentTurnId);
+  const gameStatus = computed(() => currentGame.value?.status || 'unknown');
+  const tableStage = computed(() => currentGame.value?.table?.stage || currentGame.value?.table?.currentRound);
+  const isPaused = computed(() => currentGame.value?.status === 'paused');
+  const isShowdown = computed(() => {
+    const stage = currentGame.value?.table?.stage;
+    const round = currentGame.value?.table?.currentRound;
+    return stage === 'showdown' || stage === 'showdown_complete' || round === 'showdown';
+  });
 
   // Actions
   const createGame = async (config) => {
@@ -102,6 +114,13 @@ export function usePokerGame() {
     callAmount,
     canCheck,
     canRaise,
+
+    // New state machine properties
+    currentTurnId,
+    gameStatus,
+    tableStage,
+    isPaused,
+    isShowdown,
 
     // Actions
     createGame,

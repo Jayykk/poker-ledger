@@ -24,6 +24,8 @@ const ERROR_MESSAGES = {
   NO_CHIPS_FOR_ALL_IN: '沒有籌碼可以全下',
   GAME_ALREADY_IN_PROGRESS: '遊戲已經開始',
   NOT_ENOUGH_PLAYERS: '至少需要2位玩家才能開始',
+  STALE_ACTION: '此操作已過期，請重試',  // ✨ NEW
+  GAME_PAUSED: '遊戲已暫停',  // ✨ NEW
 };
 
 // Success message mapping

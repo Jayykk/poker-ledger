@@ -81,6 +81,7 @@
 import { computed, ref } from 'vue';
 import { usePokerGame } from '../../composables/usePokerGame.js';
 import { useGameActions } from '../../composables/useGameActions.js';
+import { useGameAnimations } from '../../composables/useGameAnimations.js';
 import { useAuthStore } from '../../store/modules/auth.js';
 import { useNotification } from '../../composables/useNotification.js';
 import CommunityCards from './CommunityCards.vue';
@@ -91,6 +92,9 @@ import BaseModal from '../common/BaseModal.vue';
 
 const authStore = useAuthStore();
 const { error: showError } = useNotification();
+
+// Initialize game animations
+const { isRevealingCards, isShowdownActive } = useGameAnimations();
 const {
   currentGame,
   isMyTurn,

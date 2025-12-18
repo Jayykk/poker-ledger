@@ -55,6 +55,24 @@
 
       <!-- Bottom Bar (15vh) - Action Buttons (rendered inside PokerTable) -->
     </div>
+
+    <!-- AFK Pause Overlay -->
+    <Transition name="fade">
+      <div v-if="isPaused" class="pause-overlay">
+        <div class="pause-content">
+          <span class="pause-icon">⏸️</span>
+          <h2>遊戲暫停</h2>
+          <p>{{ pauseReason === 'afk_protection' ? '無人操作，遊戲已暫停' : '遊戲已暫停' }}</p>
+          <button 
+            v-if="isCreator" 
+            @click="handleResumeGame" 
+            class="btn-resume"
+          >
+            ▶️ 繼續遊戲
+          </button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -88,6 +106,10 @@ const {
 const isCreator = computed(() => {
   return currentGame.value?.meta?.createdBy === authStore.user?.uid;
 });
+
+// Pause state
+const isPaused = computed(() => currentGame.value?.status === 'paused');
+const pauseReason = computed(() => currentGame.value?.table?.pauseReason);
 
 // Watch for game completion - just show message, don't navigate away
 watch(() => currentGame.value?.status, (status, oldStatus) => {
@@ -162,6 +184,15 @@ const handleEndAfterHand = async () => {
     } catch (error) {
       console.error('Failed to end game:', error);
     }
+  }
+};
+
+const handleResumeGame = async () => {
+  try {
+    await pokerStore.resumeGame(gameId.value);
+    success('遊戲已繼續');
+  } catch (error) {
+    console.error('Failed to resume game:', error);
   }
 };
 
@@ -341,6 +372,73 @@ const goBack = () => {
   margin: 0 12px;
   color: rgba(255, 215, 0, 0.5);
 }
+
+/* Pause Overlay */
+.pause-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(8px);
+}
+
+.pause-content {
+  text-align: center;
+  color: white;
+  padding: 48px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.pause-icon {
+  font-size: 72px;
+  display: block;
+  margin-bottom: 24px;
+}
+
+.pause-content h2 {
+  font-size: 32px;
+  margin-bottom: 16px;
+  color: #ffd700;
+}
+
+.pause-content p {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 32px;
+}
+
+.btn-resume {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border: none;
+  padding: 16px 48px;
+  font-size: 18px;
+  font-weight: bold;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-resume:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(76, 175, 80, 0.4);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 
 @media (max-width: 768px) {
   .top-bar {
