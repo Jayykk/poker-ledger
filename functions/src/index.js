@@ -232,12 +232,12 @@ export const resumePokerGame = onCall(async (request) => {
     return { success: true, result };
   } catch (error) {
     console.error('Error resuming game:', error);
-    
+
     // Check if it's a game error with a code
     if (error.code) {
       throw new HttpsError('failed-precondition', error.code, { details: error.message });
     }
-    
+
     throw new HttpsError('internal', error.message);
   }
 });
