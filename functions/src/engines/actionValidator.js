@@ -42,8 +42,8 @@ export function validatePlayerAction(game, playerId, action, amount = 0) {
 
   const currentBet = game.table.currentBet || 0;
   const playerChips = playerSeat.chips;
-  const playerCurrentBet = playerSeat.currentBet || 0;
-  const callAmount = currentBet - playerCurrentBet;
+  const playerRoundBet = playerSeat.roundBet || 0;
+  const callAmount = currentBet - playerRoundBet;
 
   switch (action) {
   case 'fold':
@@ -83,12 +83,12 @@ export function validatePlayerAction(game, playerId, action, amount = 0) {
     }
 
     // Total bet must be at least minimum raise
-    const totalBet = playerCurrentBet + amount;
+    const totalBet = playerRoundBet + amount;
     const minRaise = currentBet + (game.table.minRaise || game.meta.blinds.big);
 
     if (totalBet < minRaise) {
       throw createGameError(GameErrorCodes.INVALID_RAISE_AMOUNT, {
-        minRaise: minRaise - playerCurrentBet,
+        minRaise: minRaise - playerRoundBet,
         provided: amount,
       });
     }

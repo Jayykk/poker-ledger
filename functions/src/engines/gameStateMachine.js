@@ -70,12 +70,13 @@ export function isRoundComplete(game) {
     return true;
   }
 
-  // Check if all active players have matched the current bet
+  // Check if all active players have acted AND matched the current bet
+  const allActed = activePlayers.every((seat) => seat.turnActed === true);
   const allMatched = activePlayers.every(
-    (seat) => seat.currentBet === game.table.currentBet,
+    (seat) => (seat.roundBet || 0) === game.table.currentBet,
   );
 
-  return allMatched;
+  return allActed && allMatched;
 }
 
 /**

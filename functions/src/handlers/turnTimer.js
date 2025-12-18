@@ -3,132 +3,154 @@
  * Manages turn timeouts in the backend to prevent client-side timer issues
  */
 
-import { CloudTasksClient } from '@google-cloud/tasks';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { v4 as uuidv4 } from 'uuid';
+import { processAction } from '../engines/texasHoldem.js';
+import {
+  isLastManStanding,
+  isRoundComplete,
+  findNextPlayer,
+} from '../engines/gameStateMachine.js';
+import { addGameEvent } from '../lib/events.js';
+import { createPokerTask } from '../utils/cloudTasks.js';
+import { handleLastManStanding, advanceRound } from './game.js';
 
 // Constants
 const DEFAULT_TURN_TIMEOUT = 30; // seconds
-const PROJECT_ID = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
-const LOCATION = process.env.CLOUD_TASKS_LOCATION || 'us-central1';
-const QUEUE_NAME = 'poker-turn-timeouts';
-const GRPC_NOT_FOUND = 5; // gRPC status code for NOT_FOUND
-const TIMEOUT_ACTION = 'fold'; // Action to perform on timeout
-
-// Initialize Cloud Tasks client
-let tasksClient = null;
 
 /**
- * Get or initialize the Cloud Tasks client
- * @return {CloudTasksClient} The Cloud Tasks client instance
+ * Handle turn timeout - HTTP endpoint for Cloud Tasks
+ * @param {Object} req - HTTP request
+ * @param {Object} res - HTTP response
  */
-function getTasksClient() {
-  if (!tasksClient) {
-    tasksClient = new CloudTasksClient();
+export async function handleTurnTimeoutHttp(req, res) {
+  const { gameId, turnId } = req.body;
+
+  if (!gameId || !turnId) {
+    return res.status(400).json({ error: 'Missing gameId or turnId' });
   }
-  return tasksClient;
-}
 
-/**
- * Create a Cloud Task to handle turn timeout
- * @param {string} gameId - Game ID
- * @param {string} playerId - Player ID whose turn it is
- * @param {number} delaySeconds - Delay before timeout (default: 30s)
- * @return {Promise<string>} Task name
- */
-export async function createTurnTimeoutTask(gameId, playerId, delaySeconds = DEFAULT_TURN_TIMEOUT) {
-  try {
-    const client = getTasksClient();
-
-    // Construct the fully qualified queue name
-    const parent = client.queuePath(PROJECT_ID, LOCATION, QUEUE_NAME);
-
-    // Construct the task
-    const task = {
-      httpRequest: {
-        httpMethod: 'POST',
-        url: `https://${LOCATION}-${PROJECT_ID}.cloudfunctions.net/handleTurnTimeout`,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: Buffer.from(JSON.stringify({
-          gameId,
-          playerId,
-          timestamp: Date.now(),
-        })).toString('base64'),
-      },
-      scheduleTime: {
-        seconds: Math.floor(Date.now() / 1000) + delaySeconds,
-      },
-    };
-
-    // Create the task
-    const [response] = await client.createTask({ parent, task });
-    console.log(`Created turn timeout task: ${response.name}`);
-
-    return response.name;
-  } catch (error) {
-    console.error('Error creating turn timeout task:', error);
-    throw error;
-  }
-}
-
-/**
- * Cancel a pending turn timeout task
- * @param {string} taskName - Full task name to cancel
- * @return {Promise<void>}
- */
-export async function cancelTurnTimeoutTask(taskName) {
-  if (!taskName) return;
-
-  try {
-    const client = getTasksClient();
-    await client.deleteTask({ name: taskName });
-    console.log(`Cancelled turn timeout task: ${taskName}`);
-  } catch (error) {
-    // Task may have already executed or been deleted
-    if (error.code !== GRPC_NOT_FOUND) {
-      console.error('Error cancelling task:', error);
-    }
-  }
-}
-
-/**
- * Handle turn timeout - auto-fold the player
- * @param {string} gameId - Game ID
- * @param {string} playerId - Player ID who timed out
- * @return {Promise<Object>} Result
- */
-export async function handleTurnTimeout(gameId, playerId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
-  return db.runTransaction(async (transaction) => {
-    const gameDoc = await transaction.get(gameRef);
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const gameDoc = await transaction.get(gameRef);
 
-    if (!gameDoc.exists) {
-      throw new Error('Game not found');
+      if (!gameDoc.exists) {
+        return { success: false, reason: 'game_not_found' };
+      }
+
+      let game = gameDoc.data();
+
+      // 🔑 ZOMBIE CHECK: Ignore if turnId doesn't match
+      if (turnId !== game.table.currentTurnId) {
+        console.log(`Zombie task ignored - turnId mismatch: ${turnId} !== ${game.table.currentTurnId}`);
+        return { success: true, zombie: true };
+      }
+
+      // Check if game is still active
+      if (game.status !== 'playing') {
+        console.log(`Turn timeout ignored - game not active (${game.status})`);
+        return { success: false, reason: 'game_not_active' };
+      }
+
+      const currentPlayerId = game.table.currentTurn;
+      console.log(`Processing turn timeout for player ${currentPlayerId} in game ${gameId}`);
+
+      // Increment consecutive auto actions counter
+      const consecutiveAutoActions = (game.table.consecutiveAutoActions || 0) + 1;
+      game.table.consecutiveAutoActions = consecutiveAutoActions;
+
+      // 🔑 AFK PROTECTION: Check if too many consecutive auto-actions
+      const playerCount = Object.values(game.seats).filter((s) => s && s.status !== 'folded').length;
+      if (consecutiveAutoActions >= playerCount) {
+        console.log(`AFK Protection triggered: ${consecutiveAutoActions} consecutive auto-actions >= ${playerCount} players`);
+
+        // Pause the game instead of continuing
+        transaction.update(gameRef, {
+          'status': 'paused',
+          'table.pauseReason': 'afk_protection',
+          'table.consecutiveAutoActions': consecutiveAutoActions,
+          'table.currentTurn': null,
+          'table.currentTurnId': null,
+        });
+
+        return {
+          success: true,
+          paused: true,
+          reason: 'afk_protection',
+          consecutiveAutoActions,
+        };
+      }
+
+      // Force fold the current player
+      game = processAction(game, currentPlayerId, 'fold', 0);
+
+      // Record timeout event
+      await addGameEvent(
+        gameId,
+        {
+          type: 'timeout',
+          handNumber: game.handNumber,
+          odId: currentPlayerId,
+          action: 'fold',
+          round: game.table.currentRound,
+        },
+        transaction,
+      );
+
+      // Check for Last Man Standing
+      if (isLastManStanding(game)) {
+        const lmsResult = await handleLastManStanding(transaction, gameRef, game);
+        return { ...lmsResult, shouldCreateTask: false };
+      }
+
+      // Check if betting round is complete
+      if (isRoundComplete(game)) {
+        game = await advanceRound(game, transaction, gameRef);
+      } else {
+        // Move to next player
+        const nextPlayer = findNextPlayer(game);
+        game.table.currentTurn = nextPlayer;
+        game.table.currentTurnId = uuidv4();
+      }
+
+      // Update game state
+      const turnTimeout = game.table?.turnTimeout || DEFAULT_TURN_TIMEOUT;
+      const gameToUpdate = {
+        ...game,
+        table: {
+          ...game.table,
+          turnStartedAt: FieldValue.serverTimestamp(),
+          turnExpiresAt: createTurnExpiresAt(turnTimeout),
+          turnTimeout,
+        },
+      };
+      transaction.update(gameRef, gameToUpdate);
+
+      return {
+        success: true,
+        gameId,
+        action: 'fold',
+        nextTurn: game.table.currentTurn,
+        nextTurnId: game.table.currentTurnId,
+        turnTimeout,
+        shouldCreateTask: game.table.currentTurn !== null && game.status === 'playing',
+        consecutiveAutoActions,
+      };
+    });
+
+    // 🔑 POST-TRANSACTION: Create next timeout task only after transaction succeeds
+    if (result.shouldCreateTask && result.nextTurnId) {
+      await createPokerTask(gameId, result.nextTurnId, result.turnTimeout);
     }
 
-    const game = gameDoc.data();
-
-    // Verify it's still this player's turn
-    if (game.table?.currentTurn !== playerId) {
-      console.log(`Turn timeout ignored - no longer player's turn (${playerId})`);
-      return { success: false, reason: 'not_current_turn' };
-    }
-
-    // Check if game is still active
-    if (game.status !== 'playing') {
-      console.log(`Turn timeout ignored - game not active (${game.status})`);
-      return { success: false, reason: 'game_not_active' };
-    }
-
-    console.log(`Processing turn timeout for player ${playerId} in game ${gameId}`);
-
-    // Return success - the actual fold action will be handled by the HTTP endpoint
-    // to avoid transaction issues
-    return { success: true, action: TIMEOUT_ACTION, playerId };
-  });
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error handling turn timeout:', error);
+    return res.status(500).json({ error: error.message });
+  }
 }
 
 /**
