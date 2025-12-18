@@ -5,6 +5,7 @@
 
 import { createDeck, shuffleDeck, dealCards, burnCard } from '../utils/deck.js';
 import { determineWinners } from '../utils/handEvaluator.js';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Initialize a new hand
@@ -23,6 +24,8 @@ export function initializeHand(game) {
     communityCards: [],
     currentRound: 'preflop',
     currentBet: 0,
+    currentTurnId: uuidv4(), // Generate initial turnId
+    consecutiveAutoActions: 0,
     minRaise: game.meta.blinds.big,
     lastRaise: 0,
     deck,
@@ -34,7 +37,9 @@ export function initializeHand(game) {
     if (seats[seatNum]) {
       seats[seatNum] = {
         ...seats[seatNum],
-        currentBet: 0,
+        roundBet: 0, // Reset round bet
+        totalBet: 0, // Reset total bet
+        turnActed: false, // Reset turn acted
         status: 'active',
         isDealer: false,
         isSmallBlind: false,
@@ -83,9 +88,11 @@ export function initializeHand(game) {
   const bigBlind = Math.min(game.meta.blinds.big, seats[bigBlindSeat].chips);
 
   seats[smallBlindSeat].chips -= smallBlind;
-  seats[smallBlindSeat].currentBet = smallBlind;
+  seats[smallBlindSeat].roundBet = smallBlind;
+  seats[smallBlindSeat].totalBet = smallBlind;
   seats[bigBlindSeat].chips -= bigBlind;
-  seats[bigBlindSeat].currentBet = bigBlind;
+  seats[bigBlindSeat].roundBet = bigBlind;
+  seats[bigBlindSeat].totalBet = bigBlind;
 
   if (seats[smallBlindSeat].chips === 0) seats[smallBlindSeat].status = 'all_in';
   if (seats[bigBlindSeat].chips === 0) seats[bigBlindSeat].status = 'all_in';
@@ -213,6 +220,9 @@ export function processAction(game, playerId, action, amount = 0) {
 
   const table = { ...game.table };
 
+  // Mark current player as having acted
+  seats[seatNum].turnActed = true;
+
   switch (action) {
   case 'fold':
     seats[seatNum].status = 'folded';
@@ -224,11 +234,12 @@ export function processAction(game, playerId, action, amount = 0) {
 
   case 'call': {
     const callAmount = Math.min(
-      table.currentBet - playerSeat.currentBet,
+      table.currentBet - (playerSeat.roundBet || 0),
       playerSeat.chips,
     );
     seats[seatNum].chips -= callAmount;
-    seats[seatNum].currentBet += callAmount;
+    seats[seatNum].roundBet = (seats[seatNum].roundBet || 0) + callAmount;
+    seats[seatNum].totalBet = (seats[seatNum].totalBet || 0) + callAmount;
     table.pot += callAmount;
     if (seats[seatNum].chips === 0) {
       seats[seatNum].status = 'all_in';
@@ -239,10 +250,19 @@ export function processAction(game, playerId, action, amount = 0) {
   case 'raise': {
     const raiseAmount = Math.min(amount, playerSeat.chips);
     seats[seatNum].chips -= raiseAmount;
-    seats[seatNum].currentBet += raiseAmount;
+    seats[seatNum].roundBet = (seats[seatNum].roundBet || 0) + raiseAmount;
+    seats[seatNum].totalBet = (seats[seatNum].totalBet || 0) + raiseAmount;
     table.pot += raiseAmount;
-    table.currentBet = seats[seatNum].currentBet;
+    table.currentBet = seats[seatNum].roundBet;
     table.minRaise = raiseAmount;
+
+    // 🔑 RAISE RESET: Reset turnActed for all OTHER active players
+    Object.keys(seats).forEach((num) => {
+      if (seats[num] && num !== seatNum && seats[num].status === 'active') {
+        seats[num].turnActed = false;
+      }
+    });
+
     if (seats[seatNum].chips === 0) {
       seats[seatNum].status = 'all_in';
     }
@@ -252,11 +272,19 @@ export function processAction(game, playerId, action, amount = 0) {
   case 'all_in': {
     const allInAmount = playerSeat.chips;
     seats[seatNum].chips = 0;
-    seats[seatNum].currentBet += allInAmount;
+    seats[seatNum].roundBet = (seats[seatNum].roundBet || 0) + allInAmount;
+    seats[seatNum].totalBet = (seats[seatNum].totalBet || 0) + allInAmount;
     table.pot += allInAmount;
     seats[seatNum].status = 'all_in';
-    if (seats[seatNum].currentBet > table.currentBet) {
-      table.currentBet = seats[seatNum].currentBet;
+
+    // If this all-in is a raise, reset others' turnActed
+    if (seats[seatNum].roundBet > table.currentBet) {
+      table.currentBet = seats[seatNum].roundBet;
+      Object.keys(seats).forEach((num) => {
+        if (seats[num] && num !== seatNum && seats[num].status === 'active') {
+          seats[num].turnActed = false;
+        }
+      });
     }
     break;
   }

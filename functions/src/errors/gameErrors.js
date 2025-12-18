@@ -40,6 +40,8 @@ export const GameErrorCodes = {
 
   // Authorization errors
   NOT_AUTHORIZED: 'NOT_AUTHORIZED',
+  // Turn synchronization errors
+  STALE_ACTION: 'STALE_ACTION',
 };
 
 /**
@@ -79,6 +81,8 @@ export const GameErrorMessages = {
 
   // Authorization errors
   [GameErrorCodes.NOT_AUTHORIZED]: '沒有權限執行此操作',
+  // Turn synchronization errors
+  [GameErrorCodes.STALE_ACTION]: '此操作已過期',
 };
 
 /**
