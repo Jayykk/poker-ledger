@@ -168,7 +168,7 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
 
     // 1. 寫入剛剛暫存的 Action Event (延遲到這裡才寫)
     await addGameEvent(gameId, actionEventData, transaction);
-    
+
     // Get turn timeout setting
     const turnTimeout = game.table?.turnTimeout || DEFAULT_TURN_TIMEOUT;
 
