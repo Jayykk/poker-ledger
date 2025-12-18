@@ -44,12 +44,6 @@
         </span>
       </div>
 
-      <!-- Bet Chip Display - use roundBet with fallback to currentBet -->
-      <div v-if="seatBet > 0" class="bet-chip">
-        <span class="chip-icon">🪙</span>
-        <span class="bet-amount">${{ seatBet }}</span>
-      </div>
-
       <!-- Hole Cards (show for current player or during showdown) -->
       <div v-if="shouldShowCards && holeCards.length > 0" class="hole-cards">
         <PlayingCard
@@ -89,7 +83,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, inject, watch } from 'vue';
 import { usePokerGame } from '../../composables/usePokerGame.js';
 import { useAuthStore } from '../../store/modules/auth.js';
 import PlayingCard from './PlayingCard.vue';
@@ -124,30 +118,66 @@ const emit = defineEmits(['join-seat', 'auto-action']);
 const { myHoleCards, currentGame } = usePokerGame();
 const authStore = useAuthStore();
 
+// Inject UI reset key from parent
+const uiResetKey = inject('uiResetKey', ref(0));
+
 // Constants
 const DEFAULT_TURN_TIMEOUT = 30;
+
+// Local state for UI elements (not derived from server)
+const localIsWinner = ref(false);
+const localWinAmount = ref(0);
+const localHandName = ref('');
+const localShowdownCards = ref([]);
+
+// Reset local state when UI reset key changes
+watch(uiResetKey, () => {
+  localIsWinner.value = false;
+  localWinAmount.value = 0;
+  localHandName.value = '';
+  localShowdownCards.value = [];
+});
 
 const holeCards = computed(() => {
   // Show cards if it's my seat
   if (props.isMe) return myHoleCards.value;
 
-  // Show cards during showdown for all active players
+  // Show cards during showdown for all active players - use local state
   const gameStage = currentGame.value?.table?.stage;
   const gameRound = currentGame.value?.table?.currentRound;
   const isShowdown = gameStage === 'showdown_complete' || gameRound === 'showdown';
 
   if (isShowdown && props.seat && props.seat.status !== 'folded') {
-    // Get cards from handResult
+    return localShowdownCards.value;
+  }
+
+  return [];
+});
+
+// Populate local state during showdown
+watch(() => currentGame.value?.table?.stage, (newStage) => {
+  if (newStage === 'showdown_complete' && props.seat && props.seat.status !== 'folded') {
     const handResult = currentGame.value?.table?.handResult;
     if (handResult && handResult.allResults) {
       const playerResult = handResult.allResults.find(
         (r) => r.odId === props.seat.odId,
       );
-      return playerResult?.holeCards || [];
+      
+      if (playerResult) {
+        localShowdownCards.value = playerResult.holeCards || [];
+        localHandName.value = playerResult.handName || '';
+        
+        // Check if winner
+        const winner = handResult.winners?.find(
+          (w) => w.odId === props.seat.odId,
+        );
+        if (winner) {
+          localIsWinner.value = true;
+          localWinAmount.value = winner.amount || 0;
+        }
+      }
     }
   }
-
-  return [];
 });
 
 // Check if we should show cards
@@ -155,7 +185,7 @@ const shouldShowCards = computed(() => {
   return holeCards.value.length > 0;
 });
 
-// Showdown-related computed properties
+// Showdown-related computed properties - use local state
 const isShowdownRevealing = computed(() => {
   const gameStage = currentGame.value?.table?.stage;
   return gameStage === 'showdown_complete';
@@ -164,36 +194,25 @@ const isShowdownRevealing = computed(() => {
 const showHandResult = computed(() => {
   if (!props.seat) return false;
   const gameStage = currentGame.value?.table?.stage;
-  const handResult = currentGame.value?.table?.handResult;
-  return gameStage === 'showdown_complete' && handResult;
+  return gameStage === 'showdown_complete' && (localHandName.value !== '' || localWinAmount.value > 0);
 });
 
 const handResultName = computed(() => {
-  if (!showHandResult.value) return '';
-  const handResult = currentGame.value?.table?.handResult;
-  const playerResult = handResult.allResults?.find(
-    (r) => r.odId === props.seat.odId,
-  );
-  return playerResult?.handName || '';
+  return localHandName.value;
 });
 
 const winAmount = computed(() => {
-  if (!showHandResult.value) return 0;
-  const handResult = currentGame.value?.table?.handResult;
-  const winner = handResult.winners?.find(
-    (w) => w.odId === props.seat.odId,
-  );
-  return winner?.amount || 0;
+  return localWinAmount.value;
 });
 
 const isWinner = computed(() => {
-  return winAmount.value > 0;
+  return localIsWinner.value;
 });
 
 const isWinningCard = (card) => {
   if (!showHandResult.value || !isWinner.value) return false;
   const handResult = currentGame.value?.table?.handResult;
-  const winner = handResult.winners?.find(
+  const winner = handResult?.winners?.find(
     (w) => w.odId === props.seat.odId,
   );
   return winner?.winningCards?.includes(card) || false;
@@ -232,11 +251,6 @@ const handleJoinClick = () => {
   // Emit event to parent to show buy-in modal (non-blocking)
   emit('join-seat', props.seatNumber);
 };
-
-// Add computed for seat bet (use roundBet with fallback)
-const seatBet = computed(() => {
-  return props.seat?.roundBet ?? props.seat?.currentBet ?? 0;
-});
 
 // Add computed for seat status class
 const seatStatusClass = computed(() => {
@@ -436,34 +450,6 @@ const canJoin = computed(() => {
   font-weight: bold;
 }
 
-/* Bet Chip Display */
-.bet-chip {
-  position: absolute;
-  top: 50px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.85);
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 11px;
-  color: #ffd700;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  white-space: nowrap;
-  z-index: 4;
-  border: 1px solid rgba(255, 215, 0, 0.3);
-}
-
-.chip-icon {
-  font-size: 12px;
-}
-
-.bet-amount {
-  font-family: 'Courier New', monospace;
-}
-
 /* Hole Cards */
 .hole-cards {
   display: flex;
@@ -539,11 +525,6 @@ const canJoin = computed(() => {
 
   .player-stack {
     font-size: 10px;
-  }
-
-  .bet-chip {
-    font-size: 10px;
-    padding: 1px 6px;
   }
 }
 </style>
