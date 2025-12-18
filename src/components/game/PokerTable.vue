@@ -160,9 +160,9 @@ const selectedSeatNumber = ref(null);
 
 // Elliptical positioning function
 const calculateEllipsePosition = (seatIndex, rx, ry) => {
-  const angleOffset = -90; // Start from bottom (270 degrees in standard coords)
-  const angleDeg = angleOffset + (seatIndex / MAX_SEATS) * 360;
-  const angleRad = (angleDeg * Math.PI) / 180;
+  const startAngle = Math.PI / 2; // 90° = BOTTOM (6 o'clock)
+  const angleStep = (2 * Math.PI) / MAX_SEATS;
+  const angleRad = startAngle + (seatIndex * angleStep);
 
   return {
     left: `${CENTER_X + rx * Math.cos(angleRad)}%`,

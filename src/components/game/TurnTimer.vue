@@ -54,6 +54,10 @@ const props = defineProps({
     type: Number,
     default: 6,
   },
+  paused: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const timeRemaining = ref(0);
@@ -79,8 +83,11 @@ const progressColor = computed(() => {
 let updateInterval = null;
 
 const updateTimeRemaining = () => {
-  if (!props.expiresAt) {
-    timeRemaining.value = 0;
+  if (!props.expiresAt || props.paused) {
+    // Don't update when paused - keep current value
+    if (!props.expiresAt) {
+      timeRemaining.value = 0;
+    }
     return;
   }
   

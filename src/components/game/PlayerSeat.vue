@@ -27,8 +27,9 @@
             <TurnTimer 
               :expiresAt="turnExpiresAt"
               :totalTime="turnTimeout"
-              :size="52"
+              :size="68"
               :strokeWidth="3"
+              :paused="isPaused"
             />
           </div>
         </div>
@@ -117,6 +118,9 @@ const emit = defineEmits(['join-seat', 'auto-action']);
 
 const { myHoleCards, currentGame } = usePokerGame();
 const authStore = useAuthStore();
+
+// Check if game is paused
+const isPaused = computed(() => currentGame.value?.status === 'paused');
 
 // Inject UI reset key from parent
 const uiResetKey = inject('uiResetKey', ref(0));
@@ -297,21 +301,26 @@ const canJoin = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 70px;
+  height: 70px;
 }
 
 /* Circular Avatar */
 .avatar-circle {
-  width: 44px;
-  height: 44px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea, #764ba2);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 22px;
   font-weight: bold;
   color: white;
-  position: relative;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   border: 2px solid rgba(255, 255, 255, 0.3);
   transition: all 0.3s ease;
   z-index: 2;
@@ -467,8 +476,8 @@ const canJoin = computed(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.2);
   border: 2px dashed #555;
@@ -515,10 +524,15 @@ const canJoin = computed(() => {
 
 /* Responsive */
 @media (max-width: 768px) {
+  .avatar-wrapper {
+    width: 64px;
+    height: 64px;
+  }
+
   .avatar-circle {
-    width: 40px;
-    height: 40px;
-    font-size: 16px;
+    width: 54px;
+    height: 54px;
+    font-size: 20px;
   }
 
   .player-name {
