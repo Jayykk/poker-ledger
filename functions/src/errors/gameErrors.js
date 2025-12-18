@@ -36,6 +36,9 @@ export const GameErrorCodes = {
   ALREADY_SEATED: 'ALREADY_SEATED',
   INVALID_SEAT_NUMBER: 'INVALID_SEAT_NUMBER',
   INVALID_BUY_IN: 'INVALID_BUY_IN',
+
+  // Turn synchronization errors
+  STALE_ACTION: 'STALE_ACTION',
 };
 
 /**
@@ -71,6 +74,9 @@ export const GameErrorMessages = {
   [GameErrorCodes.ALREADY_SEATED]: '你已經坐在牌桌上了',
   [GameErrorCodes.INVALID_SEAT_NUMBER]: '無效的座位號碼',
   [GameErrorCodes.INVALID_BUY_IN]: '買入金額無效',
+
+  // Turn synchronization errors
+  [GameErrorCodes.STALE_ACTION]: '此操作已過期',
 };
 
 /**

@@ -4,6 +4,7 @@
  */
 
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { v4 as uuidv4 } from 'uuid';
 import {
   initializeHand,
   dealHoleCards,
@@ -25,6 +26,7 @@ import { createTurnExpiresAt } from './turnTimer.js';
 import { GameErrorCodes, createGameError } from '../errors/gameErrors.js';
 import { calculateSidePots, distributePots } from '../engines/potCalculator.js';
 import { determineWinners } from '../utils/handEvaluator.js';
+import { createPokerTask } from '../utils/cloudTasks.js';
 
 // Constants
 const DEFAULT_BUY_IN = 1000;
@@ -39,7 +41,7 @@ export async function startHand(gameId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
-  return db.runTransaction(async (transaction) => {
+  const result = await db.runTransaction(async (transaction) => {
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
@@ -85,8 +87,18 @@ export async function startHand(gameId) {
       gameId,
       handNumber: updatedGame.handNumber,
       currentTurn: updatedGame.table.currentTurn,
+      currentTurnId: updatedGame.table.currentTurnId,
+      turnTimeout,
+      shouldCreateTask: updatedGame.table.currentTurn !== null && updatedGame.status === 'playing',
     };
   });
+
+  // 🔑 POST-TRANSACTION: Create Cloud Task only after transaction succeeds
+  if (result.shouldCreateTask && result.currentTurnId) {
+    await createPokerTask(gameId, result.currentTurnId, result.turnTimeout);
+  }
+
+  return result;
 }
 
 /**
@@ -95,13 +107,15 @@ export async function startHand(gameId) {
  * @param {string} userId - User ID
  * @param {string} action - Action type
  * @param {number} amount - Bet amount
+ * @param {string} turnId - Turn UUID for zombie prevention
  * @return {Promise<Object>} Updated game state
  */
-export async function handlePlayerAction(gameId, userId, action, amount = 0) {
+export async function handlePlayerAction(gameId, userId, action, amount = 0, turnId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
-  return db.runTransaction(async (transaction) => {
+  // Transaction result will contain info needed for post-transaction task creation
+  const result = await db.runTransaction(async (transaction) => {
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
@@ -110,11 +124,21 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
 
     let game = gameDoc.data();
 
+    // 🔑 Validate turnId to prevent stale actions
+    if (turnId && turnId !== game.table.currentTurnId) {
+      throw createGameError(GameErrorCodes.STALE_ACTION, {
+        message: '此操作已過期',
+      });
+    }
+
     // Validate action using new validator
     validateAction(game, userId, action, amount);
 
     // Process the action
     game = processAction(game, userId, action, amount);
+
+    // Reset consecutive auto actions on manual player action
+    game.table.consecutiveAutoActions = 0;
 
     // Record action in events subcollection
     await addGameEvent(
@@ -139,9 +163,10 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
     if (isRoundComplete(game)) {
       game = await advanceRound(game, transaction, gameRef);
     } else {
-      // Move to next player
+      // Move to next player with new turnId
       const nextPlayer = findNextPlayer(game);
       game.table.currentTurn = nextPlayer;
+      game.table.currentTurnId = uuidv4(); // Generate new UUID
     }
 
     // Get turn timeout setting
@@ -159,13 +184,24 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
     };
     transaction.update(gameRef, gameToUpdate);
 
+    // Return data needed for post-transaction task creation
     return {
       gameId,
       action,
       nextRound: game.table.currentRound,
       nextTurn: game.table.currentTurn,
+      nextTurnId: game.table.currentTurnId,
+      turnTimeout,
+      shouldCreateTask: game.table.currentTurn !== null && game.status === 'playing',
     };
   });
+
+  // 🔑 POST-TRANSACTION: Create Cloud Task only after transaction succeeds
+  if (result.shouldCreateTask && result.nextTurnId) {
+    await createPokerTask(gameId, result.nextTurnId, result.turnTimeout);
+  }
+
+  return result;
 }
 
 /**
@@ -175,7 +211,7 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0) {
  * @param {Object} game - Current game state
  * @return {Promise<Object>} Result
  */
-async function handleLastManStanding(transaction, gameRef, game) {
+export async function handleLastManStanding(transaction, gameRef, game) {
   const activePlayers = getActivePlayers(game);
 
   if (activePlayers.length !== 1) {
@@ -240,6 +276,7 @@ async function handleLastManStanding(transaction, gameRef, game) {
   game.status = 'waiting';
   game.table.currentRound = null;
   game.table.currentTurn = null;
+  game.table.currentTurnId = null;
   game.table.communityCards = [];
 
   transaction.update(gameRef, game);
@@ -249,6 +286,7 @@ async function handleLastManStanding(transaction, gameRef, game) {
     winner: winner.odId,
     amount: winAmount,
     reason: 'last_man_standing',
+    shouldCreateTask: false,
   };
 }
 
@@ -259,14 +297,15 @@ async function handleLastManStanding(transaction, gameRef, game) {
  * @param {Object} gameRef - Game document reference
  * @return {Promise<Object>} Updated game state
  */
-async function advanceRound(game, transaction, gameRef) {
+export async function advanceRound(game, transaction, gameRef) {
   const { currentRound } = game.table;
 
-  // Reset current bets for new round
+  // Reset round bets and turnActed for new round
   const seats = { ...game.seats };
   Object.keys(seats).forEach((seatNum) => {
     if (seats[seatNum]) {
-      seats[seatNum].currentBet = 0;
+      seats[seatNum].roundBet = 0;
+      seats[seatNum].turnActed = false;
     }
   });
 
@@ -288,11 +327,12 @@ async function advanceRound(game, transaction, gameRef) {
     break;
   }
 
-  // Set next player to act
+  // Set next player to act with new turnId
   if (updatedGame.table.currentRound !== 'showdown') {
     const nextPlayer = getFirstToAct(updatedGame);
     if (nextPlayer) {
       updatedGame.table.currentTurn = nextPlayer;
+      updatedGame.table.currentTurnId = uuidv4(); // Generate new UUID
     }
   }
 
@@ -332,19 +372,19 @@ async function handleShowdown(game, transaction, gameRef) {
       odName: seat.odName,
       seatNum: parseInt(seatNum, 10),
       holeCards: holeCards[seat.odId] || [],
-      totalBet: seat.currentBet || 0,
+      totalBet: seat.totalBet || 0,
       chips: seat.chips,
       status: seat.status,
     }));
 
   // Get ALL players who contributed to pot (including folded players for dead money)
   const allContributors = Object.entries(game.seats)
-    .filter(([, seat]) => seat !== null && (seat.currentBet || 0) > 0)
+    .filter(([, seat]) => seat !== null && (seat.totalBet || 0) > 0)
     .map(([seatNum, seat]) => ({
       odId: seat.odId,
       odName: seat.odName,
       seatNum: parseInt(seatNum, 10),
-      totalBet: seat.currentBet || 0,
+      totalBet: seat.totalBet || 0,
       status: seat.status,
     }));
 

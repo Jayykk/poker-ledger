@@ -114,12 +114,12 @@ export function distributePots(pots, showdownResults, players) {
 export function calculateSidePotsFromGame(game) {
   // Get ALL players who contributed to the pot (including folded players for dead money)
   const players = Object.entries(game.seats)
-    .filter(([, seat]) => seat !== null && (seat.currentBet || 0) > 0)
+    .filter(([, seat]) => seat !== null && (seat.totalBet || 0) > 0)
     .map(([seatNum, seat]) => ({
       odId: seat.odId,
       odName: seat.odName,
       seatNum: parseInt(seatNum, 10),
-      totalBet: seat.currentBet || 0,
+      totalBet: seat.totalBet || 0,
       status: seat.status,
     }));
 
