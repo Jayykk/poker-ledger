@@ -31,22 +31,48 @@ function getTasksClient() {
  * @return {Promise<string|null>} Task name or null if failed
  */
 export async function createPokerTask(gameId, turnId, delaySeconds = 30) {
+  return createPokerHttpTask({
+    endpoint: 'handleTurnTimeout',
+    payload: {
+      gameId,
+      turnId, // 🔑 Include turnId for zombie prevention
+      timestamp: Date.now(),
+    },
+    delaySeconds,
+    logLabel: `turnId: ${turnId}`,
+  });
+}
+
+/**
+ * Create a Cloud Task targeting a poker Cloud Function HTTP endpoint.
+ * This should ONLY be called AFTER a successful transaction.
+ * @param {Object} params
+ * @param {string} params.endpoint - Cloud Function endpoint name (no leading slash)
+ * @param {Object} params.payload - JSON payload
+ * @param {number} params.delaySeconds - Delay before running
+ * @param {string} [params.queueName] - Cloud Tasks queue name
+ * @param {string} [params.logLabel] - Extra log label
+ * @return {Promise<string|null>} Task name or null if failed
+ */
+export async function createPokerHttpTask({
+  endpoint,
+  payload,
+  delaySeconds = 30,
+  queueName = QUEUE_NAME,
+  logLabel = '',
+}) {
   try {
     const client = getTasksClient();
-    const parent = client.queuePath(PROJECT_ID, LOCATION, QUEUE_NAME);
+    const parent = client.queuePath(PROJECT_ID, LOCATION, queueName);
 
     const task = {
       httpRequest: {
         httpMethod: 'POST',
-        url: `https://${LOCATION}-${PROJECT_ID}.cloudfunctions.net/handleTurnTimeout`,
+        url: `https://${LOCATION}-${PROJECT_ID}.cloudfunctions.net/${endpoint}`,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: Buffer.from(JSON.stringify({
-          gameId,
-          turnId, // 🔑 Include turnId for zombie prevention
-          timestamp: Date.now(),
-        })).toString('base64'),
+        body: Buffer.from(JSON.stringify(payload)).toString('base64'),
       },
       scheduleTime: {
         seconds: Math.floor(Date.now() / 1000) + delaySeconds,
@@ -54,12 +80,11 @@ export async function createPokerTask(gameId, turnId, delaySeconds = 30) {
     };
 
     const [response] = await client.createTask({ parent, task });
-    console.log(`Created poker task: ${response.name} for turnId: ${turnId}`);
+    console.log(`Created poker task: ${response.name}${logLabel ? ` (${logLabel})` : ''}`);
     return response.name;
   } catch (error) {
     console.error('Error creating poker task:', error);
     // Don't throw - task creation failure shouldn't break the game
-    // The player will just need to wait for manual intervention
     return null;
   }
 }

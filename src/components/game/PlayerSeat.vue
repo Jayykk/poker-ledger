@@ -149,13 +149,11 @@ const holeCards = computed(() => {
   // Show cards if it's my seat
   if (props.isMe) return myHoleCards.value;
 
-  // Show cards during showdown for all active players - use local state
-  const gameStage = currentGame.value?.table?.stage;
-  const gameRound = currentGame.value?.table?.currentRound;
-  const isShowdown = gameStage === 'showdown_complete' || gameRound === 'showdown';
-
-  if (isShowdown && props.seat && props.seat.status !== 'folded') {
-    return localShowdownCards.value;
+  // SECURITY: Opponent cards are only available if backend explicitly reveals
+  // them by writing to the PUBLIC seat.holeCards.
+  const revealed = props.seat?.holeCards;
+  if (Array.isArray(revealed) && revealed.length > 0) {
+    return revealed;
   }
 
   return [];
@@ -171,9 +169,9 @@ const isHandActive = computed(() => {
 });
 
 const shouldHideHoleCards = computed(() => {
-  // Reveal at showdown_complete, otherwise keep hidden for non-me.
-  const stage = currentGame.value?.table?.stage;
-  if (stage === 'showdown_complete') return false;
+  // If backend revealed this seat's cards, show face.
+  if (Array.isArray(props.seat?.holeCards) && props.seat.holeCards.length > 0) return false;
+
   if (props.isMe) {
     // If my private cards haven't arrived yet, show as backs.
     return (myHoleCards.value?.length || 0) < 2;
@@ -193,11 +191,10 @@ const displayHoleCards = computed(() => {
       return [null, null];
     }
 
-    // Other players: reveal only at showdown_complete; otherwise show backs.
-    const stage = currentGame.value?.table?.stage;
-    if (stage === 'showdown_complete') {
-      const revealed = holeCards.value || [];
-      if (revealed.length >= 2) return revealed.slice(0, 2);
+    // Other players: show backs until backend reveals seat.holeCards.
+    const revealed = props.seat?.holeCards;
+    if (Array.isArray(revealed) && revealed.length >= 2) {
+      return revealed.slice(0, 2);
     }
     return [null, null];
   }
@@ -216,7 +213,6 @@ watch(() => currentGame.value?.table?.stage, (newStage) => {
       );
       
       if (playerResult) {
-        localShowdownCards.value = playerResult.holeCards || [];
         localHandName.value = playerResult.handName || '';
         
         // Check if winner

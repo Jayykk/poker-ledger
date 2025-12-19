@@ -58,30 +58,17 @@ export async function handleTurnTimeoutHttp(req, res) {
       const currentPlayerId = game.table.currentTurn;
       console.log(`Processing turn timeout for player ${currentPlayerId} in game ${gameId}`);
 
-      // Increment consecutive auto actions counter
+      // Track consecutive auto-actions (timeouts). Manual player actions reset this counter.
       const consecutiveAutoActions = (game.table.consecutiveAutoActions || 0) + 1;
       game.table.consecutiveAutoActions = consecutiveAutoActions;
 
-      // 🔑 AFK PROTECTION: Check if too many consecutive auto-actions
-      const playerCount = Object.values(game.seats).filter((s) => s && s.status !== 'folded').length;
-      if (consecutiveAutoActions >= playerCount) {
-        console.log(`AFK Protection triggered: ${consecutiveAutoActions} consecutive auto-actions >= ${playerCount} players`);
-
-        // Pause the game instead of continuing
-        transaction.update(gameRef, {
-          'status': 'paused',
-          'table.pauseReason': 'afk_protection',
-          'table.consecutiveAutoActions': consecutiveAutoActions,
-          'table.currentTurn': null,
-          'table.currentTurnId': null,
-        });
-
-        return {
-          success: true,
-          paused: true,
-          reason: 'afk_protection',
-          consecutiveAutoActions,
-        };
+      // AFK protection (no auto-pause): if every player has timed out consecutively,
+      // disable auto-next so the next hand requires a manual start.
+      const playerCount = Object.values(game.seats)
+        .filter((s) => s && s.status !== 'folded' && s.status !== 'sitting_out').length;
+      if (playerCount > 0 && consecutiveAutoActions >= playerCount) {
+        game.table.isAutoNext = false;
+        game.table.autoNextDisabledReason = 'afk_protection';
       }
 
       // Auto action on timeout:
@@ -146,6 +133,7 @@ export async function handleTurnTimeoutHttp(req, res) {
         turnTimeout,
         shouldCreateTask: game.table.currentTurn !== null && game.status === 'playing',
         consecutiveAutoActions,
+        isAutoNext: game.table.isAutoNext,
       };
     });
 
