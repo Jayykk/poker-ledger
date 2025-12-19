@@ -1,10 +1,9 @@
 <template>
-  <div ref="tableEl" class="poker-table-container">
-    <!-- Poker Table Background (just the green felt surface) -->
-    <div class="poker-table"></div>
-
-    <!-- Community Cards Area (centered on table) -->
-    <div class="community-cards-area">
+  <div class="poker-table-container">
+    <!-- Poker Table Felt (vertical oval) -->
+    <div ref="tableEl" class="poker-table-felt">
+      <!-- Community Cards Area (centered on table) -->
+      <div class="community-cards-area">
       <CommunityCards
         :cards="communityCards"
         :round="currentRound"
@@ -15,7 +14,7 @@
       <PotDisplay ref="potRef" :pot="displayPot" />
 
       <!-- Win-by-fold: winner can choose to Show or Muck (default) -->
-      <div v-if="showWinByFoldPrompt" class="win-by-fold-prompt">
+        <div v-if="showWinByFoldPrompt" class="win-by-fold-prompt">
         <div class="win-by-fold-timer">
           <div class="win-by-fold-countdown">{{ winByFoldSecondsLeft }}s</div>
           <div class="win-by-fold-progress" aria-hidden="true">
@@ -34,40 +33,42 @@
           Muck
         </button>
       </div>
-    </div>
+      </div>
 
-    <!-- Player Seats (positioned using ellipse math) -->
-    <div
-      v-for="seatInfo in visibleSeats"
-      :key="seatInfo.actualSeatNum"
-      :style="seatInfo.avatarStyle"
-    >
-      <PlayerSeat
-        :seat="seatInfo.seat"
-        :seatNumber="seatInfo.actualSeatNum"
-        :isCurrentTurn="isCurrentTurn(seatInfo.actualSeatNum)"
-        :isMe="isMySeat(seatInfo.actualSeatNum)"
-        :visible="true"
-        @join-seat="showBuyInModal"
-        @auto-action="handleAutoAction"
-        @animate-bet="handleAnimateBet"
-      />
-    </div>
+      <!-- Player Seats (positioned using fixed coordinate map) -->
+      <div
+        v-for="seatInfo in visibleSeats"
+        :key="seatInfo.actualSeatNum"
+        :style="seatInfo.seatStyle"
+      >
+        <PlayerSeat
+          :seat="seatInfo.seat"
+          :seatNumber="seatInfo.actualSeatNum"
+          :isCurrentTurn="isCurrentTurn(seatInfo.actualSeatNum)"
+          :isMe="isMySeat(seatInfo.actualSeatNum)"
+          :visible="true"
+          :betAmount="displayBetsBySeat[seatInfo.actualSeatNum] || 0"
+          :position="seatInfo.position"
+          @join-seat="showBuyInModal"
+          @auto-action="handleAutoAction"
+          @animate-bet="handleAnimateBet"
+        />
+      </div>
 
-    <!-- Bet Chips (positioned on inner ring) -->
-    <div
-      v-for="seatInfo in visibleSeats"
-      :key="`bet-${seatInfo.actualSeatNum}`"
-      :style="seatInfo.betStyle"
-    >
-      <BetChip
-        v-if="seatInfo.seat && (displayBetsBySeat[seatInfo.actualSeatNum] || 0) > 0"
-        :amount="displayBetsBySeat[seatInfo.actualSeatNum] || 0"
-      />
-    </div>
+      <!-- Flying chips: gather bets to center (visual only) -->
+      <ChipAnimation ref="chipAnimationEl" />
 
-    <!-- Flying chips: gather bets to center (visual only) -->
-    <ChipAnimation ref="chipAnimationEl" />
+      <!-- Start Hand Button (for game creator when waiting) -->
+      <div v-if="canStartHand" class="start-hand-controls">
+        <button
+          @click="handleStartHand"
+          class="btn-primary btn-lg"
+          :disabled="loading"
+        >
+          {{ loading ? 'Starting...' : 'Start Hand' }}
+        </button>
+      </div>
+    </div>
 
     <!-- Action Controls (bottom of screen) - Always visible with proper states -->
     <div class="action-controls">
@@ -84,17 +85,6 @@
         @raise="handleRaise"
         @all-in="handleAllIn"
       />
-    </div>
-
-    <!-- Start Hand Button (for game creator when waiting) -->
-    <div v-if="canStartHand" class="start-hand-controls">
-      <button
-        @click="handleStartHand"
-        class="btn-primary btn-lg"
-        :disabled="loading"
-      >
-        {{ loading ? 'Starting...' : 'Start Hand' }}
-      </button>
     </div>
 
     <!-- Buy-in Modal -->
@@ -133,7 +123,6 @@ import PotDisplay from './PotDisplay.vue';
 import PlayerSeat from './PlayerSeat.vue';
 import ActionButtons from './ActionButtons.vue';
 import BaseModal from '../common/BaseModal.vue';
-import BetChip from './BetChip.vue';
 import ChipAnimation from './ChipAnimation.vue';
 
 const emit = defineEmits(['animation-start', 'animation-end']);
@@ -164,12 +153,77 @@ const { fold, check, call, raise, allIn, actionsDisabled, showCards } = useGameA
 // Constants
 const DEFAULT_BUY_IN = 1000;
 const MAX_SEATS = 10;
-const CENTER_X = 50; // percentage
-const CENTER_Y = 42; // percentage
-const OUTER_RX = 46; // percentage - outer ring for avatars
-const OUTER_RY = 42; // percentage
-const INNER_RX = 30; // percentage - inner ring for bets
-const INNER_RY = 26; // percentage
+
+// Fixed coordinate seat layouts for the vertical-oval felt.
+// Index is the *display position* (after rotation so "me" is position 0).
+// These are hardcoded percentages (no runtime trig) tuned for portrait/mobile.
+const SEAT_LAYOUTS = {
+  6: [
+    { style: { bottom: '-10%', left: '50%', transform: 'translateX(-50%)' }, pos: 'bottom' },
+    { style: { bottom: '15%', left: '-5%' }, pos: 'left' },
+    { style: { top: '15%', left: '-5%' }, pos: 'left' },
+    { style: { top: '-10%', left: '50%', transform: 'translateX(-50%)' }, pos: 'top' },
+    { style: { top: '15%', right: '-5%' }, pos: 'right' },
+    { style: { bottom: '15%', right: '-5%' }, pos: 'right' },
+  ],
+  7: [
+    { style: { bottom: '-10%', left: '50%', transform: 'translateX(-50%)' }, pos: 'bottom' },
+    { style: { bottom: '18%', left: '-6%' }, pos: 'left' },
+    { style: { top: '50%', left: '-9%', transform: 'translateY(-50%)' }, pos: 'left' },
+    { style: { top: '18%', left: '-6%' }, pos: 'left' },
+    { style: { top: '-10%', left: '50%', transform: 'translateX(-50%)' }, pos: 'top' },
+    { style: { top: '18%', right: '-6%' }, pos: 'right' },
+    { style: { bottom: '18%', right: '-6%' }, pos: 'right' },
+  ],
+  8: [
+    { style: { bottom: '-10%', left: '50%', transform: 'translateX(-50%)' }, pos: 'bottom' },
+    { style: { bottom: '18%', left: '-6%' }, pos: 'left' },
+    { style: { top: '55%', left: '-9%', transform: 'translateY(-50%)' }, pos: 'left' },
+    { style: { top: '18%', left: '-6%' }, pos: 'left' },
+    { style: { top: '-10%', left: '50%', transform: 'translateX(-50%)' }, pos: 'top' },
+    { style: { top: '18%', right: '-6%' }, pos: 'right' },
+    { style: { top: '55%', right: '-9%', transform: 'translateY(-50%)' }, pos: 'right' },
+    { style: { bottom: '18%', right: '-6%' }, pos: 'right' },
+  ],
+  9: [
+    { style: { bottom: '-10%', left: '50%', transform: 'translateX(-50%)' }, pos: 'bottom' },
+    { style: { bottom: '18%', left: '-6%' }, pos: 'left' },
+    { style: { top: '55%', left: '-9%', transform: 'translateY(-50%)' }, pos: 'left' },
+    { style: { top: '18%', left: '-6%' }, pos: 'left' },
+    { style: { top: '-10%', left: '50%', transform: 'translateX(-50%)' }, pos: 'top' },
+    { style: { top: '22%', left: '50%', transform: 'translateX(-50%)' }, pos: 'top' },
+    { style: { top: '18%', right: '-6%' }, pos: 'right' },
+    { style: { top: '55%', right: '-9%', transform: 'translateY(-50%)' }, pos: 'right' },
+    { style: { bottom: '18%', right: '-6%' }, pos: 'right' },
+  ],
+  10: [
+    { style: { bottom: '-10%', left: '50%', transform: 'translateX(-50%)' }, pos: 'bottom' },
+    { style: { bottom: '12%', left: '10%' }, pos: 'left' },
+    { style: { top: '60%', left: '-6%', transform: 'translateY(-50%)' }, pos: 'left' },
+    { style: { top: '22%', left: '-6%' }, pos: 'left' },
+    { style: { top: '6%', left: '12%' }, pos: 'left' },
+    { style: { top: '-10%', left: '50%', transform: 'translateX(-50%)' }, pos: 'top' },
+    { style: { top: '6%', right: '12%' }, pos: 'right' },
+    { style: { top: '22%', right: '-6%' }, pos: 'right' },
+    { style: { top: '60%', right: '-6%', transform: 'translateY(-50%)' }, pos: 'right' },
+    { style: { bottom: '12%', right: '10%' }, pos: 'right' },
+  ],
+};
+
+function getSeatLayout(totalPlayers) {
+  const n = Math.max(6, Math.min(10, totalPlayers || 9));
+  return SEAT_LAYOUTS[n] || SEAT_LAYOUTS[9];
+}
+
+function getSeatStyle(index, totalPlayers) {
+  const layout = getSeatLayout(totalPlayers);
+  return layout[index]?.style || {};
+}
+
+function getSeatPositionTag(index, totalPlayers) {
+  const layout = getSeatLayout(totalPlayers);
+  return layout[index]?.pos || 'bottom';
+}
 
 // Push chips (avatar -> bet) animation controls
 const PUSH_BET_ANIMATION_MS = 400;
@@ -239,7 +293,7 @@ async function handleAnimateBet(payload) {
   const startRect = payload?.startRect;
   if (!startRect || typeof startRect.left !== 'number' || typeof startRect.top !== 'number') return;
 
-  const end = getSeatBetPositionPx(seatNum);
+  const end = getSeatBetTargetPxFromStartRect(seatNum, startRect);
   if (!end) return;
 
   // Freeze the bet amount so it updates when the chip lands.
@@ -282,28 +336,42 @@ watch(
   { immediate: true },
 );
 
-function percentToPx(rect, percentStr) {
-  const p = parseFloat(String(percentStr).replace('%', ''));
-  if (Number.isNaN(p)) return null;
-  return p;
-}
-
 function getSeatBetPositionPx(seatNum) {
   const container = tableEl.value;
   if (!container) return null;
-  const rect = container.getBoundingClientRect();
+
+  // Prefer the real DOM position of the bet chip badge (most accurate).
+  const chipEl = container.querySelector?.(`.bet-chip-badge[data-seat-number="${seatNum}"]`);
+  if (chipEl && typeof chipEl.getBoundingClientRect === 'function') {
+    const r = chipEl.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }
+
+  // Fallback: aim relative to the avatar based on the seat's position tag.
+  const avatarEl = container.querySelector?.(`.avatar-circle[data-seat-number="${seatNum}"]`);
+  if (!avatarEl || typeof avatarEl.getBoundingClientRect !== 'function') return null;
+  const ar = avatarEl.getBoundingClientRect();
+  const base = { x: ar.left + ar.width / 2, y: ar.top + ar.height / 2 };
 
   const seatInfo = visibleSeats.value.find((s) => s.actualSeatNum === seatNum);
-  if (!seatInfo) return null;
+  const pos = seatInfo?.position || 'bottom';
+  const d = 48;
+  if (pos === 'top') return { x: base.x, y: base.y + d };
+  if (pos === 'left') return { x: base.x + d, y: base.y };
+  if (pos === 'right') return { x: base.x - d, y: base.y };
+  return { x: base.x, y: base.y - d };
+}
 
-  const leftPercent = percentToPx(rect, seatInfo.betStyle?.left);
-  const topPercent = percentToPx(rect, seatInfo.betStyle?.top);
-  if (leftPercent === null || topPercent === null) return null;
-
-  return {
-    x: rect.left + (rect.width * leftPercent) / 100,
-    y: rect.top + (rect.height * topPercent) / 100,
-  };
+function getSeatBetTargetPxFromStartRect(seatNum, startRect) {
+  const seatInfo = visibleSeats.value.find((s) => s.actualSeatNum === seatNum);
+  const pos = seatInfo?.position || 'bottom';
+  const startX = startRect.left + (startRect.width || 0) / 2;
+  const startY = startRect.top + (startRect.height || 0) / 2;
+  const d = 48;
+  if (pos === 'top') return { x: startX, y: startY + d };
+  if (pos === 'left') return { x: startX + d, y: startY };
+  if (pos === 'right') return { x: startX - d, y: startY };
+  return { x: startX, y: startY - d };
 }
 
 function getPotCenterPx() {
@@ -332,8 +400,8 @@ function getPotCenterPx() {
 
   // Fallback: approximate center of table if pot DOM isn't available yet.
   return {
-    x: containerRect.left + (containerRect.width * CENTER_X) / 100,
-    y: containerRect.top + (containerRect.height * CENTER_Y) / 100,
+    x: containerRect.left + (containerRect.width * 0.5),
+    y: containerRect.top + (containerRect.height * 0.5),
   };
 }
 
@@ -540,18 +608,6 @@ const showBuyInModalDialog = ref(false);
 const buyInAmount = ref(String(DEFAULT_BUY_IN));
 const selectedSeatNumber = ref(null);
 
-// Elliptical positioning function
-const calculateEllipsePosition = (seatIndex, rx, ry) => {
-  const startAngle = Math.PI / 2; // 90° = BOTTOM (6 o'clock)
-  const angleStep = (2 * Math.PI) / MAX_SEATS;
-  const angleRad = startAngle + (seatIndex * angleStep);
-
-  return {
-    left: `${CENTER_X + rx * Math.cos(angleRad)}%`,
-    top: `${CENTER_Y + ry * Math.sin(angleRad)}%`,
-  };
-};
-
 // Computed
 const maxSeats = computed(() => currentGame.value?.meta?.maxPlayers || 10);
 
@@ -607,26 +663,18 @@ const visibleSeats = computed(() => {
     // 3. I'm not seated yet (show all seats for joining)
     if (mySeatNumber.value === null || i === mySeatNumber.value || seat !== null) {
       const displayPos = getDisplayPosition(i);
-      const avatarPos = calculateEllipsePosition(displayPos, OUTER_RX, OUTER_RY);
-      const betPos = calculateEllipsePosition(displayPos, INNER_RX, INNER_RY);
+      const seatStyle = getSeatStyle(displayPos, maxSeats.value);
+      const position = getSeatPositionTag(displayPos, maxSeats.value);
       
       visible.push({
         actualSeatNum: i,
         displayPosition: displayPos,
         seat: seat,
-        avatarStyle: {
+        position,
+        seatStyle: {
           position: 'absolute',
-          left: avatarPos.left,
-          top: avatarPos.top,
-          transform: 'translate(-50%, -50%)',
           zIndex: 10,
-        },
-        betStyle: {
-          position: 'absolute',
-          left: betPos.left,
-          top: betPos.top,
-          transform: 'translate(-50%, -50%)',
-          zIndex: 5,
+          ...seatStyle,
         },
       });
     }
@@ -724,23 +772,21 @@ const handleAutoAction = (action) => {
   height: 100%;
   position: relative;
   background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 50%, #0d1b2a 100%);
-  overflow: hidden;
+  /* Allow side seats/chips to render without clipping */
+  overflow: visible;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
 }
 
-/* Poker Table - 80% of middle section height, centered */
-.poker-table {
-  position: absolute;
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(56vh, 80vw); /* 80% of 70vh = 56vh */
-  height: min(56vh, 80vw);
-  max-width: 500px;
-  max-height: 500px;
-  aspect-ratio: 1;
+/* Poker Table Felt - explicit vertical oval sizing */
+.poker-table-felt {
+  position: relative;
+  width: 90vw;
+  height: 65vh;
+  max-width: 520px;
+  max-height: 620px;
+  margin: 60px auto 0 auto;
   background: radial-gradient(ellipse at center, #1a5c3a 0%, #0f3d26 50%, #0a2818 100%);
   border: 12px solid #8b6914;
   border-radius: 50%;
@@ -751,7 +797,7 @@ const handleAutoAction = (action) => {
     0 0 0 3px #654321,
     0 0 0 6px #3d2817;
   z-index: 0;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .win-by-fold-prompt {
@@ -795,7 +841,7 @@ const handleAutoAction = (action) => {
   transition: transform 0.1s linear;
 }
 
-.poker-table::after {
+.poker-table-felt::after {
   content: '';
   position: absolute;
   top: 15px;
@@ -809,7 +855,7 @@ const handleAutoAction = (action) => {
 
 .community-cards-area {
   position: absolute;
-  top: 40%;
+  top: 45%;
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
@@ -823,14 +869,19 @@ const handleAutoAction = (action) => {
   left: 0;
   right: 0;
   z-index: 100;
+  /* Prevent the felt from showing through below the bottom UI */
+  background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 50%, #0d1b2a 100%);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .start-hand-controls {
   position: absolute;
-  top: 50%;
+  top: 45%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  /* Nudge upward so it sits slightly above dead-center */
+  transform: translate(-50%, -50%) translateY(-40px);
   z-index: 50;
+  pointer-events: auto;
 }
 
 .btn-primary {
@@ -863,11 +914,11 @@ const handleAutoAction = (action) => {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .poker-table {
-    width: min(56vh, 85vw);
-    height: min(56vh, 85vw);
-    max-width: 400px;
-    max-height: 400px;
+  .poker-table-felt {
+    width: 90vw;
+    height: 65vh;
+    max-width: 440px;
+    max-height: 560px;
     border-width: 10px;
   }
 
