@@ -103,7 +103,7 @@ export function makeHandHistoryDocId({ gameId, handId, userId }) {
 export async function writeHandHistoryEntry(
   transaction,
   { gameId, handId, userId, holeCards = [], outcome },
-  { skipIfExists = false } = {},
+  { skipIfExists = false, existingSnapshot = null } = {},
 ) {
   const db = getFirestore();
   const ref = db
@@ -111,8 +111,8 @@ export async function writeHandHistoryEntry(
     .doc(makeHandHistoryDocId({ gameId, handId, userId }));
 
   if (skipIfExists) {
-    const existing = await transaction.get(ref);
-    if (existing.exists) {
+    const existing = existingSnapshot || await transaction.get(ref);
+    if (existing?.exists) {
       return { written: false, skipped: true, refPath: ref.path };
     }
   }
