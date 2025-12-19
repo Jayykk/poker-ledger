@@ -7,8 +7,11 @@ import PokerTable from '../../components/game/PokerTable.vue';
 </script>
 
 <style scoped>
-/* View-level override: switch the felt from oval to rounded rectangle. */
+/* View-level override: compact rounded-rectangle felt for mobile. */
 :deep(.poker-table-felt) {
-  border-radius: 50px;
+  width: 80vw;
+  height: 55vh;
+  margin: 80px auto 0 auto;
+  border-radius: 40px;
 }
 </style>
