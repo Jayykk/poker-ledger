@@ -64,8 +64,9 @@ export function validatePlayerAction(game, playerId, action, amount = 0) {
     if (callAmount === 0) {
       throw createGameError(GameErrorCodes.NOTHING_TO_CALL);
     }
-    // Player must have enough chips (or go all-in)
-    if (callAmount > playerChips) {
+    // Allow calling all-in for less than the required call amount.
+    // (The engine will cap the contributed chips via Math.min and mark all-in.)
+    if (playerChips <= 0) {
       throw createGameError(GameErrorCodes.NOT_ENOUGH_CHIPS, {
         required: callAmount,
         available: playerChips,
