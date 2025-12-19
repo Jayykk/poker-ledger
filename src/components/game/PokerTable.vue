@@ -37,6 +37,17 @@
       </div>
     </div>
 
+    <!-- Side pots (showdown only): list each pot level in a corner -->
+    <div v-if="showSidePotsPanel" class="side-pots-panel" aria-label="Side pots">
+      <div class="side-pots-title">Pots</div>
+      <div class="side-pots-list">
+        <div v-for="pot in handResultPots" :key="pot.level" class="side-pot-row">
+          <span class="side-pot-label">{{ potLabel(pot) }}</span>
+          <span class="side-pot-amount">${{ formatPotAmount(pot.amount) }}</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Player Seats (positioned using ellipse math) -->
     <div
       v-for="seatInfo in visibleSeats"
@@ -188,6 +199,32 @@ const isGatherAnimating = ref(false);
 // We show: displayPot = serverPot - sum(roundBets) (until gather), then jump to serverPot.
 const displayPot = ref(0);
 const displayBetsBySeat = ref({});
+
+const handResultPots = computed(() => {
+  const pots = currentGame.value?.table?.handResult?.pots;
+  if (!Array.isArray(pots)) return [];
+  return [...pots]
+    .filter((p) => p && typeof p.amount === 'number')
+    .sort((a, b) => (a.level || 0) - (b.level || 0));
+});
+
+const showSidePotsPanel = computed(() => {
+  // Only show when there is at least one side pot.
+  return handResultPots.value.length > 1;
+});
+
+const formatPotAmount = (amount) => {
+  const n = typeof amount === 'number' ? amount : Number(amount);
+  if (!Number.isFinite(n)) return '0';
+  return Math.max(0, Math.floor(n)).toLocaleString();
+};
+
+const potLabel = (pot) => {
+  if (pot?.isMainPot) return 'Main';
+  const level = typeof pot?.level === 'number' ? pot.level : 0;
+  // level 1 is main pot, so side pots start at 1.
+  return `Side ${Math.max(1, level - 1)}`;
+};
 
 const getSeatBetAmount = (seat) => {
   if (!seat) return 0;
@@ -822,6 +859,53 @@ const handleAutoAction = (action) => {
   text-align: center;
   z-index: 5;
   pointer-events: none;
+}
+
+.side-pots-panel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 6;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.7);
+  border: 2px solid rgba(255, 215, 0, 0.6);
+  border-radius: 16px;
+  padding: 10px 14px;
+  min-width: 140px;
+}
+
+.side-pots-title {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.side-pots-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.side-pot-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.side-pot-label {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+}
+
+.side-pot-amount {
+  color: #ffd700;
+  font-weight: 700;
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
 }
 
 .action-controls {
