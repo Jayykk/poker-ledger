@@ -11,7 +11,12 @@ import PokerTable from '../../components/game/PokerTable.vue';
 :deep(.poker-table-felt) {
   width: 80vw;
   height: 55vh;
-  margin: 80px auto 0 auto;
+  margin: 20px auto 0 auto;
   border-radius: 40px;
+}
+
+/* Global HUD buttons: hug the top edge with safe-area support. */
+:global(.hud-btn) {
+  top: calc(8px + env(safe-area-inset-top));
 }
 </style>
