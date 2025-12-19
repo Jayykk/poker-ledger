@@ -1,11 +1,12 @@
 <template>
-  <div class="player-seat-compact">
+  <div class="player-seat-compact" :class="positionClass">
     <div v-if="seat" class="seat-content" :class="seatStatusClass">
       <!-- Circular Avatar with Status Badge -->
       <div class="avatar-wrapper">
         <div 
           ref="avatarRef"
           class="avatar-circle"
+          :data-seat-number="seatNumber"
           :class="{
             'is-current-turn': isCurrentTurn,
             'is-me': isMe,
@@ -35,6 +36,11 @@
               :paused="isPaused"
             />
           </div>
+        </div>
+
+        <!-- Bet Chip (placed toward table center based on seat position) -->
+        <div v-if="seat && betAmount > 0" class="bet-chip-badge" :data-seat-number="seatNumber">
+          <BetChip :amount="betAmount" />
         </div>
       </div>
 
@@ -94,6 +100,7 @@ import { useAuthStore } from '../../store/modules/auth.js';
 import PlayingCard from './PlayingCard.vue';
 import TurnTimer from './TurnTimer.vue';
 import HandResultBadge from './HandResultBadge.vue';
+import BetChip from './BetChip.vue';
 
 const props = defineProps({
   seat: {
@@ -115,6 +122,15 @@ const props = defineProps({
   visible: {
     type: Boolean,
     default: true,
+  },
+  betAmount: {
+    type: Number,
+    default: 0,
+  },
+  // One of: bottom | top | left | right
+  position: {
+    type: String,
+    default: 'bottom',
   },
 });
 
@@ -357,6 +373,14 @@ const seatStatusClass = computed(() => {
   };
 });
 
+const positionClass = computed(() => {
+  const p = props.position;
+  if (p === 'top' || p === 'bottom' || p === 'left' || p === 'right') {
+    return `pos-${p}`;
+  }
+  return '';
+});
+
 // Add computed for canJoin
 const canJoin = computed(() => {
   // Can join if game is waiting or playing (will be spectator until next hand)
@@ -390,6 +414,37 @@ const canJoin = computed(() => {
   justify-content: center;
   width: 70px;
   height: 70px;
+}
+
+.bet-chip-badge {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Push the chip toward table center based on seat location */
+.pos-bottom .bet-chip-badge {
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.pos-top .bet-chip-badge {
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.pos-left .bet-chip-badge {
+  right: -40px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.pos-right .bet-chip-badge {
+  left: -40px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 /* Circular Avatar */
