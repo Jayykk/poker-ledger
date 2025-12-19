@@ -339,16 +339,19 @@ const canJoin = computed(() => {
 .avatar-circle.is-sitting-out {
   filter: grayscale(80%);
   opacity: 0.6;
+  transition: all 0.3s ease-out;
 }
 
 .avatar-circle.is-waiting {
   filter: brightness(0.7);
   opacity: 0.7;
+  transition: all 0.3s ease-out;
 }
 
 .avatar-circle.is-folded {
   filter: grayscale(100%);
   opacity: 0.4;
+  transition: all 0.3s ease-out;
 }
 
 .avatar-circle.is-me {
@@ -441,6 +444,7 @@ const canJoin = computed(() => {
   border-radius: 8px;
   min-width: 60px;
   text-align: center;
+  transition: all 0.3s ease-out;
 }
 
 .player-name {
@@ -460,6 +464,7 @@ const canJoin = computed(() => {
   display: flex;
   align-items: center;
   gap: 3px;
+  transition: all 0.3s ease-out;
 }
 
 .blind-badge {
