@@ -452,14 +452,4 @@ document.documentElement.setAttribute('data-theme', theme.value);
   flex: 1 1 auto;
 }
 
-/* Pull the table upwards now that the header is gone */
-#app.immersive-mode .poker-table-felt {
-  margin-top: 20px !important;
-  width: 80vw;
-  height: 55vh;
-  border-radius: 40px;
-  position: relative;
-  margin-left: auto;
-  margin-right: auto;
-}
 </style>
