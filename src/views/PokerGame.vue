@@ -26,85 +26,85 @@
         >
           ☰
         </button>
-      </div>
 
-      <!-- Dropdown Menu -->
-      <Transition name="slide-down">
-        <div v-if="menuOpen" class="dropdown-menu" role="menu" aria-label="Table actions">
-          <button 
-            v-if="mySeat && (currentGame.status === 'playing' || currentGame.status === 'waiting')"
-            @click="handleLeaveSeat" 
-            class="menu-item"
-            :class="{ 'menu-item-pending': isPendingLeave }"
-            role="menuitem"
-          >
-            <span class="menu-icon">{{ isPendingLeave ? '⏳' : '🚪' }}</span>
-            <span>{{ isPendingLeave ? 'Cancel Leave' : 'Leave Seat' }}</span>
-          </button>
-          <button @click="handleShowTableInfo" class="menu-item" role="menuitem">
-            <span class="menu-icon">ℹ️</span>
-            <span>Table Info</span>
-          </button>
-          <div v-if="isCreator" class="menu-divider"></div>
-          
-          <!-- Host Control Buttons -->
-          <button 
-            v-if="isCreator && currentGame.status === 'waiting' && hasEnoughPlayers"
-            @click="handleStartGame" 
-            class="menu-item"
-            role="menuitem"
-          >
-            <span class="menu-icon">▶️</span>
-            <span>Start Game</span>
-          </button>
-          <button 
-            v-if="isCreator && currentGame.status === 'playing' && !isPaused"
-            @click="handlePauseGame" 
-            class="menu-item"
-            role="menuitem"
-          >
-            <span class="menu-icon">⏸️</span>
-            <span>Pause Game</span>
-          </button>
-          <button 
-            v-if="isCreator && currentGame.status === 'paused'"
-            @click="handleResumeGame" 
-            class="menu-item"
-            role="menuitem"
-          >
-            <span class="menu-icon">▶️</span>
-            <span>Resume Game</span>
-          </button>
-          <button 
-            v-if="isCreator && currentGame.status === 'playing' && isAutoNext"
-            @click="handleStopAfterHand" 
-            class="menu-item"
-            role="menuitem"
-          >
-            <span class="menu-icon">⏹️</span>
-            <span>Stop After This Hand</span>
-          </button>
-          
-          <button 
-            v-if="isCreator && currentGame.status === 'playing'"
-            @click="handleEndAfterHand" 
-            class="menu-item menu-item-danger"
-            role="menuitem"
-          >
-            <span class="menu-icon">🛑</span>
-            <span>End After Hand</span>
-          </button>
-          <button 
-            v-if="isCreator && (currentGame.status === 'waiting' || currentGame.status === 'ended')"
-            @click="handleDeleteRoom" 
-            class="menu-item menu-item-danger"
-            role="menuitem"
-          >
-            <span class="menu-icon">🗑️</span>
-            <span>Delete Room</span>
-          </button>
-        </div>
-      </Transition>
+        <!-- Dropdown Menu (anchored to Top Bar) -->
+        <Transition name="slide-down">
+          <div v-if="menuOpen" class="dropdown-menu" role="menu" aria-label="Table actions">
+            <button 
+              v-if="mySeat && (currentGame.status === 'playing' || currentGame.status === 'waiting')"
+              @click="handleLeaveSeat" 
+              class="menu-item"
+              :class="{ 'menu-item-pending': isPendingLeave }"
+              role="menuitem"
+            >
+              <span class="menu-icon">{{ isPendingLeave ? '⏳' : '🚪' }}</span>
+              <span>{{ isPendingLeave ? 'Cancel Leave' : 'Leave Seat' }}</span>
+            </button>
+            <button @click="handleShowTableInfo" class="menu-item" role="menuitem">
+              <span class="menu-icon">ℹ️</span>
+              <span>Table Info</span>
+            </button>
+            <div v-if="isCreator" class="menu-divider"></div>
+            
+            <!-- Host Control Buttons -->
+            <button 
+              v-if="isCreator && currentGame.status === 'waiting' && hasEnoughPlayers"
+              @click="handleStartGame" 
+              class="menu-item"
+              role="menuitem"
+            >
+              <span class="menu-icon">▶️</span>
+              <span>Start Game</span>
+            </button>
+            <button 
+              v-if="isCreator && currentGame.status === 'playing' && !isPaused"
+              @click="handlePauseGame" 
+              class="menu-item"
+              role="menuitem"
+            >
+              <span class="menu-icon">⏸️</span>
+              <span>Pause Game</span>
+            </button>
+            <button 
+              v-if="isCreator && currentGame.status === 'paused'"
+              @click="handleResumeGame" 
+              class="menu-item"
+              role="menuitem"
+            >
+              <span class="menu-icon">▶️</span>
+              <span>Resume Game</span>
+            </button>
+            <button 
+              v-if="isCreator && currentGame.status === 'playing' && isAutoNext"
+              @click="handleStopAfterHand" 
+              class="menu-item"
+              role="menuitem"
+            >
+              <span class="menu-icon">⏹️</span>
+              <span>Stop After This Hand</span>
+            </button>
+            
+            <button 
+              v-if="isCreator && currentGame.status === 'playing'"
+              @click="handleEndAfterHand" 
+              class="menu-item menu-item-danger"
+              role="menuitem"
+            >
+              <span class="menu-icon">🛑</span>
+              <span>End After Hand</span>
+            </button>
+            <button 
+              v-if="isCreator && (currentGame.status === 'waiting' || currentGame.status === 'ended')"
+              @click="handleDeleteRoom" 
+              class="menu-item menu-item-danger"
+              role="menuitem"
+            >
+              <span class="menu-icon">🗑️</span>
+              <span>Delete Room</span>
+            </button>
+          </div>
+        </Transition>
+      </div>
 
       <!-- Table Info Modal -->
       <BaseModal v-model="showTableInfo" title="Table Information">
