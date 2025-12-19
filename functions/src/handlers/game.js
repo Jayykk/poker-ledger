@@ -313,6 +313,26 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
       });
     }
 
+    // For logging (and some UX), compute the *actual* chips that will be put in.
+    // - call: min(amountToCall, playerChips) (table-stakes short-call becomes all-in)
+    // - all_in: all remaining chips
+    let effectiveEventAmount = amount;
+    if (action === 'call' || action === 'all_in') {
+      const seatEntry = Object.entries(game.seats || {})
+        .find(([, seat]) => seat && seat.odId === userId);
+      const seat = seatEntry?.[1] || null;
+      if (seat) {
+        const currentHighBet = game.table?.currentBet || 0;
+        const playerRoundBet = seat.roundBet || 0;
+        const amountToCall = Math.max(0, currentHighBet - playerRoundBet);
+        if (action === 'call') {
+          effectiveEventAmount = Math.min(amountToCall, seat.chips || 0);
+        } else {
+          effectiveEventAmount = seat.chips || 0;
+        }
+      }
+    }
+
     // Validate action using new validator
     validateAction(game, userId, action, amount);
 
@@ -328,7 +348,7 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
       handNumber: game.handNumber,
       odId: userId,
       action,
-      amount,
+      amount: effectiveEventAmount,
       round: game.table.currentRound,
     };
 
