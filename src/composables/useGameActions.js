@@ -40,6 +40,9 @@ const SUCCESS_MESSAGES = {
   ALL_IN: '你全下了！',
 };
 
+// Optimistic UI constants
+const OPTIMISTIC_ACTION_TIMEOUT_MS = 500;
+
 /**
  * Get user-friendly error message from error code
  * @param {string} code - Error code
@@ -64,64 +67,56 @@ export function useGameActions() {
    * @param {string} soundName - Sound to play
    * @param {string} successMessage - Success message to show
    */
-  const performOptimisticAction = async (action, amount, soundName, successMessage) => {
+  const performOptimisticAction = (action, amount, soundName, successMessage) => {
     // 1. Instant visual feedback
     playSound(soundName);
     
     // 2. Instant disable action buttons
     actionsDisabled.value = true;
     
-    // 3. Background API call with optimistic flag
-    try {
-      await pokerStore.performAction(action, amount, { optimistic: true });
-      // Note: Don't show success message for optimistic actions
-      // The UI will update via real-time listeners
-    } catch (error) {
-      // 4. Rollback on error (show error toast)
-      const message = getErrorMessage(error.code);
-      showError(message);
-      actionsDisabled.value = false;
-    }
+    // 3. Background API call with optimistic flag (fire-and-forget)
+    pokerStore.performAction(action, amount, { optimistic: true });
     
-    // Re-enable buttons after a short delay (they'll be controlled by turn state)
+    // 4. Re-enable buttons after timeout
+    // Note: Buttons will be controlled by turn state from real-time listeners
     setTimeout(() => {
       actionsDisabled.value = false;
-    }, 500);
+    }, OPTIMISTIC_ACTION_TIMEOUT_MS);
   };
 
   /**
    * Fold current hand
    */
-  const fold = async () => {
-    await performOptimisticAction('fold', 0, 'fold', SUCCESS_MESSAGES.FOLD);
+  const fold = () => {
+    performOptimisticAction('fold', 0, 'fold', SUCCESS_MESSAGES.FOLD);
   };
 
   /**
    * Check (no bet)
    */
-  const check = async () => {
-    await performOptimisticAction('check', 0, 'check', SUCCESS_MESSAGES.CHECK);
+  const check = () => {
+    performOptimisticAction('check', 0, 'check', SUCCESS_MESSAGES.CHECK);
   };
 
   /**
    * Call current bet
    */
-  const call = async () => {
-    await performOptimisticAction('call', 0, 'call', SUCCESS_MESSAGES.CALL);
+  const call = () => {
+    performOptimisticAction('call', 0, 'call', SUCCESS_MESSAGES.CALL);
   };
 
   /**
    * Raise bet by amount
    */
-  const raise = async (amount) => {
-    await performOptimisticAction('raise', amount, 'raise', SUCCESS_MESSAGES.RAISE(amount));
+  const raise = (amount) => {
+    performOptimisticAction('raise', amount, 'raise', SUCCESS_MESSAGES.RAISE(amount));
   };
 
   /**
    * Go all-in
    */
-  const allIn = async () => {
-    await performOptimisticAction('all_in', 0, 'allin', SUCCESS_MESSAGES.ALL_IN);
+  const allIn = () => {
+    performOptimisticAction('all_in', 0, 'allin', SUCCESS_MESSAGES.ALL_IN);
   };
 
   /**

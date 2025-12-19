@@ -232,7 +232,7 @@ export const usePokerStore = defineStore('poker', {
           amount,
           turnId,
         }).catch((error) => {
-          console.error('Optimistic action failed:', error);
+          console.error(`Optimistic action failed [gameId: ${this.gameId}, action: ${action}]:`, error);
           // Don't throw - let the caller handle this via their own error handling
         });
         
