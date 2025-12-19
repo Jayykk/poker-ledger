@@ -7,13 +7,14 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { processAction } from '../engines/texasHoldem.js';
 import {
-  isLastManStanding,
+  getActivePlayers,
   isRoundComplete,
   findNextPlayer,
 } from '../engines/gameStateMachine.js';
 import { addGameEvent } from '../lib/events.js';
 import { createPokerTask } from '../utils/cloudTasks.js';
 import { handleLastManStanding, advanceRound } from './game.js';
+import { getHandIdFromGame } from '../utils/handHistories.js';
 
 // Constants
 const DEFAULT_TURN_TIMEOUT = 30; // seconds
@@ -82,6 +83,38 @@ export async function handleTurnTimeoutHttp(req, res) {
 
       game = processAction(game, currentPlayerId, timeoutAction, 0);
 
+      // ✅ Pre-Read Pattern: if this timeout action results in a single active player,
+      // prefetch snapshots needed by handleLastManStanding BEFORE any transaction writes.
+      const activePlayers = getActivePlayers(game);
+      const willBeLastManStanding = activePlayers.length === 1;
+      let preFetchedSnapshots = null;
+
+      if (willBeLastManStanding) {
+        const playerIds = Object.values(game.seats)
+          .filter((seat) => seat !== null)
+          .map((seat) => seat.odId);
+
+        const privateRefs = playerIds.map((playerId) => gameRef.collection('private').doc(playerId));
+        const privateSnaps = await transaction.getAll(...privateRefs);
+
+        const handId = getHandIdFromGame(game);
+        const historyRefs = playerIds.map((userId) => (
+          getFirestore()
+            .collection('handHistories')
+            .doc(`${gameRef.id}_${handId}_${userId}`)
+        ));
+        const historySnaps = await transaction.getAll(...historyRefs);
+        const historySnapByUserId = {};
+        historySnaps.forEach((snap, idx) => {
+          historySnapByUserId[playerIds[idx]] = snap;
+        });
+
+        preFetchedSnapshots = {
+          privateSnaps,
+          historySnapByUserId,
+        };
+      }
+
       // Record timeout event
       await addGameEvent(
         gameId,
@@ -96,8 +129,13 @@ export async function handleTurnTimeoutHttp(req, res) {
       );
 
       // Check for Last Man Standing
-      if (isLastManStanding(game)) {
-        const lmsResult = await handleLastManStanding(transaction, gameRef, game);
+      if (willBeLastManStanding) {
+        const lmsResult = await handleLastManStanding(
+          transaction,
+          gameRef,
+          game,
+          preFetchedSnapshots,
+        );
         return { ...lmsResult, shouldCreateTask: false };
       }
 

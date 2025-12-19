@@ -224,8 +224,47 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
 
     // Check for Last Man Standing
     if (isLastManStanding(game)) {
+      // ✅ Pre-Read Pattern: ensure all reads happen before any writes in this transaction.
+      // addGameEvent() performs transaction writes, and handleLastManStanding() needs
+      // private/history reads.
+      // So we prefetch what handleLastManStanding needs first.
+      const activePlayers = getActivePlayers(game);
+      let preFetchedSnapshots = null;
+
+      if (activePlayers.length !== 1) {
+        throw createGameError(GameErrorCodes.INVALID_ACTION, {
+          message: 'Invalid last man standing state',
+        });
+      }
+
+      const playerIds = Object.values(game.seats)
+        .filter((seat) => seat !== null)
+        .map((seat) => seat.odId);
+
+      const privateRefs = playerIds.map((playerId) => (
+        gameRef.collection('private').doc(playerId)
+      ));
+      const privateSnaps = await transaction.getAll(...privateRefs);
+
+      const handId = getHandIdFromGame(game);
+      const historyRefs = playerIds.map((userId) => (
+        getFirestore()
+          .collection('handHistories')
+          .doc(`${gameRef.id}_${handId}_${userId}`)
+      ));
+      const historySnaps = await transaction.getAll(...historyRefs);
+      const historySnapByUserId = {};
+      historySnaps.forEach((snap, idx) => {
+        historySnapByUserId[playerIds[idx]] = snap;
+      });
+
+      preFetchedSnapshots = {
+        privateSnaps,
+        historySnapByUserId,
+      };
+
       await addGameEvent(gameId, actionEventData, transaction);
-      return await handleLastManStanding(transaction, gameRef, game);
+      return await handleLastManStanding(transaction, gameRef, game, preFetchedSnapshots);
     }
 
     // Effective all-in: if 0 or only 1 player in the hand is NOT all-in,
@@ -333,9 +372,15 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
  * @param {Object} transaction - Firestore transaction
  * @param {Object} gameRef - Game document reference
  * @param {Object} game - Current game state
+ * @param {Object|null} preFetchedSnapshots - Optional pre-read snapshots to avoid transaction reads
  * @return {Promise<Object>} Result
  */
-export async function handleLastManStanding(transaction, gameRef, game) {
+export async function handleLastManStanding(
+  transaction,
+  gameRef,
+  game,
+  preFetchedSnapshots = null,
+) {
   // ===== READ PHASE =====
   // Efficiently get all private documents by deriving player IDs from seats
   // This avoids the extra listDocuments() API call
@@ -355,29 +400,47 @@ export async function handleLastManStanding(transaction, gameRef, game) {
 
   const winner = activePlayers[0];
 
-  // PRE-READ: private hole cards for all seated players (Promise.all)
-  const privateRefs = playerIds.map((playerId) => privateCollection.doc(playerId));
-  const privateSnaps = await Promise.all(privateRefs.map((ref) => transaction.get(ref)));
+  /**
+   * Optional pre-read snapshots to satisfy Firestore transaction ordering.
+   * When provided, handleLastManStanding will not perform any transaction reads.
+   *
+   * @typedef {Object} LastManStandingPreFetchedSnapshots
+   * @property {import('firebase-admin/firestore').DocumentSnapshot[]} [privateSnaps]
+  * @property {Record<string, import('firebase-admin/firestore').DocumentSnapshot>}
+  *   [historySnapByUserId]
+   */
+  // PRE-READ: private hole cards for all seated players
+  const privateRefs = playerIds.map((playerId) => (
+    privateCollection.doc(playerId)
+  ));
+  const privateSnaps = Array.isArray(preFetchedSnapshots?.privateSnaps) ?
+    preFetchedSnapshots.privateSnaps :
+    await transaction.getAll(...privateRefs);
 
   const holeCards = {};
-  privateSnaps.forEach((snap, idx) => {
-    if (!snap.exists) return;
-    const playerId = playerIds[idx];
-    holeCards[playerId] = snap.data()?.holeCards || [];
+  privateSnaps.forEach((snap) => {
+    if (!snap?.exists) return;
+    // Private docs are keyed by userId
+    holeCards[snap.id] = snap.data()?.holeCards || [];
   });
 
   // PRE-READ: hand history docs existence for all seated players (to avoid read-after-write)
   const handId = getHandIdFromGame(game);
-  const historyRefs = playerIds.map((userId) => (
-    getFirestore()
-      .collection('handHistories')
-      .doc(`${gameRef.id}_${handId}_${userId}`)
-  ));
-  const historySnaps = await Promise.all(historyRefs.map((ref) => transaction.get(ref)));
-  const historySnapByUserId = {};
-  historySnaps.forEach((snap, idx) => {
-    historySnapByUserId[playerIds[idx]] = snap;
-  });
+  const historySnapByUserId = preFetchedSnapshots?.historySnapByUserId || null;
+  let resolvedHistorySnapByUserId = historySnapByUserId;
+
+  if (!resolvedHistorySnapByUserId) {
+    const historyRefs = playerIds.map((userId) => (
+      getFirestore()
+        .collection('handHistories')
+        .doc(`${gameRef.id}_${handId}_${userId}`)
+    ));
+    const historySnaps = await transaction.getAll(...historyRefs);
+    resolvedHistorySnapByUserId = {};
+    historySnaps.forEach((snap, idx) => {
+      resolvedHistorySnapByUserId[playerIds[idx]] = snap;
+    });
+  }
 
   // ===== COMPUTE PHASE =====
   const winAmount = game.table.pot;
@@ -442,7 +505,7 @@ export async function handleLastManStanding(transaction, gameRef, game) {
         },
         {
           skipIfExists: true,
-          existingSnapshot: historySnapByUserId[userId] || null,
+          existingSnapshot: resolvedHistorySnapByUserId?.[userId] || null,
         },
       );
     }
