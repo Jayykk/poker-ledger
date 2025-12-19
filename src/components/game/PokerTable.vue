@@ -199,19 +199,19 @@ const SEAT_LAYOUTS = {
   10: [
     { style: { bottom: '-12%', left: '50%', transform: 'translateX(-50%)' }, pos: 'bottom' },
 
-    // Left rail (spread vertically)
-    { style: { bottom: '10%', left: '-8%' }, pos: 'left' },
-    { style: { bottom: '33%', left: '-8%' }, pos: 'left' },
-    { style: { top: '33%', left: '-8%' }, pos: 'left' },
-    { style: { top: '10%', left: '-8%' }, pos: 'left' },
+    // Right side (curved layout)
+    { style: { bottom: '15%', right: '1%' }, pos: 'right' },
+    { style: { bottom: '35%', right: '-8%' }, pos: 'right' },
+    { style: { top: '35%', right: '-8%' }, pos: 'right' },
+    { style: { top: '15%', right: '1%' }, pos: 'right' },
 
     { style: { top: '-12%', left: '50%', transform: 'translateX(-50%)' }, pos: 'top' },
 
-    // Right rail (spread vertically)
-    { style: { top: '10%', right: '-8%' }, pos: 'right' },
-    { style: { top: '33%', right: '-8%' }, pos: 'right' },
-    { style: { bottom: '33%', right: '-8%' }, pos: 'right' },
-    { style: { bottom: '10%', right: '-8%' }, pos: 'right' },
+    // Left side (curved layout)
+    { style: { top: '15%', left: '1%' }, pos: 'left' },
+    { style: { top: '35%', left: '-8%' }, pos: 'left' },
+    { style: { bottom: '35%', left: '-8%' }, pos: 'left' },
+    { style: { bottom: '15%', left: '1%' }, pos: 'left' },
   ],
 };
 

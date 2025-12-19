@@ -64,21 +64,15 @@ const handleMenu = () => {
   right: 15px;
 }
 
-/* Pull the table upwards now that the header is gone */
+/* Final: vertical oval felt (match curved rail) */
 :deep(.poker-table-felt) {
-  /* Ensure this is the only margin-top being applied */
-  margin-top: 110px !important;
-
-  /* Keep the rounded rectangle shape and smaller size */
+  margin-top: 130px !important;
   width: 95vw !important;
-  height: 60vh !important;
-  border-radius: 60px !important;
-  position: relative;
-  margin-left: auto;
-  margin-right: auto;
+  height: 70vh !important;
+  border-radius: 50% !important;
 }
 
-:deep(.poker-table-felt)::after {
-  border-radius: 60px !important;
+:deep(.poker-table-felt::after) {
+  border-radius: 50% !important;
 }
 </style>
