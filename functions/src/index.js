@@ -27,6 +27,10 @@ import {
 import {
   handleTurnTimeoutHttp,
 } from './handlers/turnTimer.js';
+import {
+  handleShowdownResolveHttp,
+  handleWinByFoldTimeoutHttp,
+} from './handlers/handTasks.js';
 
 // Initialize Firebase Admin
 initializeApp();
@@ -337,6 +341,11 @@ export const showPokerCards = onCall(async (request) => {
     return { success: true, result };
   } catch (error) {
     console.error('Error showing cards:', error);
+
+    if (error.code) {
+      throw new HttpsError('failed-precondition', error.code, { details: error.message, ...error.details });
+    }
+
     throw new HttpsError('internal', error.message);
   }
 });
@@ -474,6 +483,24 @@ export const leavePokerSpectator = onCall(async (request) => {
 export const handleTurnTimeout = onRequest(
   { cors: true, region: 'us-central1' },
   handleTurnTimeoutHttp,
+);
+
+/**
+ * Resolve showdown (called by Cloud Tasks)
+ * Used for early-reveal UX: stage=showdown -> reveal -> delay -> resolve winners.
+ */
+export const handleShowdownResolve = onRequest(
+  { cors: true, region: 'us-central1' },
+  handleShowdownResolveHttp,
+);
+
+/**
+ * Win-by-fold timeout (called by Cloud Tasks)
+ * If winner doesn't show within 5 seconds, default to muck and start next hand.
+ */
+export const handleWinByFoldTimeout = onRequest(
+  { cors: true, region: 'us-central1' },
+  handleWinByFoldTimeoutHttp,
 );
 
 /**

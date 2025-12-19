@@ -53,6 +53,7 @@ export function initializeHand(game) {
         totalBet: 0, // Reset total bet
         turnActed: false, // Reset turn acted
         status: newStatus,
+        holeCards: null, // SECURITY: never store hole cards publicly during the hand
         isDealer: false,
         isSmallBlind: false,
         isBigBlind: false,

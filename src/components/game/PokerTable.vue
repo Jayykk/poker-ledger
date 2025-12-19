@@ -7,6 +7,27 @@
     <div class="community-cards-area">
       <CommunityCards :cards="communityCards" :round="currentRound" />
       <PotDisplay :pot="potSize" />
+
+      <!-- Win-by-fold: winner can choose to Show or Muck (default) -->
+      <div v-if="showWinByFoldPrompt" class="win-by-fold-prompt">
+        <div class="win-by-fold-timer">
+          <div class="win-by-fold-countdown">{{ winByFoldSecondsLeft }}s</div>
+          <div class="win-by-fold-progress" aria-hidden="true">
+            <div class="win-by-fold-progress-bar" :style="{ transform: `scaleX(${winByFoldProgress})` }" />
+          </div>
+        </div>
+
+        <button
+          class="btn-confirm"
+          :disabled="!hasMyHoleCards || isWinByFoldDecisionExpired"
+          @click="handleVoluntaryShow"
+        >
+          Show Cards
+        </button>
+        <button class="btn-cancel" :disabled="isWinByFoldDecisionExpired" @click="handleMuck">
+          Muck
+        </button>
+      </div>
     </div>
 
     <!-- Player Seats (positioned using ellipse math) -->
@@ -91,7 +112,7 @@
 </template>
 
 <script setup>
-import { computed, ref, provide, watch } from 'vue';
+import { computed, ref, provide, watch, onUnmounted } from 'vue';
 import { usePokerGame } from '../../composables/usePokerGame.js';
 import { useGameActions } from '../../composables/useGameActions.js';
 import { useGameAnimations } from '../../composables/useGameAnimations.js';
@@ -113,6 +134,7 @@ const {
   currentGame,
   isMyTurn,
   myChips,
+  myHoleCards,
   potSize,
   communityCards,
   currentRound,
@@ -124,7 +146,7 @@ const {
   joinSeat,
 } = usePokerGame();
 
-const { fold, check, call, raise, allIn, actionsDisabled } = useGameActions();
+const { fold, check, call, raise, allIn, actionsDisabled, showCards } = useGameActions();
 
 // Constants
 const DEFAULT_BUY_IN = 1000;
@@ -145,6 +167,107 @@ watch(() => currentGame.value?.handNumber, (newHand, oldHand) => {
   if (oldHand !== undefined && newHand !== oldHand) {
     uiResetKey.value++; // Trigger reset in child components
   }
+});
+
+// Winner reveal UI state (default is muck)
+const dismissedWinByFoldPrompt = ref(false);
+watch(() => currentGame.value?.handNumber, () => {
+  dismissedWinByFoldPrompt.value = false;
+});
+
+// Win-by-fold decision countdown (backend enforces 5s timeout)
+const WIN_BY_FOLD_DECISION_MS = 5000;
+const winByFoldEndAtMs = ref(null);
+const winByFoldNowMs = ref(Date.now());
+const winByFoldInterval = ref(null);
+
+const winByFoldRemainingMs = computed(() => {
+  if (!winByFoldEndAtMs.value) return 0;
+  return Math.max(0, winByFoldEndAtMs.value - winByFoldNowMs.value);
+});
+
+const winByFoldSecondsLeft = computed(() => Math.max(0, Math.ceil(winByFoldRemainingMs.value / 1000)));
+const winByFoldProgress = computed(() => {
+  if (!winByFoldEndAtMs.value) return 0;
+  return Math.max(0, Math.min(1, winByFoldRemainingMs.value / WIN_BY_FOLD_DECISION_MS));
+});
+
+const isWinByFoldDecisionExpired = computed(() => winByFoldRemainingMs.value <= 0);
+
+const stopWinByFoldTimer = () => {
+  if (winByFoldInterval.value) {
+    clearInterval(winByFoldInterval.value);
+    winByFoldInterval.value = null;
+  }
+  winByFoldEndAtMs.value = null;
+};
+
+const myUserId = computed(() => authStore.user?.uid);
+const isWinByFold = computed(() => currentGame.value?.table?.stage === 'win_by_fold');
+const lastHandWinnerId = computed(() => currentGame.value?.table?.lastHand?.winnerId);
+const hasMyHoleCards = computed(() => (myHoleCards.value?.length || 0) >= 2);
+
+const showWinByFoldPrompt = computed(() => {
+  if (!isWinByFold.value) return false;
+  if (!myUserId.value) return false;
+  if (lastHandWinnerId.value !== myUserId.value) return false;
+  if (alreadyRevealedMine.value) return false;
+  if (dismissedWinByFoldPrompt.value) return false;
+  // Must be seated to have private cards
+  return mySeatNumber.value !== null;
+});
+
+watch(showWinByFoldPrompt, (show) => {
+  if (!show) {
+    stopWinByFoldTimer();
+    return;
+  }
+
+  stopWinByFoldTimer();
+  winByFoldNowMs.value = Date.now();
+  winByFoldEndAtMs.value = winByFoldNowMs.value + WIN_BY_FOLD_DECISION_MS;
+  winByFoldInterval.value = setInterval(() => {
+    winByFoldNowMs.value = Date.now();
+    if (winByFoldRemainingMs.value <= 0) {
+      // Backend will auto-muck and start next hand; dismiss the UI locally.
+      handleMuck();
+      stopWinByFoldTimer();
+    }
+  }, 100);
+});
+
+watch(
+  () => [currentGame.value?.table?.stage, currentGame.value?.table?.lastHand?.voluntaryShowExpired],
+  ([stage, expired]) => {
+    if (stage !== 'win_by_fold') {
+      stopWinByFoldTimer();
+      return;
+    }
+    if (expired) {
+      handleMuck();
+      stopWinByFoldTimer();
+    }
+  },
+);
+
+const handleVoluntaryShow = async () => {
+  try {
+    if (!currentGame.value?.id) return;
+    await showCards(currentGame.value.id);
+    dismissedWinByFoldPrompt.value = true;
+    stopWinByFoldTimer();
+  } catch (e) {
+    console.error('Failed to show cards:', e);
+  }
+};
+
+const handleMuck = () => {
+  dismissedWinByFoldPrompt.value = true;
+  stopWinByFoldTimer();
+};
+
+onUnmounted(() => {
+  stopWinByFoldTimer();
 });
 
 // Watch for game start (waiting -> playing) to trigger UI reset
@@ -194,6 +317,15 @@ const mySeatNumber = computed(() => {
     }
   }
   return null;
+});
+
+// SECURITY: whether my cards have been revealed to everyone.
+// Backend reveals by writing to PUBLIC `seats[mySeat].holeCards`.
+const alreadyRevealedMine = computed(() => {
+  if (!myUserId.value) return false;
+  if (mySeatNumber.value === null) return false;
+  const seat = seats.value?.[mySeatNumber.value];
+  return Array.isArray(seat?.holeCards) && seat.holeCards.length > 0;
 });
 
 // Calculate display position based on seat rotation (first-person view)
@@ -362,6 +494,47 @@ const handleAutoAction = (action) => {
     0 0 0 6px #3d2817;
   z-index: 0;
   pointer-events: none;
+}
+
+.win-by-fold-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.win-by-fold-timer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}
+
+.win-by-fold-countdown {
+  color: white;
+  font-weight: bold;
+  min-width: 40px;
+  text-align: right;
+}
+
+.win-by-fold-progress {
+  width: 140px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.win-by-fold-progress-bar {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  transform-origin: left;
+  transition: transform 0.1s linear;
 }
 
 .poker-table::after {

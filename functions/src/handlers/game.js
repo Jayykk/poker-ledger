@@ -27,10 +27,13 @@ import { GameErrorCodes, createGameError } from '../errors/gameErrors.js';
 import { calculateSidePots, distributePots } from '../engines/potCalculator.js';
 import { determineWinners } from '../utils/handEvaluator.js';
 import { createPokerTask } from '../utils/cloudTasks.js';
+import { createPokerHttpTask } from '../utils/cloudTasks.js';
 
 // Constants
 const DEFAULT_BUY_IN = 1000;
 const DEFAULT_TURN_TIMEOUT = 30;
+const SHOWDOWN_RESOLVE_DELAY_SECONDS = 2;
+const WIN_BY_FOLD_TIMEOUT_SECONDS = 5;
 
 /**
  * Start a new hand
@@ -62,18 +65,35 @@ export async function startHand(gameId) {
     // Deal hole cards
     const { game: updatedGame, holeCards } = dealHoleCards(game);
 
+    // SECURITY/UX: Explicitly clear any previously revealed public hole cards
+    // at the start of the next hand to prevent flash of last hand's cards.
+    const clearedSeats = { ...(updatedGame.seats || {}) };
+    Object.keys(clearedSeats).forEach((seatNum) => {
+      if (clearedSeats[seatNum]) {
+        clearedSeats[seatNum] = {
+          ...clearedSeats[seatNum],
+          holeCards: null,
+        };
+      }
+    });
+
     // Get turn timeout setting
     const turnTimeout = updatedGame.table?.turnTimeout || DEFAULT_TURN_TIMEOUT;
 
     // Update game state with turnStartedAt and turnExpiresAt merged into table
     const gameToUpdate = {
       ...updatedGame,
+      seats: clearedSeats,
       table: {
         ...updatedGame.table,
+        // Reset any previous-hand reveal/muck metadata
+        stage: null,
+        lastHand: null,
+        handResult: null,
         turnStartedAt: FieldValue.serverTimestamp(),
         turnExpiresAt: createTurnExpiresAt(turnTimeout),
         turnTimeout,
-        isAutoNext: true, // Enable auto-start for next hand
+        isAutoNext: true, // Re-enable auto-next on manual start
       },
     };
     transaction.update(gameRef, gameToUpdate);
@@ -197,6 +217,8 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
       nextRound: game.table.currentRound,
       nextTurn: game.table.currentTurn,
       nextTurnId: game.table.currentTurnId,
+      showdownId: game.table.showdownId || null,
+      shouldCreateShowdownTask: game.table?.stage === 'showdown' && !!game.table.showdownId,
       turnTimeout,
       shouldCreateTask: game.table.currentTurn !== null && game.status === 'playing',
     };
@@ -205,6 +227,32 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
   // 🔑 POST-TRANSACTION: Create Cloud Task only after transaction succeeds
   if (result.shouldCreateTask && result.nextTurnId) {
     await createPokerTask(gameId, result.nextTurnId, result.turnTimeout);
+  }
+
+  if (result.shouldCreateShowdownTask && result.showdownId) {
+    await createPokerHttpTask({
+      endpoint: 'handleShowdownResolve',
+      payload: {
+        gameId,
+        showdownId: result.showdownId,
+        timestamp: Date.now(),
+      },
+      delaySeconds: SHOWDOWN_RESOLVE_DELAY_SECONDS,
+      logLabel: `showdownId: ${result.showdownId}`,
+    });
+  }
+
+  if (result.shouldCreateWinByFoldTask && result.winByFoldId) {
+    await createPokerHttpTask({
+      endpoint: 'handleWinByFoldTimeout',
+      payload: {
+        gameId,
+        winByFoldId: result.winByFoldId,
+        timestamp: Date.now(),
+      },
+      delaySeconds: WIN_BY_FOLD_TIMEOUT_SECONDS,
+      logLabel: `winByFoldId: ${result.winByFoldId}`,
+    });
   }
 
   return result;
@@ -263,6 +311,26 @@ export async function handleLastManStanding(transaction, gameRef, game) {
   game.table.currentTurnId = null;
   game.table.communityCards = [];
 
+  // Mark the hand as ended by fold and allow winner to optionally reveal cards.
+  // Default is muck (no reveal).
+  game.table.stage = 'win_by_fold';
+  game.table.lastHand = {
+    handNumber: game.handNumber,
+    endReason: 'win_by_fold',
+    winnerId: winner.odId,
+    winnerName: winner.odName,
+    winByFoldId: uuidv4(),
+    completedAt: FieldValue.serverTimestamp(),
+  };
+  game.table.handResult = null;
+
+  // SECURITY: Ensure no public hole cards leak after win-by-fold.
+  Object.keys(game.seats).forEach((num) => {
+    if (game.seats[num]) {
+      game.seats[num].holeCards = null;
+    }
+  });
+
   // ===== WRITE PHASE =====
   // Update game state
   transaction.update(gameRef, game);
@@ -297,9 +365,12 @@ export async function handleLastManStanding(transaction, gameRef, game) {
     },
   }, { merge: true });
 
-  // Clean up private hole cards
+  // Clean up private hole cards for everyone EXCEPT the winner.
+  // We keep the winner's private cards temporarily so they can choose to "Show".
   for (const docRef of privateDocs) {
-    transaction.delete(docRef);
+    if (docRef.id !== winner.odId) {
+      transaction.delete(docRef);
+    }
   }
 
   return {
@@ -308,6 +379,8 @@ export async function handleLastManStanding(transaction, gameRef, game) {
     amount: winAmount,
     reason: 'last_man_standing',
     shouldCreateTask: false,
+    shouldCreateWinByFoldTask: true,
+    winByFoldId: game.table.lastHand.winByFoldId,
   };
 }
 
@@ -343,8 +416,8 @@ export async function advanceRound(game, transaction, gameRef) {
     updatedGame = dealTurnOrRiver(updatedGame, 'river');
     break;
   case 'river':
-    // Showdown
-    updatedGame = await handleShowdown(updatedGame, transaction, gameRef);
+    // Enter showdown (early reveal) and defer winner calculation.
+    updatedGame = await enterShowdown(updatedGame, transaction, gameRef);
     break;
   }
 
@@ -358,6 +431,143 @@ export async function advanceRound(game, transaction, gameRef) {
   }
 
   return updatedGame;
+}
+
+/**
+ * Enter showdown stage with early reveal of public hole cards.
+ * This reads private hole cards within the transaction and writes them into
+ * PUBLIC seats[*].holeCards for non-folded players only.
+ * Winner calculation and pot distribution are deferred to a Cloud Task.
+ * @param {Object} game - Current game state
+ * @param {Object} transaction - Firestore transaction
+ * @param {Object} gameRef - Game document reference
+ * @return {Promise<Object>} Updated game state
+ */
+async function enterShowdown(game, transaction, gameRef) {
+  const privateCollection = gameRef.collection('private');
+  const playerIds = Object.values(game.seats)
+    .filter((seat) => seat !== null)
+    .map((seat) => seat.odId);
+
+  const holeCards = {};
+  for (const playerId of playerIds) {
+    const docRef = privateCollection.doc(playerId);
+    const docSnap = await transaction.get(docRef);
+    if (docSnap.exists) {
+      holeCards[playerId] = docSnap.data().holeCards;
+    }
+  }
+
+  const updatedSeats = { ...game.seats };
+  Object.keys(updatedSeats).forEach((num) => {
+    if (!updatedSeats[num]) return;
+
+    if (updatedSeats[num].status === 'folded') {
+      updatedSeats[num].holeCards = null;
+      return;
+    }
+
+    const odId = updatedSeats[num].odId;
+    const cards = holeCards[odId] || [];
+    updatedSeats[num].holeCards = cards.length ? cards : null;
+  });
+
+  const showdownId = uuidv4();
+
+  return {
+    ...game,
+    seats: updatedSeats,
+    table: {
+      ...game.table,
+      stage: 'showdown',
+      currentRound: 'showdown',
+      currentTurn: null,
+      currentTurnId: null,
+      showdownId,
+      showdownStartedAt: FieldValue.serverTimestamp(),
+    },
+  };
+}
+
+/**
+ * Resolve a showdown after a short delay (called by Cloud Tasks).
+ * Uses showdownId for zombie prevention.
+ * @param {string} gameId - Game ID
+ * @param {string} showdownId - Showdown ID
+ * @return {Promise<Object>} Result
+ */
+export async function resolveShowdown(gameId, showdownId) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+
+  return db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+    if (!gameDoc.exists) {
+      return { ignored: true, reason: 'game_not_found' };
+    }
+
+    const game = gameDoc.data();
+    if (game.table?.stage !== 'showdown' || game.table?.showdownId !== showdownId) {
+      return { ignored: true, reason: 'stale_showdown_task' };
+    }
+
+    // Re-use existing showdown logic (compute + write) now that cards are already revealed.
+    // Note: This will delete private hole cards at the end.
+    await handleShowdown(game, transaction, gameRef);
+    return { resolved: true };
+  });
+}
+
+/**
+ * Win-by-fold timeout (called by Cloud Tasks).
+ * If winner didn't voluntarily show within timeout window, default to muck
+ * and immediately start the next hand.
+ * @param {string} gameId - Game ID
+ * @param {string} winByFoldId - Zombie prevention id
+ * @return {Promise<Object>} Result
+ */
+export async function winByFoldTimeout(gameId, winByFoldId) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+
+  const state = await db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+    if (!gameDoc.exists) {
+      return { ignored: true, reason: 'game_not_found' };
+    }
+
+    const game = gameDoc.data();
+    const stage = game.table?.stage;
+    const lastHand = game.table?.lastHand;
+    const isWinByFold = stage === 'win_by_fold' && lastHand?.endReason === 'win_by_fold';
+
+    if (!isWinByFold || lastHand?.winByFoldId !== winByFoldId) {
+      return { ignored: true, reason: 'stale_win_by_fold_task' };
+    }
+
+    // If winner already chose to show, do not auto-muck.
+    if (lastHand?.voluntaryShowByWinner === true) {
+      return { ignored: true, reason: 'winner_already_showed' };
+    }
+
+    const isAutoNext = game.table?.isAutoNext ?? false;
+
+    // Mark as expired (best-effort metadata)
+    transaction.update(gameRef, {
+      'table.lastHand.voluntaryShowExpired': true,
+      'table.lastHand.voluntaryShowExpiredAt': FieldValue.serverTimestamp(),
+    });
+
+    return { startNext: isAutoNext, isAutoNext };
+  });
+
+  if (state.startNext) {
+    // Start next hand immediately (muck by default).
+    await startHand(gameId);
+    return { startedNextHand: true };
+  }
+
+  return state;
 }
 
 /**
@@ -445,6 +655,21 @@ async function handleShowdown(game, transaction, gameRef) {
     }
   }
 
+  // SECURITY: Reveal hole cards only for players still active at showdown.
+  // Folded players remain mucked.
+  Object.keys(updatedSeats).forEach((num) => {
+    if (!updatedSeats[num]) return;
+
+    if (updatedSeats[num].status === 'folded') {
+      updatedSeats[num].holeCards = null;
+      return;
+    }
+
+    const odId = updatedSeats[num].odId;
+    const cards = holeCards[odId] || [];
+    updatedSeats[num].holeCards = cards.length ? cards : null;
+  });
+
   // 5. Prepare hand result for display
   const handResult = {
     winners: showdownResults.winners.map((w) => ({
@@ -461,7 +686,6 @@ async function handleShowdown(game, transaction, gameRef) {
       handName: r.name,
       handDescr: r.descr,
       cards: r.cards,
-      holeCards: activePlayers.find((p) => p.odId === r.odId)?.holeCards || [],
     })),
     pots,
     timestamp: FieldValue.serverTimestamp(),
@@ -530,8 +754,15 @@ async function handleShowdown(game, transaction, gameRef) {
   // Save player cards if notable
   if (isNotable) {
     handHistoryData.playerCards = {};
+    const revealedPlayerIds = new Set(
+      Object.values(updatedSeats)
+        .filter((seat) => seat && seat.status !== 'folded')
+        .map((seat) => seat.odId),
+    );
     Object.entries(holeCards).forEach(([playerId, cards]) => {
-      handHistoryData.playerCards[playerId] = cards;
+      if (revealedPlayerIds.has(playerId)) {
+        handHistoryData.playerCards[playerId] = cards;
+      }
     });
   }
 
@@ -698,10 +929,36 @@ export async function showCards(gameId, userId) {
 
     const game = gameDoc.data();
 
+    // Rule: During betting rounds (pre-showdown), players cannot show cards.
+    // The only allowed voluntary reveal is after a win-by-fold, by the winner.
+    const stage = game.table?.stage;
+    const lastHand = game.table?.lastHand;
+    const isWinByFold = stage === 'win_by_fold' && lastHand?.endReason === 'win_by_fold';
+
+    if (!isWinByFold || lastHand?.winnerId !== userId) {
+      throw createGameError(GameErrorCodes.INVALID_ACTION, {
+        message: 'Cards cannot be shown at this time',
+        stage,
+      });
+    }
+
+    // If already revealed, no-op.
+    const alreadyRevealed = Object.values(game.seats || {}).some((seat) => (
+      seat &&
+      seat.odId === userId &&
+      Array.isArray(seat.holeCards) &&
+      seat.holeCards.length > 0
+    ));
+    if (alreadyRevealed) {
+      return {
+        gameId,
+        userId,
+        alreadyRevealed: true,
+      };
+    }
+
     // Verify user is in the game
-    const playerSeat = Object.entries(game.seats).find(
-      ([, seat]) => seat && seat.odId === userId,
-    );
+    const playerSeat = Object.entries(game.seats).find(([, seat]) => seat && seat.odId === userId);
 
     if (!playerSeat) {
       throw new Error('Player not in game');
@@ -717,6 +974,23 @@ export async function showCards(gameId, userId) {
 
     const holeCards = privateDoc.data().holeCards;
 
+    const [seatNumStr, seat] = playerSeat;
+    const seatNum = Number(seatNumStr);
+    if (!Number.isFinite(seatNum)) {
+      throw new Error('Invalid seat number');
+    }
+
+    // SECURITY: Persist reveal only into the PUBLIC seat holeCards (legal reveal).
+    const seats = { ...game.seats };
+    seats[seatNum] = {
+      ...seat,
+      holeCards,
+    };
+    transaction.update(gameRef, {
+      seats,
+      'table.lastHand.voluntaryShowByWinner': true,
+    });
+
     // Record shown cards in events subcollection
     // Note: Changed from arrayUnion to subcollection documents because
     // FieldValue.serverTimestamp() cannot be used inside array elements
@@ -724,7 +998,7 @@ export async function showCards(gameId, userId) {
       gameId,
       {
         type: 'shownCards',
-        handNumber: game.handNumber,
+        handNumber: lastHand?.handNumber ?? game.handNumber,
         odId: userId,
         cards: holeCards,
       },
