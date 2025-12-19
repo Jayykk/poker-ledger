@@ -785,21 +785,31 @@ export async function winByFoldTimeout(gameId, winByFoldId) {
       const message = typeof error?.message === 'string' ? error.message : String(error);
       console.log('Auto-start failed (likely not enough players):', message);
 
-      // If start fails due to not enough players, turn off auto-next so we don't loop.
+      // If start fails due to not enough players, gracefully return to waiting.
       if (message.includes('Need at least 2 players')) {
+        console.log('Not enough players, setting to waiting');
         try {
           await db.runTransaction(async (transaction) => {
-            transaction.update(gameRef, { 'table.isAutoNext': false });
+            transaction.update(gameRef, {
+              'status': 'waiting',
+              'table.stage': 'waiting',
+              'table.currentTurn': null,
+              'table.currentTurnId': null,
+              'table.pot': 0,
+              // Clear timers to avoid countdown/turn UI getting stuck.
+              'table.turnStartedAt': null,
+              'table.turnExpiresAt': null,
+            });
           });
         } catch (updateError) {
-          console.log('Failed to disable auto-next after auto-start failure:', updateError?.message ?? updateError);
+          console.log('Failed to set waiting after auto-start failure:', updateError?.message ?? updateError);
         }
 
         return {
           startedNextHand: false,
           autoStartFailed: true,
           reason: 'not_enough_players',
-          disabledAutoNext: true,
+          setWaiting: true,
         };
       }
 

@@ -168,12 +168,12 @@
 
     <!-- Auto-Start Countdown Overlay -->
     <Transition name="fade">
-      <div v-if="showAutoStartCountdown" class="auto-start-overlay">
+      <GameOverlay v-if="showAutoStartCountdown">
         <div class="auto-start-content">
           <span class="countdown-icon">🎲</span>
           <h3>Next hand in {{ autoStartCountdown }}...</h3>
           <div class="countdown-bar-container">
-            <div 
+            <div
               class="countdown-bar"
               :style="{ width: `${(autoStartCountdown / autoStartDelay) * 100}%` }"
             ></div>
@@ -182,7 +182,7 @@
             Cancel Auto-Start
           </button>
         </div>
-      </div>
+      </GameOverlay>
     </Transition>
   </div>
 </template>
@@ -196,6 +196,7 @@ import { useAuthStore } from '../store/modules/auth.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import PokerTable from '../components/game/PokerTable.vue';
+import GameOverlay from '../components/game/GameOverlay.vue';
 import BaseModal from '../components/common/BaseModal.vue';
 
 const route = useRoute();
@@ -869,36 +870,22 @@ const goBack = () => {
 }
 
 /* Auto-Start Countdown Overlay */
-.auto-start-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 998;
-  backdrop-filter: blur(4px);
-}
-
 .auto-start-content {
   text-align: center;
   color: white;
-  padding: 32px 48px;
-  background: rgba(0, 0, 0, 0.8);
-  border-radius: 16px;
-  border: 2px solid rgba(255, 215, 0, 0.3);
   max-width: 400px;
+  pointer-events: auto;
 }
 
 .countdown-icon {
-  font-size: 48px;
+  font-size: 40px;
   display: block;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .auto-start-content h3 {
-  font-size: 24px;
-  margin-bottom: 24px;
+  font-size: 18px;
+  margin-bottom: 16px;
   color: #ffd700;
 }
 
@@ -908,7 +895,7 @@ const goBack = () => {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 4px;
   overflow: hidden;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .countdown-bar {
