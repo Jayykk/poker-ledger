@@ -6,7 +6,7 @@
         v-for="(card, index) in visibleCards"
         :key="`${String(card)}-${index}`"
         class="community-card-wrapper"
-        :class="{ 'winner-highlight': isWinningCard(card) }"
+        :class="{ 'winner-highlight': props.showHighlights && isWinningCard(card) }"
       >
         <PlayingCard
           :card="card"
@@ -38,6 +38,10 @@ const props = defineProps({
   handResult: {
     type: Object,
     default: null,
+  },
+  showHighlights: {
+    type: Boolean,
+    default: false,
   },
 });
 

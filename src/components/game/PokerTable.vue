@@ -9,8 +9,9 @@
         :cards="communityCards"
         :round="currentRound"
         :hand-result="currentGame?.table?.handResult"
-        @animation-start="emit('animation-start')"
-        @animation-end="emit('animation-end')"
+        :show-highlights="areWinnersRevealed"
+        @animation-start="handleRunoutStart"
+        @animation-end="handleRunoutEnd"
       />
       <PotDisplay ref="potRef" :pot="displayPot" />
 
@@ -47,6 +48,7 @@
         :seatNumber="seatInfo.actualSeatNum"
         :isCurrentTurn="isCurrentTurn(seatInfo.actualSeatNum)"
         :isMe="isMySeat(seatInfo.actualSeatNum)"
+        :reveal-cards="areWinnersRevealed"
         :visible="true"
         @join-seat="showBuyInModal"
         @auto-action="handleAutoAction"
@@ -511,10 +513,18 @@ watch(() => currentGame.value?.status, (newStatus, oldStatus) => {
 // Chip gathering triggers:
 // A) When stage changes OR communityCards length increases
 // B) When handResult becomes available (instant showdown)
+// NOTE: Showdown gathering is now controlled by the Director sequence.
+// We still gather bets during normal round transitions, but we must never
+// gather while a showdown outcome is pending reveal / during runout.
 watch(
   () => currentGame.value?.table?.stage,
   (newStage, oldStage) => {
     if (!newStage || newStage === oldStage) return;
+
+    // If showdown result exists (or is being revealed), Director will handle the gather.
+    if (currentGame.value?.table?.handResult) return;
+    if (isRunoutPlaying.value || isRunoutExpected.value) return;
+
     startGatherAnimation('stage');
   },
 );
@@ -523,15 +533,12 @@ watch(
   () => communityCards.value?.length || 0,
   (newLen, oldLen) => {
     if (newLen <= oldLen) return;
-    startGatherAnimation('communityCards');
-  },
-);
 
-watch(
-  () => currentGame.value?.table?.handResult,
-  (newResult, oldResult) => {
-    if (!newResult || newResult === oldResult) return;
-    startGatherAnimation('handResult');
+    // If showdown result exists (or is being revealed), Director will handle the gather.
+    if (currentGame.value?.table?.handResult) return;
+    if (isRunoutPlaying.value || isRunoutExpected.value) return;
+
+    startGatherAnimation('communityCards');
   },
 );
 

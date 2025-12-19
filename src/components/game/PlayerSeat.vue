@@ -112,6 +112,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  revealCards: {
+    type: Boolean,
+    default: false,
+  },
   visible: {
     type: Boolean,
     default: true,
@@ -209,13 +213,16 @@ const isHandActive = computed(() => {
 });
 
 const shouldHideHoleCards = computed(() => {
-  // If backend revealed this seat's cards, show face.
-  if (Array.isArray(props.seat?.holeCards) && props.seat.holeCards.length > 0) return false;
-
   if (props.isMe) {
     // If my private cards haven't arrived yet, show as backs.
     return (myHoleCards.value?.length || 0) < 2;
   }
+
+  // Opponents: even if seat.holeCards exists, keep hidden until Director reveals.
+  if (!props.revealCards) return true;
+
+  // If Director allows reveal and backend revealed this seat's cards, show face.
+  if (Array.isArray(props.seat?.holeCards) && props.seat.holeCards.length > 0) return false;
   return true;
 });
 
@@ -231,15 +238,18 @@ const displayHoleCards = computed(() => {
       return [null, null];
     }
 
-    // Other players: show backs until backend reveals seat.holeCards.
+    // Other players: keep backs until Director reveals.
+    if (!props.revealCards) return [null, null];
+
+    // Once revealed, show faces if backend provided holeCards.
     const revealed = props.seat?.holeCards;
-    if (Array.isArray(revealed) && revealed.length >= 2) {
-      return revealed.slice(0, 2);
-    }
+    if (Array.isArray(revealed) && revealed.length >= 2) return revealed.slice(0, 2);
     return [null, null];
   }
 
-  // Outside of a hand, show revealed cards only (e.g., showdown view lingering)
+  // Outside of a hand, show revealed cards only if Director allows.
+  if (props.isMe) return holeCards.value || [];
+  if (!props.revealCards) return [];
   return holeCards.value || [];
 });
 
