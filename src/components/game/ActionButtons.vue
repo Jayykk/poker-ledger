@@ -1,5 +1,6 @@
 <template>
   <div class="action-buttons">
+    <div v-if="actionsDisabled" class="processing-banner">Processing...</div>
     <!-- Main action buttons - horizontal layout -->
     <div class="main-buttons">
       <!-- Call Button -->
@@ -177,6 +178,15 @@ const confirmRaise = () => {
   align-items: center;
   gap: 8px;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.processing-banner {
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 
 /* Main buttons container - horizontal layout */

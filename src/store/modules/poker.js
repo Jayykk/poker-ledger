@@ -221,6 +221,49 @@ export const usePokerStore = defineStore('poker', {
 
       // For optimistic calls, return immediately without waiting for API response
       if (optimistic) {
+        // Apply optimistic UI updates for All-In to avoid "lag then teleport"
+        // when the backend immediately auto-runs out the board.
+        if (action === 'all_in' && this.currentGame?.seats && this.currentGame?.table) {
+          const authStore = useAuthStore();
+          const userId = authStore.user?.uid;
+
+          if (userId) {
+            let mySeatNum = null;
+            let mySeat = null;
+            for (const [seatNum, seat] of Object.entries(this.currentGame.seats)) {
+              if (seat && seat.odId === userId) {
+                mySeatNum = seatNum;
+                mySeat = seat;
+                break;
+              }
+            }
+
+            const myChips = mySeat?.chips || 0;
+            if (mySeatNum !== null && mySeat && myChips > 0) {
+              const currentBet = mySeat.roundBet ?? mySeat.currentBet ?? 0;
+              const nextSeats = { ...this.currentGame.seats };
+              nextSeats[mySeatNum] = {
+                ...mySeat,
+                roundBet: currentBet + myChips,
+                chips: 0,
+                status: 'all_in',
+              };
+
+              // Visually bridge the pot jump: move chips into pot immediately.
+              const nextPot = (this.currentGame.table.pot || 0) + myChips;
+
+              this.currentGame = {
+                ...this.currentGame,
+                seats: nextSeats,
+                table: {
+                  ...this.currentGame.table,
+                  pot: nextPot,
+                },
+              };
+            }
+          }
+        }
+
         // Fire the API call in the background
         const functions = getFunctions(app);
         const playerAction = httpsCallable(functions, 'pokerPlayerAction');

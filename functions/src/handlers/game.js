@@ -344,20 +344,7 @@ export async function handleLastManStanding(transaction, gameRef, game) {
     .filter((seat) => seat !== null)
     .map((seat) => seat.odId);
 
-  const holeCards = {};
-  for (const playerId of playerIds) {
-    const docRef = privateCollection.doc(playerId);
-    const docSnap = await transaction.get(docRef);
-    if (docSnap.exists) {
-      holeCards[playerId] = docSnap.data()?.holeCards || [];
-    }
-  }
-
-  // Read all private documents (even though we don't use them for last man standing,
-  // we need to delete them, so we need the references)
-  const privateDocs = playerIds.map((playerId) => privateCollection.doc(playerId));
-
-  // ===== COMPUTE PHASE =====
+  // Identify winner/targets purely from current game state (no writes yet)
   const activePlayers = getActivePlayers(game);
 
   if (activePlayers.length !== 1) {
@@ -367,6 +354,32 @@ export async function handleLastManStanding(transaction, gameRef, game) {
   }
 
   const winner = activePlayers[0];
+
+  // PRE-READ: private hole cards for all seated players (Promise.all)
+  const privateRefs = playerIds.map((playerId) => privateCollection.doc(playerId));
+  const privateSnaps = await Promise.all(privateRefs.map((ref) => transaction.get(ref)));
+
+  const holeCards = {};
+  privateSnaps.forEach((snap, idx) => {
+    if (!snap.exists) return;
+    const playerId = playerIds[idx];
+    holeCards[playerId] = snap.data()?.holeCards || [];
+  });
+
+  // PRE-READ: hand history docs existence for all seated players (to avoid read-after-write)
+  const handId = getHandIdFromGame(game);
+  const historyRefs = playerIds.map((userId) => (
+    getFirestore()
+      .collection('handHistories')
+      .doc(`${gameRef.id}_${handId}_${userId}`)
+  ));
+  const historySnaps = await Promise.all(historyRefs.map((ref) => transaction.get(ref)));
+  const historySnapByUserId = {};
+  historySnaps.forEach((snap, idx) => {
+    historySnapByUserId[playerIds[idx]] = snap;
+  });
+
+  // ===== COMPUTE PHASE =====
   const winAmount = game.table.pot;
 
   // Find winner's seat and award pot
@@ -411,22 +424,28 @@ export async function handleLastManStanding(transaction, gameRef, game) {
   // ===== WRITE PHASE =====
   // Archive hole cards for analytics for everyone still seated in this hand.
   // Players who left mid-hand are archived during leaveSeat.
-  const handId = getHandIdFromGame(game);
   for (const [, seat] of Object.entries(game.seats)) {
     if (!seat) continue;
     const userId = seat.odId;
     const outcome = userId === winner.odId ? 'win_by_fold' : 'fold';
-    await writeHandHistoryEntry(
-      transaction,
-      {
-        gameId: gameRef.id,
-        handId,
-        userId,
-        holeCards: holeCards[userId] || [],
-        outcome,
-      },
-      { skipIfExists: true },
-    );
+    // Only write if we have a private snapshot (i.e. cards were dealt)
+    const cards = holeCards[userId];
+    if (Array.isArray(cards) && cards.length) {
+      await writeHandHistoryEntry(
+        transaction,
+        {
+          gameId: gameRef.id,
+          handId,
+          userId,
+          holeCards: cards,
+          outcome,
+        },
+        {
+          skipIfExists: true,
+          existingSnapshot: historySnapByUserId[userId] || null,
+        },
+      );
+    }
   }
 
   // Update game state
@@ -464,7 +483,7 @@ export async function handleLastManStanding(transaction, gameRef, game) {
 
   // Clean up private hole cards for everyone EXCEPT the winner.
   // We keep the winner's private cards temporarily so they can choose to "Show".
-  for (const docRef of privateDocs) {
+  for (const docRef of privateRefs) {
     if (docRef.id !== winner.odId) {
       transaction.delete(docRef);
     }
@@ -721,36 +740,29 @@ async function handleShowdown(game, transaction, gameRef) {
     .filter((seat) => seat !== null)
     .map((seat) => seat.odId);
 
+  // PRE-READ: private hole cards for all seated players (Promise.all)
+  const privateRefs = playerIds.map((playerId) => privateCollection.doc(playerId));
+  const privateSnaps = await Promise.all(privateRefs.map((ref) => transaction.get(ref)));
+
   const holeCards = {};
+  privateSnaps.forEach((snap, idx) => {
+    if (!snap.exists) return;
+    const playerId = playerIds[idx];
+    holeCards[playerId] = snap.data()?.holeCards || [];
+  });
 
-  // Read each private document within the transaction
-  for (const playerId of playerIds) {
-    const docRef = privateCollection.doc(playerId);
-    const docSnap = await transaction.get(docRef);
-    if (docSnap.exists) {
-      holeCards[playerId] = docSnap.data().holeCards;
-    }
-  }
-
-  // Archive hole cards for analytics (all currently seated players).
-  // Players who left mid-hand are archived during leaveSeat.
+  // PRE-READ: hand history docs existence for all seated players (to avoid read-after-write)
   const handId = getHandIdFromGame(game);
-  for (const [, seat] of Object.entries(game.seats)) {
-    if (!seat) continue;
-    const userId = seat.odId;
-    const outcome = seat.status === 'folded' ? 'fold' : 'showdown';
-    await writeHandHistoryEntry(
-      transaction,
-      {
-        gameId: gameRef.id,
-        handId,
-        userId,
-        holeCards: holeCards[userId] || [],
-        outcome,
-      },
-      { skipIfExists: true },
-    );
-  }
+  const historyRefs = playerIds.map((userId) => (
+    db
+      .collection('handHistories')
+      .doc(`${gameRef.id}_${handId}_${userId}`)
+  ));
+  const historySnaps = await Promise.all(historyRefs.map((ref) => transaction.get(ref)));
+  const historySnapByUserId = {};
+  historySnaps.forEach((snap, idx) => {
+    historySnapByUserId[playerIds[idx]] = snap;
+  });
 
   // Get active players who haven't folded (for showdown evaluation)
   const activePlayers = Object.entries(game.seats)
@@ -937,6 +949,33 @@ async function handleShowdown(game, transaction, gameRef) {
   const finalStatus = shouldEndGame ? 'ended' : 'waiting';
 
   // ===== WRITE PHASE =====
+  // Archive hole cards for analytics (all currently seated players).
+  // Players who left mid-hand are archived during leaveSeat.
+  for (const [, seat] of Object.entries(game.seats)) {
+    if (!seat) continue;
+    const userId = seat.odId;
+    const outcome = seat.status === 'folded' ? 'fold' : 'showdown';
+    const cards = holeCards[userId];
+
+    // Only write if we have a private snapshot (i.e. cards were dealt)
+    if (Array.isArray(cards) && cards.length) {
+      await writeHandHistoryEntry(
+        transaction,
+        {
+          gameId: gameRef.id,
+          handId,
+          userId,
+          holeCards: cards,
+          outcome,
+        },
+        {
+          skipIfExists: true,
+          existingSnapshot: historySnapByUserId[userId] || null,
+        },
+      );
+    }
+  }
+
   // Update game state
   transaction.update(gameRef, {
     'seats': updatedSeats,
