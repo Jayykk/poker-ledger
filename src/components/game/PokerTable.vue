@@ -197,16 +197,16 @@ const SEAT_LAYOUTS = {
     { style: { bottom: '18%', right: '-2%' }, pos: 'right' },
   ],
   10: [
-    { style: { bottom: '-6%', left: '50%', transform: 'translateX(-50%)' }, pos: 'bottom' },
-    { style: { bottom: '12%', left: '14%' }, pos: 'left' },
+    { style: { bottom: '-15%', left: '50%', transform: 'translateX(-50%)' }, pos: 'bottom' },
+    { style: { bottom: '12%', left: '10%' }, pos: 'left' },
     { style: { top: '60%', left: '-2%', transform: 'translateY(-50%)' }, pos: 'left' },
     { style: { top: '22%', left: '-2%' }, pos: 'left' },
-    { style: { top: '6%', left: '16%' }, pos: 'left' },
-    { style: { top: '-6%', left: '50%', transform: 'translateX(-50%)' }, pos: 'top' },
-    { style: { top: '6%', right: '16%' }, pos: 'right' },
+    { style: { top: '6%', left: '10%' }, pos: 'left' },
+    { style: { top: '-15%', left: '50%', transform: 'translateX(-50%)' }, pos: 'top' },
+    { style: { top: '6%', right: '10%' }, pos: 'right' },
     { style: { top: '22%', right: '-2%' }, pos: 'right' },
     { style: { top: '60%', right: '-2%', transform: 'translateY(-50%)' }, pos: 'right' },
-    { style: { bottom: '12%', right: '14%' }, pos: 'right' },
+    { style: { bottom: '12%', right: '10%' }, pos: 'right' },
   ],
 };
 

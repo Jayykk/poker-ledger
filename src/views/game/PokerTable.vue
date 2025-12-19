@@ -67,14 +67,18 @@ const handleMenu = () => {
 /* Pull the table upwards now that the header is gone */
 :deep(.poker-table-felt) {
   /* Ensure this is the only margin-top being applied */
-  margin-top: 20px !important;
+  margin-top: 70px !important;
 
   /* Keep the rounded rectangle shape and smaller size */
-  width: 80vw;
-  height: 55vh;
+  width: 95vw;
+  height: 65vh;
   border-radius: 40px;
   position: relative;
   margin-left: auto;
   margin-right: auto;
+}
+
+:deep(.poker-table-felt)::after {
+  border-radius: 40px !important;
 }
 </style>
