@@ -53,8 +53,9 @@ export function validatePlayerAction(game, playerId, action, amount = 0) {
     if (callAmount === 0) {
       return { valid: false, error: 'Nothing to call' };
     }
-    // Player must have enough chips (or go all-in)
-    if (callAmount > playerChips) {
+    // Allow calling all-in for less than the required call amount.
+    // Reject only if player has 0 chips.
+    if (playerChips <= 0) {
       return { valid: false, error: 'Not enough chips to call' };
     }
     return { valid: true, error: null };
