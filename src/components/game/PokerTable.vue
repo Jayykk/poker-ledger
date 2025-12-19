@@ -123,7 +123,7 @@ const {
   joinSeat,
 } = usePokerGame();
 
-const { fold, check, call, raise, allIn } = useGameActions();
+const { fold, check, call, raise, allIn, actionsDisabled } = useGameActions();
 
 // Constants
 const DEFAULT_BUY_IN = 1000;
@@ -298,55 +298,31 @@ const handleStartHand = async () => {
   }
 };
 
-const handleFold = async () => {
-  try {
-    await fold();
-  } catch (error) {
-    console.error('Failed to fold:', error);
-  }
+const handleFold = () => {
+  fold();
 };
 
-const handleCheck = async () => {
-  try {
-    await check();
-  } catch (error) {
-    console.error('Failed to check:', error);
-  }
+const handleCheck = () => {
+  check();
 };
 
-const handleCall = async () => {
-  try {
-    await call();
-  } catch (error) {
-    console.error('Failed to call:', error);
-  }
+const handleCall = () => {
+  call();
 };
 
-const handleRaise = async (amount) => {
-  try {
-    await raise(amount);
-  } catch (error) {
-    console.error('Failed to raise:', error);
-  }
+const handleRaise = (amount) => {
+  raise(amount);
 };
 
-const handleAllIn = async () => {
-  try {
-    await allIn();
-  } catch (error) {
-    console.error('Failed to go all-in:', error);
-  }
+const handleAllIn = () => {
+  allIn();
 };
 
-const handleAutoAction = async (action) => {
-  try {
-    if (action === 'check') {
-      await check();
-    } else if (action === 'fold') {
-      await fold();
-    }
-  } catch (error) {
-    console.error('Failed to perform auto-action:', error);
+const handleAutoAction = (action) => {
+  if (action === 'check') {
+    check();
+  } else if (action === 'fold') {
+    fold();
   }
 };
 </script>
