@@ -209,14 +209,37 @@ export const usePokerStore = defineStore('poker', {
 
     /**
      * Perform player action
-     * Now includes turnId for concurrency control
+     * Now includes turnId for concurrency control and supports optimistic updates
      */
-    async performAction(action, amount = 0) {
+    async performAction(action, amount = 0, options = {}) {
       if (!this.gameId) return;
 
       // Removed global loading state to prevent full-screen spinner during game actions
       this.error = null;
 
+      const { optimistic = false } = options;
+
+      // For optimistic calls, return immediately without waiting for API response
+      if (optimistic) {
+        // Fire the API call in the background
+        const functions = getFunctions(app);
+        const playerAction = httpsCallable(functions, 'pokerPlayerAction');
+        const turnId = this.currentGame?.table?.currentTurnId;
+        
+        playerAction({
+          gameId: this.gameId,
+          action,
+          amount,
+          turnId,
+        }).catch((error) => {
+          console.error('Optimistic action failed:', error);
+          // Don't throw - let the caller handle this via their own error handling
+        });
+        
+        return; // Return immediately for optimistic updates
+      }
+
+      // Standard (non-optimistic) path
       try {
         const functions = getFunctions(app);
         const playerAction = httpsCallable(functions, 'pokerPlayerAction');

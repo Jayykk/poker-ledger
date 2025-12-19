@@ -1,10 +1,13 @@
 /**
  * Game Actions Composable
  * Handles poker game actions (fold, check, call, raise, all-in, show cards, chat)
+ * With optimistic UI updates for instant feedback
  */
 
+import { ref } from 'vue';
 import { usePokerStore } from '../store/modules/poker.js';
 import { useNotification } from './useNotification.js';
+import { useGameAnimations } from './useGameAnimations.js';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Error message mapping
@@ -49,75 +52,76 @@ function getErrorMessage(code) {
 export function useGameActions() {
   const pokerStore = usePokerStore();
   const { success, error: showError } = useNotification();
+  const { playSound } = useGameAnimations();
+  
+  // Track if buttons are disabled (for optimistic UI)
+  const actionsDisabled = ref(false);
+
+  /**
+   * Perform optimistic action with instant feedback
+   * @param {string} action - Action name
+   * @param {number} amount - Optional amount for raise
+   * @param {string} soundName - Sound to play
+   * @param {string} successMessage - Success message to show
+   */
+  const performOptimisticAction = async (action, amount, soundName, successMessage) => {
+    // 1. Instant visual feedback
+    playSound(soundName);
+    
+    // 2. Instant disable action buttons
+    actionsDisabled.value = true;
+    
+    // 3. Background API call with optimistic flag
+    try {
+      await pokerStore.performAction(action, amount, { optimistic: true });
+      // Note: Don't show success message for optimistic actions
+      // The UI will update via real-time listeners
+    } catch (error) {
+      // 4. Rollback on error (show error toast)
+      const message = getErrorMessage(error.code);
+      showError(message);
+      actionsDisabled.value = false;
+    }
+    
+    // Re-enable buttons after a short delay (they'll be controlled by turn state)
+    setTimeout(() => {
+      actionsDisabled.value = false;
+    }, 500);
+  };
 
   /**
    * Fold current hand
    */
   const fold = async () => {
-    try {
-      await pokerStore.performAction('fold');
-      success(SUCCESS_MESSAGES.FOLD);
-    } catch (error) {
-      const message = getErrorMessage(error.code);
-      showError(message);
-      throw error;
-    }
+    await performOptimisticAction('fold', 0, 'fold', SUCCESS_MESSAGES.FOLD);
   };
 
   /**
    * Check (no bet)
    */
   const check = async () => {
-    try {
-      await pokerStore.performAction('check');
-      success(SUCCESS_MESSAGES.CHECK);
-    } catch (error) {
-      const message = getErrorMessage(error.code);
-      showError(message);
-      throw error;
-    }
+    await performOptimisticAction('check', 0, 'check', SUCCESS_MESSAGES.CHECK);
   };
 
   /**
    * Call current bet
    */
   const call = async () => {
-    try {
-      await pokerStore.performAction('call');
-      success(SUCCESS_MESSAGES.CALL);
-    } catch (error) {
-      const message = getErrorMessage(error.code);
-      showError(message);
-      throw error;
-    }
+    await performOptimisticAction('call', 0, 'call', SUCCESS_MESSAGES.CALL);
   };
 
   /**
    * Raise bet by amount
    */
   const raise = async (amount) => {
-    try {
-      await pokerStore.performAction('raise', amount);
-      success(SUCCESS_MESSAGES.RAISE(amount));
-    } catch (error) {
-      const message = getErrorMessage(error.code);
-      showError(message);
-      throw error;
-    }
+    await performOptimisticAction('raise', amount, 'raise', SUCCESS_MESSAGES.RAISE(amount));
   };
 
   /**
    * Go all-in
    */
   const allIn = async () => {
-    try {
-      await pokerStore.performAction('all_in');
-      success(SUCCESS_MESSAGES.ALL_IN);
-    } catch (error) {
-      const message = getErrorMessage(error.code);
-      showError(message);
-      throw error;
-    }
+    await performOptimisticAction('all_in', 0, 'allin', SUCCESS_MESSAGES.ALL_IN);
   };
 
   /**
@@ -204,6 +208,7 @@ export function useGameActions() {
     sendMessage,
     joinAsSpectator,
     leaveSpectator,
+    actionsDisabled, // Export disabled state for UI
   };
 }
 

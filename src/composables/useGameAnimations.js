@@ -102,5 +102,6 @@ export function useGameAnimations() {
   return {
     isRevealingCards,
     isShowdownActive,
+    playSound, // Export playSound for use in action handlers
   };
 }
