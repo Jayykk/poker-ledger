@@ -724,10 +724,13 @@ const handleAutoAction = (action) => {
   height: 100%;
   position: relative;
   background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 50%, #0d1b2a 100%);
-  overflow: hidden;
+  /* Allow side seats/chips to render without clipping */
+  overflow: visible;
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Push the whole table down from the header */
+  margin-top: 60px;
 }
 
 /* Poker Table - 80% of middle section height, centered */
@@ -736,14 +739,14 @@ const handleAutoAction = (action) => {
   top: 40%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(56vh, 80vw); /* 80% of 70vh = 56vh */
-  height: min(56vh, 80vw);
+  /* Portrait oval table felt (taller than wide) */
+  width: 85%;
+  height: 75vh;
   max-width: 500px;
-  max-height: 500px;
-  aspect-ratio: 1;
+  max-height: 600px;
   background: radial-gradient(ellipse at center, #1a5c3a 0%, #0f3d26 50%, #0a2818 100%);
   border: 12px solid #8b6914;
-  border-radius: 50%;
+  border-radius: 50% / 50%;
   box-shadow:
     inset 0 0 60px rgba(0, 0, 0, 0.8),
     inset 0 -15px 30px rgba(0, 0, 0, 0.4),
@@ -802,7 +805,7 @@ const handleAutoAction = (action) => {
   left: 15px;
   right: 15px;
   bottom: 15px;
-  border-radius: 50%;
+  border-radius: 50% / 50%;
   background: radial-gradient(ellipse at 30% 30%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
   pointer-events: none;
 }
@@ -823,13 +826,17 @@ const handleAutoAction = (action) => {
   left: 0;
   right: 0;
   z-index: 100;
+  /* Prevent the felt from showing through below the bottom UI */
+  background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 50%, #0d1b2a 100%);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .start-hand-controls {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  /* Nudge upward so it sits slightly above dead-center */
+  transform: translate(-50%, -50%) translateY(-40px);
   z-index: 50;
 }
 
@@ -864,10 +871,10 @@ const handleAutoAction = (action) => {
 /* Responsive Design */
 @media (max-width: 768px) {
   .poker-table {
-    width: min(56vh, 85vw);
-    height: min(56vh, 85vw);
+    width: 85%;
+    height: 75vh;
     max-width: 400px;
-    max-height: 400px;
+    max-height: 520px;
     border-width: 10px;
   }
 
