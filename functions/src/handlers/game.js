@@ -35,6 +35,7 @@ const DEFAULT_TURN_TIMEOUT = 30;
 // UX: Pause at showdown so players can see runout + hand comparison.
 // Cloud Tasks scheduleTime is second-granular; use 5s to avoid feeling instant.
 const SHOWDOWN_RESOLVE_DELAY_SECONDS = 5;
+const SHOWDOWN_ADMIRE_TIME_MS = 5000;
 const WIN_BY_FOLD_TIMEOUT_SECONDS = 5;
 
 /**
@@ -94,7 +95,40 @@ async function runoutToShowdown(game, transaction, gameRef) {
     runoutGame = dealTurnOrRiver(runoutGame, 'river');
   }
 
-  return await enterShowdown(runoutGame, transaction, gameRef);
+  // New flow: resolve showdown immediately (no delayed resolve task).
+  return await resolveShowdownImmediately(runoutGame, transaction, gameRef);
+}
+
+/**
+ * Resolve showdown immediately inside the transaction.
+ * This computes winners + distributes pots synchronously, then sets an "admire" timer.
+ * @param {Object} game
+ * @param {Object} transaction
+ * @param {Object} gameRef
+ * @return {Promise<Object>} Updated game state
+ */
+async function resolveShowdownImmediately(game, transaction, gameRef) {
+  // handleShowdown() performs the full READ → COMPUTE → WRITE pipeline (including payouts).
+  const resolved = await handleShowdown(game, transaction, gameRef);
+
+  // Add a short "admire" window before the next hand can auto-start.
+  // Use client-readable epoch millis for consistency with existing UI conversions.
+  const nextHandId = uuidv4();
+  transaction.update(gameRef, {
+    'table.turnExpiresAt': Date.now() + SHOWDOWN_ADMIRE_TIME_MS,
+    'table.showdownEndTime': Date.now() + SHOWDOWN_ADMIRE_TIME_MS,
+    'table.nextHandId': nextHandId,
+  });
+
+  return {
+    ...resolved,
+    table: {
+      ...resolved.table,
+      turnExpiresAt: Date.now() + SHOWDOWN_ADMIRE_TIME_MS,
+      showdownEndTime: Date.now() + SHOWDOWN_ADMIRE_TIME_MS,
+      nextHandId,
+    },
+  };
 }
 
 /**
@@ -328,18 +362,20 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
       const runoutGame = await runoutToShowdown(game, transaction, gameRef);
 
       await addGameEvent(gameId, actionEventData, transaction);
-      transaction.update(gameRef, runoutGame);
 
-      const turnTimeout = runoutGame.table?.turnTimeout || DEFAULT_TURN_TIMEOUT;
+      const isAutoNext = runoutGame.table?.isAutoNext ?? false;
+      const canAutoStart = isAutoNext && runoutGame.status === 'waiting';
       return {
         gameId,
         action,
         nextRound: runoutGame.table.currentRound,
         nextTurn: null,
         nextTurnId: null,
-        showdownId: runoutGame.table.showdownId || null,
-        shouldCreateShowdownTask: runoutGame.table?.stage === 'showdown' && !!runoutGame.table.showdownId,
-        turnTimeout,
+        showdownId: null,
+        shouldCreateShowdownTask: false,
+        shouldCreateStartNextHandTask: canAutoStart,
+        nextHandId: runoutGame.table?.nextHandId || null,
+        turnTimeout: runoutGame.table?.turnTimeout || DEFAULT_TURN_TIMEOUT,
         shouldCreateTask: false,
       };
     }
@@ -356,6 +392,25 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
 
     // 1. 寫入剛剛暫存的 Action Event (延遲到這裡才寫)
     await addGameEvent(gameId, actionEventData, transaction);
+
+    // If the action completed the hand (showdown resolved immediately), do not restart turn timers.
+    if (game.table?.stage === 'showdown_complete' || game.status !== 'playing' || game.table?.currentTurn === null) {
+      const isAutoNext = game.table?.isAutoNext ?? false;
+      const canAutoStart = isAutoNext && game.status === 'waiting';
+      return {
+        gameId,
+        action,
+        nextRound: game.table.currentRound,
+        nextTurn: null,
+        nextTurnId: null,
+        showdownId: null,
+        shouldCreateShowdownTask: false,
+        shouldCreateStartNextHandTask: canAutoStart,
+        nextHandId: game.table?.nextHandId || null,
+        turnTimeout: game.table?.turnTimeout || DEFAULT_TURN_TIMEOUT,
+        shouldCreateTask: false,
+      };
+    }
 
     // Get turn timeout setting
     const turnTimeout = game.table?.turnTimeout || DEFAULT_TURN_TIMEOUT;
@@ -381,6 +436,8 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
       nextTurnId: game.table.currentTurnId,
       showdownId: game.table.showdownId || null,
       shouldCreateShowdownTask: game.table?.stage === 'showdown' && !!game.table.showdownId,
+      shouldCreateStartNextHandTask: false,
+      nextHandId: null,
       turnTimeout,
       shouldCreateTask: game.table.currentTurn !== null && game.status === 'playing',
     };
@@ -391,16 +448,18 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
     await createPokerTask(gameId, result.nextTurnId, result.turnTimeout);
   }
 
-  if (result.shouldCreateShowdownTask && result.showdownId) {
+  // New flow: showdown is resolved immediately in-transaction.
+  // Schedule next hand start after a short admire window.
+  if (result.shouldCreateStartNextHandTask && result.nextHandId) {
     await createPokerHttpTask({
-      endpoint: 'handleShowdownResolve',
+      endpoint: 'handleStartNextHand',
       payload: {
         gameId,
-        showdownId: result.showdownId,
+        nextHandId: result.nextHandId,
         timestamp: Date.now(),
       },
       delaySeconds: SHOWDOWN_RESOLVE_DELAY_SECONDS,
-      logLabel: `showdownId: ${result.showdownId}`,
+      logLabel: `nextHandId: ${result.nextHandId}`,
     });
   }
 
@@ -652,8 +711,8 @@ export async function advanceRound(game, transaction, gameRef) {
     updatedGame = dealTurnOrRiver(updatedGame, 'river');
     break;
   case 'river':
-    // Enter showdown (early reveal) and defer winner calculation.
-    updatedGame = await enterShowdown(updatedGame, transaction, gameRef);
+    // Resolve showdown immediately (winner calculation + pot distribution happens now).
+    updatedGame = await resolveShowdownImmediately(updatedGame, transaction, gameRef);
     break;
   }
 
@@ -676,65 +735,6 @@ export async function advanceRound(game, transaction, gameRef) {
   }
 
   return updatedGame;
-}
-
-/**
- * Enter showdown stage with early reveal of public hole cards.
- * This reads private hole cards within the transaction and writes them into
- * PUBLIC seats[*].holeCards for non-folded players only.
- * Winner calculation and pot distribution are deferred to a Cloud Task.
- * @param {Object} game - Current game state
- * @param {Object} transaction - Firestore transaction
- * @param {Object} gameRef - Game document reference
- * @return {Promise<Object>} Updated game state
- */
-async function enterShowdown(game, transaction, gameRef) {
-  const privateCollection = gameRef.collection('private');
-  const playerIds = Object.values(game.seats)
-    .filter((seat) => seat !== null)
-    .map((seat) => seat.odId);
-
-  const holeCards = {};
-  for (const playerId of playerIds) {
-    const docRef = privateCollection.doc(playerId);
-    const docSnap = await transaction.get(docRef);
-    if (docSnap.exists) {
-      holeCards[playerId] = docSnap.data().holeCards;
-    }
-  }
-
-  const updatedSeats = { ...game.seats };
-  Object.keys(updatedSeats).forEach((num) => {
-    if (!updatedSeats[num]) return;
-
-    if (updatedSeats[num].status === 'folded') {
-      updatedSeats[num].holeCards = null;
-      return;
-    }
-
-    const odId = updatedSeats[num].odId;
-    const cards = holeCards[odId] || [];
-    updatedSeats[num].holeCards = cards.length ? cards : null;
-  });
-
-  const showdownId = uuidv4();
-
-  return {
-    ...game,
-    seats: updatedSeats,
-    table: {
-      ...game.table,
-      stage: 'showdown',
-      currentRound: 'showdown',
-      currentTurn: null,
-      currentTurnId: null,
-      showdownId,
-      showdownStartedAt: FieldValue.serverTimestamp(),
-      // Optional UX hint for the frontend countdown/timers.
-      // Stored as a client-readable epoch milliseconds.
-      showdownEndTime: Date.now() + SHOWDOWN_RESOLVE_DELAY_SECONDS * 1000,
-    },
-  };
 }
 
 /**
@@ -1428,9 +1428,30 @@ export async function sitDown(gameId, userId, userInfo, seatNumber, buyIn) {
 
     const game = gameDoc.data();
 
-    // Validate seat is empty
-    if (game.seats[seatNumber] !== null) {
-      throw new Error('Seat is already occupied');
+    // Smart seat assignment:
+    // If requested seat is occupied, fall back to the first available seat.
+    const maxSeats = game?.meta?.maxPlayers ?? Object.keys(game.seats || {}).length;
+    const isValidRequestedSeat =
+      Number.isInteger(seatNumber) && seatNumber >= 0 && seatNumber < maxSeats;
+    const findFirstEmptySeat = () => {
+      for (let i = 0; i < maxSeats; i++) {
+        if (game.seats?.[i] === null) return i;
+      }
+      return null;
+    };
+
+    if (!isValidRequestedSeat) {
+      const firstEmpty = findFirstEmptySeat();
+      if (firstEmpty === null) {
+        throw new Error('Table is full');
+      }
+      seatNumber = firstEmpty;
+    } else if (game.seats?.[seatNumber] !== null) {
+      const firstEmpty = findFirstEmptySeat();
+      if (firstEmpty === null) {
+        throw new Error('Table is full');
+      }
+      seatNumber = firstEmpty;
     }
 
     // Check if user is already seated elsewhere

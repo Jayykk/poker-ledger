@@ -47,6 +47,41 @@ const animateChipsToWinner = (targetPosition, amount) => {
 };
 
 /**
+ * Animate chips flying from seat bet positions to the pot center.
+ * @param {Array<{x:number,y:number,amount:number}>} sources
+ * @param {{x:number,y:number}} center
+ */
+const animateChipsToCenter = (sources = [], center = null) => {
+  if (!Array.isArray(sources) || sources.length === 0) return;
+  const end = center || {
+    x: window.innerWidth / 2,
+    y: window.innerHeight * 0.4,
+  };
+
+  sources.forEach((src, idx) => {
+    if (!src || typeof src.x !== 'number' || typeof src.y !== 'number') return;
+    const amount = src.amount || 0;
+    const chipCount = Math.min(Math.max(1, Math.ceil(amount / 100)), 6); // Max 6 per seat
+
+    for (let i = 0; i < chipCount; i++) {
+      const chipId = `chip-${Date.now()}-${idx}-${i}`;
+      flyingChips.value.push({
+        id: chipId,
+        startX: src.x,
+        startY: src.y,
+        targetX: end.x,
+        targetY: end.y,
+        delay: (idx * 80) + (i * 60),
+      });
+
+      setTimeout(() => {
+        flyingChips.value = flyingChips.value.filter((c) => c.id !== chipId);
+      }, 1000 + (idx * 80) + (i * 60));
+    }
+  });
+};
+
+/**
  * Get CSS style for flying chip
  * @param {Object} chip - Chip object
  * @return {Object} CSS styles
@@ -64,6 +99,7 @@ const getChipStyle = (chip) => {
 // Expose method for parent components
 defineExpose({
   animateChipsToWinner,
+  animateChipsToCenter,
 });
 </script>
 

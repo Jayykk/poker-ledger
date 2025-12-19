@@ -99,6 +99,33 @@ export async function joinSeat(gameId, userId, userInfo, seatNumber, buyIn) {
 
     const game = gameDoc.data();
 
+    // Smart seat assignment:
+    // If the requested seat is occupied, fall back to the first available seat.
+    const maxSeats = game?.meta?.maxPlayers ?? Object.keys(game.seats || {}).length;
+    const isValidRequestedSeat =
+      Number.isInteger(seatNumber) && seatNumber >= 0 && seatNumber < maxSeats;
+    const findFirstEmptySeat = () => {
+      for (let i = 0; i < maxSeats; i++) {
+        if (game.seats?.[i] === null) return i;
+      }
+      return null;
+    };
+
+    // If caller provided an invalid seat index, treat it as "no preference".
+    if (!isValidRequestedSeat) {
+      const firstEmpty = findFirstEmptySeat();
+      if (firstEmpty === null) {
+        throw new Error('Table is full');
+      }
+      seatNumber = firstEmpty;
+    } else if (game.seats?.[seatNumber] !== null) {
+      const firstEmpty = findFirstEmptySeat();
+      if (firstEmpty === null) {
+        throw new Error('Table is full');
+      }
+      seatNumber = firstEmpty;
+    }
+
     // Validate join
     const validation = validateJoinSeat(game, seatNumber, buyIn, userId);
     if (!validation.valid) {

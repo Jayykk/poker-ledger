@@ -203,44 +203,52 @@ const displayHoleCards = computed(() => {
   return holeCards.value || [];
 });
 
-// Populate local state during showdown
-watch(() => currentGame.value?.table?.stage, (newStage) => {
-  if (newStage === 'showdown_complete' && props.seat && props.seat.status !== 'folded') {
-    const handResult = currentGame.value?.table?.handResult;
-    if (handResult && handResult.allResults) {
-      const playerResult = handResult.allResults.find(
-        (r) => r.odId === props.seat.odId,
-      );
-      
-      if (playerResult) {
-        localHandName.value = playerResult.handName || '';
-        
-        // Check if winner
-        const winner = handResult.winners?.find(
-          (w) => w.odId === props.seat.odId,
-        );
-        if (winner) {
-          localIsWinner.value = true;
-          localWinAmount.value = winner.amount || 0;
-        }
-      }
+// Winner display logic: driven by presence of handResult (not stage name)
+watch(
+  () => currentGame.value?.table?.handResult,
+  (handResult) => {
+    if (!handResult || !props.seat || props.seat.status === 'folded') {
+      localIsWinner.value = false;
+      localWinAmount.value = 0;
+      localHandName.value = '';
+      localShowdownCards.value = [];
+      return;
     }
-  } else if (newStage !== 'showdown_complete') {
-    // Reset local state when stage changes away from showdown
-    localShowdownCards.value = [];
-  }
-});
+
+    const playerResult = handResult?.allResults?.find(
+      (r) => r.odId === props.seat.odId,
+    );
+
+    if (playerResult) {
+      localHandName.value = playerResult.handName || '';
+    } else {
+      localHandName.value = '';
+    }
+
+    const winner = handResult?.winners?.find(
+      (w) => w.odId === props.seat.odId,
+    );
+    if (winner) {
+      localIsWinner.value = true;
+      localWinAmount.value = winner.amount || 0;
+    } else {
+      localIsWinner.value = false;
+      localWinAmount.value = 0;
+    }
+  },
+  { immediate: true },
+);
 
 // Showdown-related computed properties - use local state
 const isShowdownRevealing = computed(() => {
   const gameStage = currentGame.value?.table?.stage;
-  return gameStage === 'showdown_complete';
+  return gameStage === 'showdown';
 });
 
 const showHandResult = computed(() => {
   if (!props.seat) return false;
-  const gameStage = currentGame.value?.table?.stage;
-  return gameStage === 'showdown_complete' && (localHandName.value !== '' || localWinAmount.value > 0);
+  const handResult = currentGame.value?.table?.handResult;
+  return !!handResult && (localHandName.value !== '' || localWinAmount.value > 0);
 });
 
 const handResultName = computed(() => {
