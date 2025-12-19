@@ -5,7 +5,13 @@
 
     <!-- Community Cards Area (centered on table) -->
     <div class="community-cards-area">
-      <CommunityCards :cards="communityCards" :round="currentRound" />
+      <CommunityCards
+        :cards="communityCards"
+        :round="currentRound"
+        :hand-result="currentGame?.table?.handResult"
+        @animation-start="emit('animation-start')"
+        @animation-end="emit('animation-end')"
+      />
       <PotDisplay ref="potRef" :pot="displayPot" />
 
       <!-- Win-by-fold: winner can choose to Show or Muck (default) -->
@@ -44,6 +50,7 @@
         :visible="true"
         @join-seat="showBuyInModal"
         @auto-action="handleAutoAction"
+        @animate-bet="handleAnimateBet"
       />
     </div>
 
@@ -129,6 +136,8 @@ import BaseModal from '../common/BaseModal.vue';
 import BetChip from './BetChip.vue';
 import ChipAnimation from './ChipAnimation.vue';
 
+const emit = defineEmits(['animation-start', 'animation-end']);
+
 const authStore = useAuthStore();
 const { error: showError } = useNotification();
 
@@ -161,6 +170,10 @@ const OUTER_RX = 46; // percentage - outer ring for avatars
 const OUTER_RY = 42; // percentage
 const INNER_RX = 30; // percentage - inner ring for bets
 const INNER_RY = 26; // percentage
+
+// Push chips (avatar -> bet) animation controls
+const PUSH_BET_ANIMATION_MS = 400;
+const pushBetFreezeUntil = ref({});
 
 // Chip gathering (bet -> pot) animation controls
 const GATHER_ANIMATION_MS = 800;
@@ -204,8 +217,63 @@ const getServerCollectedPot = () => {
 const syncDisplayFromServer = () => {
   if (isGatherAnimating.value) return;
   displayPot.value = getServerCollectedPot();
-  displayBetsBySeat.value = getServerBetsBySeat();
+
+  const now = Date.now();
+  const serverBets = getServerBetsBySeat();
+  const nextBets = { ...(displayBetsBySeat.value || {}) };
+
+  // Update bets from server, unless a push animation is freezing this seat.
+  for (let i = 0; i < maxSeats.value; i++) {
+    const freezeUntil = pushBetFreezeUntil.value?.[i] || 0;
+    if (freezeUntil > now) continue;
+    nextBets[i] = serverBets[i] || 0;
+  }
+
+  displayBetsBySeat.value = nextBets;
 };
+
+async function handleAnimateBet(payload) {
+  const seatNum = payload?.seatNumber;
+  if (!Number.isInteger(seatNum)) return;
+
+  const startRect = payload?.startRect;
+  if (!startRect || typeof startRect.left !== 'number' || typeof startRect.top !== 'number') return;
+
+  const end = getSeatBetPositionPx(seatNum);
+  if (!end) return;
+
+  // Freeze the bet amount so it updates when the chip lands.
+  const freezeUntil = Date.now() + PUSH_BET_ANIMATION_MS;
+  pushBetFreezeUntil.value = { ...(pushBetFreezeUntil.value || {}), [seatNum]: freezeUntil };
+
+  const oldVal = typeof payload?.oldVal === 'number' ? payload.oldVal : (displayBetsBySeat.value?.[seatNum] || 0);
+  displayBetsBySeat.value = { ...(displayBetsBySeat.value || {}), [seatNum]: oldVal };
+
+  setTimeout(() => {
+    const current = pushBetFreezeUntil.value?.[seatNum];
+    if (current === freezeUntil) {
+      const next = { ...(pushBetFreezeUntil.value || {}) };
+      delete next[seatNum];
+      pushBetFreezeUntil.value = next;
+    }
+    syncDisplayFromServer();
+  }, PUSH_BET_ANIMATION_MS);
+
+  const startX = startRect.left + (startRect.width || 0) / 2;
+  const startY = startRect.top + (startRect.height || 0) / 2;
+  const delta = typeof payload?.delta === 'number' ? payload.delta : 0;
+
+  await nextTick();
+  try {
+    chipAnimationEl.value?.animateChipsToCenter?.(
+      [{ x: startX, y: startY, amount: Math.max(1, delta) }],
+      { x: end.x, y: end.y },
+      { durationMs: PUSH_BET_ANIMATION_MS },
+    );
+  } catch (e) {
+    console.warn('Push bet animation failed:', { seatNum, message: e?.message });
+  }
+}
 
 // Keep display state in sync during normal play (not animating)
 watch(
@@ -302,7 +370,7 @@ async function startGatherAnimation(trigger) {
       })
       .filter(Boolean);
 
-    chipAnimationEl.value?.animateChipsToCenter?.(sources, potCenter);
+    chipAnimationEl.value?.animateChipsToCenter?.(sources, potCenter, { durationMs: GATHER_ANIMATION_MS });
   } catch (e) {
     console.warn('Chip gather animation failed:', { trigger, message: e?.message });
   }
@@ -759,10 +827,10 @@ const handleAutoAction = (action) => {
 
 .start-hand-controls {
   position: absolute;
-  bottom: 10px;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  z-index: 100;
+  transform: translate(-50%, -50%);
+  z-index: 50;
 }
 
 .btn-primary {
