@@ -16,7 +16,6 @@ import { validateGameStart } from '../utils/validators.js';
 import { validatePlayerAction as validateAction } from '../engines/actionValidator.js';
 import {
   isLastManStanding,
-  getActivePlayers,
   isRoundComplete,
   findNextPlayer,
   getFirstToAct,
@@ -33,7 +32,9 @@ import { getHandIdFromGame, writeHandHistoryEntry } from '../utils/handHistories
 // Constants
 const DEFAULT_BUY_IN = 1000;
 const DEFAULT_TURN_TIMEOUT = 30;
-const SHOWDOWN_RESOLVE_DELAY_SECONDS = 2;
+// UX: Pause at showdown so players can see runout + hand comparison.
+// Cloud Tasks scheduleTime is second-granular; use 5s to avoid feeling instant.
+const SHOWDOWN_RESOLVE_DELAY_SECONDS = 5;
 const WIN_BY_FOLD_TIMEOUT_SECONDS = 5;
 
 /**
@@ -52,6 +53,23 @@ function isEffectiveAllIn(game) {
     .filter((seat) => seat.status !== 'all_in').length;
 
   return nonAllInCount <= 1;
+}
+
+/**
+ * Betting is "settled" for auto-runout purposes when there is no pending call
+ * for any ACTIVE (non-all-in) player.
+ *
+ * Important: we only compare ACTIVE players against currentBet.
+ * All-in players may have roundBet < currentBet (short all-in), which is valid.
+ * @param {Object} game
+ * @return {boolean}
+ */
+function areBetsSettledForRunout(game) {
+  const currentBet = game.table?.currentBet || 0;
+  const activeSeats = Object.values(game.seats)
+    .filter((seat) => seat && seat.status === 'active');
+
+  return activeSeats.every((seat) => (seat.roundBet || 0) === currentBet);
 }
 
 /**
@@ -228,10 +246,11 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
       // addGameEvent() performs transaction writes, and handleLastManStanding() needs
       // private/history reads.
       // So we prefetch what handleLastManStanding needs first.
-      const activePlayers = getActivePlayers(game);
+      const playersInHand = Object.values(game.seats)
+        .filter((seat) => seat && (seat.status === 'active' || seat.status === 'all_in'));
       let preFetchedSnapshots = null;
 
-      if (activePlayers.length !== 1) {
+      if (playersInHand.length !== 1) {
         throw createGameError(GameErrorCodes.INVALID_ACTION, {
           message: 'Invalid last man standing state',
         });
@@ -268,8 +287,11 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
     }
 
     // Effective all-in: if 0 or only 1 player in the hand is NOT all-in,
-    // there are no further betting decisions. Auto-runout and enter showdown.
-    if (isEffectiveAllIn(game)) {
+    // there are no further betting decisions ONLY AFTER all pending calls are settled.
+    // This prevents the common bug where an all-in raise triggers immediate runout
+    // before opponents get a chance to call/fold.
+    const shouldAutoRunout = isEffectiveAllIn(game) && areBetsSettledForRunout(game);
+    if (shouldAutoRunout) {
       const runoutGame = await runoutToShowdown(game, transaction, gameRef);
 
       await addGameEvent(gameId, actionEventData, transaction);
@@ -390,15 +412,17 @@ export async function handleLastManStanding(
     .map((seat) => seat.odId);
 
   // Identify winner/targets purely from current game state (no writes yet)
-  const activePlayers = getActivePlayers(game);
+  // NOTE: winner may be 'all_in' if they shoved and opponent folded.
+  const playersInHand = Object.values(game.seats)
+    .filter((seat) => seat && (seat.status === 'active' || seat.status === 'all_in'));
 
-  if (activePlayers.length !== 1) {
+  if (playersInHand.length !== 1) {
     throw createGameError(GameErrorCodes.INVALID_ACTION, {
       message: 'Invalid last man standing state',
     });
   }
 
-  const winner = activePlayers[0];
+  const winner = playersInHand[0];
 
   /**
    * Optional pre-read snapshots to satisfy Firestore transaction ordering.
@@ -673,6 +697,9 @@ async function enterShowdown(game, transaction, gameRef) {
       currentTurnId: null,
       showdownId,
       showdownStartedAt: FieldValue.serverTimestamp(),
+      // Optional UX hint for the frontend countdown/timers.
+      // Stored as a client-readable epoch milliseconds.
+      showdownEndTime: Date.now() + SHOWDOWN_RESOLVE_DELAY_SECONDS * 1000,
     },
   };
 }

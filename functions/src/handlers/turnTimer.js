@@ -7,7 +7,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { processAction } from '../engines/texasHoldem.js';
 import {
-  getActivePlayers,
+  isLastManStanding,
   isRoundComplete,
   findNextPlayer,
 } from '../engines/gameStateMachine.js';
@@ -85,8 +85,7 @@ export async function handleTurnTimeoutHttp(req, res) {
 
       // ✅ Pre-Read Pattern: if this timeout action results in a single active player,
       // prefetch snapshots needed by handleLastManStanding BEFORE any transaction writes.
-      const activePlayers = getActivePlayers(game);
-      const willBeLastManStanding = activePlayers.length === 1;
+      const willBeLastManStanding = isLastManStanding(game);
       let preFetchedSnapshots = null;
 
       if (willBeLastManStanding) {
