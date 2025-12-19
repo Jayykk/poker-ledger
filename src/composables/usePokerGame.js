@@ -47,7 +47,9 @@ export function usePokerGame() {
   const callAmount = computed(() => {
     if (!mySeat.value) return 0;
     const myBet = mySeat.value.roundBet ?? mySeat.value.currentBet ?? 0;
-    return currentBet.value - myBet;
+    const amountToMatch = Math.max(0, currentBet.value - myBet);
+    // Table-stakes rule: you can only call up to your remaining stack.
+    return Math.min(amountToMatch, myChips.value);
   });
 
   const canCheck = computed(() => callAmount.value === 0);

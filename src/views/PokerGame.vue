@@ -134,7 +134,10 @@
 
       <!-- Middle Section (70vh) - Poker Table -->
       <div class="middle-section">
-        <PokerTable />
+        <PokerTable
+          @animation-start="isRunoutPlaying = true"
+          @animation-end="isRunoutPlaying = false"
+        />
       </div>
 
       <!-- Bottom Bar (15vh) - Action Buttons (rendered inside PokerTable) -->
@@ -168,7 +171,7 @@
 
     <!-- Auto-Start Countdown Overlay -->
     <Transition name="fade">
-      <GameOverlay v-if="showAutoStartCountdown">
+      <GameOverlay v-if="showAutoStartCountdown && !isRunoutPlaying">
         <div class="auto-start-content">
           <span class="countdown-icon">🎲</span>
           <h3>Next hand in {{ autoStartCountdown }}...</h3>
@@ -242,6 +245,9 @@ const showTableInfo = ref(false);
 // Pending leave state
 const isPendingLeave = ref(false);
 
+// Runout animation state (hide auto-start overlay during dramatic squeeze)
+const isRunoutPlaying = ref(false);
+
 // Auto-start countdown state
 const autoStartCountdown = ref(0);
 const showAutoStartCountdown = ref(false);
@@ -292,7 +298,8 @@ watch(() => [
   currentGame.value?.status,
   isCreator.value,
   hasEnoughPlayers.value,
-], ([stage, autoNext, status, creator, enough]) => {
+  isRunoutPlaying.value,
+], ([stage, autoNext, status, creator, enough, runoutPlaying]) => {
   // Clear any existing countdown
   if (autoStartInterval.value) {
     clearInterval(autoStartInterval.value);
@@ -307,7 +314,7 @@ watch(() => [
   // 4. User is the creator
   // 5. Has enough players
   // 6. Not already starting a hand
-  if (stage === 'showdown_complete' && autoNext && status !== 'paused' && creator && enough && !isStarting.value) {
+  if (stage === 'showdown_complete' && autoNext && status !== 'paused' && creator && enough && !isStarting.value && !runoutPlaying) {
     autoStartCountdown.value = autoStartDelay.value;
     showAutoStartCountdown.value = true;
 

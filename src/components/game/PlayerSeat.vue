@@ -4,6 +4,7 @@
       <!-- Circular Avatar with Status Badge -->
       <div class="avatar-wrapper">
         <div 
+          ref="avatarRef"
           class="avatar-circle"
           :class="{
             'is-current-turn': isCurrentTurn,
@@ -29,8 +30,8 @@
             <TurnTimer 
               :expiresAt="turnExpiresAt"
               :totalTime="turnTimeout"
-              :size="68"
-              :strokeWidth="3"
+              :size="64"
+              :strokeWidth="5"
               :paused="isPaused"
             />
           </div>
@@ -87,7 +88,7 @@
 </template>
 
 <script setup>
-import { computed, ref, inject, watch } from 'vue';
+import { computed, ref, inject, watch, nextTick } from 'vue';
 import { usePokerGame } from '../../composables/usePokerGame.js';
 import { useAuthStore } from '../../store/modules/auth.js';
 import PlayingCard from './PlayingCard.vue';
@@ -117,10 +118,13 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['join-seat', 'auto-action']);
+const emit = defineEmits(['join-seat', 'auto-action', 'animate-bet']);
 
 const { myHoleCards, currentGame } = usePokerGame();
 const authStore = useAuthStore();
+
+const avatarRef = ref(null);
+const lastRoundBet = ref(null);
 
 // Check if game is paused
 const isPaused = computed(() => currentGame.value?.status === 'paused');
@@ -144,6 +148,42 @@ watch(uiResetKey, () => {
   localHandName.value = '';
   localShowdownCards.value = [];
 });
+
+// Push-chips animation: detect bet/call/raise by roundBet increase.
+watch(
+  () => props.seat?.roundBet,
+  async (newVal) => {
+    if (!props.seat) {
+      lastRoundBet.value = null;
+      return;
+    }
+
+    if (typeof newVal !== 'number') {
+      lastRoundBet.value = null;
+      return;
+    }
+
+    const prev = typeof lastRoundBet.value === 'number' ? lastRoundBet.value : null;
+    lastRoundBet.value = newVal;
+
+    // Don't animate on first observation.
+    if (prev === null) return;
+    if (newVal <= prev) return;
+
+    await nextTick();
+    const el = avatarRef.value;
+    if (!el || typeof el.getBoundingClientRect !== 'function') return;
+
+    const r = el.getBoundingClientRect();
+    emit('animate-bet', {
+      seatNumber: props.seatNumber,
+      startRect: { left: r.left, top: r.top, width: r.width, height: r.height },
+      oldVal: prev,
+      newVal,
+      delta: newVal - prev,
+    });
+  },
+);
 
 const holeCards = computed(() => {
   // Show cards if it's my seat
@@ -472,10 +512,11 @@ const canJoin = computed(() => {
 /* Turn Timer Ring */
 .timer-ring {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 1;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
   pointer-events: none;
 }
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'poker-sync-v1';
+const CACHE_NAME = 'poker-sync-v2';
 const urlsToCache = [
   '/poker-ledger/',
   '/poker-ledger/index.html',

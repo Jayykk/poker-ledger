@@ -39,6 +39,20 @@ const SHOWDOWN_ADMIRE_TIME_MS = 5000;
 const WIN_BY_FOLD_TIMEOUT_SECONDS = 5;
 
 /**
+ * Compute a delay that covers the runout animation plus a base "admire" window.
+ * This prevents auto-next / countdown UI from overlapping dramatic board reveal.
+ *
+ * @param {number} existingCommunityCardsCount How many board cards were already visible.
+ * @return {number} Delay in milliseconds.
+ */
+function computeShowdownDelayMs(existingCommunityCardsCount) {
+  const existingCards = Math.max(0, Number(existingCommunityCardsCount) || 0);
+  const missingCards = Math.max(0, 5 - existingCards);
+  const animationBuffer = missingCards * 2500;
+  return SHOWDOWN_ADMIRE_TIME_MS + animationBuffer;
+}
+
+/**
  * Effective all-in condition:
  * If 0 or only 1 player in the hand is NOT all-in, there are no further betting decisions.
  * (Everyone else is all-in or folded.)
@@ -82,6 +96,10 @@ function areBetsSettledForRunout(game) {
  */
 async function runoutToShowdown(game, transaction, gameRef) {
   let runoutGame = game;
+  const existingCardsCount = Array.isArray(runoutGame.table?.communityCards) ?
+    runoutGame.table.communityCards.length :
+    0;
+  const totalDelayMs = computeShowdownDelayMs(existingCardsCount);
   const round = runoutGame.table.currentRound;
 
   if (round === 'preflop') {
@@ -96,7 +114,7 @@ async function runoutToShowdown(game, transaction, gameRef) {
   }
 
   // New flow: resolve showdown immediately (no delayed resolve task).
-  return await resolveShowdownImmediately(runoutGame, transaction, gameRef);
+  return await resolveShowdownImmediately(runoutGame, transaction, gameRef, { totalDelayMs });
 }
 
 /**
@@ -105,18 +123,25 @@ async function runoutToShowdown(game, transaction, gameRef) {
  * @param {Object} game
  * @param {Object} transaction
  * @param {Object} gameRef
+ * @param {Object} [options]
+ * @param {number} [options.totalDelayMs]
  * @return {Promise<Object>} Updated game state
  */
-async function resolveShowdownImmediately(game, transaction, gameRef) {
+async function resolveShowdownImmediately(game, transaction, gameRef, options = {}) {
   // handleShowdown() performs the full READ → COMPUTE → WRITE pipeline (including payouts).
   const resolved = await handleShowdown(game, transaction, gameRef);
 
   // Add a short "admire" window before the next hand can auto-start.
   // Use client-readable epoch millis for consistency with existing UI conversions.
+  const totalDelayMs = typeof options?.totalDelayMs === 'number' ?
+    Math.max(0, options.totalDelayMs) :
+    computeShowdownDelayMs(
+      Array.isArray(game.table?.communityCards) ? game.table.communityCards.length : 5,
+    );
   const nextHandId = uuidv4();
   transaction.update(gameRef, {
-    'table.turnExpiresAt': Date.now() + SHOWDOWN_ADMIRE_TIME_MS,
-    'table.showdownEndTime': Date.now() + SHOWDOWN_ADMIRE_TIME_MS,
+    'table.turnExpiresAt': Date.now() + totalDelayMs,
+    'table.showdownEndTime': Date.now() + totalDelayMs,
     'table.nextHandId': nextHandId,
   });
 
@@ -124,8 +149,8 @@ async function resolveShowdownImmediately(game, transaction, gameRef) {
     ...resolved,
     table: {
       ...resolved.table,
-      turnExpiresAt: Date.now() + SHOWDOWN_ADMIRE_TIME_MS,
-      showdownEndTime: Date.now() + SHOWDOWN_ADMIRE_TIME_MS,
+      turnExpiresAt: Date.now() + totalDelayMs,
+      showdownEndTime: Date.now() + totalDelayMs,
       nextHandId,
     },
   };
@@ -451,6 +476,9 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
   // New flow: showdown is resolved immediately in-transaction.
   // Schedule next hand start after a short admire window.
   if (result.shouldCreateStartNextHandTask && result.nextHandId) {
+    const delaySeconds = typeof result.nextHandDelaySeconds === 'number' ?
+      result.nextHandDelaySeconds :
+      SHOWDOWN_RESOLVE_DELAY_SECONDS;
     await createPokerHttpTask({
       endpoint: 'handleStartNextHand',
       payload: {
@@ -458,7 +486,7 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
         nextHandId: result.nextHandId,
         timestamp: Date.now(),
       },
-      delaySeconds: SHOWDOWN_RESOLVE_DELAY_SECONDS,
+      delaySeconds,
       logLabel: `nextHandId: ${result.nextHandId}`,
     });
   }
@@ -976,6 +1004,9 @@ async function handleShowdown(game, transaction, gameRef) {
 
   // 5. Prepare hand result for display
   const handResult = {
+    // Primary winning 5-card combo (used by UI to highlight board contributors).
+    // If there are multiple winners (tie), we pick the first winner's best 5.
+    winningCards: (showdownResults.winners?.[0]?.cards || []).slice(0, 5),
     winners: showdownResults.winners.map((w) => ({
       odId: w.odId,
       odName: w.odName,

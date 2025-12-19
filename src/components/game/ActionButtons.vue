@@ -12,8 +12,8 @@
         @click="emit('call')"
       >
         <span class="btn-icon">💰</span>
-        <span class="btn-label">CALL</span>
-        <span class="btn-amount">{{ callAmount }}</span>
+        <span class="btn-label">{{ isCallAllIn ? 'ALL-IN' : 'CALL' }}</span>
+        <span class="btn-amount">{{ formattedCallAmount }}</span>
       </button>
 
       <!-- Raise Button -->
@@ -122,6 +122,14 @@ const showBetControls = ref(false);
 const betAmount = ref(0);
 
 const isDisabled = computed(() => !props.isMyTurn || props.actionsDisabled);
+
+const isCallAllIn = computed(() => {
+  return props.callAmount > 0 && props.callAmount === props.myChips;
+});
+
+const formattedCallAmount = computed(() => {
+  return `$${props.callAmount}`;
+});
 
 const bigBlind = computed(() => currentGame.value?.meta?.blinds?.big || 20);
 

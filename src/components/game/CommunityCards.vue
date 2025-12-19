@@ -2,14 +2,19 @@
   <div class="community-cards">
     <div class="round-label">{{ roundLabel }}</div>
     <TransitionGroup name="card-reveal" tag="div" class="community-cards-container">
-      <PlayingCard
+      <div
         v-for="(card, index) in visibleCards"
         :key="`${String(card)}-${index}`"
-        :card="card"
-        :hidden="!shouldShowCard(index)"
-        :revealing="isCardRevealing(index)"
-        size="normal"
-      />
+        class="community-card-wrapper"
+        :class="{ 'winner-highlight': isWinningCard(card) }"
+      >
+        <PlayingCard
+          :card="card"
+          :hidden="!shouldShowCard(index)"
+          :revealing="isCardRevealing(index)"
+          size="normal"
+        />
+      </div>
     </TransitionGroup>
   </div>
 </template>
@@ -18,6 +23,8 @@
 import { computed, watch, ref, onBeforeUnmount } from 'vue';
 import PlayingCard from './PlayingCard.vue';
 import { useGameAnimation } from '../../composables/useGameAnimation.js';
+
+const emit = defineEmits(['animation-start', 'animation-end']);
 
 const props = defineProps({
   cards: {
@@ -28,7 +35,33 @@ const props = defineProps({
     type: String,
     default: 'waiting',
   },
+  handResult: {
+    type: Object,
+    default: null,
+  },
 });
+
+const winningCardsSet = computed(() => {
+  const cards = props.handResult?.winningCards;
+  if (!Array.isArray(cards)) return new Set();
+  return new Set(cards.map((c) => String(c)));
+});
+
+function cardToKey(card) {
+  if (!card) return '';
+  if (typeof card === 'string') return card;
+  // Fallback if card is ever passed as {rank, suit}
+  if (typeof card === 'object' && card.rank && card.suit) {
+    return `${String(card.rank)}${String(card.suit)}`;
+  }
+  return String(card);
+}
+
+function isWinningCard(card) {
+  const key = cardToKey(card);
+  if (!key) return false;
+  return winningCardsSet.value.has(key);
+}
 
 const { animatingRound, flopCardIndex, animateFlop, animateTurn, animateRiver } = useGameAnimation();
 
@@ -43,6 +76,8 @@ function getSqueezeDelayMs(cardIndex) {
 
 const visibleCards = ref([]);
 
+const runoutAnimating = ref(false);
+
 let revealTimeoutId = null;
 let revealToken = 0;
 
@@ -51,6 +86,11 @@ function clearPendingReveal() {
   if (revealTimeoutId) {
     clearTimeout(revealTimeoutId);
     revealTimeoutId = null;
+  }
+
+  if (runoutAnimating.value) {
+    runoutAnimating.value = false;
+    emit('animation-end');
   }
 }
 
@@ -97,11 +137,20 @@ watch(
     clearPendingReveal();
     visibleCards.value = [...prev];
 
+    runoutAnimating.value = true;
+    emit('animation-start');
+
     const tokenAtStart = revealToken;
     const startIndex = prev.length;
     const revealNext = (index) => {
       if (tokenAtStart !== revealToken) return;
-      if (index >= next.length) return;
+      if (index >= next.length) {
+        if (runoutAnimating.value) {
+          runoutAnimating.value = false;
+          emit('animation-end');
+        }
+        return;
+      }
 
       const delayMs = index === startIndex ? 0 : getSqueezeDelayMs(index);
       revealTimeoutId = setTimeout(() => {
@@ -189,6 +238,20 @@ watch(() => props.round, (newRound, oldRound) => {
   height: 6rem; /* Adjust based on card size */
   align-items: center;
   justify-content: center;
+}
+
+.community-card-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.winner-highlight {
+  box-shadow: 0 0 15px 4px #ffd700; /* Gold Glow */
+  transform: scale(1.05);
+  z-index: 10;
+  transition: all 0.3s ease;
+  border: 2px solid #ffd700;
+  border-radius: 10px;
 }
 
 /* The Transition Classes (Crucial for animation) */
