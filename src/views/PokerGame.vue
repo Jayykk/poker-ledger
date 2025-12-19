@@ -1,11 +1,6 @@
 <template>
   <div class="poker-game-view">
-    <div v-if="loading" class="loading-screen">
-      <div class="spinner"></div>
-      <p>Loading game...</p>
-    </div>
-
-    <div v-else-if="error" class="error-screen">
+    <div v-if="error" class="error-screen">
       <p>{{ error }}</p>
       <button @click="goBack" class="btn-back">Back to Lobby</button>
     </div>
@@ -250,6 +245,7 @@ const isPendingLeave = ref(false);
 const autoStartCountdown = ref(0);
 const showAutoStartCountdown = ref(false);
 const autoStartInterval = ref(null);
+const isStarting = ref(false); // Prevent double-submit
 
 const toggleMenu = () => {
   menuOpen.value = !menuOpen.value;
@@ -294,7 +290,8 @@ watch(() => [
   isAutoNext.value,
   currentGame.value?.status,
   isCreator.value,
-], ([stage, autoNext, status, creator]) => {
+  hasEnoughPlayers.value,
+], ([stage, autoNext, status, creator, enough]) => {
   // Clear any existing countdown
   if (autoStartInterval.value) {
     clearInterval(autoStartInterval.value);
@@ -307,7 +304,9 @@ watch(() => [
   // 2. Auto-next is enabled
   // 3. Game is not paused
   // 4. User is the creator
-  if (stage === 'showdown_complete' && autoNext && status !== 'paused' && creator) {
+  // 5. Has enough players
+  // 6. Not already starting a hand
+  if (stage === 'showdown_complete' && autoNext && status !== 'paused' && creator && enough && !isStarting.value) {
     autoStartCountdown.value = autoStartDelay.value;
     showAutoStartCountdown.value = true;
 
@@ -320,10 +319,17 @@ watch(() => [
         showAutoStartCountdown.value = false;
         
         // Start next hand
-        const { startHand } = usePokerGame();
-        startHand().catch((error) => {
-          console.error('Failed to auto-start next hand:', error);
-        });
+        if (!isStarting.value) {
+          isStarting.value = true;
+          const { startHand } = usePokerGame();
+          startHand()
+            .catch((error) => {
+              console.error('Failed to auto-start next hand:', error);
+            })
+            .finally(() => {
+              isStarting.value = false;
+            });
+        }
       }
     }, 1000);
   }
@@ -437,6 +443,10 @@ const handleResumeGame = async () => {
 };
 
 const handleStartGame = async () => {
+  if (isStarting.value) return; // Prevent double-submit
+  if (currentGame.value?.status === 'playing') return; // Do not start if active
+  
+  isStarting.value = true;
   try {
     const { startHand } = usePokerGame();
     await startHand();
@@ -444,6 +454,15 @@ const handleStartGame = async () => {
     success('Game started!');
   } catch (error) {
     console.error('Failed to start game:', error);
+    // If error indicates game is already in progress, fail silently (show toast only)
+    // Do NOT redirect the user
+    if (error.message && (error.message.includes('already in progress') || error.message.includes('Game already started'))) {
+      showError('Game already in progress');
+    } else {
+      showError('Failed to start game: ' + error.message);
+    }
+  } finally {
+    isStarting.value = false;
   }
 };
 
