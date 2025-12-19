@@ -942,6 +942,23 @@ async function handleShowdown(game, transaction, gameRef) {
     }
   }
 
+  // ===== Bust Out (Kick from seat) =====
+  // After chips are updated, remove anyone who busted (<= 0 chips) so they can re-buy.
+  const finalChipsBySeatNum = {};
+  Object.entries(updatedSeats).forEach(([seatNum, seat]) => {
+    if (!seat) return;
+    finalChipsBySeatNum[seatNum] = seat.chips;
+  });
+
+  Object.entries(updatedSeats).forEach(([seatNum, seat]) => {
+    if (!seat) return;
+    if ((seat.chips ?? 0) <= 0) {
+      console.log(`Player ${seat.odId} busted (seat ${seatNum})`);
+      // Kick them off the table so they can re-buy.
+      updatedSeats[seatNum] = null;
+    }
+  });
+
   // SECURITY: Reveal hole cards only for players still active at showdown.
   // Folded players remain mucked.
   Object.keys(updatedSeats).forEach((num) => {
@@ -1013,12 +1030,11 @@ async function handleShowdown(game, transaction, gameRef) {
     handNumber: game.handNumber,
     communityCards: game.table.communityCards,
     players: activePlayers.map((p) => {
-      const finalSeat = updatedSeats[p.seatNum];
       return {
         odId: p.odId,
         odName: p.odName,
         holeCards: p.holeCards,
-        finalChips: finalSeat ? finalSeat.chips : p.chips,
+        finalChips: finalChipsBySeatNum[String(p.seatNum)] ?? p.chips,
       };
     }),
     actions: game.table.actionLog || [],
@@ -1042,9 +1058,9 @@ async function handleShowdown(game, transaction, gameRef) {
   if (isNotable) {
     handHistoryData.playerCards = {};
     const revealedPlayerIds = new Set(
-      Object.values(updatedSeats)
-        .filter((seat) => seat && seat.status !== 'folded')
-        .map((seat) => seat.odId),
+      activePlayers
+        .filter((p) => p.status !== 'folded')
+        .map((p) => p.odId),
     );
     Object.entries(holeCards).forEach(([playerId, cards]) => {
       if (revealedPlayerIds.has(playerId)) {

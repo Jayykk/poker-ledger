@@ -1,7 +1,7 @@
 <template>
   <div class="community-cards">
     <div class="round-label">{{ roundLabel }}</div>
-    <TransitionGroup tag="div" class="cards-display" name="community-cards">
+    <TransitionGroup name="card-reveal" tag="div" class="community-cards-container">
       <PlayingCard
         v-for="(card, index) in visibleCards"
         :key="`${String(card)}-${index}`"
@@ -182,6 +182,30 @@ watch(() => props.round, (newRound, oldRound) => {
   gap: 12px;
 }
 
+/* Container layout */
+.community-cards-container {
+  display: flex;
+  gap: 0.5rem;
+  height: 6rem; /* Adjust based on card size */
+  align-items: center;
+  justify-content: center;
+}
+
+/* The Transition Classes (Crucial for animation) */
+.card-reveal-enter-active {
+  transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Bouncy effect */
+}
+
+.card-reveal-enter-from {
+  opacity: 0;
+  transform: translateY(-20px) scale(0.8); /* Start from above and smaller */
+}
+
+.card-reveal-enter-to {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
 .round-label {
   font-size: 16px;
   font-weight: bold;
@@ -189,11 +213,6 @@ watch(() => props.round, (newRound, oldRound) => {
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
   text-transform: uppercase;
   letter-spacing: 2px;
-}
-
-.cards-display {
-  display: flex;
-  gap: 8px;
 }
 
 /* Responsive */
