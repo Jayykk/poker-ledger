@@ -28,12 +28,56 @@ import { calculateSidePots, distributePots } from '../engines/potCalculator.js';
 import { determineWinners } from '../utils/handEvaluator.js';
 import { createPokerTask } from '../utils/cloudTasks.js';
 import { createPokerHttpTask } from '../utils/cloudTasks.js';
+import { getHandIdFromGame, writeHandHistoryEntry } from '../utils/handHistories.js';
 
 // Constants
 const DEFAULT_BUY_IN = 1000;
 const DEFAULT_TURN_TIMEOUT = 30;
 const SHOWDOWN_RESOLVE_DELAY_SECONDS = 2;
 const WIN_BY_FOLD_TIMEOUT_SECONDS = 5;
+
+/**
+ * Effective all-in condition:
+ * If 0 or only 1 player in the hand is NOT all-in, there are no further betting decisions.
+ * (Everyone else is all-in or folded.)
+ * @param {Object} game
+ * @return {boolean}
+ */
+function isEffectiveAllIn(game) {
+  const playersInHand = Object.values(game.seats)
+    .filter((seat) => seat && (seat.status === 'active' || seat.status === 'all_in'));
+  if (playersInHand.length <= 1) return false;
+
+  const nonAllInCount = playersInHand
+    .filter((seat) => seat.status !== 'all_in').length;
+
+  return nonAllInCount <= 1;
+}
+
+/**
+ * Run out remaining community cards to river and enter showdown (early reveal).
+ * @param {Object} game
+ * @param {Object} transaction
+ * @param {Object} gameRef
+ * @return {Promise<Object>}
+ */
+async function runoutToShowdown(game, transaction, gameRef) {
+  let runoutGame = game;
+  const round = runoutGame.table.currentRound;
+
+  if (round === 'preflop') {
+    runoutGame = dealFlop(runoutGame);
+    runoutGame = dealTurnOrRiver(runoutGame, 'turn');
+    runoutGame = dealTurnOrRiver(runoutGame, 'river');
+  } else if (round === 'flop') {
+    runoutGame = dealTurnOrRiver(runoutGame, 'turn');
+    runoutGame = dealTurnOrRiver(runoutGame, 'river');
+  } else if (round === 'turn') {
+    runoutGame = dealTurnOrRiver(runoutGame, 'river');
+  }
+
+  return await enterShowdown(runoutGame, transaction, gameRef);
+}
 
 /**
  * Start a new hand
@@ -86,6 +130,8 @@ export async function startHand(gameId) {
       seats: clearedSeats,
       table: {
         ...updatedGame.table,
+        // Preserve correct pot math if someone left mid-hand previously
+        deadContributors: [],
         // Reset any previous-hand reveal/muck metadata
         stage: null,
         lastHand: null,
@@ -182,6 +228,28 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
       return await handleLastManStanding(transaction, gameRef, game);
     }
 
+    // Effective all-in: if 0 or only 1 player in the hand is NOT all-in,
+    // there are no further betting decisions. Auto-runout and enter showdown.
+    if (isEffectiveAllIn(game)) {
+      const runoutGame = await runoutToShowdown(game, transaction, gameRef);
+
+      await addGameEvent(gameId, actionEventData, transaction);
+      transaction.update(gameRef, runoutGame);
+
+      const turnTimeout = runoutGame.table?.turnTimeout || DEFAULT_TURN_TIMEOUT;
+      return {
+        gameId,
+        action,
+        nextRound: runoutGame.table.currentRound,
+        nextTurn: null,
+        nextTurnId: null,
+        showdownId: runoutGame.table.showdownId || null,
+        shouldCreateShowdownTask: runoutGame.table?.stage === 'showdown' && !!runoutGame.table.showdownId,
+        turnTimeout,
+        shouldCreateTask: false,
+      };
+    }
+
     // Check if betting round is complete
     if (isRoundComplete(game)) {
       game = await advanceRound(game, transaction, gameRef);
@@ -276,6 +344,15 @@ export async function handleLastManStanding(transaction, gameRef, game) {
     .filter((seat) => seat !== null)
     .map((seat) => seat.odId);
 
+  const holeCards = {};
+  for (const playerId of playerIds) {
+    const docRef = privateCollection.doc(playerId);
+    const docSnap = await transaction.get(docRef);
+    if (docSnap.exists) {
+      holeCards[playerId] = docSnap.data()?.holeCards || [];
+    }
+  }
+
   // Read all private documents (even though we don't use them for last man standing,
   // we need to delete them, so we need the references)
   const privateDocs = playerIds.map((playerId) => privateCollection.doc(playerId));
@@ -332,6 +409,26 @@ export async function handleLastManStanding(transaction, gameRef, game) {
   });
 
   // ===== WRITE PHASE =====
+  // Archive hole cards for analytics for everyone still seated in this hand.
+  // Players who left mid-hand are archived during leaveSeat.
+  const handId = getHandIdFromGame(game);
+  for (const [, seat] of Object.entries(game.seats)) {
+    if (!seat) continue;
+    const userId = seat.odId;
+    const outcome = userId === winner.odId ? 'win_by_fold' : 'fold';
+    await writeHandHistoryEntry(
+      transaction,
+      {
+        gameId: gameRef.id,
+        handId,
+        userId,
+        holeCards: holeCards[userId] || [],
+        outcome,
+      },
+      { skipIfExists: true },
+    );
+  }
+
   // Update game state
   transaction.update(gameRef, game);
 
@@ -427,6 +524,15 @@ export async function advanceRound(game, transaction, gameRef) {
     if (nextPlayer) {
       updatedGame.table.currentTurn = nextPlayer;
       updatedGame.table.currentTurnId = uuidv4(); // Generate new UUID
+    } else {
+      // Safeguard: if nobody can legally act, avoid leaving the hand stuck.
+      // When we're effectively all-in, just run out and move to showdown.
+      if (isEffectiveAllIn(updatedGame)) {
+        updatedGame = await runoutToShowdown(updatedGame, transaction, gameRef);
+      } else {
+        updatedGame.table.currentTurn = null;
+        updatedGame.table.currentTurnId = null;
+      }
     }
   }
 
@@ -563,8 +669,33 @@ export async function winByFoldTimeout(gameId, winByFoldId) {
 
   if (state.startNext) {
     // Start next hand immediately (muck by default).
-    await startHand(gameId);
-    return { startedNextHand: true };
+    try {
+      await startHand(gameId);
+      return { startedNextHand: true };
+    } catch (error) {
+      const message = typeof error?.message === 'string' ? error.message : String(error);
+      console.log('Auto-start failed (likely not enough players):', message);
+
+      // If start fails due to not enough players, turn off auto-next so we don't loop.
+      if (message.includes('Need at least 2 players')) {
+        try {
+          await db.runTransaction(async (transaction) => {
+            transaction.update(gameRef, { 'table.isAutoNext': false });
+          });
+        } catch (updateError) {
+          console.log('Failed to disable auto-next after auto-start failure:', updateError?.message ?? updateError);
+        }
+
+        return {
+          startedNextHand: false,
+          autoStartFailed: true,
+          reason: 'not_enough_players',
+          disabledAutoNext: true,
+        };
+      }
+
+      throw error;
+    }
   }
 
   return state;
@@ -601,6 +732,26 @@ async function handleShowdown(game, transaction, gameRef) {
     }
   }
 
+  // Archive hole cards for analytics (all currently seated players).
+  // Players who left mid-hand are archived during leaveSeat.
+  const handId = getHandIdFromGame(game);
+  for (const [, seat] of Object.entries(game.seats)) {
+    if (!seat) continue;
+    const userId = seat.odId;
+    const outcome = seat.status === 'folded' ? 'fold' : 'showdown';
+    await writeHandHistoryEntry(
+      transaction,
+      {
+        gameId: gameRef.id,
+        handId,
+        userId,
+        holeCards: holeCards[userId] || [],
+        outcome,
+      },
+      { skipIfExists: true },
+    );
+  }
+
   // Get active players who haven't folded (for showdown evaluation)
   const activePlayers = Object.entries(game.seats)
     .filter(([, seat]) => seat !== null && seat.status !== 'folded')
@@ -615,6 +766,10 @@ async function handleShowdown(game, transaction, gameRef) {
     }));
 
   // Get ALL players who contributed to pot (including folded players for dead money)
+  const deadContributors = Array.isArray(game.table?.deadContributors) ?
+    game.table.deadContributors :
+    [];
+
   const allContributors = Object.entries(game.seats)
     .filter(([, seat]) => seat !== null && (seat.totalBet || 0) > 0)
     .map(([seatNum, seat]) => ({
@@ -623,7 +778,18 @@ async function handleShowdown(game, transaction, gameRef) {
       seatNum: parseInt(seatNum, 10),
       totalBet: seat.totalBet || 0,
       status: seat.status,
-    }));
+    }))
+    .concat(
+      deadContributors
+        .filter((p) => (p?.totalBet || 0) > 0)
+        .map((p) => ({
+          odId: p.odId,
+          odName: p.odName,
+          seatNum: p.seatNum,
+          totalBet: p.totalBet || 0,
+          status: 'folded',
+        })),
+    );
 
   // Read user docs for statistics update (if they exist)
   const userRefs = activePlayers.map((p) =>

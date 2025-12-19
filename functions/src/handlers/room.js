@@ -4,8 +4,19 @@
  */
 
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { v4 as uuidv4 } from 'uuid';
 import { validateJoinSeat } from '../utils/validators.js';
 import { addGameEvent } from '../lib/events.js';
+import { processAction } from '../engines/texasHoldem.js';
+import {
+  isLastManStanding,
+  isRoundComplete,
+  findNextPlayer,
+} from '../engines/gameStateMachine.js';
+import { advanceRound, handleLastManStanding } from './game.js';
+import { createTurnExpiresAt } from './turnTimer.js';
+import { createPokerTask, createPokerHttpTask } from '../utils/cloudTasks.js';
+import { writeHandHistoryEntry } from '../utils/handHistories.js';
 
 /**
  * Create a new poker game room
@@ -130,7 +141,7 @@ export async function leaveSeat(gameId, userId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
-  return db.runTransaction(async (transaction) => {
+  const result = await db.runTransaction(async (transaction) => {
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
@@ -147,18 +158,149 @@ export async function leaveSeat(gameId, userId) {
       throw new Error('Player not in game');
     }
 
-    const [seatNum] = seatEntry;
+    const [seatNum, seat] = seatEntry;
 
-    // Can't leave during active hand if playing
-    if (game.status === 'playing' && seatEntry[1].status === 'active') {
-      throw new Error('Cannot leave during active hand');
+    const isPlaying = game.status === 'playing';
+    const shouldForceFold = isPlaying && seat?.status !== 'folded';
+
+    // If leaving mid-hand, force-fold and advance the game if necessary.
+    // IMPORTANT: We still clear the seat (set to null), so we preserve their
+    // dead money contribution in table.deadContributors for correct side-pot math.
+    if (shouldForceFold) {
+      // Archive the leaving player's hole cards for analytics before deleting private state.
+      const privateRef = gameRef.collection('private').doc(userId);
+      const privateSnap = await transaction.get(privateRef);
+      const holeCards = privateSnap.exists ? (privateSnap.data()?.holeCards || []) : [];
+      const handId = `hand_${game.handNumber}`;
+      await writeHandHistoryEntry(
+        transaction,
+        {
+          gameId: gameRef.id,
+          handId,
+          userId,
+          holeCards,
+          outcome: 'force_fold_leave',
+        },
+        { skipIfExists: true },
+      );
+
+      let updatedGame = processAction(game, userId, 'fold', 0);
+
+      const contribution = seat?.totalBet || 0;
+      if (contribution > 0) {
+        const existing = Array.isArray(updatedGame.table?.deadContributors) ?
+          updatedGame.table.deadContributors :
+          [];
+        const next = existing.concat([
+          {
+            odId: userId,
+            odName: seat?.odName || 'Player',
+            seatNum: parseInt(seatNum, 10),
+            totalBet: contribution,
+            status: 'folded',
+          },
+        ]);
+        updatedGame = {
+          ...updatedGame,
+          table: {
+            ...updatedGame.table,
+            deadContributors: next,
+          },
+        };
+      }
+
+      // Clear seat immediately (force leave)
+      updatedGame.seats = { ...updatedGame.seats, [seatNum]: null };
+
+      // Remove private hole cards for the leaving player (no longer needed)
+      transaction.delete(privateRef);
+
+      // If this was the current player's turn, advance turn/round to prevent getting stuck.
+      const wasCurrentTurn = updatedGame.table?.currentTurn === userId;
+
+      if (isLastManStanding(updatedGame)) {
+        // This will update game state inside the transaction.
+        const lms = await handleLastManStanding(transaction, gameRef, updatedGame);
+        return {
+          ...lms,
+          forcedLeave: true,
+          forcedFold: true,
+        };
+      }
+
+      if (wasCurrentTurn) {
+        if (isRoundComplete(updatedGame)) {
+          updatedGame = await advanceRound(updatedGame, transaction, gameRef);
+        } else {
+          const nextPlayer = findNextPlayer(updatedGame);
+          updatedGame.table.currentTurn = nextPlayer;
+          updatedGame.table.currentTurnId = uuidv4();
+        }
+
+        const turnTimeout = updatedGame.table?.turnTimeout || 30;
+        transaction.update(gameRef, {
+          ...updatedGame,
+          table: {
+            ...updatedGame.table,
+            turnStartedAt: FieldValue.serverTimestamp(),
+            turnExpiresAt: createTurnExpiresAt(turnTimeout),
+            turnTimeout,
+          },
+        });
+
+        return {
+          success: true,
+          forcedLeave: true,
+          forcedFold: true,
+          nextTurn: updatedGame.table.currentTurn,
+          nextTurnId: updatedGame.table.currentTurnId,
+          turnTimeout,
+          shouldCreateTask: updatedGame.table.currentTurn !== null && updatedGame.status === 'playing',
+        };
+      }
+
+      // Not current turn: just remove the seat and keep game running.
+      transaction.update(gameRef, {
+        ...updatedGame,
+      });
+
+      return {
+        success: true,
+        forcedLeave: true,
+        forcedFold: true,
+        shouldCreateTask: false,
+      };
     }
 
-    // Remove player from seat
+    // Not in an active hand (or already folded): just remove player from seat.
     transaction.update(gameRef, {
       [`seats.${seatNum}`]: null,
     });
+
+    // Best-effort cleanup of private hole cards.
+    transaction.delete(gameRef.collection('private').doc(userId));
+
+    return { success: true, forcedLeave: true, forcedFold: false, shouldCreateTask: false };
   });
+
+  // Post-transaction task creation
+  if (result?.shouldCreateTask && result?.nextTurnId) {
+    await createPokerTask(gameId, result.nextTurnId, result.turnTimeout);
+  }
+  if (result?.shouldCreateWinByFoldTask && result?.winByFoldId) {
+    await createPokerHttpTask({
+      endpoint: 'handleWinByFoldTimeout',
+      payload: {
+        gameId,
+        winByFoldId: result.winByFoldId,
+        timestamp: Date.now(),
+      },
+      delaySeconds: 5,
+      logLabel: `winByFoldId: ${result.winByFoldId}`,
+    });
+  }
+
+  return result;
 }
 
 /**

@@ -25,20 +25,44 @@ function getJsonBody(req) {
  * @return {Promise<void>}
  */
 export async function handleShowdownResolveHttp(req, res) {
+  let gameId;
+  let showdownId;
   try {
     const body = getJsonBody(req);
-    const { gameId, showdownId } = body;
+    ({ gameId, showdownId } = body);
 
     if (!gameId || !showdownId) {
-      res.status(400).json({ success: false, error: 'Missing gameId/showdownId' });
+      res.status(400).json({
+        success: false,
+        handler: 'handleShowdownResolve',
+        error: 'Missing gameId/showdownId',
+      });
       return;
     }
 
     const result = await resolveShowdown(gameId, showdownId);
-    res.json({ success: true, result });
+    console.log('handleShowdownResolveHttp ok:', { gameId, showdownId, result });
+    res.status(200).json({
+      success: true,
+      handler: 'handleShowdownResolve',
+      gameId,
+      showdownId,
+      result,
+    });
   } catch (error) {
-    console.error('handleShowdownResolveHttp error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('handleShowdownResolveHttp error:', {
+      gameId,
+      showdownId,
+      message: error?.message,
+      stack: error?.stack,
+    });
+    res.status(500).json({
+      success: false,
+      handler: 'handleShowdownResolve',
+      gameId,
+      showdownId,
+      error: error?.message ?? String(error),
+    });
   }
 }
 
@@ -50,19 +74,43 @@ export async function handleShowdownResolveHttp(req, res) {
  * @return {Promise<void>}
  */
 export async function handleWinByFoldTimeoutHttp(req, res) {
+  let gameId;
+  let winByFoldId;
   try {
     const body = getJsonBody(req);
-    const { gameId, winByFoldId } = body;
+    ({ gameId, winByFoldId } = body);
 
     if (!gameId || !winByFoldId) {
-      res.status(400).json({ success: false, error: 'Missing gameId/winByFoldId' });
+      res.status(400).json({
+        success: false,
+        handler: 'handleWinByFoldTimeout',
+        error: 'Missing gameId/winByFoldId',
+      });
       return;
     }
 
     const result = await winByFoldTimeout(gameId, winByFoldId);
-    res.json({ success: true, result });
+    console.log('handleWinByFoldTimeoutHttp ok:', { gameId, winByFoldId, result });
+    res.status(200).json({
+      success: true,
+      handler: 'handleWinByFoldTimeout',
+      gameId,
+      winByFoldId,
+      result,
+    });
   } catch (error) {
-    console.error('handleWinByFoldTimeoutHttp error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('handleWinByFoldTimeoutHttp error:', {
+      gameId,
+      winByFoldId,
+      message: error?.message,
+      stack: error?.stack,
+    });
+    res.status(500).json({
+      success: false,
+      handler: 'handleWinByFoldTimeout',
+      gameId,
+      winByFoldId,
+      error: error?.message ?? String(error),
+    });
   }
 }
