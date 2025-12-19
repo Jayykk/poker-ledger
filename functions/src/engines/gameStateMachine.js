@@ -31,10 +31,10 @@ export const GameStates = {
  * @return {boolean} True if only one active player
  */
 export function isLastManStanding(game) {
-  const activePlayers = Object.values(game.seats)
-    .filter((seat) => seat && seat.status === 'active');
-
-  return activePlayers.length === 1;
+  // Last man standing means: only one player remains in the hand
+  // (i.e. everyone else folded). All-in players are still in the hand.
+  const playersInHand = getPlayersInHand(game);
+  return playersInHand.length === 1;
 }
 
 /**
@@ -63,19 +63,19 @@ export function getPlayersInHand(game) {
  * @return {boolean} True if round is complete
  */
 export function isRoundComplete(game) {
+  const playersInHand = getPlayersInHand(game);
+
+  // If only one (or none) player is still in the hand, the betting round is effectively complete.
+  if (playersInHand.length <= 1) return true;
+
   const activePlayers = getActivePlayers(game);
 
-  // If only one or zero active players, round is complete
-  if (activePlayers.length <= 1) {
-    return true;
-  }
+  // If there are no active players, everyone left is all-in; no further betting decisions exist.
+  if (activePlayers.length === 0) return true;
 
-  // Check if all active players have acted AND matched the current bet
+  // Otherwise, round completes when all active players have acted AND matched the current bet.
   const allActed = activePlayers.every((seat) => seat.turnActed === true);
-  const allMatched = activePlayers.every(
-    (seat) => (seat.roundBet || 0) === game.table.currentBet,
-  );
-
+  const allMatched = activePlayers.every((seat) => (seat.roundBet || 0) === game.table.currentBet);
   return allActed && allMatched;
 }
 
