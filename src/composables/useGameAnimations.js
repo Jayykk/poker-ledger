@@ -26,7 +26,6 @@ export function useGameAnimations() {
           triggerDealAnimation();
           break;
         case 'showdown':
-        case 'showdown_complete':
           triggerShowdownAnimation();
           break;
       }

@@ -1,12 +1,12 @@
 <template>
-  <div class="poker-table-container">
+  <div ref="tableEl" class="poker-table-container">
     <!-- Poker Table Background (just the green felt surface) -->
     <div class="poker-table"></div>
 
     <!-- Community Cards Area (centered on table) -->
     <div class="community-cards-area">
       <CommunityCards :cards="communityCards" :round="currentRound" />
-      <PotDisplay :pot="potSize" />
+      <PotDisplay ref="potRef" :pot="displayPot" />
 
       <!-- Win-by-fold: winner can choose to Show or Muck (default) -->
       <div v-if="showWinByFoldPrompt" class="win-by-fold-prompt">
@@ -54,10 +54,13 @@
       :style="seatInfo.betStyle"
     >
       <BetChip
-        v-if="seatInfo.seat"
-        :amount="seatInfo.seat?.roundBet ?? seatInfo.seat?.currentBet ?? 0"
+        v-if="seatInfo.seat && (displayBetsBySeat[seatInfo.actualSeatNum] || 0) > 0"
+        :amount="displayBetsBySeat[seatInfo.actualSeatNum] || 0"
       />
     </div>
+
+    <!-- Flying chips: gather bets to center (visual only) -->
+    <ChipAnimation ref="chipAnimationEl" />
 
     <!-- Action Controls (bottom of screen) - Always visible with proper states -->
     <div class="action-controls">
@@ -112,7 +115,7 @@
 </template>
 
 <script setup>
-import { computed, ref, provide, watch, onUnmounted } from 'vue';
+import { computed, ref, provide, watch, onUnmounted, nextTick } from 'vue';
 import { usePokerGame } from '../../composables/usePokerGame.js';
 import { useGameActions } from '../../composables/useGameActions.js';
 import { useGameAnimations } from '../../composables/useGameAnimations.js';
@@ -124,6 +127,7 @@ import PlayerSeat from './PlayerSeat.vue';
 import ActionButtons from './ActionButtons.vue';
 import BaseModal from '../common/BaseModal.vue';
 import BetChip from './BetChip.vue';
+import ChipAnimation from './ChipAnimation.vue';
 
 const authStore = useAuthStore();
 const { error: showError } = useNotification();
@@ -157,6 +161,165 @@ const OUTER_RX = 46; // percentage - outer ring for avatars
 const OUTER_RY = 42; // percentage
 const INNER_RX = 30; // percentage - inner ring for bets
 const INNER_RY = 26; // percentage
+
+// Chip gathering (bet -> pot) animation controls
+const GATHER_ANIMATION_MS = 800;
+const tableEl = ref(null);
+const chipAnimationEl = ref(null);
+const potRef = ref(null);
+const isGatherAnimating = ref(false);
+
+// Display state decoupled from server values so we can "freeze" during animation.
+// We show: displayPot = serverPot - sum(roundBets) (until gather), then jump to serverPot.
+const displayPot = ref(0);
+const displayBetsBySeat = ref({});
+
+const getSeatBetAmount = (seat) => {
+  if (!seat) return 0;
+  return seat.roundBet ?? seat.currentBet ?? 0;
+};
+
+const getServerBetsBySeat = () => {
+  const out = {};
+  for (let i = 0; i < maxSeats.value; i++) {
+    out[i] = getSeatBetAmount(seats.value[i]);
+  }
+  return out;
+};
+
+const getServerBetsTotal = () => {
+  let total = 0;
+  for (let i = 0; i < maxSeats.value; i++) {
+    total += getSeatBetAmount(seats.value[i]);
+  }
+  return total;
+};
+
+const getServerCollectedPot = () => {
+  const serverPot = potSize.value || 0;
+  const betsTotal = getServerBetsTotal();
+  return Math.max(0, serverPot - betsTotal);
+};
+
+const syncDisplayFromServer = () => {
+  if (isGatherAnimating.value) return;
+  displayPot.value = getServerCollectedPot();
+  displayBetsBySeat.value = getServerBetsBySeat();
+};
+
+// Keep display state in sync during normal play (not animating)
+watch(
+  () => [potSize.value, currentGame.value?.seats, currentGame.value?.meta?.maxPlayers],
+  () => syncDisplayFromServer(),
+  { immediate: true },
+);
+
+function percentToPx(rect, percentStr) {
+  const p = parseFloat(String(percentStr).replace('%', ''));
+  if (Number.isNaN(p)) return null;
+  return p;
+}
+
+function getSeatBetPositionPx(seatNum) {
+  const container = tableEl.value;
+  if (!container) return null;
+  const rect = container.getBoundingClientRect();
+
+  const seatInfo = visibleSeats.value.find((s) => s.actualSeatNum === seatNum);
+  if (!seatInfo) return null;
+
+  const leftPercent = percentToPx(rect, seatInfo.betStyle?.left);
+  const topPercent = percentToPx(rect, seatInfo.betStyle?.top);
+  if (leftPercent === null || topPercent === null) return null;
+
+  return {
+    x: rect.left + (rect.width * leftPercent) / 100,
+    y: rect.top + (rect.height * topPercent) / 100,
+  };
+}
+
+function getPotCenterPx() {
+  const container = tableEl.value;
+  if (!container) {
+    return { x: window.innerWidth / 2, y: window.innerHeight * 0.4 };
+  }
+
+  const containerRect = container.getBoundingClientRect();
+
+  // potRef can be either a component instance (PotDisplay) or a DOM element.
+  const potEl = potRef.value?.$el ?? potRef.value;
+  if (potEl && typeof potEl.getBoundingClientRect === 'function') {
+    const potRect = potEl.getBoundingClientRect();
+
+    // Compute relative-to-container target, then convert back to absolute.
+    // This matches the mental model of "aim inside the pot", regardless of screen size.
+    const targetXRel = (potRect.left - containerRect.left) + (potRect.width / 2);
+    const targetYRel = (potRect.top - containerRect.top) + (potRect.height / 2);
+
+    return {
+      x: containerRect.left + targetXRel,
+      y: containerRect.top + targetYRel,
+    };
+  }
+
+  // Fallback: approximate center of table if pot DOM isn't available yet.
+  return {
+    x: containerRect.left + (containerRect.width * CENTER_X) / 100,
+    y: containerRect.top + (containerRect.height * CENTER_Y) / 100,
+  };
+}
+
+async function startGatherAnimation(trigger) {
+  if (isGatherAnimating.value) return;
+
+  // Snapshot the currently displayed bets (so they don't change mid-flight)
+  const betsSnapshot = { ...(displayBetsBySeat.value || {}) };
+  const betSeatNums = Object.keys(betsSnapshot)
+    .map((k) => parseInt(k, 10))
+    .filter((n) => Number.isInteger(n) && (betsSnapshot[n] || 0) > 0);
+
+  // Nothing to gather: just ensure display matches server and exit.
+  if (betSeatNums.length === 0) {
+    syncDisplayFromServer();
+    return;
+  }
+
+  isGatherAnimating.value = true;
+  const potCenter = getPotCenterPx();
+
+  // Fire visual chip flight (best-effort; no hard dependency)
+  await nextTick();
+  try {
+    const sources = betSeatNums
+      .map((seatNum) => {
+        const pos = getSeatBetPositionPx(seatNum);
+        if (!pos) return null;
+        return {
+          x: pos.x,
+          y: pos.y,
+          amount: betsSnapshot[seatNum] || 0,
+        };
+      })
+      .filter(Boolean);
+
+    chipAnimationEl.value?.animateChipsToCenter?.(sources, potCenter);
+  } catch (e) {
+    console.warn('Chip gather animation failed:', { trigger, message: e?.message });
+  }
+
+  // After animation ends, update the pot number to include gathered bets and clear bet chips.
+  setTimeout(() => {
+    displayPot.value = potSize.value || 0;
+    const cleared = { ...(displayBetsBySeat.value || {}) };
+    Object.keys(cleared).forEach((k) => {
+      cleared[k] = 0;
+    });
+    displayBetsBySeat.value = cleared;
+
+    isGatherAnimating.value = false;
+    syncDisplayFromServer();
+  }, GATHER_ANIMATION_MS);
+}
 
 // UI Reset System - provide key that increments on hand changes
 const uiResetKey = ref(0);
@@ -276,6 +439,33 @@ watch(() => currentGame.value?.status, (newStatus, oldStatus) => {
     uiResetKey.value++; // Trigger reset in child components
   }
 });
+
+// Chip gathering triggers:
+// A) When stage changes OR communityCards length increases
+// B) When handResult becomes available (instant showdown)
+watch(
+  () => currentGame.value?.table?.stage,
+  (newStage, oldStage) => {
+    if (!newStage || newStage === oldStage) return;
+    startGatherAnimation('stage');
+  },
+);
+
+watch(
+  () => communityCards.value?.length || 0,
+  (newLen, oldLen) => {
+    if (newLen <= oldLen) return;
+    startGatherAnimation('communityCards');
+  },
+);
+
+watch(
+  () => currentGame.value?.table?.handResult,
+  (newResult, oldResult) => {
+    if (!newResult || newResult === oldResult) return;
+    startGatherAnimation('handResult');
+  },
+);
 
 // Buy-in modal state
 const showBuyInModalDialog = ref(false);

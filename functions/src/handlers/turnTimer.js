@@ -13,11 +13,13 @@ import {
 } from '../engines/gameStateMachine.js';
 import { addGameEvent } from '../lib/events.js';
 import { createPokerTask } from '../utils/cloudTasks.js';
+import { createPokerHttpTask } from '../utils/cloudTasks.js';
 import { handleLastManStanding, advanceRound } from './game.js';
 import { getHandIdFromGame } from '../utils/handHistories.js';
 
 // Constants
 const DEFAULT_TURN_TIMEOUT = 30; // seconds
+const SHOWDOWN_ADMIRE_DELAY_SECONDS = 5;
 
 /**
  * Handle turn timeout - HTTP endpoint for Cloud Tasks
@@ -58,6 +60,8 @@ export async function handleTurnTimeoutHttp(req, res) {
 
       const currentPlayerId = game.table.currentTurn;
       console.log(`Processing turn timeout for player ${currentPlayerId} in game ${gameId}`);
+
+      const actionRound = game.table.currentRound;
 
       // Track consecutive auto-actions (timeouts). Manual player actions reset this counter.
       const consecutiveAutoActions = (game.table.consecutiveAutoActions || 0) + 1;
@@ -114,19 +118,6 @@ export async function handleTurnTimeoutHttp(req, res) {
         };
       }
 
-      // Record timeout event
-      await addGameEvent(
-        gameId,
-        {
-          type: 'timeout',
-          handNumber: game.handNumber,
-          odId: currentPlayerId,
-          action: timeoutAction,
-          round: game.table.currentRound,
-        },
-        transaction,
-      );
-
       // Check for Last Man Standing
       if (willBeLastManStanding) {
         const lmsResult = await handleLastManStanding(
@@ -135,6 +126,20 @@ export async function handleTurnTimeoutHttp(req, res) {
           game,
           preFetchedSnapshots,
         );
+
+        // Record timeout event AFTER all reads are done.
+        await addGameEvent(
+          gameId,
+          {
+            type: 'timeout',
+            handNumber: game.handNumber,
+            odId: currentPlayerId,
+            action: timeoutAction,
+            round: actionRound,
+          },
+          transaction,
+        );
+
         return { ...lmsResult, shouldCreateTask: false };
       }
 
@@ -146,6 +151,38 @@ export async function handleTurnTimeoutHttp(req, res) {
         const nextPlayer = findNextPlayer(game);
         game.table.currentTurn = nextPlayer;
         game.table.currentTurnId = uuidv4();
+      }
+
+      // Record timeout event AFTER all reads are done.
+      await addGameEvent(
+        gameId,
+        {
+          type: 'timeout',
+          handNumber: game.handNumber,
+          odId: currentPlayerId,
+          action: timeoutAction,
+          round: actionRound,
+        },
+        transaction,
+      );
+
+      // If the hand ended (e.g., showdown resolved), don't restart per-turn timers.
+      if (game.status !== 'playing' || game.table.currentTurn === null) {
+        const isAutoNext = game.table?.isAutoNext ?? false;
+        const canAutoStart = isAutoNext && game.status === 'waiting';
+        return {
+          success: true,
+          gameId,
+          action: timeoutAction,
+          nextTurn: null,
+          nextTurnId: null,
+          turnTimeout: game.table?.turnTimeout || DEFAULT_TURN_TIMEOUT,
+          shouldCreateTask: false,
+          shouldCreateStartNextHandTask: canAutoStart,
+          nextHandId: game.table?.nextHandId || null,
+          consecutiveAutoActions,
+          isAutoNext: game.table?.isAutoNext,
+        };
       }
 
       // Update game state
@@ -169,6 +206,8 @@ export async function handleTurnTimeoutHttp(req, res) {
         nextTurnId: game.table.currentTurnId,
         turnTimeout,
         shouldCreateTask: game.table.currentTurn !== null && game.status === 'playing',
+        shouldCreateStartNextHandTask: false,
+        nextHandId: null,
         consecutiveAutoActions,
         isAutoNext: game.table.isAutoNext,
       };
@@ -177,6 +216,19 @@ export async function handleTurnTimeoutHttp(req, res) {
     // 🔑 POST-TRANSACTION: Create next timeout task only after transaction succeeds
     if (result.shouldCreateTask && result.nextTurnId) {
       await createPokerTask(gameId, result.nextTurnId, result.turnTimeout);
+    }
+
+    if (result.shouldCreateStartNextHandTask && result.nextHandId) {
+      await createPokerHttpTask({
+        endpoint: 'handleStartNextHand',
+        payload: {
+          gameId,
+          nextHandId: result.nextHandId,
+          timestamp: Date.now(),
+        },
+        delaySeconds: SHOWDOWN_ADMIRE_DELAY_SECONDS,
+        logLabel: `nextHandId: ${result.nextHandId}`,
+      });
     }
 
     return res.status(200).json(result);

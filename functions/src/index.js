@@ -30,6 +30,7 @@ import {
 import {
   handleShowdownResolveHttp,
   handleWinByFoldTimeoutHttp,
+  handleStartNextHandHttp,
 } from './handlers/handTasks.js';
 
 // Initialize Firebase Admin
@@ -501,6 +502,14 @@ export const handleShowdownResolve = onRequest(
 export const handleWinByFoldTimeout = onRequest(
   { cors: true, region: 'us-central1' },
   handleWinByFoldTimeoutHttp,
+);
+
+/**
+ * Start next hand after showdown (called by Cloud Tasks)
+ */
+export const handleStartNextHand = onRequest(
+  { cors: true, region: 'us-central1' },
+  handleStartNextHandHttp,
 );
 
 /**
