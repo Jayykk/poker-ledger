@@ -84,8 +84,16 @@ export async function handleTurnTimeoutHttp(req, res) {
         };
       }
 
-      // Force fold the current player
-      game = processAction(game, currentPlayerId, 'fold', 0);
+      // Auto action on timeout:
+      // - If there's a bet to call, fold
+      // - Otherwise, check
+      const currentSeat = Object.values(game.seats)
+        .find((seat) => seat && seat.odId === currentPlayerId);
+
+      const toCall = (game.table.currentBet || 0) - (currentSeat?.roundBet || 0);
+      const timeoutAction = toCall <= 0 ? 'check' : 'fold';
+
+      game = processAction(game, currentPlayerId, timeoutAction, 0);
 
       // Record timeout event
       await addGameEvent(
@@ -94,7 +102,7 @@ export async function handleTurnTimeoutHttp(req, res) {
           type: 'timeout',
           handNumber: game.handNumber,
           odId: currentPlayerId,
-          action: 'fold',
+          action: timeoutAction,
           round: game.table.currentRound,
         },
         transaction,
@@ -132,7 +140,7 @@ export async function handleTurnTimeoutHttp(req, res) {
       return {
         success: true,
         gameId,
-        action: 'fold',
+        action: timeoutAction,
         nextTurn: game.table.currentTurn,
         nextTurnId: game.table.currentTurnId,
         turnTimeout,

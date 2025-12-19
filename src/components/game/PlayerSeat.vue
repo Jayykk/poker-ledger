@@ -47,13 +47,14 @@
         </span>
       </div>
 
-      <!-- Hole Cards (show for current player or during showdown) -->
-      <div v-if="shouldShowCards && holeCards.length > 0" class="hole-cards">
+      <!-- Hole Cards (show for me; otherwise show backs, reveal at showdown) -->
+      <div v-if="displayHoleCards.length > 0" class="hole-cards">
         <PlayingCard
-          v-for="(card, i) in holeCards"
+          v-for="(card, i) in displayHoleCards"
           :key="i"
           :card="card"
           size="mini"
+          :hidden="shouldHideHoleCards"
           :revealing="isShowdownRevealing"
           :winning="isWinningCard(card)"
           :losing="isLosingInShowdown"
@@ -160,6 +161,51 @@ const holeCards = computed(() => {
   return [];
 });
 
+const isHandActive = computed(() => {
+  const status = currentGame.value?.status;
+  const round = currentGame.value?.table?.currentRound;
+
+  if (status !== 'playing') return false;
+  if (!round) return false;
+  return round !== 'waiting';
+});
+
+const shouldHideHoleCards = computed(() => {
+  // Reveal at showdown_complete, otherwise keep hidden for non-me.
+  const stage = currentGame.value?.table?.stage;
+  if (stage === 'showdown_complete') return false;
+  if (props.isMe) {
+    // If my private cards haven't arrived yet, show as backs.
+    return (myHoleCards.value?.length || 0) < 2;
+  }
+  return true;
+});
+
+const displayHoleCards = computed(() => {
+  if (!props.seat) return [];
+  if (props.seat.status === 'folded') return [];
+
+  // During an active hand, always reserve 2 card slots so the UI doesn't look empty.
+  if (isHandActive.value) {
+    if (props.isMe) {
+      const mine = myHoleCards.value || [];
+      if (mine.length >= 2) return mine.slice(0, 2);
+      return [null, null];
+    }
+
+    // Other players: reveal only at showdown_complete; otherwise show backs.
+    const stage = currentGame.value?.table?.stage;
+    if (stage === 'showdown_complete') {
+      const revealed = holeCards.value || [];
+      if (revealed.length >= 2) return revealed.slice(0, 2);
+    }
+    return [null, null];
+  }
+
+  // Outside of a hand, show revealed cards only (e.g., showdown view lingering)
+  return holeCards.value || [];
+});
+
 // Populate local state during showdown
 watch(() => currentGame.value?.table?.stage, (newStage) => {
   if (newStage === 'showdown_complete' && props.seat && props.seat.status !== 'folded') {
@@ -187,11 +233,6 @@ watch(() => currentGame.value?.table?.stage, (newStage) => {
     // Reset local state when stage changes away from showdown
     localShowdownCards.value = [];
   }
-});
-
-// Check if we should show cards
-const shouldShowCards = computed(() => {
-  return holeCards.value.length > 0;
 });
 
 // Showdown-related computed properties - use local state

@@ -225,18 +225,20 @@ export const usePokerStore = defineStore('poker', {
         const functions = getFunctions(app);
         const playerAction = httpsCallable(functions, 'pokerPlayerAction');
         const turnId = this.currentGame?.table?.currentTurnId;
-        
-        playerAction({
+
+        const requestPromise = playerAction({
           gameId: this.gameId,
           action,
           amount,
           turnId,
-        }).catch((error) => {
-          console.error(`Optimistic action failed [gameId: ${this.gameId}, action: ${action}]:`, error);
-          // Don't throw - let the caller handle this via their own error handling
         });
-        
-        return; // Return immediately for optimistic updates
+
+        // Attach a logger to avoid silent failures, but still allow callers to handle errors.
+        requestPromise.catch((error) => {
+          console.error(`Optimistic action failed [gameId: ${this.gameId}, action: ${action}]:`, error);
+        });
+
+        return requestPromise; // Return immediately for optimistic updates
       }
 
       // Standard (non-optimistic) path
@@ -389,6 +391,23 @@ export const usePokerStore = defineStore('poker', {
 
       this.gameId = gameId;
 
+      const maybeStartPrivateListener = () => {
+        if (this.privateUnsubscribe) return;
+
+        const authStore = useAuthStore();
+        const resolvedUserId = userId || authStore.user?.uid;
+        if (!resolvedUserId) return;
+
+        const privateRef = doc(db, 'pokerGames', gameId, 'private', resolvedUserId);
+        this.privateUnsubscribe = onSnapshot(privateRef, (snapshot) => {
+          if (snapshot.exists()) {
+            this.myHoleCards = snapshot.data().holeCards || [];
+          } else {
+            this.myHoleCards = [];
+          }
+        });
+      };
+
       // Listen to game state
       const gameRef = doc(db, 'pokerGames', gameId);
       this.gameUnsubscribe = onSnapshot(gameRef, async (snapshot) => {
@@ -399,6 +418,9 @@ export const usePokerStore = defineStore('poker', {
           };
           
           this.currentGame = gameData;
+
+          // If auth becomes available after initial mount, attach private listener lazily.
+          maybeStartPrivateListener();
           
           // If game just ended, settle it automatically
           // Only settle once - check if not already completed
@@ -416,17 +438,8 @@ export const usePokerStore = defineStore('poker', {
         }
       });
 
-      // Listen to private hole cards (if userId provided)
-      if (userId) {
-        const privateRef = doc(db, 'pokerGames', gameId, 'private', userId);
-        this.privateUnsubscribe = onSnapshot(privateRef, (snapshot) => {
-          if (snapshot.exists()) {
-            this.myHoleCards = snapshot.data().holeCards || [];
-          } else {
-            this.myHoleCards = [];
-          }
-        });
-      }
+      // Try to attach private listener immediately (if userId or auth is ready)
+      maybeStartPrivateListener();
     },
 
     /**

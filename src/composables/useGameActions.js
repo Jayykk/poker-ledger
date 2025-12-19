@@ -70,12 +70,24 @@ export function useGameActions() {
   const performOptimisticAction = (action, amount, soundName, successMessage) => {
     // 1. Instant visual feedback
     playSound(soundName);
+
+    // 1b. Instant user feedback
+    if (successMessage) {
+      success(successMessage);
+    }
     
     // 2. Instant disable action buttons
     actionsDisabled.value = true;
     
     // 3. Background API call with optimistic flag (fire-and-forget)
-    pokerStore.performAction(action, amount, { optimistic: true });
+    // Return value may be a promise; attach error handler for visibility.
+    const request = pokerStore.performAction(action, amount, { optimistic: true });
+    if (request && typeof request.catch === 'function') {
+      request.catch((err) => {
+        const code = err?.message || err?.code;
+        showError(getErrorMessage(code));
+      });
+    }
     
     // 4. Re-enable buttons after timeout
     // Note: Buttons will be controlled by turn state from real-time listeners

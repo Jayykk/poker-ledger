@@ -6,8 +6,8 @@
       <button
         v-if="!canCheck"
         class="btn btn-call"
-        :class="{ 'btn-active': isMyTurn, 'btn-locked': !isMyTurn }"
-        :disabled="!isMyTurn"
+        :class="{ 'btn-active': isMyTurn && !actionsDisabled, 'btn-locked': !isMyTurn || actionsDisabled }"
+        :disabled="isDisabled"
         @click="emit('call')"
       >
         <span class="btn-icon">💰</span>
@@ -19,8 +19,8 @@
       <button
         v-if="canRaise"
         class="btn btn-raise"
-        :class="{ 'btn-active': isMyTurn && !showBetControls, 'btn-locked': !isMyTurn, 'btn-selected': showBetControls }"
-        :disabled="!isMyTurn"
+        :class="{ 'btn-active': isMyTurn && !showBetControls && !actionsDisabled, 'btn-locked': !isMyTurn || actionsDisabled, 'btn-selected': showBetControls }"
+        :disabled="isDisabled"
         @click="toggleBetControls"
       >
         <span class="btn-icon">📈</span>
@@ -31,8 +31,8 @@
       <button
         v-if="canCheck"
         class="btn btn-check"
-        :class="{ 'btn-active': isMyTurn, 'btn-locked': !isMyTurn }"
-        :disabled="!isMyTurn"
+        :class="{ 'btn-active': isMyTurn && !actionsDisabled, 'btn-locked': !isMyTurn || actionsDisabled }"
+        :disabled="isDisabled"
         @click="emit('check')"
       >
         <span class="btn-icon">✓</span>
@@ -42,8 +42,8 @@
       <!-- Fold Button -->
       <button 
         class="btn btn-fold" 
-        :class="{ 'btn-active': isMyTurn, 'btn-locked': !isMyTurn }"
-        :disabled="!isMyTurn" 
+        :class="{ 'btn-active': isMyTurn && !actionsDisabled, 'btn-locked': !isMyTurn || actionsDisabled }"
+        :disabled="isDisabled" 
         @click="emit('fold')"
       >
         <span class="btn-icon">🚫</span>
@@ -63,17 +63,18 @@
             :max="maxBet"
             :step="bigBlind"
             class="bet-slider"
+            :disabled="isDisabled"
           />
         </div>
         
         <div class="quick-bet-buttons">
-          <button @click="setBetAmount(minBet)" :disabled="!isMyTurn" class="quick-bet">Min</button>
-          <button @click="setBetAmount(halfPot)" :disabled="!isMyTurn" class="quick-bet">½ Pot</button>
-          <button @click="setBetAmount(potSize)" :disabled="!isMyTurn" class="quick-bet">Pot</button>
-          <button @click="setBetAmount(maxBet)" :disabled="!isMyTurn" class="quick-bet">All-In</button>
+          <button @click="setBetAmount(minBet)" :disabled="isDisabled" class="quick-bet">Min</button>
+          <button @click="setBetAmount(halfPot)" :disabled="isDisabled" class="quick-bet">½ Pot</button>
+          <button @click="setBetAmount(potSize)" :disabled="isDisabled" class="quick-bet">Pot</button>
+          <button @click="setBetAmount(maxBet)" :disabled="isDisabled" class="quick-bet">All-In</button>
         </div>
 
-        <button @click="confirmRaise" :disabled="!isMyTurn" class="btn-confirm">
+        <button @click="confirmRaise" :disabled="isDisabled" class="btn-confirm">
           Confirm Raise {{ betAmount }}
         </button>
       </div>
@@ -106,6 +107,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  actionsDisabled: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(['fold', 'check', 'call', 'raise', 'all-in']);
@@ -114,6 +119,8 @@ const { currentGame, minRaise, potSize: currentPot } = usePokerGame();
 
 const showBetControls = ref(false);
 const betAmount = ref(0);
+
+const isDisabled = computed(() => !props.isMyTurn || props.actionsDisabled);
 
 const bigBlind = computed(() => currentGame.value?.meta?.blinds?.big || 20);
 
@@ -136,6 +143,7 @@ const threeFourthPot = computed(() => {
 });
 
 const toggleBetControls = () => {
+  if (isDisabled.value) return;
   showBetControls.value = !showBetControls.value;
   if (showBetControls.value) {
     betAmount.value = minBet.value;
@@ -147,6 +155,7 @@ const setBetAmount = (amount) => {
 };
 
 const confirmRaise = () => {
+  if (isDisabled.value) return;
   emit('raise', betAmount.value);
   showBetControls.value = false;
 };

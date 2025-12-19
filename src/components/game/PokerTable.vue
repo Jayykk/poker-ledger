@@ -46,6 +46,7 @@
         :call-amount="callAmount"
         :my-chips="myChips"
         :is-my-turn="isMyTurn"
+        :actions-disabled="actionsDisabled"
         @fold="handleFold"
         @check="handleCheck"
         @call="handleCall"
