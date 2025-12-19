@@ -32,7 +32,14 @@ const props = defineProps({
 
 const { animatingRound, flopCardIndex, animateFlop, animateTurn, animateRiver } = useGameAnimation();
 
-const RUNOUT_REVEAL_DELAY_MS = 800;
+function getSqueezeDelayMs(cardIndex) {
+  // Dramatic Squeeze timing based on the *global* runout index.
+  // 0-2: Flop (fast), 3: Turn (medium), 4: River (slow/suspenseful)
+  if (cardIndex <= 2) return 600;
+  if (cardIndex === 3) return 1200;
+  if (cardIndex === 4) return 2500;
+  return 600;
+}
 
 const visibleCards = ref([]);
 
@@ -91,15 +98,20 @@ watch(
     visibleCards.value = [...prev];
 
     const tokenAtStart = revealToken;
+    const startIndex = prev.length;
     const revealNext = (index) => {
       if (tokenAtStart !== revealToken) return;
       if (index >= next.length) return;
 
-      visibleCards.value.push(next[index]);
-      revealTimeoutId = setTimeout(() => revealNext(index + 1), RUNOUT_REVEAL_DELAY_MS);
+      const delayMs = index === startIndex ? 0 : getSqueezeDelayMs(index);
+      revealTimeoutId = setTimeout(() => {
+        if (tokenAtStart !== revealToken) return;
+        visibleCards.value.push(next[index]);
+        revealNext(index + 1);
+      }, delayMs);
     };
 
-    revealNext(prev.length);
+    revealNext(startIndex);
   },
   { immediate: true }
 );

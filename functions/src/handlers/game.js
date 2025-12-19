@@ -115,67 +115,100 @@ export async function startHand(gameId) {
 
     let game = gameDoc.data();
 
-    // Validate can start
-    const validation = validateGameStart(game);
-    if (!validation.valid) {
-      throw new Error(validation.error);
-    }
+    try {
+      // Validate can start
+      const validation = validateGameStart(game);
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
 
-    // Initialize new hand
-    game = initializeHand(game);
+      // Initialize new hand
+      game = initializeHand(game);
 
-    // Deal hole cards
-    const { game: updatedGame, holeCards } = dealHoleCards(game);
+      // Deal hole cards
+      const { game: updatedGame, holeCards } = dealHoleCards(game);
 
-    // SECURITY/UX: Explicitly clear any previously revealed public hole cards
-    // at the start of the next hand to prevent flash of last hand's cards.
-    const clearedSeats = { ...(updatedGame.seats || {}) };
-    Object.keys(clearedSeats).forEach((seatNum) => {
-      if (clearedSeats[seatNum]) {
-        clearedSeats[seatNum] = {
-          ...clearedSeats[seatNum],
-          holeCards: null,
+      // SECURITY/UX: Explicitly clear any previously revealed public hole cards
+      // at the start of the next hand to prevent flash of last hand's cards.
+      const clearedSeats = { ...(updatedGame.seats || {}) };
+      Object.keys(clearedSeats).forEach((seatNum) => {
+        if (clearedSeats[seatNum]) {
+          clearedSeats[seatNum] = {
+            ...clearedSeats[seatNum],
+            holeCards: null,
+          };
+        }
+      });
+
+      // Get turn timeout setting
+      const turnTimeout = updatedGame.table?.turnTimeout || DEFAULT_TURN_TIMEOUT;
+
+      // Update game state with turnStartedAt and turnExpiresAt merged into table
+      const gameToUpdate = {
+        ...updatedGame,
+        seats: clearedSeats,
+        table: {
+          ...updatedGame.table,
+          // Preserve correct pot math if someone left mid-hand previously
+          deadContributors: [],
+          // Reset any previous-hand reveal/muck metadata
+          stage: null,
+          lastHand: null,
+          handResult: null,
+          turnStartedAt: FieldValue.serverTimestamp(),
+          turnExpiresAt: createTurnExpiresAt(turnTimeout),
+          turnTimeout,
+          isAutoNext: true, // Re-enable auto-next on manual start
+        },
+      };
+      transaction.update(gameRef, gameToUpdate);
+
+      // Store private hole cards
+      Object.entries(holeCards).forEach(([playerId, cards]) => {
+        const privateRef = gameRef.collection('private').doc(playerId);
+        transaction.set(privateRef, { holeCards: cards });
+      });
+
+      return {
+        gameId,
+        handNumber: updatedGame.handNumber,
+        currentTurn: updatedGame.table.currentTurn,
+        currentTurnId: updatedGame.table.currentTurnId,
+        turnTimeout,
+        shouldCreateTask: updatedGame.table.currentTurn !== null && updatedGame.status === 'playing',
+      };
+    } catch (error) {
+      const message = typeof error?.message === 'string' ? error.message : String(error);
+
+      if (message.includes('Need at least 2 players')) {
+        console.warn('Not enough players to start. Setting game to waiting.');
+
+        transaction.update(gameRef, {
+          'status': 'waiting',
+          'table.stage': 'waiting',
+          'table.currentTurn': null,
+          'table.currentTurnId': null,
+          'table.currentRound': null,
+          'table.pot': 0,
+          'table.communityCards': [],
+          // Clear timers to avoid countdown/turn UI getting stuck.
+          'table.turnStartedAt': null,
+          'table.turnExpiresAt': null,
+          // Clear per-hand result so UI doesn't assume an active hand.
+          'table.handResult': null,
+        });
+
+        return {
+          gameId,
+          shouldCreateTask: false,
+          started: false,
+          setWaiting: true,
+          reason: 'not_enough_players',
         };
       }
-    });
 
-    // Get turn timeout setting
-    const turnTimeout = updatedGame.table?.turnTimeout || DEFAULT_TURN_TIMEOUT;
-
-    // Update game state with turnStartedAt and turnExpiresAt merged into table
-    const gameToUpdate = {
-      ...updatedGame,
-      seats: clearedSeats,
-      table: {
-        ...updatedGame.table,
-        // Preserve correct pot math if someone left mid-hand previously
-        deadContributors: [],
-        // Reset any previous-hand reveal/muck metadata
-        stage: null,
-        lastHand: null,
-        handResult: null,
-        turnStartedAt: FieldValue.serverTimestamp(),
-        turnExpiresAt: createTurnExpiresAt(turnTimeout),
-        turnTimeout,
-        isAutoNext: true, // Re-enable auto-next on manual start
-      },
-    };
-    transaction.update(gameRef, gameToUpdate);
-
-    // Store private hole cards
-    Object.entries(holeCards).forEach(([playerId, cards]) => {
-      const privateRef = gameRef.collection('private').doc(playerId);
-      transaction.set(privateRef, { holeCards: cards });
-    });
-
-    return {
-      gameId,
-      handNumber: updatedGame.handNumber,
-      currentTurn: updatedGame.table.currentTurn,
-      currentTurnId: updatedGame.table.currentTurnId,
-      turnTimeout,
-      shouldCreateTask: updatedGame.table.currentTurn !== null && updatedGame.status === 'playing',
-    };
+      throw error;
+    }
   });
 
   // 🔑 POST-TRANSACTION: Create Cloud Task only after transaction succeeds
@@ -778,43 +811,19 @@ export async function winByFoldTimeout(gameId, winByFoldId) {
 
   if (state.startNext) {
     // Start next hand immediately (muck by default).
-    try {
-      await startHand(gameId);
-      return { startedNextHand: true };
-    } catch (error) {
-      const message = typeof error?.message === 'string' ? error.message : String(error);
-      console.log('Auto-start failed (likely not enough players):', message);
+    const result = await startHand(gameId);
 
-      // If start fails due to not enough players, gracefully return to waiting.
-      if (message.includes('Need at least 2 players')) {
-        console.log('Not enough players, setting to waiting');
-        try {
-          await db.runTransaction(async (transaction) => {
-            transaction.update(gameRef, {
-              'status': 'waiting',
-              'table.stage': 'waiting',
-              'table.currentTurn': null,
-              'table.currentTurnId': null,
-              'table.pot': 0,
-              // Clear timers to avoid countdown/turn UI getting stuck.
-              'table.turnStartedAt': null,
-              'table.turnExpiresAt': null,
-            });
-          });
-        } catch (updateError) {
-          console.log('Failed to set waiting after auto-start failure:', updateError?.message ?? updateError);
-        }
-
-        return {
-          startedNextHand: false,
-          autoStartFailed: true,
-          reason: 'not_enough_players',
-          setWaiting: true,
-        };
-      }
-
-      throw error;
+    // startHand() performs an in-transaction recovery write for low player count.
+    if (result?.setWaiting === true && result?.reason === 'not_enough_players') {
+      return {
+        startedNextHand: false,
+        autoStartFailed: true,
+        reason: 'not_enough_players',
+        setWaiting: true,
+      };
     }
+
+    return { startedNextHand: true };
   }
 
   return state;
