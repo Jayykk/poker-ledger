@@ -1,11 +1,36 @@
 <template>
-  <div id="app" class="relative min-h-screen flex flex-col" :data-theme="theme">
+  <div
+    id="app"
+    class="relative min-h-screen flex flex-col"
+    :class="{ 'immersive-mode': isPokerTableRoute }"
+    :data-theme="theme"
+  >
     <!-- Global loading overlay -->
     <LoadingSpinner v-if="globalLoading" fullScreen :text="loadingText" />
     
     <!-- Initial loading -->
     <LoadingSpinner v-else-if="loading" fullScreen />
     
+    <!-- Floating HUD (Immersive Mode) -->
+    <div v-if="isPokerTableRoute" class="game-hud" aria-hidden="false">
+      <button
+        type="button"
+        class="hud-btn left"
+        aria-label="Back"
+        @click="handleHudBack"
+      >
+        ←
+      </button>
+      <button
+        type="button"
+        class="hud-btn right"
+        aria-label="Menu"
+        @click="handleHudMenu"
+      >
+        ☰
+      </button>
+    </div>
+
     <!-- Main content -->
     <router-view v-slot="{ Component }">
       <transition name="fade" mode="out-in">
@@ -133,7 +158,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from './store/modules/auth.js';
 import { useGameStore } from './store/modules/game.js';
@@ -153,6 +178,7 @@ import BaseButton from './components/common/BaseButton.vue';
 import { STORAGE_KEYS, THEMES, DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from './utils/constants.js';
 
 const router = useRouter();
+const route = useRoute();
 const { locale, t } = useI18n();
 const authStore = useAuthStore();
 const gameStore = useGameStore();
@@ -177,6 +203,23 @@ const isInGame = computed(() => gameStore.isInGame);
 const confirmDialog = computed(() => notificationStore.confirmDialog);
 const globalLoading = computed(() => loadingStore.isLoading);
 const loadingText = computed(() => loadingStore.loadingText);
+
+// Immersive mode: PokerTable / PokerGame route.
+// Use both name + path for robustness.
+const isPokerTableRoute = computed(() => {
+  return route?.name === 'PokerGame' || String(route?.path || '').startsWith('/poker-game');
+});
+
+const handleHudBack = () => {
+  // Match PokerGame's “Back to Lobby” intent.
+  router.push({ name: 'GameLobby' });
+};
+
+const handleHudMenu = () => {
+  // PokerGame keeps menu state internally; trigger its hamburger click.
+  const hamburger = document.querySelector('.poker-game-view .btn-hamburger');
+  if (hamburger && typeof hamburger.click === 'function') hamburger.click();
+};
 
 const handleConfirm = (result) => {
   notificationStore.resolveConfirm(result);
@@ -345,3 +388,78 @@ watch(theme, (newTheme) => {
 // Set initial theme
 document.documentElement.setAttribute('data-theme', theme.value);
 </script>
+
+<style>
+/* Ensure the container for floating buttons doesn't block clicks */
+#app.immersive-mode .game-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  z-index: 100;
+}
+
+/* Style and position the floating buttons tightly to the top */
+#app.immersive-mode .hud-btn {
+  position: absolute;
+  top: 8px;
+  top: calc(8px + env(safe-area-inset-top));
+  width: 40px;
+  height: 40px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+
+#app.immersive-mode .hud-btn.left {
+  left: 15px;
+}
+
+#app.immersive-mode .hud-btn.right {
+  right: 15px;
+}
+
+/* Collapse PokerGame's built-in top bar without breaking its dropdown menu */
+#app.immersive-mode .poker-game-view .top-bar {
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border-bottom: 0 !important;
+  background: transparent !important;
+  overflow: visible !important;
+}
+
+#app.immersive-mode .poker-game-view .top-bar .game-info {
+  display: none !important;
+}
+
+#app.immersive-mode .poker-game-view .top-bar .btn-back,
+#app.immersive-mode .poker-game-view .top-bar .btn-hamburger {
+  display: none !important;
+}
+
+/* Let the table section expand now that the top bar is collapsed */
+#app.immersive-mode .poker-game-view .middle-section {
+  height: 100vh !important;
+  flex: 1 1 auto;
+}
+
+/* Pull the table upwards now that the header is gone */
+#app.immersive-mode .poker-table-felt {
+  margin-top: 20px !important;
+  width: 80vw;
+  height: 55vh;
+  border-radius: 40px;
+  position: relative;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
