@@ -26,11 +26,6 @@
         class="progress-ring"
       />
     </svg>
-    
-    <!-- Timer text -->
-    <div class="timer-text" :style="{ fontSize: `${size / 3}px` }">
-      {{ timeRemaining }}
-    </div>
   </div>
 </template>
 
@@ -127,16 +122,5 @@ onBeforeUnmount(() => {
 
 .progress-ring {
   transition: stroke-dashoffset 1s linear, stroke 0.3s ease;
-}
-
-.timer-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-weight: bold;
-  color: white;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-  font-family: 'Courier New', monospace;
 }
 </style>

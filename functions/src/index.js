@@ -17,6 +17,7 @@ import {
   resumeGame as resumeGameHandler,
   togglePause as togglePauseHandler,
   stopNextHand as stopNextHandHandler,
+  sitDown,
 } from './handlers/game.js';
 import {
   sendMessage,
@@ -69,6 +70,30 @@ export const joinPokerSeat = onCall(async (request) => {
     return { success: true, result };
   } catch (error) {
     console.error('Error joining seat:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Sit down at a seat (spectator joining during active game)
+ */
+export const sitDownPokerSeat = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId, seatNumber, buyIn } = request.data;
+    const userId = request.auth.uid;
+    const userInfo = {
+      name: request.auth.token.name || 'Player',
+      avatar: request.auth.token.picture || '',
+    };
+
+    const result = await sitDown(gameId, userId, userInfo, seatNumber, buyIn);
+    return { success: true, result };
+  } catch (error) {
+    console.error('Error sitting down:', error);
     throw new HttpsError('internal', error.message);
   }
 });

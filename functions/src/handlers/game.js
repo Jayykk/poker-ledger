@@ -776,8 +776,9 @@ export async function handlePlayerTimeout(gameId, userId) {
     const [seatNum, seat] = playerSeat;
 
     // Determine action: fold if bet to call, otherwise check
-    const hasBetToCall = seat.currentBet < game.table.currentBet;
-    const action = hasBetToCall ? 'fold' : 'check';
+    // Calculate call amount using roundBet (fixed bug: was using currentBet)
+    const toCall = game.table.currentBet - (seat.roundBet || 0);
+    const action = toCall <= 0 ? 'check' : 'fold';
 
     // Mark player as timed out
     const seats = { ...game.seats };
@@ -797,6 +798,96 @@ export async function handlePlayerTimeout(gameId, userId) {
       userId,
       action,
       automatic: true,
+    };
+  });
+}
+
+/**
+ * Sit down at a seat (for spectators joining during active game)
+ * @param {string} gameId - Game ID
+ * @param {string} userId - User ID
+ * @param {Object} userInfo - User information
+ * @param {number} seatNumber - Seat to join
+ * @param {number} buyIn - Buy-in amount
+ * @return {Promise<Object>} Updated game state
+ */
+export async function sitDown(gameId, userId, userInfo, seatNumber, buyIn) {
+  const db = getFirestore();
+  const gameRef = db.collection('pokerGames').doc(gameId);
+
+  return db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+
+    if (!gameDoc.exists) {
+      throw new Error('Game not found');
+    }
+
+    const game = gameDoc.data();
+
+    // Validate seat is empty
+    if (game.seats[seatNumber] !== null) {
+      throw new Error('Seat is already occupied');
+    }
+
+    // Check if user is already seated elsewhere
+    const existingSeat = Object.entries(game.seats).find(
+      ([, seat]) => seat && seat.odId === userId,
+    );
+    if (existingSeat) {
+      throw new Error('Already seated at another position');
+    }
+
+    // Validate buy-in amount
+    const minBuyIn = game.meta?.minBuyIn || DEFAULT_BUY_IN;
+    const maxBuyIn = game.meta?.maxBuyIn || DEFAULT_BUY_IN * 5;
+    if (buyIn < minBuyIn || buyIn > maxBuyIn) {
+      throw new Error(`Buy-in must be between ${minBuyIn} and ${maxBuyIn}`);
+    }
+
+    // Determine status based on game state
+    // If game is playing, set to waiting_for_hand so they join next hand
+    // If game is waiting, set to active so they can play immediately
+    const status = game.status === 'playing' ? 'waiting_for_hand' : 'active';
+
+    // Add player to seat
+    const seatData = {
+      odId: userId,
+      odName: userInfo.name || 'Player',
+      odAvatar: userInfo.avatar || '',
+      chips: buyIn,
+      initialBuyIn: buyIn,
+      status: status,
+      roundBet: 0,
+      totalBet: 0,
+      turnActed: false,
+      isDealer: false,
+      isSmallBlind: false,
+      isBigBlind: false,
+    };
+
+    transaction.update(gameRef, {
+      [`seats.${seatNumber}`]: seatData,
+    });
+
+    // Add event
+    await addGameEvent(
+      gameId,
+      {
+        type: 'playerJoin',
+        handNumber: game.handNumber,
+        odId: userId,
+        odName: userInfo.name || 'Player',
+        seatNumber,
+        buyIn,
+        status,
+      },
+      transaction,
+    );
+
+    return {
+      gameId,
+      seatNumber,
+      ...seatData,
     };
   });
 }

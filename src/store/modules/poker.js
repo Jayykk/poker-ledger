@@ -134,9 +134,11 @@ export const usePokerStore = defineStore('poker', {
 
       try {
         const functions = getFunctions(app);
-        const joinSeat = httpsCallable(functions, 'joinPokerSeat');
         
-        const result = await joinSeat({ gameId, seatNumber, buyIn });
+        // Use sitDown endpoint (works for both waiting and playing games)
+        const sitDown = httpsCallable(functions, 'sitDownPokerSeat');
+        
+        const result = await sitDown({ gameId, seatNumber, buyIn });
         
         if (result.data.success) {
           // Start listening to game updates if not already

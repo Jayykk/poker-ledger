@@ -35,12 +35,15 @@ export function initializeHand(game) {
   const seats = { ...game.seats };
   Object.keys(seats).forEach((seatNum) => {
     if (seats[seatNum]) {
+      // Activate players who were waiting_for_hand
+      const newStatus = seats[seatNum].status === 'waiting_for_hand' ? 'active' : 'active';
+      
       seats[seatNum] = {
         ...seats[seatNum],
         roundBet: 0, // Reset round bet
         totalBet: 0, // Reset total bet
         turnActed: false, // Reset turn acted
-        status: 'active',
+        status: newStatus,
         isDealer: false,
         isSmallBlind: false,
         isBigBlind: false,
@@ -50,7 +53,7 @@ export function initializeHand(game) {
 
   // Rotate dealer button
   const activePlayers = Object.entries(seats)
-    .filter(([, seat]) => seat && seat.chips > 0)
+    .filter(([, seat]) => seat && seat.chips > 0 && seat.status === 'active')
     .map(([num]) => parseInt(num));
 
   if (activePlayers.length < 2) {

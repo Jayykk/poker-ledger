@@ -10,6 +10,7 @@
             'is-me': isMe,
             'is-folded': seat.status === 'folded',
             'is-sitting-out': seat.status === 'sitting_out',
+            'is-waiting': seat.status === 'waiting_for_hand',
           }"
         >
           {{ seat.odName?.charAt(0) || '?' }}
@@ -17,10 +18,11 @@
           <!-- Dealer Button Overlay -->
           <div v-if="seat.isDealer" class="dealer-badge">D</div>
           
-          <!-- Status Badge (Check/Fold/All-in/Sitting Out) -->
+          <!-- Status Badge (Check/Fold/All-in/Sitting Out/Waiting) -->
           <div v-if="seat.status === 'folded'" class="status-badge badge-fold">✗</div>
           <div v-else-if="seat.status === 'all_in'" class="status-badge badge-all-in">★</div>
           <div v-else-if="seat.status === 'sitting_out'" class="status-badge badge-sitting-out">☕</div>
+          <div v-else-if="seat.status === 'waiting_for_hand'" class="status-badge badge-waiting">⏳</div>
           
           <!-- Turn Timer Ring -->
           <div v-if="isCurrentTurn && turnExpiresAt" class="timer-ring">
@@ -339,6 +341,11 @@ const canJoin = computed(() => {
   opacity: 0.6;
 }
 
+.avatar-circle.is-waiting {
+  filter: brightness(0.7);
+  opacity: 0.7;
+}
+
 .avatar-circle.is-folded {
   filter: grayscale(100%);
   opacity: 0.4;
@@ -406,6 +413,11 @@ const canJoin = computed(() => {
 
 .badge-sitting-out {
   background: #607d8b;
+  color: white;
+}
+
+.badge-waiting {
+  background: #ff9800;
   color: white;
 }
 
