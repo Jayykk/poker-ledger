@@ -172,19 +172,15 @@
     <!-- Auto-Start Countdown Overlay -->
     <Transition name="fade">
       <GameOverlay v-if="showAutoStartCountdown && !isRunoutPlaying">
-        <div class="auto-start-content">
-          <span class="countdown-icon">🎲</span>
-          <h3>Next hand in {{ autoStartCountdown }}...</h3>
-          <div class="countdown-bar-container">
-            <div
-              class="countdown-bar"
-              :style="{ width: `${(autoStartCountdown / autoStartDelay) * 100}%` }"
-            ></div>
-          </div>
-          <button @click="handleStopAutoStart" class="btn-cancel-auto">
-            Cancel Auto-Start
-          </button>
-        </div>
+        <span class="auto-start-capsule-text">Next hand in {{ autoStartCountdown }}...</span>
+        <button
+          type="button"
+          class="auto-start-capsule-cancel"
+          aria-label="Cancel auto-start"
+          @click="handleStopAutoStart"
+        >
+          ✕
+        </button>
       </GameOverlay>
     </Transition>
   </div>
@@ -877,56 +873,35 @@ const goBack = () => {
 }
 
 /* Auto-Start Countdown Overlay */
-.auto-start-content {
-  text-align: center;
+.auto-start-capsule-text {
+  flex: 1;
+  min-width: 0;
   color: white;
-  max-width: 400px;
-  pointer-events: auto;
-}
-
-.countdown-icon {
-  font-size: 40px;
-  display: block;
-  margin-bottom: 12px;
-}
-
-.auto-start-content h3 {
-  font-size: 18px;
-  margin-bottom: 16px;
-  color: #ffd700;
-}
-
-.countdown-bar-container {
-  width: 100%;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
   overflow: hidden;
-  margin-bottom: 16px;
+  text-overflow: ellipsis;
 }
 
-.countdown-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #4CAF50 0%, #ffd700 100%);
-  transition: width 1s linear;
-  border-radius: 4px;
-}
+.auto-start-capsule-cancel {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
-.btn-cancel-auto {
   background: rgba(255, 255, 255, 0.1);
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  padding: 10px 24px;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-.btn-cancel-auto:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.5);
+.auto-start-capsule-cancel:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 @media (max-width: 768px) {

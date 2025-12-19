@@ -1243,7 +1243,7 @@ export async function settlePokerGame(gameId) {
 
       return {
         ref: userRefs[index],
-        exists: userDocs[index].exists(),
+        exists: userDocs[index].exists,
         record,
       };
     });

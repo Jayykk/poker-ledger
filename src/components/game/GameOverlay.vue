@@ -16,9 +16,12 @@
   position: fixed;
   inset: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   z-index: 998;
+
+  /* Bottom-center capsule placement */
+  padding: 0 16px 20px;
 
   /* Spec: transparent + non-intrusive */
   background: transparent;
@@ -26,11 +29,11 @@
 }
 
 .game-overlay-content {
-  /* Spec: keep semi-transparent box */
+  /* Spec: keep semi-transparent capsule */
   background: rgba(0, 0, 0, 0.6);
-  border-radius: 16px;
-  padding: 20px 28px;
-  text-align: center;
+  border-radius: 9999px;
+  padding: 10px 12px;
+  text-align: left;
   color: white;
 
   /* Spec: content remains interactive */
@@ -38,14 +41,17 @@
 
   /* Smaller, cleaner typography */
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.2;
 
-  max-width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  max-width: min(520px, 100%);
 }
 
 @media (max-width: 768px) {
   .game-overlay-content {
-    padding: 16px 20px;
     max-width: 90vw;
   }
 }
