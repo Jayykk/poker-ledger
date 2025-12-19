@@ -36,8 +36,17 @@ export function initializeHand(game) {
   Object.keys(seats).forEach((seatNum) => {
     if (seats[seatNum]) {
       // Activate players who were waiting_for_hand
-      const newStatus = seats[seatNum].status === 'waiting_for_hand' ? 'active' : 'active';
-      
+      // Reset status for new hand:
+      // - waiting_for_hand → active (join the game)
+      // - sitting_out → sitting_out (stay out)
+      // - all other statuses → active (reset for new hand)
+      let newStatus = 'active';
+      if (seats[seatNum].status === 'sitting_out') {
+        newStatus = 'sitting_out';
+      } else if (seats[seatNum].status === 'waiting_for_hand') {
+        newStatus = 'active';
+      }
+
       seats[seatNum] = {
         ...seats[seatNum],
         roundBet: 0, // Reset round bet
