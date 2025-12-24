@@ -27,6 +27,7 @@ import { calculateSidePots, distributePots } from '../engines/potCalculator.js';
 import { determineWinners } from '../utils/handEvaluator.js';
 import { createPokerTask } from '../utils/cloudTasks.js';
 import { createPokerHttpTask } from '../utils/cloudTasks.js';
+import { createRoomAutoCloseTask } from '../utils/cloudTasks.js';
 import { getHandIdFromGame, writeHandHistoryEntry } from '../utils/handHistories.js';
 
 // Constants
@@ -37,6 +38,7 @@ const DEFAULT_TURN_TIMEOUT = 30;
 const SHOWDOWN_RESOLVE_DELAY_SECONDS = 5;
 const SHOWDOWN_ADMIRE_TIME_MS = 5000;
 const WIN_BY_FOLD_TIMEOUT_SECONDS = 5;
+const ROOM_IDLE_TIMEOUT_SECONDS = 60 * 60;
 
 /**
  * Compute a delay that covers the runout animation plus a base "admire" window.
@@ -165,6 +167,8 @@ export async function startHand(gameId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
+  const autoCloseToken = uuidv4();
+
   const result = await db.runTransaction(async (transaction) => {
     const gameDoc = await transaction.get(gameRef);
 
@@ -219,6 +223,11 @@ export async function startHand(gameId) {
           turnTimeout,
           isAutoNext: true, // Re-enable auto-next on manual start
         },
+        meta: {
+          ...(updatedGame.meta || {}),
+          lastActivityAt: FieldValue.serverTimestamp(),
+          autoCloseToken,
+        },
       };
       transaction.update(gameRef, gameToUpdate);
 
@@ -255,6 +264,8 @@ export async function startHand(gameId) {
           'table.turnExpiresAt': null,
           // Clear per-hand result so UI doesn't assume an active hand.
           'table.handResult': null,
+          'meta.lastActivityAt': FieldValue.serverTimestamp(),
+          'meta.autoCloseToken': autoCloseToken,
         });
 
         return {
@@ -275,6 +286,9 @@ export async function startHand(gameId) {
     await createPokerTask(gameId, result.currentTurnId, result.turnTimeout);
   }
 
+  // Best-effort: delay auto-close after manual start.
+  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+
   return result;
 }
 
@@ -290,6 +304,8 @@ export async function startHand(gameId) {
 export async function handlePlayerAction(gameId, userId, action, amount = 0, turnId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
+
+  const autoCloseToken = uuidv4();
 
   // Transaction result will contain info needed for post-transaction task creation
   const result = await db.runTransaction(async (transaction) => {
@@ -375,7 +391,12 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
       };
 
       await addGameEvent(gameId, actionEventData, transaction);
-      return await handleLastManStanding(transaction, gameRef, game, preFetchedSnapshots);
+      const lms = await handleLastManStanding(transaction, gameRef, game, preFetchedSnapshots);
+      transaction.update(gameRef, {
+        'meta.lastActivityAt': FieldValue.serverTimestamp(),
+        'meta.autoCloseToken': autoCloseToken,
+      });
+      return lms;
     }
 
     // Effective all-in: if 0 or only 1 player in the hand is NOT all-in,
@@ -387,6 +408,11 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
       const runoutGame = await runoutToShowdown(game, transaction, gameRef);
 
       await addGameEvent(gameId, actionEventData, transaction);
+
+      transaction.update(gameRef, {
+        'meta.lastActivityAt': FieldValue.serverTimestamp(),
+        'meta.autoCloseToken': autoCloseToken,
+      });
 
       const isAutoNext = runoutGame.table?.isAutoNext ?? false;
       const canAutoStart = isAutoNext && runoutGame.status === 'waiting';
@@ -422,6 +448,12 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
     if (game.table?.stage === 'showdown_complete' || game.status !== 'playing' || game.table?.currentTurn === null) {
       const isAutoNext = game.table?.isAutoNext ?? false;
       const canAutoStart = isAutoNext && game.status === 'waiting';
+
+      transaction.update(gameRef, {
+        'meta.lastActivityAt': FieldValue.serverTimestamp(),
+        'meta.autoCloseToken': autoCloseToken,
+      });
+
       return {
         gameId,
         action,
@@ -448,6 +480,11 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
         turnStartedAt: FieldValue.serverTimestamp(),
         turnExpiresAt: createTurnExpiresAt(turnTimeout),
         turnTimeout,
+      },
+      meta: {
+        ...(game.meta || {}),
+        lastActivityAt: FieldValue.serverTimestamp(),
+        autoCloseToken,
       },
     };
     transaction.update(gameRef, gameToUpdate);
@@ -503,6 +540,9 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
       logLabel: `winByFoldId: ${result.winByFoldId}`,
     });
   }
+
+  // Best-effort: delay auto-close after any manual action.
+  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
 
   return result;
 }
@@ -1186,9 +1226,15 @@ export async function setEndAfterHand(gameId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
+  const autoCloseToken = uuidv4();
+
   await gameRef.update({
     'meta.pauseAfterHand': true,
+    'meta.lastActivityAt': FieldValue.serverTimestamp(),
+    'meta.autoCloseToken': autoCloseToken,
   });
+
+  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
 }
 
 /**
@@ -1202,7 +1248,9 @@ export async function settlePokerGame(gameId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
-  return db.runTransaction(async (transaction) => {
+  const autoCloseToken = uuidv4();
+
+  const result = await db.runTransaction(async (transaction) => {
     // ===== READ PHASE =====
     const gameDoc = await transaction.get(gameRef);
 
@@ -1265,10 +1313,15 @@ export async function settlePokerGame(gameId) {
 
     // Mark game as completed
     transaction.update(gameRef, {
-      status: 'completed',
-      completedAt: FieldValue.serverTimestamp(),
+      'status': 'completed',
+      'completedAt': FieldValue.serverTimestamp(),
+      'meta.lastActivityAt': FieldValue.serverTimestamp(),
+      'meta.autoCloseToken': autoCloseToken,
     });
   });
+
+  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  return result;
 }
 
 /**
@@ -1450,7 +1503,9 @@ export async function sitDown(gameId, userId, userInfo, seatNumber, buyIn) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
-  return db.runTransaction(async (transaction) => {
+  const autoCloseToken = uuidv4();
+
+  const result = await db.runTransaction(async (transaction) => {
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
@@ -1523,6 +1578,8 @@ export async function sitDown(gameId, userId, userInfo, seatNumber, buyIn) {
 
     transaction.update(gameRef, {
       [`seats.${seatNumber}`]: seatData,
+      'meta.lastActivityAt': FieldValue.serverTimestamp(),
+      'meta.autoCloseToken': autoCloseToken,
     });
 
     // Add event
@@ -1546,6 +1603,9 @@ export async function sitDown(gameId, userId, userInfo, seatNumber, buyIn) {
       ...seatData,
     };
   });
+
+  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  return result;
 }
 
 /**
@@ -1559,7 +1619,9 @@ export async function togglePause(gameId, userId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
-  return db.runTransaction(async (transaction) => {
+  const autoCloseToken = uuidv4();
+
+  const result = await db.runTransaction(async (transaction) => {
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
@@ -1594,6 +1656,8 @@ export async function togglePause(gameId, userId) {
         'table.pausedAt': FieldValue.serverTimestamp(),
         'table.remainingTurnTime': remainingTurnTime,
         'table.pauseReason': 'host_paused',
+        'meta.lastActivityAt': FieldValue.serverTimestamp(),
+        'meta.autoCloseToken': autoCloseToken,
       });
 
       return { success: true, status: 'paused' };
@@ -1614,6 +1678,8 @@ export async function togglePause(gameId, userId) {
         'table.pauseReason': FieldValue.delete(),
         'table.turnExpiresAt': newExpiresAt,
         'table.turnStartedAt': FieldValue.serverTimestamp(),
+        'meta.lastActivityAt': FieldValue.serverTimestamp(),
+        'meta.autoCloseToken': autoCloseToken,
       });
 
       return { success: true, status: 'playing' };
@@ -1621,6 +1687,9 @@ export async function togglePause(gameId, userId) {
       throw createGameError(GameErrorCodes.INVALID_GAME_STATE, 'Game must be playing or paused to toggle pause');
     }
   });
+
+  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  return result;
 }
 
 /**
@@ -1634,7 +1703,9 @@ export async function stopNextHand(gameId, userId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
-  return db.runTransaction(async (transaction) => {
+  const autoCloseToken = uuidv4();
+
+  const result = await db.runTransaction(async (transaction) => {
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
@@ -1650,10 +1721,15 @@ export async function stopNextHand(gameId, userId) {
 
     transaction.update(gameRef, {
       'table.isAutoNext': false,
+      'meta.lastActivityAt': FieldValue.serverTimestamp(),
+      'meta.autoCloseToken': autoCloseToken,
     });
 
     return { success: true };
   });
+
+  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  return result;
 }
 
 /**
@@ -1667,7 +1743,9 @@ export async function resumeGame(gameId, userId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
-  return db.runTransaction(async (transaction) => {
+  const autoCloseToken = uuidv4();
+
+  const result = await db.runTransaction(async (transaction) => {
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
@@ -1700,9 +1778,14 @@ export async function resumeGame(gameId, userId) {
       'table.consecutiveAutoActions': 0,
       'table.turnStartedAt': FieldValue.serverTimestamp(),
       'table.turnExpiresAt': createTurnExpiresAt(turnTimeout),
+      'meta.lastActivityAt': FieldValue.serverTimestamp(),
+      'meta.autoCloseToken': autoCloseToken,
     });
 
     return { success: true, nextTurn: nextPlayer };
   });
+
+  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  return result;
 }
 

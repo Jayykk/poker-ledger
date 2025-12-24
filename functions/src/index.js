@@ -32,6 +32,9 @@ import {
   handleWinByFoldTimeoutHttp,
   handleStartNextHandHttp,
 } from './handlers/handTasks.js';
+import {
+  handleRoomAutoCloseHttp,
+} from './handlers/roomTasks.js';
 
 // Initialize Firebase Admin
 initializeApp();
@@ -510,6 +513,14 @@ export const handleWinByFoldTimeout = onRequest(
 export const handleStartNextHand = onRequest(
   { cors: true, region: 'us-central1' },
   handleStartNextHandHttp,
+);
+
+/**
+ * Auto-close idle room (called by Cloud Tasks)
+ */
+export const handleRoomAutoClose = onRequest(
+  { cors: true, region: 'us-central1' },
+  handleRoomAutoCloseHttp,
 );
 
 /**

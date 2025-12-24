@@ -44,6 +44,27 @@ export async function createPokerTask(gameId, turnId, delaySeconds = 30) {
 }
 
 /**
+ * Create a Cloud Task for room idle auto-close.
+ * This should ONLY be called AFTER a successful write / transaction.
+ * @param {string} gameId - Game ID
+ * @param {string} autoCloseToken - Token for stale-task prevention
+ * @param {number} delaySeconds - Delay before running (default: 60 minutes)
+ * @return {Promise<string|null>} Task name or null if failed
+ */
+export async function createRoomAutoCloseTask(gameId, autoCloseToken, delaySeconds = 60 * 60) {
+  return createPokerHttpTask({
+    endpoint: 'handleRoomAutoClose',
+    payload: {
+      gameId,
+      autoCloseToken,
+      timestamp: Date.now(),
+    },
+    delaySeconds,
+    logLabel: `autoCloseToken: ${autoCloseToken}`,
+  });
+}
+
+/**
  * Create a Cloud Task targeting a poker Cloud Function HTTP endpoint.
  * This should ONLY be called AFTER a successful transaction.
  * @param {Object} params
