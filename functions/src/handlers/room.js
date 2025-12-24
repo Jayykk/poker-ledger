@@ -15,8 +15,10 @@ import {
 } from '../engines/gameStateMachine.js';
 import { advanceRound, handleLastManStanding } from './game.js';
 import { createTurnExpiresAt } from './turnTimer.js';
-import { createPokerTask, createPokerHttpTask } from '../utils/cloudTasks.js';
+import { createPokerTask, createPokerHttpTask, createRoomAutoCloseTask } from '../utils/cloudTasks.js';
 import { writeHandHistoryEntry } from '../utils/handHistories.js';
+
+const ROOM_IDLE_TIMEOUT_SECONDS = 60 * 60; // 60 minutes
 
 /**
  * Create a new poker game room
@@ -26,6 +28,8 @@ import { writeHandHistoryEntry } from '../utils/handHistories.js';
  */
 export async function createRoom(config, userId) {
   const db = getFirestore();
+
+  const autoCloseToken = uuidv4();
 
   const roomData = {
     meta: {
@@ -41,6 +45,8 @@ export async function createRoom(config, userId) {
       autoStartDelay: config.autoStartDelay || 5, // seconds between hands
       createdBy: userId,
       createdAt: FieldValue.serverTimestamp(),
+      lastActivityAt: FieldValue.serverTimestamp(),
+      autoCloseToken,
     },
     status: 'waiting',
     table: {
@@ -71,6 +77,9 @@ export async function createRoom(config, userId) {
 
   const roomRef = await db.collection('pokerGames').add(roomData);
 
+  // Best-effort: schedule auto-close task after 60 minutes of inactivity.
+  await createRoomAutoCloseTask(roomRef.id, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+
   return {
     id: roomRef.id,
     ...roomData,
@@ -90,7 +99,9 @@ export async function joinSeat(gameId, userId, userInfo, seatNumber, buyIn) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
-  return db.runTransaction(async (transaction) => {
+  const autoCloseToken = uuidv4();
+
+  const result = await db.runTransaction(async (transaction) => {
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
@@ -148,6 +159,8 @@ export async function joinSeat(gameId, userId, userInfo, seatNumber, buyIn) {
 
     transaction.update(gameRef, {
       [`seats.${seatNumber}`]: seatData,
+      'meta.lastActivityAt': FieldValue.serverTimestamp(),
+      'meta.autoCloseToken': autoCloseToken,
     });
 
     return {
@@ -156,6 +169,11 @@ export async function joinSeat(gameId, userId, userInfo, seatNumber, buyIn) {
       ...seatData,
     };
   });
+
+  // Best-effort: delay auto-close after any state-changing write.
+  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+
+  return result;
 }
 
 /**
@@ -167,6 +185,8 @@ export async function joinSeat(gameId, userId, userInfo, seatNumber, buyIn) {
 export async function leaveSeat(gameId, userId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
+
+  const autoCloseToken = uuidv4();
 
   const result = await db.runTransaction(async (transaction) => {
     const gameDoc = await transaction.get(gameRef);
@@ -273,6 +293,11 @@ export async function leaveSeat(gameId, userId) {
             turnExpiresAt: createTurnExpiresAt(turnTimeout),
             turnTimeout,
           },
+          meta: {
+            ...(updatedGame.meta || {}),
+            lastActivityAt: FieldValue.serverTimestamp(),
+            autoCloseToken,
+          },
         });
 
         return {
@@ -289,6 +314,11 @@ export async function leaveSeat(gameId, userId) {
       // Not current turn: just remove the seat and keep game running.
       transaction.update(gameRef, {
         ...updatedGame,
+        meta: {
+          ...(updatedGame.meta || {}),
+          lastActivityAt: FieldValue.serverTimestamp(),
+          autoCloseToken,
+        },
       });
 
       return {
@@ -302,6 +332,8 @@ export async function leaveSeat(gameId, userId) {
     // Not in an active hand (or already folded): just remove player from seat.
     transaction.update(gameRef, {
       [`seats.${seatNum}`]: null,
+      'meta.lastActivityAt': FieldValue.serverTimestamp(),
+      'meta.autoCloseToken': autoCloseToken,
     });
 
     // Best-effort cleanup of private hole cards.
@@ -326,6 +358,9 @@ export async function leaveSeat(gameId, userId) {
       logLabel: `winByFoldId: ${result.winByFoldId}`,
     });
   }
+
+  // Best-effort: delay auto-close after any state-changing write.
+  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
 
   return result;
 }
