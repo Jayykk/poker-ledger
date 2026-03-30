@@ -9,27 +9,36 @@ const isLoggedIn = ref(false);
 const lineProfile = ref(null);
 const liffError = ref('');
 
+// Cached promise to prevent double-init race condition
+let _initPromise = null;
+
 /**
- * Initialize LIFF SDK (singleton — safe to call multiple times)
+ * Initialize LIFF SDK (singleton — safe to call multiple times concurrently)
  */
 const initLiff = async () => {
   if (isInitialized.value) return true;
+  if (_initPromise) return _initPromise;
   if (!LIFF_ID) {
     console.warn('[LIFF] No LIFF_ID configured, skipping LIFF init');
     return false;
   }
 
-  try {
-    await liff.init({ liffId: LIFF_ID });
-    isInitialized.value = true;
-    isInLineClient.value = liff.isInClient();
-    isLoggedIn.value = liff.isLoggedIn();
-    return true;
-  } catch (err) {
-    console.error('[LIFF] Init failed:', err);
-    liffError.value = err.message;
-    return false;
-  }
+  _initPromise = (async () => {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+      isInitialized.value = true;
+      isInLineClient.value = liff.isInClient();
+      isLoggedIn.value = liff.isLoggedIn();
+      return true;
+    } catch (err) {
+      console.error('[LIFF] Init failed:', err);
+      liffError.value = err.message;
+      _initPromise = null; // Allow retry on failure
+      return false;
+    }
+  })();
+
+  return _initPromise;
 };
 
 /**
