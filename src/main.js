@@ -8,6 +8,37 @@ import './styles/main.css';
 import './styles/themes/dark.css';
 import './styles/themes/light.css';
 
+// ── LIFF deep-link → hash-route redirect ────────────────────────────
+// GitHub Pages doesn't support SPA rewrites. When LINE opens a LIFF URL
+// like liff.line.me/ID/game/abc123, GitHub Pages returns 404.html which
+// redirects to /poker-ledger/?__path=game/abc123. We pick that up here
+// and convert it into a proper hash route: /poker-ledger/#/game/abc123.
+// Also handles the direct-pathname case (e.g. Firebase Hosting).
+(function liffPathRedirect() {
+  const base = import.meta.env.BASE_URL || '/'; // '/poker-ledger/'
+  const { pathname, search, hash } = window.location;
+
+  // Case 1: Redirected via 404.html with ?__path= query param
+  const params = new URLSearchParams(search);
+  const pathFromQuery = params.get('__path');
+  if (pathFromQuery) {
+    params.delete('__path');
+    const remaining = params.toString();
+    const qs = remaining ? `?${remaining}` : '';
+    window.location.replace(`${base}${qs}#/${pathFromQuery}`);
+    throw new Error('LIFF_REDIRECT');
+  }
+
+  // Case 2: Direct pathname (e.g. Firebase Hosting rewrite to index.html)
+  if (pathname.startsWith(base) && pathname !== base) {
+    const subPath = pathname.slice(base.length).replace(/^\/+/, '');
+    if (subPath && !hash) {
+      window.location.replace(`${base}#/${subPath}${search}`);
+      throw new Error('LIFF_REDIRECT');
+    }
+  }
+})();
+
 // Import views
 import LoginView from './views/LoginView.vue';
 import LobbyView from './views/LobbyView.vue';

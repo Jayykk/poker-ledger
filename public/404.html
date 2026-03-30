@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Redirecting…</title>
+  <script>
+    // GitHub Pages SPA redirect
+    // Converts /poker-ledger/game/abc123 → /poker-ledger/?__path=game/abc123
+    // so index.html can reconstruct the proper hash route.
+    var base = '/poker-ledger/';
+    var path = window.location.pathname;
+    if (path.startsWith(base)) {
+      var subPath = path.slice(base.length);
+      if (subPath) {
+        var search = window.location.search;
+        var sep = search ? search + '&' : '?';
+        window.location.replace(
+          base + sep + '__path=' + encodeURIComponent(subPath)
+        );
+      }
+    }
+  </script>
+</head>
+<body></body>
+</html>
