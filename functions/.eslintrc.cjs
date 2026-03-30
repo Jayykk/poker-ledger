@@ -18,6 +18,7 @@ module.exports = {
     'max-len': ['warn', { code: 100, ignoreStrings: true, ignoreTemplateLiterals: true }],
     'object-curly-spacing': ['error', 'always'],
     'indent': ['error', 2],
+    'operator-linebreak': 'off',
   },
   overrides: [
     {

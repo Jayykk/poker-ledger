@@ -19,60 +19,51 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
  */
 export async function recordBuyIn({ gameId, targetUid, targetName, amount, type = 'buy_in' }, actionUid, actionName) {
   const db = getFirestore();
+  
+  // 1. 加回防呆驗證（保護資料庫不被塞入髒資料）
   if (!gameId) throw new Error('Missing gameId');
-
-  const isBuyInType = type === 'buy_in' || type === 'add_on';
-
-  // Only buy_in / add_on require a positive amount
-  if (isBuyInType && (!amount || amount <= 0)) throw new Error('Amount must be positive');
   if (!targetName) throw new Error('Missing targetName');
+  
+  // 2. 排除 NaN 炸彈：如果沒傳 amount 或無法轉成數字，強制轉為 0
+  const safeAmount = Number(amount) || 0; 
+  
+  // 針對純金流操作，還是要阻擋負數或 0
+  if (['buy_in', 'add_on'].includes(type) && safeAmount <= 0) {
+    throw new Error('Amount must be positive for buy-ins and add-ons');
+  }
 
   const txRef = db.collection('transactions').doc();
+  const gameRef = db.collection('games').doc(gameId);
 
-  const txData = {
-    gameId,
-    targetUid: targetUid || null,
-    targetName,
-    actionUid,
-    actionName,
-    amount: Number(amount) || 0,
-    type,
-    status: 'active',
-    undoneBy: null,
-    undoOf: null,
-    timestamp: FieldValue.serverTimestamp(),
-  };
+  await db.runTransaction(async (transaction) => {
+    const gameSnap = await transaction.get(gameRef);
+    const txData = {
+      gameId, 
+      targetUid: targetUid || null, 
+      targetName, 
+      actionUid, 
+      actionName,
+      amount: safeAmount, // 使用安全轉換後的數字
+      type, 
+      status: 'active', 
+      undoneBy: null, 
+      undoOf: null,
+      timestamp: FieldValue.serverTimestamp(),
+    };
+    transaction.set(txRef, txData);
 
-  const batch = db.batch();
-  batch.set(txRef, txData);
-
-  // Only sync the buy-in amount into the game players array for buy_in / add_on types.
-  // Other action types (join, modify, remove, bind) are already handled by the client-side
-  // game store and should not modify the players array here.
-  if (isBuyInType) {
-    const gameRef = db.collection('games').doc(gameId);
-    const gameSnap = await gameRef.get();
     if (gameSnap.exists) {
       const players = gameSnap.data().players || [];
       const updatedPlayers = players.map((p) => {
-        // Match by uid if available, otherwise by name
         const isTarget = targetUid ? p.uid === targetUid : p.name === targetName;
-        if (isTarget) {
-          return { ...p, buyIn: (p.buyIn || 0) + Number(amount) };
-        }
-        return p;
+        // 使用 safeAmount 確保就算 type 是 join，加上的也是 0 而不是 NaN
+        return isTarget ? { ...p, buyIn: (p.buyIn || 0) + safeAmount } : p;
       });
-      batch.update(gameRef, { players: updatedPlayers });
+      transaction.update(gameRef, { players: updatedPlayers });
     }
-  }
+  });
 
-  await batch.commit();
-
-  // Calculate total buy-in for target (only meaningful for buy-in types)
-  const totalBuyIn = isBuyInType
-    ? await getPlayerTotalBuyIn(gameId, targetUid, targetName)
-    : 0;
-
+  const totalBuyIn = await getPlayerTotalBuyIn(gameId, targetUid, targetName);
   return { txId: txRef.id, totalBuyIn };
 }
 
@@ -87,59 +78,36 @@ export async function recordBuyIn({ gameId, targetUid, targetName, amount, type 
  */
 export async function undoBuyIn(txId, callerUid, callerName) {
   const db = getFirestore();
-  if (!txId) throw new Error('Missing txId');
-
   const txRef = db.collection('transactions').doc(txId);
-  const txSnap = await txRef.get();
-
-  if (!txSnap.exists) throw new Error('Transaction not found');
-
-  const tx = txSnap.data();
-  if (tx.status !== 'active') throw new Error('Transaction already undone');
-
-  // Permission check: only original actor or game host
-  const gameRef = db.collection('games').doc(tx.gameId);
-  const gameSnap = await gameRef.get();
-  const isHost = gameSnap.exists && gameSnap.data().hostUid === callerUid;
-
-  if (tx.actionUid !== callerUid && !isHost) {
-    throw new Error('Only the original operator or game host can undo');
-  }
-
-  // Create undo transaction + mark original
   const undoRef = db.collection('transactions').doc();
-  const batch = db.batch();
+  let gameRef;
 
-  batch.update(txRef, { status: 'undone', undoneBy: undoRef.id });
-  batch.set(undoRef, {
-    gameId: tx.gameId,
-    targetUid: tx.targetUid,
-    targetName: tx.targetName,
-    actionUid: callerUid,
-    actionName: callerName,
-    amount: -tx.amount,
-    type: 'undo',
-    status: 'active',
-    undoneBy: null,
-    undoOf: txId,
-    timestamp: FieldValue.serverTimestamp(),
-  });
+  await db.runTransaction(async (transaction) => {
+    const txSnap = await transaction.get(txRef);
+    if (!txSnap.exists) throw new Error('Transaction not found');
+    const tx = txSnap.data();
+    if (tx.status !== 'active') throw new Error('Transaction already undone');
 
-  // Sync back to game players array
-  if (gameSnap.exists) {
-    const players = gameSnap.data().players || [];
-    const updatedPlayers = players.map((p) => {
-      const isTarget = tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName;
-      if (isTarget) {
-        return { ...p, buyIn: Math.max(0, (p.buyIn || 0) - tx.amount) };
-      }
-      return p;
+    gameRef = db.collection('games').doc(tx.gameId);
+    const gameSnap = await transaction.get(gameRef);
+    const isHost = gameSnap.exists && gameSnap.data().hostUid === callerUid;
+    if (tx.actionUid !== callerUid && !isHost) throw new Error('Only the original operator or game host can undo');
+
+    transaction.update(txRef, { status: 'undone', undoneBy: undoRef.id });
+    transaction.set(undoRef, {
+      ...tx, actionUid: callerUid, actionName: callerName, amount: -tx.amount,
+      type: 'undo', status: 'active', undoneBy: null, undoOf: txId, timestamp: FieldValue.serverTimestamp(),
     });
-    batch.update(gameRef, { players: updatedPlayers });
-  }
 
-  await batch.commit();
-
+    if (gameSnap.exists) {
+      const players = gameSnap.data().players || [];
+      const updatedPlayers = players.map((p) => {
+        const isTarget = tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName;
+        return isTarget ? { ...p, buyIn: Math.max(0, (p.buyIn || 0) - tx.amount) } : p;
+      });
+      transaction.update(gameRef, { players: updatedPlayers });
+    }
+  });
   return { undoTxId: undoRef.id };
 }
 
@@ -172,24 +140,16 @@ export async function getTransactionLog(gameId) {
  */
 async function getPlayerTotalBuyIn(gameId, targetUid, targetName) {
   const db = getFirestore();
-  let q = db
-    .collection('transactions')
-    .where('gameId', '==', gameId)
-    .where('status', '==', 'active');
-
-  if (targetUid) {
-    q = q.where('targetUid', '==', targetUid);
-  }
+  let q = db.collection('transactions').where('gameId', '==', gameId).where('status', '==', 'active');
+  if (targetUid) q = q.where('targetUid', '==', targetUid);
 
   const snap = await q.get();
-
   let total = 0;
   snap.docs.forEach((d) => {
     const data = d.data();
-    // If matching by name (for unbound seats)
     if (!targetUid && data.targetName !== targetName) return;
+    if (data.type === 'undo') return; // 👈 濾掉 undo 避免雙重扣款
     total += data.amount || 0;
   });
-
   return total;
 }
