@@ -8,8 +8,20 @@
     <!-- Global loading overlay -->
     <LoadingSpinner v-if="globalLoading" fullScreen :text="loadingText" />
     
-    <!-- Initial loading -->
-    <LoadingSpinner v-else-if="loading" fullScreen />
+    <!-- Initial loading with debug info -->
+    <div v-else-if="loading" class="fixed inset-0 flex flex-col items-center justify-center bg-slate-900 z-50">
+      <LoadingSpinner fullScreen />
+      <!-- Debug panel: visible in LIFF or with ?debug=1 -->
+      <div v-if="debugLogs.length" class="fixed bottom-0 left-0 right-0 max-h-[40vh] overflow-y-auto bg-black/90 text-xs text-green-400 font-mono p-3 z-[9999]">
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-yellow-400 font-bold">🔧 LIFF Debug</span>
+          <span class="text-gray-500">{{ debugLogs.length }} logs</span>
+        </div>
+        <div v-for="(log, i) in debugLogs" :key="i" :class="log.startsWith('❌') ? 'text-red-400' : log.startsWith('✅') ? 'text-emerald-400' : 'text-green-400'">
+          {{ log }}
+        </div>
+      </div>
+    </div>
     
     <!-- Floating HUD (Immersive Mode) -->
     <div v-if="isPokerTableRoute" class="game-hud" aria-hidden="false">
@@ -191,6 +203,7 @@ const { error: showError } = useNotification();
 const { isInLineClient, isLoggedIn: liffLoggedIn, initLiff, getAccessToken, closeLiff } = useLiff();
 
 const loading = ref(true);
+const debugLogs = ref([]);
 const theme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
 const pendingInvite = ref(null);
 const inviteProcessedInMount = ref(false);
@@ -321,9 +334,27 @@ const processPendingInvite = async () => {
   return false;
 };
 
+// Debug logging helper (shows on LIFF debug overlay)
+const dbg = (msg) => {
+  const ts = new Date().toLocaleTimeString('en', { hour12: false, fractionalSecondDigits: 1 });
+  debugLogs.value.push(`[${ts}] ${msg}`);
+  console.log(`[DBG] ${msg}`);
+};
+
+// Promise with timeout helper
+const withTimeout = (promise, ms, label) => {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timeout (${ms}ms)`)), ms))
+  ]);
+};
+
 // Initialize auth
 onMounted(async () => {
   try {
+    dbg(`📍 URL: ${window.location.href}`);
+    dbg(`📍 Hash: ${window.location.hash || '(empty)'}`);
+
     // Check URL params for game invitation
     const params = new URLSearchParams(window.location.search);
     const gameId = params.get('game');
@@ -335,6 +366,7 @@ onMounted(async () => {
       // Save invite info
       pendingInvite.value = { gameId, seatId };
       localStorage.setItem(STORAGE_KEYS.PENDING_INVITE, JSON.stringify({ gameId, seatId }));
+      dbg(`📨 Pending invite: game=${gameId} seat=${seatId}`);
     } else {
       // Check localStorage for pending invite
       const saved = localStorage.getItem(STORAGE_KEYS.PENDING_INVITE);
@@ -342,38 +374,51 @@ onMounted(async () => {
         try {
           pendingInvite.value = JSON.parse(saved);
         } catch (e) {
-          // Invalid JSON, remove it
           console.warn('Failed to parse pending invite:', e);
           localStorage.removeItem(STORAGE_KEYS.PENDING_INVITE);
         }
       }
     }
     
-    await authStore.initAuth();
+    // Step 1: Firebase Auth
+    dbg('⏳ initAuth...');
+    const authUser = await withTimeout(authStore.initAuth(), 10000, 'initAuth');
+    dbg(authUser ? `✅ Firebase user: ${authUser.displayName || authUser.uid} (anon=${authUser.isAnonymous})` : '⚠️ No Firebase session');
     
-    // ----- LIFF auto-login -----
-    // If Firebase has no session (or only an anonymous guest) but LIFF is
-    // logged in, automatically authenticate with the LINE identity so the
-    // user never sees the login page.
-    await initLiff();
+    // Step 2: LIFF init
+    dbg('⏳ initLiff...');
+    const liffOk = await withTimeout(initLiff(), 10000, 'initLiff');
+    dbg(liffOk ? `✅ LIFF ready (loggedIn=${liffLoggedIn.value}, inClient=${isInLineClient.value})` : '⚠️ LIFF init failed or no LIFF_ID');
+    
+    // Step 3: LIFF auto-login
     if (liffLoggedIn.value) {
       const currentUser = authStore.user;
       const shouldAutoLogin = !currentUser || currentUser.isAnonymous;
+      dbg(`🔑 shouldAutoLogin=${shouldAutoLogin} (user=${currentUser?.uid || 'null'}, anon=${currentUser?.isAnonymous})`);
+      
       if (shouldAutoLogin) {
         const token = getAccessToken();
         if (token) {
+          dbg(`⏳ loginWithLine (token=${token.substring(0, 8)}...)...`);
           try {
-            await authStore.loginWithLine(token);
+            const success = await withTimeout(authStore.loginWithLine(token), 15000, 'loginWithLine');
+            dbg(success ? `✅ LINE login success: ${authStore.user?.displayName}` : '❌ LINE login returned false');
           } catch (err) {
-            console.error('[LIFF] Auto-login failed:', err);
+            dbg(`❌ LINE login failed: ${err.message}`);
           }
+        } else {
+          dbg('❌ No LIFF access token available');
         }
       }
     }
     
+    // Step 4: Route decision
     if (authStore.user) {
+      dbg(`✅ Authenticated as: ${authStore.user.displayName || authStore.user.uid}`);
+      
       // Load user data
-      await userStore.loadUserData();
+      dbg('⏳ loadUserData...');
+      await withTimeout(userStore.loadUserData(), 10000, 'loadUserData').catch(e => dbg(`⚠️ loadUserData: ${e.message}`));
       
       // Process pending invite first
       const inviteProcessed = await processPendingInvite();
@@ -383,7 +428,8 @@ onMounted(async () => {
       if (!inviteProcessed) {
         const savedGameId = localStorage.getItem(STORAGE_KEYS.LAST_GAME_ID);
         if (savedGameId) {
-          await gameStore.joinGameListener(savedGameId);
+          dbg(`⏳ Restoring game: ${savedGameId}`);
+          await withTimeout(gameStore.joinGameListener(savedGameId), 10000, 'joinGameListener').catch(e => dbg(`⚠️ joinGame: ${e.message}`));
         }
       }
       
@@ -392,16 +438,26 @@ onMounted(async () => {
         const liffRedirect = sessionStorage.getItem('liff_redirect');
         if (liffRedirect) {
           sessionStorage.removeItem('liff_redirect');
+          dbg(`🔀 Redirect to: ${liffRedirect}`);
           router.push(liffRedirect);
         } else {
+          dbg('🔀 Redirect to: /lobby');
           router.push('/lobby');
         }
+      } else {
+        dbg(`🔀 Stay on: ${router.currentRoute.value.path}`);
       }
     } else {
+      dbg('❌ Not authenticated → /login');
       router.push('/login');
     }
+  } catch (err) {
+    dbg(`❌ Fatal: ${err.message}`);
+    // On fatal error, go to login instead of spinning forever
+    router.push('/login');
   } finally {
     loading.value = false;
+    dbg('🏁 Init complete, loading=false');
   }
 });
 
