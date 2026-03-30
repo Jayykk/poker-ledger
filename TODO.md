@@ -133,40 +133,33 @@
 
 ---
 
-### LINE Phase 4: LIFF UX 優化 & 群組互動
+### LINE Phase 4: LIFF UX 優化 & 群組互動 ✅
 
 #### 4-1. LIFF 環境適配
-- [ ] 修改 `src/App.vue` — 偵測 LIFF 環境
+- [x] 修改 `src/App.vue` — 偵測 LIFF 環境
   - LINE 內：隱藏底部 nav bar、返回鈕改為 `liff.closeWindow()`
-  - LINE 內：頂部顯示簡化 header（牌局名稱 + 關閉按鈕）
   - 外部瀏覽器：保持現有 UI 不變
-- [ ] 確認 LIFF `Full` 模式下的 Safe Area（iPhone 瀏海、底部手勢條）
-- [ ] 處理 LIFF 的 redirect flow（外部瀏覽器開啟 LIFF URL 的 consent 畫面）
+- [x] 確認 LIFF `Full` 模式下的 Safe Area（`liff-mode` CSS class + `env(safe-area-inset-*)` ）
+- [x] 處理 LIFF 的 redirect flow（`sessionStorage` 暫存目標路徑，登入後自動 redirect）
 
 #### 4-2. 牌局分享 — LINE 群組入口（像 LightSplit 的記帳連結）
-- [ ] 局長開局後生成 LIFF URL：`https://liff.line.me/{liffId}/game/{gameId}`
-- [ ] 使用 `liff.shareTargetPicker()` 分享到 LINE 群組或好友
-  - 分享訊息為 Flex Message 卡片：
-    ```
-    🃏 {hostName} 開了一桌！
-    盲注：{small}/{big}
-    買入：${baseBuyIn}
-    👉 點擊加入
-    ```
-  - 卡片內含 LIFF URL action → 點擊直接開啟該局
-- [ ] 非 LINE 環境 fallback：複製 Room Code 或普通連結
+- [x] 局長開局後自動觸發 `shareTargetPicker()`（LobbyView `handleCreateGame`）
+- [x] GameView 新增「LINE 分享」按鈕（`shareGameInvite` → `shareTargetPicker`）
+  - 分享純文字訊息含 LIFF URL action → 點擊直接開啟該局
+- [x] 非 LINE 環境 fallback：原有的「複製 ID」按鈕仍保留
 
 #### 4-3. 快速加入流程
-- [ ] 從 LINE 點擊邀請卡片 → 開啟 LIFF → 自動登入 → 直接進入該牌局
-  - LIFF URL 帶 `gameId` 參數 → router 解析後自動導向 GameView
-  - 如果玩家不在該局 → 自動加入（使用 LINE displayName + baseBuyIn）
-  - 省略 LobbyView → 一鍵到位
+- [x] GameView `onMounted` 解析 `route.params.gameId`
+  - 已在此局 → `joinGameListener` 開始監聽
+  - 尚未加入 → `joinAsNewPlayer` 自動加入（使用 displayName + baseBuyIn）
+  - 牌局不存在/已結束 → redirect 回 `/lobby`
 
 #### 4-4. Router 調整
 - [x] 修改 `src/main.js` router 設定
   - 新增路由：`/game/:gameId` — 支援 LIFF deep link 直接進入牌局
-- [ ] LIFF 啟動參數解析：`liff.getContext()` 取得來源群組 ID（可選）
-- [ ] 未登入時自動走 LINE 登入流程再 redirect 回目標頁
+- [x] `router.beforeEach` — 暫存 gameId deep link 到 `sessionStorage`
+- [x] `App.vue` `onMounted` + auth watcher — 登入後自動 redirect 到暫存路徑
+- [ ] LIFF 啟動參數解析：`liff.getContext()` 取得來源群組 ID（可選，Phase 5）
 
 ---
 

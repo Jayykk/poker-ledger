@@ -2,7 +2,7 @@
   <div
     id="app"
     class="relative min-h-screen flex flex-col"
-    :class="{ 'immersive-mode': isPokerTableRoute }"
+    :class="{ 'immersive-mode': isPokerTableRoute, 'liff-mode': isLiffMode }"
     :data-theme="theme"
   >
     <!-- Global loading overlay -->
@@ -38,8 +38,8 @@
       </transition>
     </router-view>
 
-    <!-- Bottom navigation (only show when authenticated and not in poker game) -->
-    <nav v-if="isAuthenticated && $route.path !== '/login' && !$route.path.startsWith('/poker-game')" class="fixed-bottom-nav glass">
+    <!-- Bottom navigation (hidden in LIFF mode and poker game) -->
+    <nav v-if="!hideBottomNav" class="fixed-bottom-nav glass">
       <div class="flex justify-around items-center h-16 max-w-md mx-auto relative">
         <!-- Lobby -->
         <router-link
@@ -167,6 +167,7 @@ import { useNotificationStore } from './store/modules/notification.js';
 import { useLoadingStore } from './store/modules/loading.js';
 import { useConfirm } from './composables/useConfirm.js';
 import { useNotification } from './composables/useNotification.js';
+import { useLiff } from './composables/useLiff.js';
 import LoadingSpinner from './components/common/LoadingSpinner.vue';
 import ToastNotification from './components/common/ToastNotification.vue';
 import ActionNotification from './components/common/ActionNotification.vue';
@@ -187,6 +188,7 @@ const notificationStore = useNotificationStore();
 const loadingStore = useLoadingStore();
 const { confirm } = useConfirm();
 const { error: showError } = useNotification();
+const { isInLineClient, closeLiff } = useLiff();
 
 const loading = ref(true);
 const theme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
@@ -204,14 +206,28 @@ const confirmDialog = computed(() => notificationStore.confirmDialog);
 const globalLoading = computed(() => loadingStore.isLoading);
 const loadingText = computed(() => loadingStore.loadingText);
 
+// Whether the app is running inside LINE client (LIFF)
+const isLiffMode = computed(() => isInLineClient.value);
+
 // Immersive mode: PokerTable / PokerGame route.
 // Use both name + path for robustness.
 const isPokerTableRoute = computed(() => {
   return route?.name === 'PokerGame' || String(route?.path || '').startsWith('/poker-game');
 });
 
-const handleHudBack = () => {
-  // Match PokerGame's “Back to Lobby” intent.
+// In LIFF mode, also hide bottom nav on game detail pages
+const hideBottomNav = computed(() => {
+  if (!isAuthenticated.value || route.path === '/login') return true;
+  if (route.path.startsWith('/poker-game')) return true;
+  if (isLiffMode.value) return true;
+  return false;
+});
+
+const handleHudBack = () => {  // In LINE client, close the LIFF window instead of navigating
+  if (isLiffMode.value) {
+    closeLiff();
+    return;
+  }  // Match PokerGame's “Back to Lobby” intent.
   router.push({ name: 'GameLobby' });
 };
 
@@ -352,7 +368,14 @@ onMounted(async () => {
       }
       
       if (router.currentRoute.value.path === '/' || router.currentRoute.value.path === '/login') {
-        router.push('/lobby');
+        // Check for LIFF deep link redirect (saved by router guard)
+        const liffRedirect = sessionStorage.getItem('liff_redirect');
+        if (liffRedirect) {
+          sessionStorage.removeItem('liff_redirect');
+          router.push(liffRedirect);
+        } else {
+          router.push('/lobby');
+        }
       }
     } else {
       router.push('/login');
@@ -369,7 +392,15 @@ watch(() => authStore.user, async (newUser, oldUser) => {
     // Skip if already processed in onMounted
     if (!inviteProcessedInMount.value) {
       await userStore.loadUserData();
-      await processPendingInvite();
+      const inviteProcessed = await processPendingInvite();
+      if (!inviteProcessed) {
+        // Check for LIFF deep link redirect
+        const liffRedirect = sessionStorage.getItem('liff_redirect');
+        if (liffRedirect) {
+          sessionStorage.removeItem('liff_redirect');
+          router.push(liffRedirect);
+        }
+      }
     }
   } else if (!newUser) {
     // User logged out
@@ -450,6 +481,12 @@ document.documentElement.setAttribute('data-theme', theme.value);
 #app.immersive-mode .poker-game-view .middle-section {
   height: 100vh !important;
   flex: 1 1 auto;
+}
+
+/* LIFF safe area padding for iPhone notch and gesture bar */
+#app.liff-mode {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 </style>

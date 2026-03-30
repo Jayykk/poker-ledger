@@ -35,6 +35,17 @@ const router = createRouter({
   ]
 });
 
+// Navigation guard: store intended path for post-login redirect
+router.beforeEach((to, from, next) => {
+  if (to.meta.requiresAuth !== false && to.path !== '/login') {
+    // Save deep link target so App.vue can redirect after auth
+    if (to.params.gameId) {
+      sessionStorage.setItem('liff_redirect', to.fullPath);
+    }
+  }
+  next();
+});
+
 // Create and mount app first
 const app = createApp(App);
 

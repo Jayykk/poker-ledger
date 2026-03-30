@@ -109,6 +109,8 @@
     "removePlayer": "移除玩家",
     "settlement": "結算",
     "copyId": "複製 ID",
+    "shareToLine": "LINE 分享",
+    "shareSuccess": "已分享到 LINE",
     "inviteLink": "邀請連結",
     "closeGame": "解散房間 (刪除資料)",
     "noActiveGame": "目前沒有進行中的牌局",

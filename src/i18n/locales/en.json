@@ -109,6 +109,8 @@
     "removePlayer": "Remove Player",
     "settlement": "Settlement",
     "copyId": "Copy ID",
+    "shareToLine": "Share via LINE",
+    "shareSuccess": "Shared to LINE",
     "inviteLink": "Invite Link",
     "closeGame": "Close Game (Delete Data)",
     "noActiveGame": "No active game",
