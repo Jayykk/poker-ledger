@@ -5,14 +5,14 @@
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 /**
- * Record a buy-in (or add-on) transaction.
+ * Record a buy-in (or add-on) transaction, or an action log entry.
  *
  * @param {object} params
  * @param {string} params.gameId
  * @param {string} params.targetUid - player receiving chips (may be null for unbound seats)
  * @param {string} params.targetName - display name of target
  * @param {number} params.amount
- * @param {string} params.type - 'buy_in' | 'add_on'
+ * @param {string} params.type - 'buy_in' | 'add_on' | 'join' | 'modify' | 'remove' | 'bind'
  * @param {string} actionUid - caller's uid (from auth context)
  * @param {string} actionName - caller's display name
  * @return {{ txId: string, totalBuyIn: number }}
@@ -20,7 +20,11 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 export async function recordBuyIn({ gameId, targetUid, targetName, amount, type = 'buy_in' }, actionUid, actionName) {
   const db = getFirestore();
   if (!gameId) throw new Error('Missing gameId');
-  if (!amount || amount <= 0) throw new Error('Amount must be positive');
+
+  const isBuyInType = type === 'buy_in' || type === 'add_on';
+
+  // Only buy_in / add_on require a positive amount
+  if (isBuyInType && (!amount || amount <= 0)) throw new Error('Amount must be positive');
   if (!targetName) throw new Error('Missing targetName');
 
   const txRef = db.collection('transactions').doc();
@@ -31,7 +35,7 @@ export async function recordBuyIn({ gameId, targetUid, targetName, amount, type 
     targetName,
     actionUid,
     actionName,
-    amount: Number(amount),
+    amount: Number(amount) || 0,
     type,
     status: 'active',
     undoneBy: null,
@@ -39,30 +43,35 @@ export async function recordBuyIn({ gameId, targetUid, targetName, amount, type 
     timestamp: FieldValue.serverTimestamp(),
   };
 
-  // Write transaction + update game players array in a batch
   const batch = db.batch();
   batch.set(txRef, txData);
 
-  // Also sync the buy-in into the game players array so existing UI keeps working
-  const gameRef = db.collection('games').doc(gameId);
-  const gameSnap = await gameRef.get();
-  if (gameSnap.exists) {
-    const players = gameSnap.data().players || [];
-    const updatedPlayers = players.map((p) => {
-      // Match by uid if available, otherwise by name
-      const isTarget = targetUid ? p.uid === targetUid : p.name === targetName;
-      if (isTarget) {
-        return { ...p, buyIn: (p.buyIn || 0) + Number(amount) };
-      }
-      return p;
-    });
-    batch.update(gameRef, { players: updatedPlayers });
+  // Only sync the buy-in amount into the game players array for buy_in / add_on types.
+  // Other action types (join, modify, remove, bind) are already handled by the client-side
+  // game store and should not modify the players array here.
+  if (isBuyInType) {
+    const gameRef = db.collection('games').doc(gameId);
+    const gameSnap = await gameRef.get();
+    if (gameSnap.exists) {
+      const players = gameSnap.data().players || [];
+      const updatedPlayers = players.map((p) => {
+        // Match by uid if available, otherwise by name
+        const isTarget = targetUid ? p.uid === targetUid : p.name === targetName;
+        if (isTarget) {
+          return { ...p, buyIn: (p.buyIn || 0) + Number(amount) };
+        }
+        return p;
+      });
+      batch.update(gameRef, { players: updatedPlayers });
+    }
   }
 
   await batch.commit();
 
-  // Calculate total buy-in for target
-  const totalBuyIn = await getPlayerTotalBuyIn(gameId, targetUid, targetName);
+  // Calculate total buy-in for target (only meaningful for buy-in types)
+  const totalBuyIn = isBuyInType
+    ? await getPlayerTotalBuyIn(gameId, targetUid, targetName)
+    : 0;
 
   return { txId: txRef.id, totalBuyIn };
 }

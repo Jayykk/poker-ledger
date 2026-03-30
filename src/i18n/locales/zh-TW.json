@@ -306,7 +306,7 @@
   },
   "transaction": {
     "log": "操作歷程",
-    "noRecords": "尚無買入紀錄",
+    "noRecords": "尚無操作紀錄",
     "buyInFor": "幫人買入",
     "selectPlayer": "選擇玩家",
     "amount": "金額",
@@ -317,6 +317,11 @@
     "buyInSuccess": "買入成功",
     "undoSuccess": "已撤銷",
     "previewSelf": "我要買入 ${amount}",
-    "previewOther": "我幫 {target} 買入 ${amount}"
+    "previewOther": "我幫 {target} 買入 ${amount}",
+    "joined": "加入了遊戲",
+    "modified": "修改了",
+    "modifiedSuffix": " 的資料",
+    "removed": "移除了",
+    "boundSeat": "綁定了座位"
   }
 }

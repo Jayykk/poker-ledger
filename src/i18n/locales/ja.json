@@ -306,17 +306,22 @@
   },
   "transaction": {
     "log": "操作履歴",
-    "noRecords": "バイイン記録はありません",
+    "noRecords": "まだ操作記録はありません",
     "buyInFor": "代理バイイン",
     "selectPlayer": "プレイヤーを選択",
     "amount": "金額",
     "selfBuyIn": "バイイン",
-    "helpBuyIn": "...の代理バイイン",
+    "helpBuyIn": "の代理バイイン",
     "undid": "取り消しました",
     "confirmUndo": "このバイインを取り消しますか？",
     "buyInSuccess": "バイイン成功",
     "undoSuccess": "取り消し完了",
     "previewSelf": "バイイン ${amount}",
-    "previewOther": "{target} の代理バイイン ${amount}"
+    "previewOther": "{target} の代理バイイン ${amount}",
+    "joined": "がゲームに参加しました",
+    "modified": "が",
+    "modifiedSuffix": "のデータを変更しました",
+    "removed": "を削除しました",
+    "boundSeat": "が座席をバインドしました："
   }
 }

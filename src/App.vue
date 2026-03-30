@@ -208,7 +208,7 @@ const { isInLineClient, isLoggedIn: liffLoggedIn, initLiff, getAccessToken, clos
 
 const loading = ref(true);
 const debugLogs = ref([]);
-const showDebugPanel = ref(true);
+const showDebugPanel = ref(false);
 const theme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
 const pendingInvite = ref(null);
 const inviteProcessedInMount = ref(false);
