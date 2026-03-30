@@ -236,6 +236,7 @@ import { useGame } from '../composables/useGame.js';
 import { useInvitation } from '../composables/useInvitation.js';
 import { usePushNotification } from '../composables/usePushNotification.js';
 import { useLoading } from '../composables/useLoading.js';
+import { useLiff } from '../composables/useLiff.js';
 import { useGameStore } from '../store/modules/game.js';
 import { useUserStore } from '../store/modules/user.js';
 import { useNotification } from '../composables/useNotification.js';
@@ -255,6 +256,7 @@ const userStore = useUserStore();
 const { success, error: showError } = useNotification();
 const { sendInvitationNotification } = usePushNotification();
 const { withLoading } = useLoading();
+const { shareGameInvite, isInitialized: liffReady } = useLiff();
 
 // Invitation composable
 const {
@@ -326,6 +328,12 @@ const handleCreateGame = async () => {
       success('Game created!');
       // Reload rooms
       await gameStore.loadMyRooms();
+
+      // Offer LINE share if LIFF is available
+      if (liffReady.value) {
+        shareGameInvite(gameName.value, gameId, user.value?.displayName || '');
+      }
+
       router.push('/game');
     }
   }, t('loading.creating'));

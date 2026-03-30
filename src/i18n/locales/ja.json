@@ -109,6 +109,8 @@
     "removePlayer": "プレーヤー削除",
     "settlement": "精算",
     "copyId": "IDコピー",
+    "shareToLine": "LINEで共有",
+    "shareSuccess": "LINEに共有しました",
     "inviteLink": "招待リンク",
     "closeGame": "ゲーム終了（データ削除）",
     "noActiveGame": "進行中のゲームがありません",

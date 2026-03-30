@@ -4,8 +4,6 @@
  */
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
-const db = getFirestore();
-
 /**
  * Record a buy-in (or add-on) transaction.
  *
@@ -20,6 +18,7 @@ const db = getFirestore();
  * @return {{ txId: string, totalBuyIn: number }}
  */
 export async function recordBuyIn({ gameId, targetUid, targetName, amount, type = 'buy_in' }, actionUid, actionName) {
+  const db = getFirestore();
   if (!gameId) throw new Error('Missing gameId');
   if (!amount || amount <= 0) throw new Error('Amount must be positive');
   if (!targetName) throw new Error('Missing targetName');
@@ -78,6 +77,7 @@ export async function recordBuyIn({ gameId, targetUid, targetName, amount, type 
  * @return {{ undoTxId: string }}
  */
 export async function undoBuyIn(txId, callerUid, callerName) {
+  const db = getFirestore();
   if (!txId) throw new Error('Missing txId');
 
   const txRef = db.collection('transactions').doc(txId);
@@ -141,6 +141,7 @@ export async function undoBuyIn(txId, callerUid, callerName) {
  * @return {Array} transactions sorted by timestamp desc
  */
 export async function getTransactionLog(gameId) {
+  const db = getFirestore();
   if (!gameId) throw new Error('Missing gameId');
 
   const snap = await db
@@ -161,6 +162,7 @@ export async function getTransactionLog(gameId) {
  * @return {Promise<number>} total buy-in amount
  */
 async function getPlayerTotalBuyIn(gameId, targetUid, targetName) {
+  const db = getFirestore();
   let q = db
     .collection('transactions')
     .where('gameId', '==', gameId)

@@ -1,5 +1,9 @@
 <template>
-  <div v-if="!game" class="h-[80vh] flex flex-col items-center justify-center text-gray-500 gap-4">
+  <div v-if="autoJoinLoading" class="h-[80vh] flex flex-col items-center justify-center text-gray-500 gap-4">
+    <LoadingSpinner :text="$t('loading.joining')" />
+  </div>
+
+  <div v-else-if="!game" class="h-[80vh] flex flex-col items-center justify-center text-gray-500 gap-4">
     <p>{{ $t('game.noActiveGame') }}</p>
     <BaseButton @click="$router.push('/lobby')" variant="primary">
       {{ $t('nav.lobby') }}
@@ -35,9 +39,12 @@
     </div>
 
     <!-- Action buttons -->
-    <div class="mt-8 flex gap-3 justify-center">
+    <div class="mt-8 flex gap-3 justify-center flex-wrap">
       <BaseButton @click="handleCopyId" variant="ghost" size="sm">
         <i class="fas fa-copy mr-1"></i>{{ $t('game.copyId') }}
+      </BaseButton>
+      <BaseButton v-if="liffReady" @click="handleShareToLine" variant="ghost" size="sm" class="!text-[#06C755]">
+        <i class="fab fa-line mr-1"></i>{{ $t('game.shareToLine') }}
       </BaseButton>
       <BaseButton @click="showBuyInModal = true" variant="ghost" size="sm">
         <i class="fas fa-hand-holding-usd mr-1"></i>{{ $t('transaction.buyInFor') }}
@@ -204,8 +211,8 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, watch, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
 import { useGame } from '../composables/useGame.js';
@@ -218,6 +225,7 @@ import { useLoading } from '../composables/useLoading.js';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
+import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import PlayerCard from '../components/game/PlayerCard.vue';
 import TransactionLog from '../components/game/TransactionLog.vue';
 import BuyInModal from '../components/game/BuyInModal.vue';
@@ -230,11 +238,12 @@ import { DEFAULT_EXCHANGE_RATE, DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from '..
 
 const { t } = useI18n();
 const router = useRouter();
+const route = useRoute();
 const { user, displayName } = useAuth();
-const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer, addPlayer, updatePlayer, removePlayer, bindSeat, settleGame, closeGame } = useGame();
+const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer, addPlayer, updatePlayer, removePlayer, bindSeat, settleGame, closeGame, checkGameStatus, joinAsNewPlayer, joinGameListener } = useGame();
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
 const { transactions, txLoading, txError, startListening: startTxListening, stopListening: stopTxListening, recordBuyIn, undoBuyIn } = useTransactions(gameId);
-const { sendBuyInMessage, sendUndoMessage, sendSettlementMessage, isInLineClient } = useLiff();
+const { sendBuyInMessage, sendUndoMessage, sendSettlementMessage, shareGameInvite, isInLineClient, isInitialized: liffReady } = useLiff();
 const { success, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
@@ -250,6 +259,39 @@ const newPlayerBuyIn = ref(DEFAULT_BUY_IN);
 const editingPlayer = ref(null);
 const exchangeRate = ref(DEFAULT_EXCHANGE_RATE);
 const selectedHand = ref(null);
+const autoJoinLoading = ref(false);
+
+/**
+ * Auto-join flow: when opened via /game/:gameId (e.g. LIFF deep link)
+ * 1. Check if already in this game → just listen
+ * 2. If not in game → auto-join as new player
+ */
+onMounted(async () => {
+  const targetGameId = route.params.gameId;
+  if (!targetGameId) return; // opened via /game (no param), game store already loaded
+  if (game.value?.id === targetGameId) return; // already loaded
+
+  autoJoinLoading.value = true;
+  try {
+    const result = await checkGameStatus(targetGameId);
+
+    if (result.status === 'joined') {
+      // Already in this game, just start listening
+      await joinGameListener(targetGameId);
+    } else if (result.status === 'open') {
+      // Not in game yet — auto-join as new player with baseBuyIn
+      await joinAsNewPlayer(targetGameId);
+    } else {
+      // Game not found or ended
+      router.push('/lobby');
+    }
+  } catch (err) {
+    console.error('[GameView] Auto-join failed:', err);
+    router.push('/lobby');
+  } finally {
+    autoJoinLoading.value = false;
+  }
+});
 
 // Listen to hand records when game is loaded
 watch(() => gameId.value, (newGameId) => {
@@ -333,6 +375,17 @@ const handleBind = async (player) => {
 const handleInvite = async (player) => {
   const url = `${window.location.origin}${window.location.pathname}?game=${game.value.id}&seat=${player.id}`;
   await copyWithNotification(url, t('common.copy'));
+};
+
+const handleShareToLine = async () => {
+  const shared = await shareGameInvite(
+    game.value.name,
+    game.value.id,
+    game.value.hostName || displayName.value,
+  );
+  if (shared) {
+    success(t('game.shareSuccess'));
+  }
 };
 
 const handleAddBuy = async (player) => {
