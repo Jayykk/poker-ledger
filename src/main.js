@@ -49,43 +49,64 @@ import FriendsView from './views/FriendsView.vue';
 import GameLobby from './views/GameLobby.vue';
 import PokerGame from './views/PokerGame.vue';
 
-// Create router
-const router = createRouter({
-  history: createWebHashHistory(import.meta.env.BASE_URL),
-  routes: [
-    { path: '/', redirect: '/login' },
-    { path: '/login', name: 'Login', component: LoginView, meta: { requiresAuth: false } },
-    { path: '/lobby', name: 'Lobby', component: LobbyView, meta: { requiresAuth: true } },
-    { path: '/game', name: 'Game', component: GameView, meta: { requiresAuth: true } },
-    { path: '/game/:gameId', name: 'GameDirect', component: GameView, meta: { requiresAuth: true } },
-    { path: '/report', name: 'Report', component: ReportView, meta: { requiresAuth: true } },
-    { path: '/profile', name: 'Profile', component: ProfileView, meta: { requiresAuth: true } },
-    { path: '/friends', name: 'Friends', component: FriendsView, meta: { requiresAuth: true } },
-    { path: '/poker-lobby', name: 'GameLobby', component: GameLobby, meta: { requiresAuth: true } },
-    { path: '/poker-game/:gameId', name: 'PokerGame', component: PokerGame, meta: { requiresAuth: true } }
-  ]
-});
+// ── Async bootstrap ─────────────────────────────────────────────────
+// Must be async so we can await LIFF token processing BEFORE Vue Router
+// reads the hash. Without this, LIFF auth callback tokens in the hash
+// (#/access_token=...) get interpreted as a Vue route and break routing.
+(async function bootstrap() {
+  const { initLiff } = useLiff();
 
-// Navigation guard: store intended path for post-login redirect
-router.beforeEach((to, from, next) => {
-  if (to.meta.requiresAuth !== false && to.path !== '/login') {
-    // Save deep link target so App.vue can redirect after auth
-    if (to.params.gameId) {
-      sessionStorage.setItem('liff_redirect', to.fullPath);
+  // LIFF external-browser auth callback: LINE puts tokens in the hash.
+  // We must let LIFF SDK process them BEFORE creating the router,
+  // otherwise Vue Router sees "#/access_token=..." as a route path.
+  if (/[#&]access_token=/.test(window.location.hash)) {
+    console.log('[LIFF] Auth tokens detected in hash, processing...');
+    try {
+      await initLiff();
+    } catch (e) {
+      console.error('[LIFF] Token processing failed:', e);
     }
+    // LIFF has read the tokens. Clean the hash for Vue Router.
+    history.replaceState(null, '',
+      window.location.pathname + window.location.search + '#/');
   }
-  next();
-});
 
-// Create and mount app first
-const app = createApp(App);
+  // Create router (hash is now clean)
+  const router = createRouter({
+    history: createWebHashHistory(import.meta.env.BASE_URL),
+    routes: [
+      { path: '/', redirect: '/login' },
+      { path: '/login', name: 'Login', component: LoginView, meta: { requiresAuth: false } },
+      { path: '/lobby', name: 'Lobby', component: LobbyView, meta: { requiresAuth: true } },
+      { path: '/game', name: 'Game', component: GameView, meta: { requiresAuth: true } },
+      { path: '/game/:gameId', name: 'GameDirect', component: GameView, meta: { requiresAuth: true } },
+      { path: '/report', name: 'Report', component: ReportView, meta: { requiresAuth: true } },
+      { path: '/profile', name: 'Profile', component: ProfileView, meta: { requiresAuth: true } },
+      { path: '/friends', name: 'Friends', component: FriendsView, meta: { requiresAuth: true } },
+      { path: '/poker-lobby', name: 'GameLobby', component: GameLobby, meta: { requiresAuth: true } },
+      { path: '/poker-game/:gameId', name: 'PokerGame', component: PokerGame, meta: { requiresAuth: true } }
+    ]
+  });
 
-app.use(pinia);
-app.use(i18n);
-app.use(router);
+  // Navigation guard: store intended path for post-login redirect
+  router.beforeEach((to, from, next) => {
+    if (to.meta.requiresAuth !== false && to.path !== '/login') {
+      if (to.params.gameId) {
+        sessionStorage.setItem('liff_redirect', to.fullPath);
+      }
+    }
+    next();
+  });
 
-app.mount('#app');
+  // Create and mount app
+  const app = createApp(App);
 
-// Initialize LIFF (non-blocking – will silently fail if no LIFF_ID configured)
-const { initLiff } = useLiff();
-initLiff().catch(() => {});
+  app.use(pinia);
+  app.use(i18n);
+  app.use(router);
+
+  app.mount('#app');
+
+  // Initialize LIFF for non-callback cases (skips if already done above)
+  initLiff().catch(() => {});
+})();
