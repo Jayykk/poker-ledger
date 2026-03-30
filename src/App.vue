@@ -188,7 +188,7 @@ const notificationStore = useNotificationStore();
 const loadingStore = useLoadingStore();
 const { confirm } = useConfirm();
 const { error: showError } = useNotification();
-const { isInLineClient, closeLiff } = useLiff();
+const { isInLineClient, isLoggedIn: liffLoggedIn, initLiff, getAccessToken, closeLiff } = useLiff();
 
 const loading = ref(true);
 const theme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
@@ -350,6 +350,26 @@ onMounted(async () => {
     }
     
     await authStore.initAuth();
+    
+    // ----- LIFF auto-login -----
+    // If Firebase has no session (or only an anonymous guest) but LIFF is
+    // logged in, automatically authenticate with the LINE identity so the
+    // user never sees the login page.
+    await initLiff();
+    if (liffLoggedIn.value) {
+      const currentUser = authStore.user;
+      const shouldAutoLogin = !currentUser || currentUser.isAnonymous;
+      if (shouldAutoLogin) {
+        const token = getAccessToken();
+        if (token) {
+          try {
+            await authStore.loginWithLine(token);
+          } catch (err) {
+            console.error('[LIFF] Auto-login failed:', err);
+          }
+        }
+      }
+    }
     
     if (authStore.user) {
       // Load user data
