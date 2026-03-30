@@ -31,6 +31,18 @@ const initLiff = async () => {
       isLoggedIn.value = liff.isLoggedIn();
       return true;
     } catch (err) {
+      // LIFF throws if init() is called twice (e.g. early token processing
+      // already called it). Detect this and treat as success.
+      try {
+        const loggedIn = liff.isLoggedIn();
+        // If isLoggedIn() didn't throw, LIFF is actually initialized
+        isInitialized.value = true;
+        isInLineClient.value = liff.isInClient();
+        isLoggedIn.value = loggedIn;
+        return true;
+      } catch {
+        // LIFF genuinely not initialized — real error
+      }
       console.error('[LIFF] Init failed:', err);
       liffError.value = err.message;
       _initPromise = null; // Allow retry on failure
