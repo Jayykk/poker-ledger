@@ -19,14 +19,14 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
  */
 export async function recordBuyIn({ gameId, targetUid, targetName, amount, type = 'buy_in' }, actionUid, actionName) {
   const db = getFirestore();
-  
+
   // 1. 加回防呆驗證（保護資料庫不被塞入髒資料）
   if (!gameId) throw new Error('Missing gameId');
   if (!targetName) throw new Error('Missing targetName');
-  
+
   // 2. 排除 NaN 炸彈：如果沒傳 amount 或無法轉成數字，強制轉為 0
-  const safeAmount = Number(amount) || 0; 
-  
+  const safeAmount = Number(amount) || 0;
+
   // 針對純金流操作，還是要阻擋負數或 0
   if (['buy_in', 'add_on'].includes(type) && safeAmount <= 0) {
     throw new Error('Amount must be positive for buy-ins and add-ons');
@@ -38,15 +38,15 @@ export async function recordBuyIn({ gameId, targetUid, targetName, amount, type 
   await db.runTransaction(async (transaction) => {
     const gameSnap = await transaction.get(gameRef);
     const txData = {
-      gameId, 
-      targetUid: targetUid || null, 
-      targetName, 
-      actionUid, 
+      gameId,
+      targetUid: targetUid || null,
+      targetName,
+      actionUid,
       actionName,
       amount: safeAmount, // 使用安全轉換後的數字
-      type, 
-      status: 'active', 
-      undoneBy: null, 
+      type,
+      status: 'active',
+      undoneBy: null,
       undoOf: null,
       timestamp: FieldValue.serverTimestamp(),
     };
