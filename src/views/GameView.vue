@@ -242,7 +242,7 @@ const route = useRoute();
 const { user, displayName } = useAuth();
 const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer, addPlayer, updatePlayer, removePlayer, bindSeat, settleGame, closeGame, checkGameStatus, joinAsNewPlayer, joinGameListener } = useGame();
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
-const { transactions, txLoading, txError, startListening: startTxListening, stopListening: stopTxListening, recordBuyIn, undoBuyIn } = useTransactions(gameId);
+const { transactions, txLoading, txError, startListening: startTxListening, stopListening: stopTxListening, recordBuyIn, recordAction, undoBuyIn } = useTransactions(gameId);
 const { sendBuyInMessage, sendUndoMessage, sendSettlementMessage, shareGameInvite, isInLineClient, isInitialized: liffReady } = useLiff();
 const { success, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
@@ -326,7 +326,9 @@ const decrementNewPlayerBuyIn = () => {
 
 const handleAddPlayer = async () => {
   await withLoading(async () => {
-    await addPlayer(newPlayerName.value || 'Player', newPlayerBuyIn.value);
+    const playerName = newPlayerName.value || 'Player';
+    await addPlayer(playerName, newPlayerBuyIn.value);
+    await recordAction(null, playerName, 'join', 0);
     showAddPlayer.value = false;
     newPlayerName.value = '';
     newPlayerBuyIn.value = game.value?.baseBuyIn || DEFAULT_BUY_IN;
@@ -340,7 +342,17 @@ const handleEditPlayer = (player) => {
 
 const handleSavePlayer = async () => {
   await withLoading(async () => {
+    const originalPlayer = game.value?.players?.find((p) => p.id === editingPlayer.value.id);
+    const buyInChanged = originalPlayer && originalPlayer.buyIn !== editingPlayer.value.buyIn;
     await updatePlayer(editingPlayer.value);
+    if (buyInChanged) {
+      await recordAction(
+        editingPlayer.value.uid || null,
+        editingPlayer.value.name,
+        'modify',
+        editingPlayer.value.buyIn - originalPlayer.buyIn,
+      );
+    }
     showEditPlayer.value = false;
     editingPlayer.value = null;
   }, t('loading.saving'));
@@ -353,7 +365,9 @@ const handleRemovePlayer = async () => {
   });
   if (shouldRemove) {
     await withLoading(async () => {
+      const removedPlayer = { ...editingPlayer.value };
       await removePlayer(editingPlayer.value);
+      await recordAction(removedPlayer.uid || null, removedPlayer.name, 'remove', 0);
       showEditPlayer.value = false;
       editingPlayer.value = null;
     }, t('loading.removing'));
@@ -367,7 +381,9 @@ const handleBind = async (player) => {
   });
   if (shouldBind) {
     await withLoading(async () => {
+      const originalSeatName = player.name;
       await bindSeat(player);
+      await recordAction(null, originalSeatName, 'bind', 0);
     }, t('loading.binding'));
   }
 };
@@ -390,7 +406,11 @@ const handleShareToLine = async () => {
 
 const handleAddBuy = async (player) => {
   const buyInAmount = game.value?.baseBuyIn || 2000;
-  await updatePlayer({ ...player, buyIn: player.buyIn + buyInAmount });
+  const result = await recordBuyIn(player.uid || null, player.name, buyInAmount, 'buy_in');
+  if (result) {
+    success(t('transaction.buyInSuccess'));
+    sendBuyInMessage(displayName.value, player.name, buyInAmount);
+  }
 };
 
 /** Buy-in for another player (via BuyInModal) with transaction tracking */

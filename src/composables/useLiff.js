@@ -2,6 +2,8 @@ import { ref, readonly } from 'vue';
 import liff from '@line/liff';
 
 const LIFF_ID = import.meta.env.VITE_LIFF_ID || '';
+// LINE Flex Message altText is limited; truncate settlement reports for the preview
+const MAX_ALT_TEXT_LENGTH = 100;
 
 const isInitialized = ref(false);
 const isInLineClient = ref(false);
@@ -102,29 +104,131 @@ const sendMessages = async (messages) => {
 };
 
 /**
- * Send a buy-in notification to the current LINE chat
+ * Send a buy-in notification to the current LINE chat (Flex Message)
  */
 const sendBuyInMessage = async (actionName, targetName, amount) => {
   const isSelf = actionName === targetName;
-  const text = isSelf
+  const altText = isSelf
     ? `💰 ${actionName} 買入了 $${amount}`
     : `💰 ${actionName} 幫 ${targetName} 買入了 $${amount}`;
-  return sendMessages([{ type: 'text', text }]);
+  const titleText = isSelf
+    ? `${actionName} 自己買入`
+    : `${actionName} 幫 ${targetName} 買入`;
+
+  return sendMessages([{
+    type: 'flex',
+    altText,
+    contents: {
+      type: 'bubble',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: '💰 買入通知',
+            weight: 'bold',
+            color: '#00B900',
+            size: 'sm',
+          },
+          {
+            type: 'text',
+            text: titleText,
+            weight: 'bold',
+            size: 'xl',
+            margin: 'md',
+            wrap: true,
+          },
+          {
+            type: 'text',
+            text: `金額：$${amount}`,
+            size: 'md',
+            color: '#27ACB2',
+            margin: 'md',
+          },
+        ],
+      },
+    },
+  }]);
 };
 
 /**
- * Send an undo notification to the current LINE chat
+ * Send an undo notification to the current LINE chat (Flex Message)
  */
 const sendUndoMessage = async (actionName, targetName, amount) => {
-  const text = `↩️ ${actionName} 撤銷了 ${targetName} 的一筆 $${amount} 買入`;
-  return sendMessages([{ type: 'text', text }]);
+  const altText = `↩️ ${actionName} 撤銷了 ${targetName} 的一筆 $${amount} 買入`;
+
+  return sendMessages([{
+    type: 'flex',
+    altText,
+    contents: {
+      type: 'bubble',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: '↩️ 撤銷通知',
+            weight: 'bold',
+            color: '#FF4444',
+            size: 'sm',
+          },
+          {
+            type: 'text',
+            text: `${actionName} 撤銷了 ${targetName} 的買入`,
+            weight: 'bold',
+            size: 'xl',
+            margin: 'md',
+            wrap: true,
+          },
+          {
+            type: 'text',
+            text: `撤銷金額：$${amount}`,
+            size: 'md',
+            color: '#FF4444',
+            margin: 'md',
+          },
+        ],
+      },
+    },
+  }]);
 };
 
 /**
- * Send settlement report to the current LINE chat
+ * Send settlement report to the current LINE chat (Flex Message)
  */
 const sendSettlementMessage = async (reportText) => {
-  return sendMessages([{ type: 'text', text: reportText }]);
+  const altText = `🎲 結算報表\n${reportText.slice(0, MAX_ALT_TEXT_LENGTH)}`;
+
+  return sendMessages([{
+    type: 'flex',
+    altText,
+    contents: {
+      type: 'bubble',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: '🎲 結算報表',
+            weight: 'bold',
+            color: '#1DB446',
+            size: 'sm',
+          },
+          {
+            type: 'text',
+            text: reportText,
+            size: 'sm',
+            color: '#555555',
+            margin: 'md',
+            wrap: true,
+          },
+        ],
+      },
+    },
+  }]);
 };
 
 /**

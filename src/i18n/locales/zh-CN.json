@@ -306,7 +306,7 @@
   },
   "transaction": {
     "log": "操作历程",
-    "noRecords": "尚无买入记录",
+    "noRecords": "尚无操作记录",
     "buyInFor": "帮人买入",
     "selectPlayer": "选择玩家",
     "amount": "金额",
@@ -317,6 +317,11 @@
     "buyInSuccess": "买入成功",
     "undoSuccess": "已撤销",
     "previewSelf": "我要买入 ${amount}",
-    "previewOther": "我帮 {target} 买入 ${amount}"
+    "previewOther": "我帮 {target} 买入 ${amount}",
+    "joined": "加入了游戏",
+    "modified": "修改了",
+    "modifiedSuffix": " 的资料",
+    "removed": "移除了",
+    "boundSeat": "绑定了座位"
   }
 }
