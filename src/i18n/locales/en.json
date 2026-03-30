@@ -306,7 +306,7 @@
   },
   "transaction": {
     "log": "Transaction Log",
-    "noRecords": "No buy-in records yet",
+    "noRecords": "No records yet",
     "buyInFor": "Buy-in for Player",
     "selectPlayer": "Select Player",
     "amount": "Amount",
@@ -317,6 +317,11 @@
     "buyInSuccess": "Buy-in recorded",
     "undoSuccess": "Undone",
     "previewSelf": "I'm buying in for ${amount}",
-    "previewOther": "I'm buying in {target} for ${amount}"
+    "previewOther": "I'm buying in {target} for ${amount}",
+    "joined": "joined the game",
+    "modified": "modified",
+    "modifiedSuffix": "'s data",
+    "removed": "removed",
+    "boundSeat": "bound to seat"
   }
 }

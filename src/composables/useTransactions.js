@@ -103,6 +103,32 @@ export function useTransactions(gameIdRef) {
   };
 
   /**
+   * Record a non-buy-in action (join, modify, remove, bind) via Cloud Function.
+   * These write a history entry but do NOT update the game players array.
+   */
+  const recordAction = async (targetUid, targetName, type, amount = 0) => {
+    txLoading.value = true;
+    txError.value = '';
+    try {
+      const fn = httpsCallable(functions, 'recordBuyInTx');
+      const { data } = await fn({
+        gameId: typeof gameIdRef === 'object' ? gameIdRef.value : gameIdRef,
+        targetUid,
+        targetName,
+        amount,
+        type,
+      });
+      return data;
+    } catch (err) {
+      console.error('[useTransactions] recordAction error:', err);
+      txError.value = err.message;
+      return null;
+    } finally {
+      txLoading.value = false;
+    }
+  };
+
+  /**
    * Undo a previous buy-in via Cloud Function
    */
   const undoBuyIn = async (txId) => {
@@ -130,6 +156,7 @@ export function useTransactions(gameIdRef) {
     stopListening,
     playerTotalBuyIn,
     recordBuyIn,
+    recordAction,
     undoBuyIn,
   };
 }
