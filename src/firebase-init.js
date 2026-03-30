@@ -1,6 +1,9 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, inMemoryPersistence, browserLocalPersistence } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache } from 'firebase/firestore';
+
+// Detect LINE's in-app browser (blocks IndexedDB / BroadcastChannel)
+const isLineClient = /Line\//i.test(navigator.userAgent);
 
 // Firebase configuration
 // Note: These credentials are safe to expose in client-side code as they identify
@@ -19,11 +22,17 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export { app }; // Export app for Functions
 
-// LINE's in-app browser may have issues with IndexedDB/BroadcastChannel
-// used by persistentMultipleTabManager, so fall back to memory cache.
+// LINE's in-app browser has issues with IndexedDB persistence.
+// Set Firebase Auth to in-memory persistence to prevent onAuthStateChanged from hanging.
+if (isLineClient) {
+  setPersistence(auth, inMemoryPersistence).catch(e =>
+    console.warn('Failed to set auth persistence:', e)
+  );
+}
+
+// Firestore: same issue — use memory cache in LINE browser.
 let db;
 try {
-  const isLineClient = /Line\//i.test(navigator.userAgent);
   if (isLineClient) {
     db = initializeFirestore(app, { localCache: memoryLocalCache() });
   } else {
