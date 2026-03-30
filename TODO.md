@@ -1,39 +1,39 @@
 # 線上連線德州撲克遊戲功能開發清單
 
-## 📋 開發階段與待辦事項
+## 📋 開發階段與待辦事項（原有功能 — 已完成）
 
-### Phase 1: 基礎架構 (Foundation) ✅ 
+### Phase 1: 基礎架構 (Foundation) ✅
 - [x] 分析現有程式碼架構
-- [ ] 設定 Firebase Cloud Functions 環境
-- [ ] 建立 Firestore 遊戲數據結構
-- [ ] 實作德撲核心遊戲引擎 (發牌、比牌邏輯)
-- [ ] 建立 Cloud Functions API endpoints
-- [ ] 實作玩家操作驗證機制
+- [x] 設定 Firebase Cloud Functions 環境
+- [x] 建立 Firestore 遊戲數據結構
+- [x] 實作德撲核心遊戲引擎 (發牌、比牌邏輯)
+- [x] 建立 Cloud Functions API endpoints
+- [x] 實作玩家操作驗證機制
 
-### Phase 2: 核心遊戲功能 (Core Game)
-- [ ] 建立/加入遊戲房間
-- [ ] 座位系統 (入座/離座)
-- [ ] 完整下注流程 (Fold/Check/Call/Raise/All-in)
-- [ ] 發牌與開牌動畫
-- [ ] 回合管理 (Preflop → Flop → Turn → River)
-- [ ] 勝負判定與籌碼分配
-- [ ] 與現有記帳系統整合
+### Phase 2: 核心遊戲功能 (Core Game) ✅
+- [x] 建立/加入遊戲房間
+- [x] 座位系統 (入座/離座)
+- [x] 完整下注流程 (Fold/Check/Call/Raise/All-in)
+- [x] 發牌與開牌動畫
+- [x] 回合管理 (Preflop → Flop → Turn → River)
+- [x] 勝負判定與籌碼分配
+- [x] 與現有記帳系統整合
 
-### Phase 3: UI/UX 優化 (User Experience)
-- [ ] 手機優先的響應式遊戲介面
-- [ ] 智慧下注滑桿 + 快捷金額按鈕
-- [ ] 操作確認機制 (防誤觸)
-- [ ] 樂觀更新 (Optimistic Update)
-- [ ] 牌面翻轉動畫
-- [ ] 籌碼移動動畫
-- [ ] 音效系統
-- [ ] 玩家計時器與超時處理
+### Phase 3: UI/UX 優化 (User Experience) ✅
+- [x] 手機優先的響應式遊戲介面
+- [x] 智慧下注滑桿 + 快捷金額按鈕
+- [x] 操作確認機制 (防誤觸)
+- [x] 樂觀更新 (Optimistic Update)
+- [x] 牌面翻轉動畫
+- [x] 籌碼移動動畫
+- [x] 音效系統
+- [x] 玩家計時器與超時處理
 
-### Phase 4: 社交功能 (Social Features)
-- [ ] 遊戲內聊天
-- [ ] 快捷表情
-- [ ] 旁觀模式
-- [ ] 好友邀請
+### Phase 4: 社交功能 (Social Features) ✅
+- [x] 遊戲內聊天
+- [x] 快捷表情
+- [x] 旁觀模式
+- [x] 好友邀請
 
 ### Phase 5: 進階功能 (Advanced - Future)
 - [ ] 錦標賽模式
@@ -41,6 +41,157 @@
 - [ ] 俱樂部系統
 - [ ] 排行榜
 - [ ] 成就系統
+
+---
+
+## 🟢 LINE 整合開發清單（並存擴充）
+
+> 設計理念：參考 LightSplit 模式 — LINE 群組即入口，LIFF 頁面做操作，
+> 訊息自動回到聊天室。**現有功能全部保留**，LINE 作為新的入口層與通知層。
+
+---
+
+### LINE Phase 1: 身分綁定 ✅
+
+#### 1-1. LINE Login Channel & LIFF App 設定
+- [x] 在 [LINE Developers Console](https://developers.line.biz/) 建立 Provider
+- [x] 建立 LINE Login Channel（Channel ID: `2009641241`）
+- [x] 建立 LIFF App（Size: `Full`，LIFF ID: `2009641241-Bsu3bf90`）
+- [x] 記錄 `LIFF ID` 並填入 `.env` 的 `VITE_LIFF_ID`
+
+#### 1-2. 前端 LIFF SDK 整合
+- [x] `npm install @line/liff`
+- [x] 建立 `src/composables/useLiff.js` — LIFF 生命週期管理
+- [x] 修改 `src/main.js` — App 啟動時執行 `liff.init()`（非阻塞）
+- [x] 修改 `src/views/LoginView.vue` — 新增「LINE 登入」按鈕
+  - LINE 內自動觸發 LIFF 登入流程
+  - 瀏覽器環境保留原有的 email / guest 登入
+
+#### 1-3. 後端 Custom Token 核發
+- [x] 新增 `functions/src/handlers/lineAuth.js`
+  - 驗證 LINE access token → 取得 profile → `admin.auth().createCustomToken()`
+- [x] 在 `functions/src/index.js` 註冊 `lineLogin` endpoint
+
+#### 1-4. 前端 Firebase Auth 串接
+- [x] 修改 `src/store/modules/auth.js` — 新增 `loginWithLine()` action
+- [x] 修改 `src/composables/useAuth.js` — 暴露 `loginWithLine`
+- [x] 處理 LINE↔Firebase 帳號映射（`line_{userId}` 為 uid）
+
+#### 1-5. Firestore Rules 更新
+- [x] 更新 `firestore.rules` — 新增 `transactions` collection 規則
+
+#### 1-6. 驗證 & 測試
+- [ ] 在 LINE App 內開啟 LIFF → 自動登入 → 進入 Lobby
+- [ ] 在外部瀏覽器開啟 → 保持原有 email/guest 登入
+- [ ] 頭像、暱稱正確顯示為 LINE profile
+
+---
+
+### LINE Phase 2: 記帳核心 — 代操作 + 交易歷程 ✅
+
+> 現有記帳流程：開局 → 加人 → 編輯 buyIn/stack → 結算 → 報表
+> 擴充重點：誰幫誰買入的紀錄、撤銷功能、歷程顯示
+
+#### 2-1. Firestore `transactions` Collection
+- [x] 設計 collection schema（gameId, targetUid/Name, actionUid/Name, amount, type, status 等）
+- [x] 新增 Firestore indexes（`firestore.indexes.json`）
+
+#### 2-2. 後端 Transaction Cloud Functions
+- [x] 新增 `functions/src/handlers/transaction.js`
+  - `recordBuyIn` / `undoBuyIn` / `getTransactionLog`
+  - batch writes 確保原子性
+- [x] 在 `functions/src/index.js` 註冊 `recordBuyInTx`, `undoBuyInTx`, `getTransactionLog`
+
+#### 2-3. 前端記帳 UI 擴充
+- [x] 新增 `src/composables/useTransactions.js` — onSnapshot 即時監聽
+- [x] 修改 `src/views/GameView.vue` — 幫人買入按鈕 + 操作歷程區塊
+- [x] 新增 `src/components/game/TransactionLog.vue` — 時間軸式交易歷程
+- [x] 新增 `src/components/game/BuyInModal.vue` — 選玩家 + 金額確認
+
+---
+
+### LINE Phase 3: LINE 聊天室訊息（liff.sendMessages — 免費方案）✅
+
+> **策略調整**：僅使用 `liff.sendMessages()`（免費、用戶主動觸發），
+> 不使用 Messaging API push（會超過免費額度 200 則/月）。
+> 結算由點「結算」的人以自己名義發送到聊天室。
+
+#### 3-1 ~ 3-2. ~~LINE Messaging API~~ (已跳過 — 超過免費額度)
+- [x] ~~已跳過~~ — 不使用 Bot push，全部改由前端 `liff.sendMessages()` 處理
+
+#### 3-3. `liff.sendMessages()` — 聊天室內發送（前端觸發）
+- [x] 在 `src/composables/useLiff.js` 新增 helpers
+  - `sendBuyInMessage()` — 買入通知
+  - `sendUndoMessage()` — 撤銷通知
+  - `sendSettlementMessage()` — 結算報表
+  - `shareGameInvite()` — shareTargetPicker 邀請卡片
+- [x] 修改買入流程 — 買入成功後觸發 `liff.sendMessages()`
+- [x] 修改結算流程 — 結算完成後由點結算的人發送報表到聊天室
+
+#### 3-4 ~ 3-5. ~~結算推播 & Flex Message~~ (已跳過)
+- [x] ~~已跳過~~ — 免費方案下不做 Bot push，結算改由前端 `liff.sendMessages()` 處理
+
+---
+
+### LINE Phase 4: LIFF UX 優化 & 群組互動
+
+#### 4-1. LIFF 環境適配
+- [ ] 修改 `src/App.vue` — 偵測 LIFF 環境
+  - LINE 內：隱藏底部 nav bar、返回鈕改為 `liff.closeWindow()`
+  - LINE 內：頂部顯示簡化 header（牌局名稱 + 關閉按鈕）
+  - 外部瀏覽器：保持現有 UI 不變
+- [ ] 確認 LIFF `Full` 模式下的 Safe Area（iPhone 瀏海、底部手勢條）
+- [ ] 處理 LIFF 的 redirect flow（外部瀏覽器開啟 LIFF URL 的 consent 畫面）
+
+#### 4-2. 牌局分享 — LINE 群組入口（像 LightSplit 的記帳連結）
+- [ ] 局長開局後生成 LIFF URL：`https://liff.line.me/{liffId}/game/{gameId}`
+- [ ] 使用 `liff.shareTargetPicker()` 分享到 LINE 群組或好友
+  - 分享訊息為 Flex Message 卡片：
+    ```
+    🃏 {hostName} 開了一桌！
+    盲注：{small}/{big}
+    買入：${baseBuyIn}
+    👉 點擊加入
+    ```
+  - 卡片內含 LIFF URL action → 點擊直接開啟該局
+- [ ] 非 LINE 環境 fallback：複製 Room Code 或普通連結
+
+#### 4-3. 快速加入流程
+- [ ] 從 LINE 點擊邀請卡片 → 開啟 LIFF → 自動登入 → 直接進入該牌局
+  - LIFF URL 帶 `gameId` 參數 → router 解析後自動導向 GameView
+  - 如果玩家不在該局 → 自動加入（使用 LINE displayName + baseBuyIn）
+  - 省略 LobbyView → 一鍵到位
+
+#### 4-4. Router 調整
+- [x] 修改 `src/main.js` router 設定
+  - 新增路由：`/game/:gameId` — 支援 LIFF deep link 直接進入牌局
+- [ ] LIFF 啟動參數解析：`liff.getContext()` 取得來源群組 ID（可選）
+- [ ] 未登入時自動走 LINE 登入流程再 redirect 回目標頁
+
+---
+
+### LINE Phase 5: 進階功能（可選 / 未來）
+
+#### 5-1. LINE Bot 指令（Rich Menu / 文字指令）
+- [ ] 設定 Webhook URL → Cloud Function `lineWebhook`
+- [ ] 實作基本指令：
+  - `開局` → 回覆 LIFF 開局連結
+  - `我的紀錄` → 回覆最近 5 局損益摘要
+  - `幫助` → 回覆指令說明
+- [ ] 設計 Rich Menu（底部選單）：開局 / 加入 / 紀錄 / 設定
+
+#### 5-2. 舊帳號遷移 / LINE 綁定
+- [ ] 已有 email 帳號的玩家 → 登入後可綁定 LINE
+  - Profile 頁新增「綁定 LINE 帳號」按鈕
+  - 綁定後 `users/{uid}` 寫入 `lineUserId`
+  - 未來可用 LINE 登入同一帳號
+- [ ] 遷移腳本：將現有 `users` 的 history 與新 LINE UID 對接
+
+#### 5-3. 群組統計 & 排行
+- [ ] 記錄群組 ID（`liff.getContext().groupId`）
+  - 同一群組的牌局可以彙總統計
+- [ ] 群組排行榜 — 月/季/總 損益排名
+- [ ] Bot 定期推送群組週報摘要
 
 ---
 

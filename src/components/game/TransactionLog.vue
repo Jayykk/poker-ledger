@@ -1,0 +1,87 @@
+<template>
+  <div class="space-y-2">
+    <h3 class="text-sm font-bold text-gray-300 mb-3">
+      <i class="fas fa-history mr-1"></i>{{ $t('transaction.log') }}
+    </h3>
+
+    <div v-if="transactions.length === 0" class="text-center text-gray-500 text-sm py-4">
+      {{ $t('transaction.noRecords') }}
+    </div>
+
+    <div
+      v-for="tx in transactions"
+      :key="tx.txId"
+      class="flex items-center justify-between p-3 rounded-xl border transition-all"
+      :class="tx.status === 'undone'
+        ? 'bg-slate-900/50 border-slate-800 opacity-50'
+        : tx.type === 'undo'
+          ? 'bg-rose-950/30 border-rose-900/30'
+          : 'bg-slate-800/70 border-slate-700'"
+    >
+      <!-- Left: description -->
+      <div class="flex-1 min-w-0">
+        <div class="text-sm" :class="tx.status === 'undone' ? 'line-through text-gray-600' : 'text-white'">
+          <template v-if="tx.type === 'undo'">
+            <span class="text-rose-400">↩️</span>
+            {{ tx.actionName }} {{ $t('transaction.undid') }} {{ tx.targetName }}
+          </template>
+          <template v-else-if="tx.actionUid === tx.targetUid || (!tx.targetUid && tx.actionName === tx.targetName)">
+            {{ tx.actionName }} {{ $t('transaction.selfBuyIn') }}
+          </template>
+          <template v-else>
+            {{ tx.actionName }} {{ $t('transaction.helpBuyIn') }} {{ tx.targetName }}
+          </template>
+        </div>
+        <div class="text-[10px] text-gray-500 mt-1">
+          {{ formatTime(tx.timestamp) }}
+        </div>
+      </div>
+
+      <!-- Right: amount + undo -->
+      <div class="flex items-center gap-2 ml-3">
+        <span
+          class="font-mono font-bold text-sm"
+          :class="tx.type === 'undo' ? 'text-rose-400' : 'text-emerald-400'"
+        >
+          {{ tx.type === 'undo' ? '' : '+' }}{{ formatNumber(tx.amount) }}
+        </span>
+
+        <!-- Undo button: only on active buy-in/add-on, and only if current user did it or is host -->
+        <button
+          v-if="tx.status === 'active' && tx.type !== 'undo' && canUndo(tx)"
+          @click="$emit('undo', tx)"
+          class="text-gray-500 hover:text-rose-400 transition text-xs px-2 py-1 rounded border border-slate-700 hover:border-rose-500"
+        >
+          ↩️
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { useI18n } from 'vue-i18n';
+import { useAuth } from '../../composables/useAuth.js';
+import { formatNumber } from '../../utils/formatters.js';
+
+const { t } = useI18n();
+const { user } = useAuth();
+
+const props = defineProps({
+  transactions: { type: Array, default: () => [] },
+  hostUid: { type: String, default: '' },
+});
+
+defineEmits(['undo']);
+
+const canUndo = (tx) => {
+  if (!user.value) return false;
+  return tx.actionUid === user.value.uid || props.hostUid === user.value.uid;
+};
+
+const formatTime = (ts) => {
+  if (!ts) return '';
+  const d = new Date(typeof ts === 'number' ? ts : ts);
+  return d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+};
+</script>

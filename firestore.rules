@@ -85,6 +85,18 @@ service cloud.firestore {
     }
     
     // ============================================
+    // Transaction Audit Trail (Buy-in records)
+    // ============================================
+    match /transactions/{txId} {
+      // Authenticated users can read transactions for games they're in
+      allow read: if isAuthenticated();
+      
+      // Only Cloud Functions should write transactions
+      // (callable functions run with admin SDK, bypassing rules)
+      allow write: if false;
+    }
+    
+    // ============================================
     // Additional collections can be added here
     // ============================================
   }

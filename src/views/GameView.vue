@@ -39,9 +39,21 @@
       <BaseButton @click="handleCopyId" variant="ghost" size="sm">
         <i class="fas fa-copy mr-1"></i>{{ $t('game.copyId') }}
       </BaseButton>
+      <BaseButton @click="showBuyInModal = true" variant="ghost" size="sm">
+        <i class="fas fa-hand-holding-usd mr-1"></i>{{ $t('transaction.buyInFor') }}
+      </BaseButton>
       <BaseButton @click="showSettlement = true" variant="secondary">
         {{ $t('game.settlement') }}
       </BaseButton>
+    </div>
+
+    <!-- Transaction Log -->
+    <div class="mt-6">
+      <TransactionLog
+        :transactions="transactions"
+        :host-uid="game.hostUid"
+        @undo="handleUndoBuyIn"
+      />
     </div>
 
     <!-- Record hand button -->
@@ -179,6 +191,15 @@
       v-model="showHandDetail"
       :hand="selectedHand"
     />
+
+    <!-- Buy-In For Player Modal -->
+    <BuyInModal
+      v-model="showBuyInModal"
+      :players="game.players"
+      :base-buy-in="game.baseBuyIn || 2000"
+      :loading="txLoading"
+      @confirm="handleBuyInForPlayer"
+    />
   </div>
 </template>
 
@@ -189,6 +210,8 @@ import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
 import { useGame } from '../composables/useGame.js';
 import { useHand } from '../composables/useHand.js';
+import { useTransactions } from '../composables/useTransactions.js';
+import { useLiff } from '../composables/useLiff.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import { useLoading } from '../composables/useLoading.js';
@@ -196,6 +219,8 @@ import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
 import PlayerCard from '../components/game/PlayerCard.vue';
+import TransactionLog from '../components/game/TransactionLog.vue';
+import BuyInModal from '../components/game/BuyInModal.vue';
 import HandRecordSheet from '../components/game/HandRecordSheet.vue';
 import HandHistoryList from '../components/game/HandHistoryList.vue';
 import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
@@ -205,9 +230,11 @@ import { DEFAULT_EXCHANGE_RATE, DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from '..
 
 const { t } = useI18n();
 const router = useRouter();
-const { user } = useAuth();
+const { user, displayName } = useAuth();
 const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer, addPlayer, updatePlayer, removePlayer, bindSeat, settleGame, closeGame } = useGame();
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
+const { transactions, txLoading, txError, startListening: startTxListening, stopListening: stopTxListening, recordBuyIn, undoBuyIn } = useTransactions(gameId);
+const { sendBuyInMessage, sendUndoMessage, sendSettlementMessage, isInLineClient } = useLiff();
 const { success, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
@@ -215,6 +242,7 @@ const { withLoading } = useLoading();
 const showAddPlayer = ref(false);
 const showEditPlayer = ref(false);
 const showSettlement = ref(false);
+const showBuyInModal = ref(false);
 const showHandRecord = ref(false);
 const showHandDetail = ref(false);
 const newPlayerName = ref('');
@@ -312,6 +340,32 @@ const handleAddBuy = async (player) => {
   await updatePlayer({ ...player, buyIn: player.buyIn + buyInAmount });
 };
 
+/** Buy-in for another player (via BuyInModal) with transaction tracking */
+const handleBuyInForPlayer = async ({ targetUid, targetName, amount }) => {
+  const result = await recordBuyIn(targetUid, targetName, amount, 'buy_in');
+  if (result) {
+    showBuyInModal.value = false;
+    success(t('transaction.buyInSuccess'));
+    // Send LINE message from user's own name (free, no quota)
+    sendBuyInMessage(displayName.value, targetName, amount);
+  }
+};
+
+/** Undo a buy-in transaction */
+const handleUndoBuyIn = async (tx) => {
+  const shouldUndo = await confirm({
+    message: t('transaction.confirmUndo'),
+    type: 'warning'
+  });
+  if (shouldUndo) {
+    const result = await undoBuyIn(tx.txId);
+    if (result) {
+      success(t('transaction.undoSuccess'));
+      sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount));
+    }
+  }
+};
+
 const handleCopyId = async () => {
   await copyWithNotification(game.value.id, t('game.copyId'));
 };
@@ -328,9 +382,13 @@ const handleSettle = async () => {
   });
   if (shouldSettle) {
     await withLoading(async () => {
-      const success = await settleGame(exchangeRate.value);
-      if (success) {
+      // Generate report text before settling (game data still available)
+      const report = generateTextReport(game.value, exchangeRate.value);
+      const settleSuccess = await settleGame(exchangeRate.value);
+      if (settleSuccess) {
         showSettlement.value = false;
+        // Send settlement report to LINE chat (user's own name, free)
+        sendSettlementMessage(report);
         router.push('/report');
       }
     }, t('loading.settling'));

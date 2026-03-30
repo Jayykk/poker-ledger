@@ -31,6 +31,7 @@ lerna-debug.log*
 .env
 .env.local
 .env.*.local
+functions/.env
 
 # Temporary files
 /tmp

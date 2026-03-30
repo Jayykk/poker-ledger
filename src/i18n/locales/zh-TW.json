@@ -45,6 +45,7 @@
     "password": "密碼",
     "displayName": "暱稱",
     "guestLogin": "訪客試用 (免註冊)",
+    "lineLogin": "LINE 登入",
     "backToLogin": "返回登入",
     "registerAccount": "註冊帳號",
     "guest": "訪客",
@@ -300,5 +301,20 @@
       "tooManyCommunityCards": "公共牌最多 5 張",
       "tooManyPlayerCards": "手牌最多 2 張"
     }
+  },
+  "transaction": {
+    "log": "操作歷程",
+    "noRecords": "尚無買入紀錄",
+    "buyInFor": "幫人買入",
+    "selectPlayer": "選擇玩家",
+    "amount": "金額",
+    "selfBuyIn": "買入",
+    "helpBuyIn": "幫 ... 買入",
+    "undid": "撤銷了",
+    "confirmUndo": "確定要撤銷這筆買入嗎？",
+    "buyInSuccess": "買入成功",
+    "undoSuccess": "已撤銷",
+    "previewSelf": "我要買入 ${amount}",
+    "previewOther": "我幫 {target} 買入 ${amount}"
   }
 }
