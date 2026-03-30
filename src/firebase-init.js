@@ -22,11 +22,17 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export { app }; // Export app for Functions
 
+// Force localStorage-based persistence to avoid IndexedDB timeout issues.
+// LINE browser will override this below with inMemoryPersistence.
+setPersistence(auth, browserLocalPersistence).catch(e =>
+  console.warn('Failed to set auth persistence:', e)
+);
+
 // LINE's in-app browser has issues with IndexedDB persistence.
-// Set Firebase Auth to in-memory persistence to prevent onAuthStateChanged from hanging.
+// Override to in-memory persistence to prevent onAuthStateChanged from hanging.
 if (isLineClient) {
   setPersistence(auth, inMemoryPersistence).catch(e =>
-    console.warn('Failed to set auth persistence:', e)
+    console.warn('Failed to set auth persistence for LINE:', e)
   );
 }
 

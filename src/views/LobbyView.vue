@@ -236,7 +236,6 @@ import { useGame } from '../composables/useGame.js';
 import { useInvitation } from '../composables/useInvitation.js';
 import { usePushNotification } from '../composables/usePushNotification.js';
 import { useLoading } from '../composables/useLoading.js';
-import { useLiff } from '../composables/useLiff.js';
 import { useGameStore } from '../store/modules/game.js';
 import { useUserStore } from '../store/modules/user.js';
 import { useNotification } from '../composables/useNotification.js';
@@ -256,7 +255,6 @@ const userStore = useUserStore();
 const { success, error: showError } = useNotification();
 const { sendInvitationNotification } = usePushNotification();
 const { withLoading } = useLoading();
-const { shareGameInvite, isInitialized: liffReady } = useLiff();
 
 // Invitation composable
 const {
@@ -329,11 +327,6 @@ const handleCreateGame = async () => {
       // Reload rooms
       await gameStore.loadMyRooms();
 
-      // Offer LINE share if LIFF is available
-      if (liffReady.value) {
-        shareGameInvite(gameName.value, gameId, user.value?.displayName || '');
-      }
-
       router.push('/game');
     }
   }, t('loading.creating'));
@@ -364,8 +357,8 @@ const handleCheckGame = async () => {
 
 const handleBindJoin = async (player) => {
   await withLoading(async () => {
-    const success = await joinByBinding(gameCode.value, player.id);
-    if (success) {
+    const bindSuccess = await joinByBinding(gameCode.value, player.id);
+    if (bindSuccess) {
       showJoinModal.value = false;
       joinStep.value = 1;
       // Reload rooms
@@ -377,8 +370,8 @@ const handleBindJoin = async (player) => {
 
 const handleNewJoin = async () => {
   await withLoading(async () => {
-    const success = await joinAsNewPlayer(gameCode.value, buyIn.value);
-    if (success) {
+    const joinSuccess = await joinAsNewPlayer(gameCode.value, buyIn.value);
+    if (joinSuccess) {
       showJoinModal.value = false;
       joinStep.value = 1;
       // Reload rooms

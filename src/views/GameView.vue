@@ -455,8 +455,8 @@ const handleCloseGame = async () => {
   });
   if (shouldClose) {
     await withLoading(async () => {
-      const success = await closeGame();
-      if (success) {
+      const closeSuccess = await closeGame();
+      if (closeSuccess) {
         router.push('/lobby');
       }
     }, t('loading.closing'));
