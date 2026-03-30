@@ -45,6 +45,7 @@
     "password": "密码",
     "displayName": "昵称",
     "guestLogin": "访客试用 (免注册)",
+    "lineLogin": "LINE 登录",
     "backToLogin": "返回登录",
     "registerAccount": "注册账号",
     "guest": "访客",
@@ -300,5 +301,20 @@
       "tooManyCommunityCards": "公共牌最多 5 张",
       "tooManyPlayerCards": "手牌最多 2 张"
     }
+  },
+  "transaction": {
+    "log": "操作历程",
+    "noRecords": "尚无买入记录",
+    "buyInFor": "帮人买入",
+    "selectPlayer": "选择玩家",
+    "amount": "金额",
+    "selfBuyIn": "买入",
+    "helpBuyIn": "帮 ... 买入",
+    "undid": "撤销了",
+    "confirmUndo": "确定要撤销这笔买入吗？",
+    "buyInSuccess": "买入成功",
+    "undoSuccess": "已撤销",
+    "previewSelf": "我要买入 ${amount}",
+    "previewOther": "我帮 {target} 买入 ${amount}"
   }
 }

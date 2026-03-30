@@ -4,6 +4,7 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signInAnonymously, 
+  signInWithCustomToken,
   signOut, 
   updateProfile,
   onAuthStateChanged,
@@ -11,6 +12,7 @@ import {
   linkWithCredential
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { auth, db } from '../../firebase-init.js';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -154,6 +156,29 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
+  /**
+   * Login with LINE (LIFF access token → Cloud Function → Firebase Custom Token)
+   */
+  const loginWithLine = async (accessToken) => {
+    loading.value = true;
+    error.value = '';
+    try {
+      const functions = getFunctions();
+      const lineLoginFn = httpsCallable(functions, 'lineLogin');
+      const { data } = await lineLoginFn({ accessToken });
+
+      await signInWithCustomToken(auth, data.customToken);
+      user.value = auth.currentUser;
+      return true;
+    } catch (err) {
+      console.error('LINE login error:', err);
+      error.value = 'LINE login failed: ' + err.message;
+      return false;
+    } finally {
+      loading.value = false;
+    }
+  };
+
   return {
     user,
     loading,
@@ -165,6 +190,7 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     login,
     guestLogin,
+    loginWithLine,
     logout,
     updateGuestDisplayName,
     linkEmailToGuest

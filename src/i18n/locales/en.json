@@ -45,6 +45,7 @@
     "password": "Password",
     "displayName": "Display Name",
     "guestLogin": "Guest Login (No Registration)",
+    "lineLogin": "Login with LINE",
     "backToLogin": "Back to Login",
     "registerAccount": "Register Account",
     "guest": "Guest",
@@ -300,5 +301,20 @@
       "tooManyCommunityCards": "Max 5 community cards",
       "tooManyPlayerCards": "Max 2 player cards"
     }
+  },
+  "transaction": {
+    "log": "Transaction Log",
+    "noRecords": "No buy-in records yet",
+    "buyInFor": "Buy-in for Player",
+    "selectPlayer": "Select Player",
+    "amount": "Amount",
+    "selfBuyIn": "bought in",
+    "helpBuyIn": "bought in for",
+    "undid": "undid",
+    "confirmUndo": "Are you sure you want to undo this buy-in?",
+    "buyInSuccess": "Buy-in recorded",
+    "undoSuccess": "Undone",
+    "previewSelf": "I'm buying in for ${amount}",
+    "previewOther": "I'm buying in {target} for ${amount}"
   }
 }

@@ -26,6 +26,10 @@ export function useAuth() {
     return await authStore.guestLogin();
   };
 
+  const loginWithLine = async (accessToken) => {
+    return await authStore.loginWithLine(accessToken);
+  };
+
   const logout = async () => {
     return await authStore.logout();
   };
@@ -48,6 +52,7 @@ export function useAuth() {
     register,
     login,
     guestLogin,
+    loginWithLine,
     logout,
     updateGuestDisplayName,
     linkEmailToGuest

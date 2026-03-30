@@ -35,6 +35,12 @@ import {
 import {
   handleRoomAutoCloseHttp,
 } from './handlers/roomTasks.js';
+import { lineLogin as lineLoginHandler } from './handlers/lineAuth.js';
+import {
+  recordBuyIn as recordBuyInHandler,
+  undoBuyIn as undoBuyInHandler,
+  getTransactionLog as getTransactionLogHandler,
+} from './handlers/transaction.js';
 
 // Initialize Firebase Admin
 initializeApp();
@@ -522,6 +528,92 @@ export const handleRoomAutoClose = onRequest(
   { cors: true, region: 'us-central1' },
   handleRoomAutoCloseHttp,
 );
+
+// ============================================
+// LINE Integration Endpoints
+// ============================================
+
+/**
+ * LINE Login — verify LINE access token and return Firebase Custom Token
+ */
+export const lineLogin = onCall(async (request) => {
+  try {
+    const { accessToken } = request.data;
+    const result = await lineLoginHandler(accessToken);
+    return result;
+  } catch (error) {
+    console.error('Error in lineLogin:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+// ============================================
+// Transaction Endpoints (Buy-in Audit Trail)
+// ============================================
+
+/**
+ * Record a buy-in transaction (with "who did it for whom")
+ */
+export const recordBuyInTx = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId, targetUid, targetName, amount, type } = request.data;
+    const actionUid = request.auth.uid;
+    const actionName = request.auth.token.name || 'Player';
+
+    const result = await recordBuyInHandler(
+      { gameId, targetUid, targetName, amount, type },
+      actionUid,
+      actionName,
+    );
+    return { success: true, ...result };
+  } catch (error) {
+    console.error('Error recording buy-in:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Undo a buy-in transaction
+ */
+export const undoBuyInTx = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { txId } = request.data;
+    const callerUid = request.auth.uid;
+    const callerName = request.auth.token.name || 'Player';
+
+    const result = await undoBuyInHandler(txId, callerUid, callerName);
+    return { success: true, ...result };
+  } catch (error) {
+    console.error('Error undoing buy-in:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Get transaction log for a game
+ */
+export const getTransactionLog = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { gameId } = request.data;
+    const log = await getTransactionLogHandler(gameId);
+    return { success: true, transactions: log };
+  } catch (error) {
+    console.error('Error getting transaction log:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
 
 /**
  * Firestore trigger to manage turn timeout tasks

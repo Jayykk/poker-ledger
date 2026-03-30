@@ -31,6 +31,13 @@ A modern, progressive web application for tracking and synchronizing poker game 
 - 💱 **Multi-currency Support** - Track in TWD, USD, CNY, or JPY
 - 📜 **Rebuy History** - Complete tracking of all rebuys during a session
 
+### LINE Integration
+- 📱 **LINE Login** - Sign in with LINE account via LIFF SDK
+- 💬 **Chat Room Messages** - Send buy-in/settlement notifications to LINE chat via `liff.sendMessages()`
+- 🔗 **Game Invites** - Share game links to LINE friends/groups with `shareTargetPicker`
+- 📒 **Transaction Audit** - Full buy-in history with "who did it for whom" tracking
+- ↩️ **Undo Support** - Reverse buy-in transactions with audit trail
+
 ### Internationalization
 - 🌍 **Multi-language Support**
   - 繁體中文 (Traditional Chinese)
@@ -60,7 +67,8 @@ A modern, progressive web application for tracking and synchronizing poker game 
 - **Routing**: Vue Router 4
 - **Internationalization**: vue-i18n
 - **Database**: Firebase Firestore
-- **Authentication**: Firebase Auth
+- **Authentication**: Firebase Auth (Email/Password, Anonymous, LINE Login)
+- **LINE Integration**: LIFF SDK v2
 - **Charts**: Chart.js 4
 - **Styling**: Tailwind CSS 3
 - **Icons**: Font Awesome 6
@@ -92,17 +100,30 @@ pnpm install
 - Enable Authentication (Email/Password and Anonymous)
 - Enable Firestore Database
 
-4. Run development server:
+4. (Optional) Configure LINE LIFF:
+- Create a LINE Login Channel in [LINE Developers Console](https://developers.line.biz/)
+- Create a LIFF App (Size: Full) pointing to your app URL
+- Copy the LIFF ID into `.env`:
+  ```bash
+  VITE_LIFF_ID=your-liff-id
+  ```
+- Copy Channel ID/Secret into `functions/.env`:
+  ```bash
+  LINE_CHANNEL_ID=your-channel-id
+  LINE_CHANNEL_SECRET=your-channel-secret
+  ```
+
+5. Run development server:
 ```bash
 npm run dev
 ```
 
-5. Build for production:
+6. Build for production:
 ```bash
 npm run build
 ```
 
-6. Preview production build:
+7. Preview production build:
 ```bash
 npm run preview
 ```
@@ -309,7 +330,8 @@ firebase deploy --only firestore:rules
 - `/pokerGames/{gameId}` - 遊戲房間資訊
 - `/pokerGames/{gameId}/hands/{handId}` - 每手牌記錄
 - `/pokerGames/{gameId}/private/{userId}` - 玩家私密手牌
-- `/pokerGames/{gameId}/events/{eventId}` - 遊戲事件記錄 (actions, shownCards, spectators)
+- `/pokerGames/{gameId}/events/{eventId}` - 遊戲事件記錄
+- `/transactions/{txId}` - 買入交易歷程（含代操作、撤銷審計）
 
 ### 數據遷移 (Data Migration)
 
@@ -363,5 +385,5 @@ For issues, questions, or suggestions, please open an issue on GitHub.
 ---
 
 **Version**: 10.0.0  
-**Last Updated**: December 2024  
+**Last Updated**: March 2026  
 **Author**: Jayykk
