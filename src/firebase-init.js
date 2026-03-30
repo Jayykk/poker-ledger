@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, setPersistence, inMemoryPersistence, browserLocalPersistence } from 'firebase/auth';
+import { initializeAuth, browserLocalPersistence } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache } from 'firebase/firestore';
 
 // Detect LINE's in-app browser (blocks IndexedDB / BroadcastChannel)
@@ -19,20 +19,12 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export { app }; // Export app for Functions
+export { app };
 
-// Force localStorage-based persistence to avoid IndexedDB timeout issues.
-// LINE browser uses inMemoryPersistence instead (it has issues with IndexedDB).
-if (isLineClient) {
-  setPersistence(auth, inMemoryPersistence).catch(e =>
-    console.warn('Failed to set auth persistence for LINE:', e)
-  );
-} else {
-  setPersistence(auth, browserLocalPersistence).catch(e =>
-    console.warn('Failed to set auth persistence:', e)
-  );
-}
+// 直接用 initializeAuth 並強制 browserLocalPersistence，完全繞開 IndexedDB 問題
+export const auth = initializeAuth(app, {
+  persistence: browserLocalPersistence
+});
 
 // Firestore: same issue — use memory cache in LINE browser.
 let db;
