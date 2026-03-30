@@ -8,18 +8,22 @@
     <!-- Global loading overlay -->
     <LoadingSpinner v-if="globalLoading" fullScreen :text="loadingText" />
     
-    <!-- Initial loading with debug info -->
+    <!-- Initial loading -->
     <div v-else-if="loading" class="fixed inset-0 flex flex-col items-center justify-center bg-slate-900 z-50">
       <LoadingSpinner fullScreen />
-      <!-- Debug panel: visible in LIFF or with ?debug=1 -->
-      <div v-if="debugLogs.length" class="fixed bottom-0 left-0 right-0 max-h-[40vh] overflow-y-auto bg-black/90 text-xs text-green-400 font-mono p-3 z-[9999]">
-        <div class="flex justify-between items-center mb-1">
-          <span class="text-yellow-400 font-bold">🔧 LIFF Debug</span>
+    </div>
+
+    <!-- Debug panel: always visible when logs exist (independent of loading state) -->
+    <div v-if="showDebugPanel && debugLogs.length" class="fixed bottom-0 left-0 right-0 max-h-[40vh] overflow-y-auto bg-black/90 text-xs text-green-400 font-mono p-3 z-[9999]">
+      <div class="flex justify-between items-center mb-1">
+        <span class="text-yellow-400 font-bold">🔧 LIFF Debug</span>
+        <div class="flex items-center gap-2">
           <span class="text-gray-500">{{ debugLogs.length }} logs</span>
+          <button @click="showDebugPanel = false" class="text-gray-500 hover:text-white">[X]</button>
         </div>
-        <div v-for="(log, i) in debugLogs" :key="i" :class="log.startsWith('❌') ? 'text-red-400' : log.startsWith('✅') ? 'text-emerald-400' : 'text-green-400'">
-          {{ log }}
-        </div>
+      </div>
+      <div v-for="(log, i) in debugLogs" :key="i" :class="log.includes('❌') ? 'text-red-400' : log.includes('✅') ? 'text-emerald-400' : log.includes('⚠️') ? 'text-yellow-300' : 'text-green-400'">
+        {{ log }}
       </div>
     </div>
     
@@ -204,6 +208,7 @@ const { isInLineClient, isLoggedIn: liffLoggedIn, initLiff, getAccessToken, clos
 
 const loading = ref(true);
 const debugLogs = ref([]);
+const showDebugPanel = ref(true);
 const theme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
 const pendingInvite = ref(null);
 const inviteProcessedInMount = ref(false);
@@ -402,14 +407,18 @@ onMounted(async () => {
           dbg(`⏳ loginWithLine (token=${token.substring(0, 8)}...)...`);
           try {
             const success = await withTimeout(authStore.loginWithLine(token), 15000, 'loginWithLine');
-            dbg(success ? `✅ LINE login success: ${authStore.user?.displayName}` : '❌ LINE login returned false');
+            dbg(success ? `✅ LINE login success: ${authStore.user?.displayName}` : `❌ LINE login returned false: ${authStore.error}`);
           } catch (err) {
             dbg(`❌ LINE login failed: ${err.message}`);
+            if (err.code) dbg(`   code=${err.code}`);
+            if (err.details) dbg(`   details=${JSON.stringify(err.details)}`);
           }
         } else {
           dbg('❌ No LIFF access token available');
         }
       }
+    } else {
+      dbg(`ℹ️ LIFF not logged in (loggedIn=${liffLoggedIn.value}, inClient=${isInLineClient.value})`);
     }
     
     // Step 4: Route decision
