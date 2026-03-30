@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache } from 'firebase/firestore';
 
 // Firebase configuration
 // Note: These credentials are safe to expose in client-side code as they identify
@@ -19,9 +19,22 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export { app }; // Export app for Functions
 
-// Use the new persistence API instead of deprecated enableIndexedDbPersistence
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-});
+// LINE's in-app browser may have issues with IndexedDB/BroadcastChannel
+// used by persistentMultipleTabManager, so fall back to memory cache.
+let db;
+try {
+  const isLineClient = /Line\//i.test(navigator.userAgent);
+  if (isLineClient) {
+    db = initializeFirestore(app, { localCache: memoryLocalCache() });
+  } else {
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    });
+  }
+} catch (e) {
+  console.warn('Firestore persistent cache failed, using memory cache:', e);
+  db = initializeFirestore(app, { localCache: memoryLocalCache() });
+}
+export { db };
