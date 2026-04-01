@@ -235,7 +235,7 @@ const route = useRoute();
 const { user, displayName } = useAuth();
 const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer, addPlayer, updatePlayer, removePlayer, bindSeat, settleGame, closeGame, checkGameStatus, joinAsNewPlayer, joinGameListener } = useGame();
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
-const { transactions, txLoading, txError, startListening: startTxListening, stopListening: stopTxListening, recordBuyIn, recordAction, recordDirect, undoBuyIn } = useTransactions(gameId);
+const { transactions, txLoading, txError, listenerReady, startListening: startTxListening, stopListening: stopTxListening, recordBuyIn, recordAction, recordDirect, undoBuyIn } = useTransactions(gameId);
 const { sendBuyInMessage, sendUndoMessage, sendSettlementMessage, shareGameInvite, isInLineClient, isInitialized: liffReady } = useLiff();
 const { success, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
@@ -298,9 +298,11 @@ watch(() => gameId.value, (newGameId) => {
 // This ensures the transaction log isn't empty for games created before transaction tracking
 let initialBuyInsRecorded = false;
 watch(
-  [() => gameId.value, () => game.value, transactions],
-  async ([gid, g, txList]) => {
+  [() => gameId.value, () => game.value, transactions, listenerReady],
+  async ([gid, g, txList, ready]) => {
     if (!gid || !g || !g.players || initialBuyInsRecorded) return;
+    // Wait until the listener has received its initial snapshot
+    if (!ready) return;
     // If transactions already exist, no need to record initial buy-ins
     if (txList.length > 0) {
       initialBuyInsRecorded = true;
@@ -308,13 +310,6 @@ watch(
     }
     // If there's an error with the listener, don't try to record
     if (txError.value) {
-      initialBuyInsRecorded = true;
-      return;
-    }
-    // Use a short delay to allow the listener to receive existing data
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    // Re-check after delay (transactions may have loaded)
-    if (transactions.value.length > 0 || txError.value) {
       initialBuyInsRecorded = true;
       return;
     }

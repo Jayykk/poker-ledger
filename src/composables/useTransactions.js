@@ -9,13 +9,14 @@ import { useAuth } from './useAuth.js';
  * Real-time listener on the `transactions` collection filtered by gameId.
  *
  * Writes transactions directly to Firestore for reliability.
- * Falls back to Cloud Functions if direct writes fail.
+ * Tries Cloud Functions first; falls back to direct Firestore writes.
  */
 export function useTransactions(gameIdRef) {
   const { user, displayName } = useAuth();
   const transactions = ref([]);
   const txLoading = ref(false);
   const txError = ref('');
+  const listenerReady = ref(false);
 
   let unsubscribe = null;
   const functions = getFunctions();
@@ -30,6 +31,7 @@ export function useTransactions(gameIdRef) {
   // Real-time listener
   const startListening = (gameId) => {
     stopListening();
+    listenerReady.value = false;
     if (!gameId) return;
 
     const q = query(
@@ -46,9 +48,11 @@ export function useTransactions(gameIdRef) {
         timestamp: d.data().timestamp?.toMillis?.() || d.data().timestamp || Date.now(),
       }));
       txError.value = '';
+      listenerReady.value = true;
     }, (err) => {
       console.error('[useTransactions] snapshot error:', err);
       txError.value = err.message;
+      listenerReady.value = true;
     });
   };
 
@@ -263,7 +267,7 @@ export function useTransactions(gameIdRef) {
           targetName: txData.targetName,
           actionUid: user.value?.uid || null,
           actionName: displayName.value || 'Player',
-          amount: -(txData.amount || 0),
+          amount: -(txData.amount || 0) || 0,
           type: 'undo',
           status: 'active',
           undoneBy: null,
@@ -310,6 +314,7 @@ export function useTransactions(gameIdRef) {
     activeTransactions,
     txLoading,
     txError,
+    listenerReady,
     startListening,
     stopListening,
     playerTotalBuyIn,
