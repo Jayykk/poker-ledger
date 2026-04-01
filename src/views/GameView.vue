@@ -133,7 +133,7 @@
           <div class="text-white font-mono text-xl text-center mb-2">{{ editingPlayer?.buyIn }}</div>
           <div class="flex gap-2 items-center justify-center">
             <BaseButton @click="decrementBuyInGroup" size="sm">-</BaseButton>
-            <span class="text-white font-mono text-lg px-4">{{ buyInGroups }}</span>
+            <span class="text-white font-mono text-lg px-4">{{ buyInGroups }} {{ $t('game.buyInGroups') }}</span>
             <BaseButton @click="incrementBuyInGroup" size="sm">+</BaseButton>
           </div>
         </div>
@@ -307,19 +307,22 @@ const sortedPlayers = computed(() => {
 const buyInGroups = computed(() => {
   if (!editingPlayer.value) return 0;
   const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
-  return Math.round(editingPlayer.value.buyIn / baseBuyIn);
+  return Math.floor(editingPlayer.value.buyIn / baseBuyIn);
 });
 
 const incrementBuyInGroup = () => {
   if (!editingPlayer.value) return;
   const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
-  editingPlayer.value.buyIn += baseBuyIn;
+  // Align to next full group
+  const currentGroups = Math.floor(editingPlayer.value.buyIn / baseBuyIn);
+  editingPlayer.value.buyIn = (currentGroups + 1) * baseBuyIn;
 };
 
 const decrementBuyInGroup = () => {
   if (!editingPlayer.value) return;
   const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
-  editingPlayer.value.buyIn = Math.max(baseBuyIn, editingPlayer.value.buyIn - baseBuyIn);
+  const currentGroups = Math.floor(editingPlayer.value.buyIn / baseBuyIn);
+  editingPlayer.value.buyIn = Math.max(baseBuyIn, (currentGroups > 1 ? currentGroups - 1 : 1) * baseBuyIn);
 };
 
 const incrementNewPlayerBuyIn = () => {
