@@ -56,6 +56,8 @@
       <TransactionLog
         :transactions="transactions"
         :host-uid="game.hostUid"
+        :error="txError"
+        :loading="txLoading"
         @undo="handleUndoBuyIn"
       />
     </div>
@@ -233,7 +235,7 @@ const route = useRoute();
 const { user, displayName } = useAuth();
 const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer, addPlayer, updatePlayer, removePlayer, bindSeat, settleGame, closeGame, checkGameStatus, joinAsNewPlayer, joinGameListener } = useGame();
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
-const { transactions, txLoading, txError, startListening: startTxListening, stopListening: stopTxListening, recordBuyIn, recordAction, undoBuyIn } = useTransactions(gameId);
+const { transactions, txLoading, txError, startListening: startTxListening, stopListening: stopTxListening, recordBuyIn, recordAction, recordDirect, undoBuyIn } = useTransactions(gameId);
 const { sendBuyInMessage, sendUndoMessage, sendSettlementMessage, shareGameInvite, isInLineClient, isInitialized: liffReady } = useLiff();
 const { success, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
@@ -291,6 +293,47 @@ watch(() => gameId.value, (newGameId) => {
     cleanupHands();
   }
 }, { immediate: true });
+
+// Record initial buy-in transactions for existing players when game first loads
+// This ensures the transaction log isn't empty for games created before transaction tracking
+let initialBuyInsRecorded = false;
+watch(
+  [() => gameId.value, () => game.value, transactions],
+  async ([gid, g, txList]) => {
+    if (!gid || !g || !g.players || initialBuyInsRecorded) return;
+    // If transactions already exist, no need to record initial buy-ins
+    if (txList.length > 0) {
+      initialBuyInsRecorded = true;
+      return;
+    }
+    // If there's an error with the listener, don't try to record
+    if (txError.value) {
+      initialBuyInsRecorded = true;
+      return;
+    }
+    // Use a short delay to allow the listener to receive existing data
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Re-check after delay (transactions may have loaded)
+    if (transactions.value.length > 0 || txError.value) {
+      initialBuyInsRecorded = true;
+      return;
+    }
+    initialBuyInsRecorded = true;
+    // Record initial buy-in for each player using direct write (no CF)
+    // to avoid doubling the buyIn in the game's players array
+    for (const player of g.players) {
+      if (player.buyIn > 0) {
+        await recordDirect(
+          player.uid || null,
+          player.name,
+          'buy_in',
+          player.buyIn,
+        );
+      }
+    }
+  },
+  { immediate: true },
+);
 
 // Reset newPlayerBuyIn when add player modal opens
 watch(() => showAddPlayer.value, (isOpen) => {
@@ -419,6 +462,12 @@ const handleAddBuy = async (player) => {
   const buyInAmount = game.value?.baseBuyIn || 2000;
   const result = await recordBuyIn(player.uid || null, player.name, buyInAmount, 'buy_in');
   if (result) {
+    // If the transaction was recorded via fallback (direct write),
+    // we also need to update the player's buyIn in the game document
+    if (result.fallback) {
+      const updatedPlayer = { ...player, buyIn: (player.buyIn || 0) + buyInAmount };
+      await updatePlayer(updatedPlayer);
+    }
     success(t('transaction.buyInSuccess'));
     sendBuyInMessage(displayName.value, player.name, buyInAmount, game.value?.name);
   }
@@ -433,6 +482,16 @@ const handleUndoBuyIn = async (tx) => {
   if (shouldUndo) {
     const result = await undoBuyIn(tx.txId);
     if (result) {
+      // If undo was via fallback, update the player's buyIn directly
+      if (result.fallback && tx.targetName) {
+        const player = game.value?.players?.find(
+          p => tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName
+        );
+        if (player) {
+          const updatedPlayer = { ...player, buyIn: Math.max(0, (player.buyIn || 0) - Math.abs(tx.amount || 0)) };
+          await updatePlayer(updatedPlayer);
+        }
+      }
       success(t('transaction.undoSuccess'));
       sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount), game.value?.name);
     }
