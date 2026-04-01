@@ -237,7 +237,6 @@ const isPokerTableRoute = computed(() => {
 const hideBottomNav = computed(() => {
   if (!isAuthenticated.value || route.path === '/login') return true;
   if (route.path.startsWith('/poker-game')) return true;
-  if (isLiffMode.value) return true;
   return false;
 });
 
