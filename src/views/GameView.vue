@@ -46,9 +46,6 @@
       <BaseButton v-if="liffReady" @click="handleShareToLine" variant="ghost" size="sm" class="!text-[#06C755]">
         <i class="fab fa-line mr-1"></i>{{ $t('game.shareToLine') }}
       </BaseButton>
-      <BaseButton @click="showBuyInModal = true" variant="ghost" size="sm">
-        <i class="fas fa-hand-holding-usd mr-1"></i>{{ $t('transaction.buyInFor') }}
-      </BaseButton>
       <BaseButton @click="showSettlement = true" variant="secondary">
         {{ $t('game.settlement') }}
       </BaseButton>
@@ -132,18 +129,22 @@
       
       <div class="space-y-4">
         <div>
-          <label class="text-xs text-gray-400 block mb-2">{{ $t('game.buyIn') }}</label>
-          <div class="flex gap-2 items-center">
-            <BaseButton @click="editingPlayer.buyIn = Math.max(MIN_BUY_IN, editingPlayer.buyIn - CHIP_STEP)" size="sm">-</BaseButton>
-            <span class="text-white font-mono flex-1 text-center">{{ editingPlayer?.buyIn }}</span>
-            <BaseButton @click="editingPlayer.buyIn += CHIP_STEP" size="sm">+</BaseButton>
+          <label class="text-xs text-gray-400 block mb-2">{{ $t('game.buyInChips') }}</label>
+          <div class="text-white font-mono text-xl text-center mb-2">{{ editingPlayer?.buyIn }}</div>
+          <div class="flex gap-2 items-center justify-center">
+            <BaseButton @click="decrementBuyInGroup" size="sm">-</BaseButton>
+            <span class="text-white font-mono text-lg px-4">{{ buyInGroups }} {{ $t('game.buyInGroups') }}</span>
+            <BaseButton @click="incrementBuyInGroup" size="sm">+</BaseButton>
           </div>
         </div>
-        <BaseInput
-          v-model.number="editingPlayer.stack"
-          type="number"
-          :label="$t('game.stack')"
-        />
+        <div>
+          <label class="text-xs text-gray-400 block mb-2">{{ $t('game.settlementChips') }}</label>
+          <BaseInput
+            v-model.number="editingPlayer.stack"
+            type="number"
+            :placeholder="$t('game.settlementPlaceholder')"
+          />
+        </div>
         <BaseButton @click="handleSavePlayer" variant="secondary" fullWidth>
           {{ $t('common.save') }}
         </BaseButton>
@@ -198,15 +199,6 @@
       v-model="showHandDetail"
       :hand="selectedHand"
     />
-
-    <!-- Buy-In For Player Modal -->
-    <BuyInModal
-      v-model="showBuyInModal"
-      :players="game.players"
-      :base-buy-in="game.baseBuyIn || 2000"
-      :loading="txLoading"
-      @confirm="handleBuyInForPlayer"
-    />
   </div>
 </template>
 
@@ -228,7 +220,6 @@ import BaseModal from '../components/common/BaseModal.vue';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import PlayerCard from '../components/game/PlayerCard.vue';
 import TransactionLog from '../components/game/TransactionLog.vue';
-import BuyInModal from '../components/game/BuyInModal.vue';
 import HandRecordSheet from '../components/game/HandRecordSheet.vue';
 import HandHistoryList from '../components/game/HandHistoryList.vue';
 import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
@@ -251,7 +242,6 @@ const { withLoading } = useLoading();
 const showAddPlayer = ref(false);
 const showEditPlayer = ref(false);
 const showSettlement = ref(false);
-const showBuyInModal = ref(false);
 const showHandRecord = ref(false);
 const showHandDetail = ref(false);
 const newPlayerName = ref('');
@@ -313,6 +303,27 @@ const sortedPlayers = computed(() => {
   if (!game.value) return [];
   return [...game.value.players].sort((a, b) => calculateNet(b) - calculateNet(a));
 });
+
+const buyInGroups = computed(() => {
+  if (!editingPlayer.value) return 0;
+  const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
+  return Math.floor(editingPlayer.value.buyIn / baseBuyIn);
+});
+
+const incrementBuyInGroup = () => {
+  if (!editingPlayer.value) return;
+  const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
+  // Align to next full group
+  const currentGroups = Math.floor(editingPlayer.value.buyIn / baseBuyIn);
+  editingPlayer.value.buyIn = (currentGroups + 1) * baseBuyIn;
+};
+
+const decrementBuyInGroup = () => {
+  if (!editingPlayer.value) return;
+  const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
+  const currentGroups = Math.floor(editingPlayer.value.buyIn / baseBuyIn);
+  editingPlayer.value.buyIn = Math.max(baseBuyIn, (currentGroups > 1 ? currentGroups - 1 : 1) * baseBuyIn);
+};
 
 const incrementNewPlayerBuyIn = () => {
   newPlayerBuyIn.value = (newPlayerBuyIn.value || 0) + CHIP_STEP;
@@ -409,18 +420,7 @@ const handleAddBuy = async (player) => {
   const result = await recordBuyIn(player.uid || null, player.name, buyInAmount, 'buy_in');
   if (result) {
     success(t('transaction.buyInSuccess'));
-    sendBuyInMessage(displayName.value, player.name, buyInAmount);
-  }
-};
-
-/** Buy-in for another player (via BuyInModal) with transaction tracking */
-const handleBuyInForPlayer = async ({ targetUid, targetName, amount }) => {
-  const result = await recordBuyIn(targetUid, targetName, amount, 'buy_in');
-  if (result) {
-    showBuyInModal.value = false;
-    success(t('transaction.buyInSuccess'));
-    // Send LINE message from user's own name (free, no quota)
-    sendBuyInMessage(displayName.value, targetName, amount);
+    sendBuyInMessage(displayName.value, player.name, buyInAmount, game.value?.name);
   }
 };
 
@@ -434,7 +434,7 @@ const handleUndoBuyIn = async (tx) => {
     const result = await undoBuyIn(tx.txId);
     if (result) {
       success(t('transaction.undoSuccess'));
-      sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount));
+      sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount), game.value?.name);
     }
   }
 };

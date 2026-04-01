@@ -106,14 +106,16 @@ const sendMessages = async (messages) => {
 /**
  * Send a buy-in notification to the current LINE chat (Flex Message)
  */
-const sendBuyInMessage = async (actionName, targetName, amount) => {
+const sendBuyInMessage = async (actionName, targetName, amount, roomName) => {
   const isSelf = actionName === targetName;
+  const roomLabel = roomName ? `${roomName} ` : '';
   const altText = isSelf
-    ? `💰 ${actionName} 買入了 $${amount}`
-    : `💰 ${actionName} 幫 ${targetName} 買入了 $${amount}`;
+    ? `💰 ${roomLabel}${actionName} 買入了 $${amount}`
+    : `💰 ${roomLabel}${actionName} 幫 ${targetName} 買入了 $${amount}`;
   const titleText = isSelf
     ? `${actionName} 自己買入`
     : `${actionName} 幫 ${targetName} 買入`;
+  const notificationTitle = `💰 ${roomLabel}買入通知`;
 
   return sendMessages([{
     type: 'flex',
@@ -126,7 +128,7 @@ const sendBuyInMessage = async (actionName, targetName, amount) => {
         contents: [
           {
             type: 'text',
-            text: '💰 買入通知',
+            text: notificationTitle,
             weight: 'bold',
             color: '#00B900',
             size: 'sm',
@@ -155,8 +157,10 @@ const sendBuyInMessage = async (actionName, targetName, amount) => {
 /**
  * Send an undo notification to the current LINE chat (Flex Message)
  */
-const sendUndoMessage = async (actionName, targetName, amount) => {
-  const altText = `↩️ ${actionName} 撤銷了 ${targetName} 的一筆 $${amount} 買入`;
+const sendUndoMessage = async (actionName, targetName, amount, roomName) => {
+  const roomLabel = roomName ? `${roomName} ` : '';
+  const altText = `↩️ ${roomLabel}${actionName} 撤銷了 ${targetName} 的一筆 $${amount} 買入`;
+  const notificationTitle = `↩️ ${roomLabel}撤銷通知`;
 
   return sendMessages([{
     type: 'flex',
@@ -169,7 +173,7 @@ const sendUndoMessage = async (actionName, targetName, amount) => {
         contents: [
           {
             type: 'text',
-            text: '↩️ 撤銷通知',
+            text: notificationTitle,
             weight: 'bold',
             color: '#FF4444',
             size: 'sm',
