@@ -4,7 +4,15 @@
       <i class="fas fa-history mr-1"></i>{{ $t('transaction.log') }}
     </h3>
 
-    <div v-if="transactions.length === 0" class="text-center text-gray-500 text-sm py-4">
+    <div v-if="error" class="text-center text-rose-400 text-xs py-2 mb-2">
+      <i class="fas fa-exclamation-triangle mr-1"></i>{{ error }}
+    </div>
+
+    <div v-if="loading" class="text-center text-gray-500 text-sm py-4">
+      <i class="fas fa-spinner fa-spin mr-1"></i>{{ $t('loading.loading') }}
+    </div>
+
+    <div v-else-if="transactions.length === 0" class="text-center text-gray-500 text-sm py-4">
       {{ $t('transaction.noRecords') }}
     </div>
 
@@ -93,6 +101,8 @@ const { user } = useAuth();
 const props = defineProps({
   transactions: { type: Array, default: () => [] },
   hostUid: { type: String, default: '' },
+  error: { type: String, default: '' },
+  loading: { type: Boolean, default: false },
 });
 
 defineEmits(['undo']);

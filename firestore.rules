@@ -91,9 +91,14 @@ service cloud.firestore {
       // Authenticated users can read transactions for games they're in
       allow read: if isAuthenticated();
       
-      // Only Cloud Functions should write transactions
-      // (callable functions run with admin SDK, bypassing rules)
-      allow write: if false;
+      // Allow authenticated users to create transactions
+      // Also allow Cloud Functions via admin SDK (bypasses rules)
+      allow create: if isAuthenticated();
+      
+      // Only allow updates to mark transactions as undone
+      allow update: if isAuthenticated()
+        && request.resource.data.status == 'undone'
+        && resource.data.status == 'active';
     }
     
     // ============================================
