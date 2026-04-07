@@ -1,5 +1,6 @@
 import { ref, readonly } from 'vue';
 import liff from '@line/liff';
+import { STORAGE_KEYS } from '../utils/constants.js';
 
 const LIFF_ID = import.meta.env.VITE_LIFF_ID || '';
 // LINE Flex Message altText is limited; truncate settlement reports for the preview
@@ -10,6 +11,11 @@ const isInLineClient = ref(false);
 const isLoggedIn = ref(false);
 const lineProfile = ref(null);
 const liffError = ref('');
+
+// LINE push notification flag (default: enabled)
+const lineNotifyEnabled = ref(
+  localStorage.getItem(STORAGE_KEYS.LINE_NOTIFY_ENABLED) !== 'false'
+);
 
 // Cached promise to prevent double-init race condition
 let _initPromise = null;
@@ -107,6 +113,7 @@ const sendMessages = async (messages) => {
  * Send a buy-in notification to the current LINE chat (Flex Message)
  */
 const sendBuyInMessage = async (actionName, targetName, amount, roomName) => {
+  if (!lineNotifyEnabled.value) return false;
   const isSelf = actionName === targetName;
   const roomLabel = roomName ? `${roomName} ` : '';
   const altText = isSelf
@@ -158,6 +165,7 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName) => {
  * Send an undo notification to the current LINE chat (Flex Message)
  */
 const sendUndoMessage = async (actionName, targetName, amount, roomName) => {
+  if (!lineNotifyEnabled.value) return false;
   const roomLabel = roomName ? `${roomName} ` : '';
   const altText = `↩️ ${roomLabel}${actionName} 撤銷了 ${targetName} 的一筆 $${amount} 買入`;
   const notificationTitle = `↩️ ${roomLabel}撤銷通知`;
@@ -203,6 +211,7 @@ const sendUndoMessage = async (actionName, targetName, amount, roomName) => {
  * Send settlement report to the current LINE chat (Flex Message)
  */
 const sendSettlementMessage = async (reportText) => {
+  if (!lineNotifyEnabled.value) return false;
   const altText = `🎲 結算報表\n${reportText.slice(0, MAX_ALT_TEXT_LENGTH)}`;
 
   return sendMessages([{
@@ -264,6 +273,14 @@ const closeLiff = () => {
   }
 };
 
+/**
+ * Toggle LINE push notification on/off
+ */
+const toggleLineNotify = () => {
+  lineNotifyEnabled.value = !lineNotifyEnabled.value;
+  localStorage.setItem(STORAGE_KEYS.LINE_NOTIFY_ENABLED, String(lineNotifyEnabled.value));
+};
+
 export function useLiff() {
   return {
     isInitialized: readonly(isInitialized),
@@ -271,6 +288,7 @@ export function useLiff() {
     isLoggedIn: readonly(isLoggedIn),
     lineProfile: readonly(lineProfile),
     liffError: readonly(liffError),
+    lineNotifyEnabled: readonly(lineNotifyEnabled),
     initLiff,
     loginWithLiff,
     getAccessToken,
@@ -281,5 +299,6 @@ export function useLiff() {
     sendSettlementMessage,
     shareGameInvite,
     closeLiff,
+    toggleLineNotify,
   };
 }

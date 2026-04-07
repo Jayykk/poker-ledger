@@ -70,6 +70,7 @@ export const STORAGE_KEYS = {
   LANGUAGE: 'poker_language',
   SOUND_ENABLED: 'poker_sound_enabled',
   NOTIFICATIONS_ENABLED: 'poker_notifications_enabled',
+  LINE_NOTIFY_ENABLED: 'line_notify_enabled',
   PENDING_INVITE: 'pending_invite'
 };
 

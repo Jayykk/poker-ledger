@@ -50,6 +50,9 @@ export async function lineLogin(accessToken) {
     throw new Error('LINE profile missing userId');
   }
 
+  // Use the small-size CDN image for avatar to reduce bandwidth
+  const smallPictureUrl = pictureUrl ? `${pictureUrl}/small` : '';
+
   // 2. Derive a stable Firebase UID from the LINE userId
   const firebaseUid = `line_${userId}`;
 
@@ -58,14 +61,14 @@ export async function lineLogin(accessToken) {
   try {
     await auth.updateUser(firebaseUid, {
       displayName,
-      photoURL: pictureUrl || undefined,
+      photoURL: smallPictureUrl || undefined,
     });
   } catch (err) {
     if (err.code === 'auth/user-not-found') {
       await auth.createUser({
         uid: firebaseUid,
         displayName,
-        photoURL: pictureUrl || undefined,
+        photoURL: smallPictureUrl || undefined,
       });
     } else {
       throw err;
@@ -78,7 +81,7 @@ export async function lineLogin(accessToken) {
   await userRef.set(
     {
       name: displayName,
-      avatarUrl: pictureUrl || '',
+      avatarUrl: smallPictureUrl,
       lineUserId: userId,
       authProvider: 'line',
       updatedAt: FieldValue.serverTimestamp(),
@@ -86,14 +89,17 @@ export async function lineLogin(accessToken) {
     { merge: true },
   );
 
-  // Ensure createdAt only on first write
+  // Ensure createdAt and lineNotifyEnabled only on first write
   const snap = await userRef.get();
   if (!snap.data()?.createdAt) {
-    await userRef.update({ createdAt: FieldValue.serverTimestamp() });
+    await userRef.update({
+      createdAt: FieldValue.serverTimestamp(),
+      lineNotifyEnabled: true,
+    });
   }
 
   // 5. Mint a Firebase custom token
   const customToken = await auth.createCustomToken(firebaseUid);
 
-  return { customToken, profile: { userId, displayName, pictureUrl } };
+  return { customToken, profile: { userId, displayName, pictureUrl: smallPictureUrl } };
 }
