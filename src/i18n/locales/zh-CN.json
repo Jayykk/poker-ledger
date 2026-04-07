@@ -328,5 +328,26 @@
     "modifiedSuffix": " 的资料",
     "removed": "移除了",
     "boundSeat": "绑定了座位"
+  },
+  "dailyReport": {
+    "title": "日结报表",
+    "startDate": "开始日期",
+    "endDate": "结束日期",
+    "today": "今天",
+    "yesterday": "昨天",
+    "last7Days": "近 7 天",
+    "noGames": "此期间没有游戏记录",
+    "totalProfit": "总盈亏",
+    "gamesPlayed": "场次",
+    "totalBuyIn": "总买入",
+    "ranking": "玩家排行",
+    "nGames": "{n} 场",
+    "gameSessions": "场次明细",
+    "selectAll": "全选",
+    "deselectAll": "取消全选",
+    "untitled": "未命名",
+    "shareToLine": "分享",
+    "shared": "已分享至 LINE",
+    "shareError": "分享失败，请在 LINE 中打开"
   }
 }

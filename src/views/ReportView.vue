@@ -1,6 +1,15 @@
 <template>
   <div class="pt-8 px-4 pb-24">
-    <h2 class="text-2xl font-bold text-white mb-6">{{ $t('report.title') }}</h2>
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-2xl font-bold text-white">{{ $t('report.title') }}</h2>
+      <router-link
+        to="/daily-report"
+        class="px-3 py-1.5 rounded-lg text-sm bg-amber-600 text-white hover:bg-amber-500 transition flex items-center gap-1.5"
+      >
+        <i class="fas fa-calendar-day"></i>
+        {{ $t('dailyReport.title') }}
+      </router-link>
+    </div>
 
     <!-- Tab selector -->
     <div class="flex gap-2 mb-6">
