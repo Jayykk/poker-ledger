@@ -1282,6 +1282,7 @@ export async function settlePokerGame(gameId) {
         gameName: `Poker Game #${gameId.slice(0, 8)}`,
         gameType: 'online_poker',
         settlement: seatedPlayers.map((p) => ({
+          odId: p.odId,
           name: p.odName,
           buyIn: p.initialBuyIn || game.meta.minBuyIn || DEFAULT_BUY_IN,
           stack: p.chips,

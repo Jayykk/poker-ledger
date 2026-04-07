@@ -370,6 +370,7 @@ export const useGameStore = defineStore('game', () => {
             type: gameData.type || 'live', // Include game type
             // Save complete settlement data
             settlement: players.map(p => ({
+              odId: p.uid || null,
               name: p.name,
               buyIn: p.buyIn,
               stack: p.stack || 0,

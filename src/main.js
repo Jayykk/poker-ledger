@@ -48,6 +48,7 @@ import ProfileView from './views/ProfileView.vue';
 import FriendsView from './views/FriendsView.vue';
 import GameLobby from './views/GameLobby.vue';
 import PokerGame from './views/PokerGame.vue';
+import DailyReportView from './views/DailyReportView.vue';
 
 // ── Async bootstrap ─────────────────────────────────────────────────
 // Must be async so we can await LIFF token processing BEFORE Vue Router
@@ -82,6 +83,7 @@ import PokerGame from './views/PokerGame.vue';
       { path: '/game/:gameId', name: 'GameDirect', component: GameView, meta: { requiresAuth: true } },
       { path: '/report', name: 'Report', component: ReportView, meta: { requiresAuth: true } },
       { path: '/report/:gameId', name: 'ReportDetail', component: ReportView, meta: { requiresAuth: true } },
+      { path: '/daily-report', name: 'DailyReport', component: DailyReportView, meta: { requiresAuth: true } },
       { path: '/profile', name: 'Profile', component: ProfileView, meta: { requiresAuth: true } },
       { path: '/friends', name: 'Friends', component: FriendsView, meta: { requiresAuth: true } },
       { path: '/poker-lobby', name: 'GameLobby', component: GameLobby, meta: { requiresAuth: true } },

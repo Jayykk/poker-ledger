@@ -273,6 +273,105 @@ const sendSettlementMessage = async (reportText, gameId) => {
 };
 
 /**
+ * Send daily report summary to the current LINE chat (Flex Message)
+ * @param {{ dateLabel: string, totalProfit: number, totalGames: number, totalBuyIn: number, ranking: Array }} data
+ */
+const sendDailyReportMessage = async ({ dateLabel, totalProfit, totalGames, totalBuyIn, ranking }) => {
+  if (!lineNotifyEnabled.value) return false;
+
+  const isProfit = totalProfit >= 0;
+  const profitText = `${isProfit ? '+' : ''}${totalProfit.toLocaleString()}`;
+  const headerColor = isProfit ? '#1DB446' : '#FF4444';
+  const altText = `📊 日結報表 ${dateLabel}\n總盈虧: ${profitText}`;
+
+  // Build ranking rows
+  const rankingContents = (ranking || []).map((p, i) => ({
+    type: 'box',
+    layout: 'horizontal',
+    contents: [
+      { type: 'text', text: `${i + 1}. ${p.name}`, size: 'sm', color: '#555555', flex: 3 },
+      {
+        type: 'text',
+        text: `${p.profit > 0 ? '+' : ''}${p.profit.toLocaleString()}`,
+        size: 'sm',
+        color: p.profit >= 0 ? '#1DB446' : '#FF4444',
+        align: 'end',
+        flex: 2,
+      },
+    ],
+  }));
+
+  const bubble = {
+    type: 'bubble',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: headerColor,
+      contents: [
+        { type: 'text', text: '📊 日結報表', color: '#FFFFFF', weight: 'bold', size: 'md' },
+        { type: 'text', text: dateLabel, color: '#FFFFFFCC', size: 'xs', margin: 'sm' },
+      ],
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'md',
+      contents: [
+        // Summary row
+        {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              contents: [
+                { type: 'text', text: '總盈虧', size: 'xs', color: '#AAAAAA' },
+                { type: 'text', text: profitText, size: 'xl', weight: 'bold', color: isProfit ? '#1DB446' : '#FF4444' },
+              ],
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              contents: [
+                { type: 'text', text: '場次', size: 'xs', color: '#AAAAAA' },
+                { type: 'text', text: String(totalGames), size: 'xl', weight: 'bold', color: '#333333' },
+              ],
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              contents: [
+                { type: 'text', text: '總買入', size: 'xs', color: '#AAAAAA' },
+                { type: 'text', text: totalBuyIn.toLocaleString(), size: 'lg', weight: 'bold', color: '#FF8C00' },
+              ],
+            },
+          ],
+        },
+        // Separator
+        { type: 'separator', color: '#EEEEEE' },
+        // Ranking title
+        ...(rankingContents.length > 0
+          ? [
+              { type: 'text', text: '🏆 排行榜', weight: 'bold', size: 'sm', color: '#333333' },
+              ...rankingContents,
+            ]
+          : []),
+      ],
+    },
+  };
+
+  if (LIFF_ID) {
+    bubble.footer = buildFooter(`https://liff.line.me/${LIFF_ID}/daily-report`, '查看詳情');
+  }
+
+  return sendMessages([{ type: 'flex', altText, contents: bubble }]);
+};
+
+/**
  * Share a game invite via LINE share target picker
  */
 const shareGameInvite = async (gameName, gameId, hostName) => {
@@ -325,6 +424,7 @@ export function useLiff() {
     sendBuyInMessage,
     sendUndoMessage,
     sendSettlementMessage,
+    sendDailyReportMessage,
     shareGameInvite,
     closeLiff,
     toggleLineNotify,
