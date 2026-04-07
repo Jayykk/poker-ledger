@@ -276,13 +276,10 @@ const sendSettlementMessage = async (reportText, gameId) => {
  * Send daily settlement report to the current LINE chat (Flex Message).
  * Shows per-game breakdown with cash conversion and total P&L.
  */
-const sendDailySettlementMessage = async ({ dateLabel, totalProfitCash, totalGames, games }) => {
+const sendDailySettlementMessage = async ({ dateLabel, games }) => {
   if (!lineNotifyEnabled.value) return false;
 
-  const isProfit = totalProfitCash >= 0;
-  const profitCashText = `${isProfit ? '+' : ''}$${Math.round(totalProfitCash).toLocaleString()}`;
-  const headerColor = isProfit ? '#1DB446' : '#FF4444';
-  const altText = `💰 日結結算 ${dateLabel}\n總盈虧: ${profitCashText}`;
+  const altText = `💰 日結結算 ${dateLabel}`;
 
   // Per-game rows
   const gameRows = (games || []).slice(0, 10).flatMap((g) => {
@@ -313,7 +310,7 @@ const sendDailySettlementMessage = async ({ dateLabel, totalProfitCash, totalGam
     header: {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: headerColor,
+      backgroundColor: '#1DB446',
       contents: [
         { type: 'text', text: '💰 日結結算', color: '#FFFFFF', weight: 'bold', size: 'md' },
         { type: 'text', text: dateLabel, color: '#FFFFFFCC', size: 'xs', margin: 'sm' },
@@ -324,29 +321,6 @@ const sendDailySettlementMessage = async ({ dateLabel, totalProfitCash, totalGam
       layout: 'vertical',
       spacing: 'md',
       contents: [
-        // Total summary
-        {
-          type: 'box',
-          layout: 'horizontal',
-          contents: [
-            {
-              type: 'box', layout: 'vertical', flex: 1,
-              contents: [
-                { type: 'text', text: '總盈虧', size: 'xs', color: '#AAAAAA' },
-                { type: 'text', text: profitCashText, size: 'xxl', weight: 'bold', color: isProfit ? '#1DB446' : '#FF4444' },
-              ],
-            },
-            {
-              type: 'box', layout: 'vertical', flex: 1,
-              contents: [
-                { type: 'text', text: '場次', size: 'xs', color: '#AAAAAA' },
-                { type: 'text', text: String(totalGames), size: 'xxl', weight: 'bold', color: '#333333' },
-              ],
-            },
-          ],
-        },
-        // Separator
-        { type: 'separator', color: '#EEEEEE' },
         // Per-game breakdown
         { type: 'text', text: '📋 各場明細', weight: 'bold', size: 'sm', color: '#333333' },
         ...gameRows,

@@ -339,8 +339,6 @@ const getDateLabel = () =>
 const handleShareSettlement = async () => {
   const ok = await sendDailySettlementMessage({
     dateLabel: getDateLabel(),
-    totalProfitCash: totalProfitCash.value,
-    totalGames: totalGames.value,
     games: selectedGamesWithCash.value,
   });
   if (ok) success(t('dailyReport.shared'));
