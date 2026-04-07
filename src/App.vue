@@ -3,7 +3,6 @@
     id="app"
     class="relative min-h-screen flex flex-col"
     :class="{ 'immersive-mode': isPokerTableRoute, 'liff-mode': isLiffMode }"
-    :data-theme="theme"
   >
     <!-- Global loading overlay -->
     <LoadingSpinner v-if="globalLoading" fullScreen :text="loadingText" />
@@ -22,7 +21,7 @@
           <button @click="showDebugPanel = false" class="text-gray-500 hover:text-white">[X]</button>
         </div>
       </div>
-      <div v-for="(log, i) in debugLogs" :key="i" :class="log.includes('❌') ? 'text-red-400' : log.includes('✅') ? 'text-emerald-400' : log.includes('⚠️') ? 'text-yellow-300' : 'text-green-400'">
+      <div v-for="(log, i) in debugLogs" :key="i" :class="log.includes('❌') ? 'text-red-400' : log.includes('✅') ? 'text-emerald-400' : log.includes('⚠️') ? 'text-yellow-300' : 'text-green-300'">
         {{ log }}
       </div>
     </div>
@@ -81,7 +80,7 @@
         <div class="flex flex-col items-center gap-1 w-full h-full justify-center relative">
           <button
             @click="showActionModal = true"
-            class="absolute -top-6 w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center text-white text-2xl shadow-lg hover:shadow-xl active:scale-95 transition-all border-4 border-slate-800"
+            class="absolute -top-6 w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center text-white text-2xl shadow-lg hover:shadow-xl active:scale-95 transition-all"
           >
             <i class="fas fa-plus"></i>
           </button>
