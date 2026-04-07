@@ -181,21 +181,13 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId
     },
     { type: 'separator', color: '#EEEEEE', margin: 'lg' },
     {
-      type: 'text',
-      text: `籌碼 $${numAmount.toLocaleString()}`,
-      size: 'xxl',
-      weight: 'bold',
-      color: amountColor,
-      align: 'center',
+      type: 'box',
+      layout: 'horizontal',
       margin: 'lg',
-    },
-    {
-      type: 'text',
-      text: `已買入 ${buyCount} 組 $${numTotal.toLocaleString()}`,
-      size: 'xs',
-      color: '#999999',
-      align: 'center',
-      margin: 'sm',
+      contents: [
+        { type: 'text', text: `籌碼 $${numAmount.toLocaleString()}`, size: 'lg', weight: 'bold', color: amountColor, flex: 0 },
+        { type: 'text', text: `已買入 ${buyCount} 組 $${numTotal.toLocaleString()}`, size: 'xs', color: '#999999', align: 'end', gravity: 'bottom', flex: 0, margin: 'md' },
+      ],
     },
   ];
 
