@@ -137,44 +137,58 @@ const sendMessages = async (messages) => {
 const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId) => {
   if (!lineNotifyEnabled.value) return false;
   const isSelf = actionName === targetName;
-  const roomLabel = roomName ? `${roomName} ` : '';
+  const roomLabel = roomName || '';
   const altText = isSelf
-    ? `💰 ${roomLabel}${actionName} 買入了 $${amount}`
-    : `💰 ${roomLabel}${actionName} 幫 ${targetName} 買入了 $${amount}`;
-  const titleText = isSelf
-    ? `${actionName} 自己買入`
-    : `${actionName} 幫 ${targetName} 買入`;
-  const notificationTitle = `💰 ${roomLabel}買入通知`;
+    ? `💰 ${targetName} 買入 $${amount}`
+    : `💰 ${targetName} 買入 $${amount} (by ${actionName})`;
+
+  const bodyContents = [
+    {
+      type: 'text',
+      text: `${targetName} 買入`,
+      weight: 'bold',
+      size: 'xl',
+      color: '#333333',
+    },
+  ];
+
+  if (!isSelf) {
+    bodyContents.push({
+      type: 'text',
+      text: `by ${actionName}`,
+      size: 'sm',
+      color: '#999999',
+      margin: 'sm',
+    });
+  }
+
+  bodyContents.push(
+    { type: 'separator', color: '#EEEEEE', margin: 'lg' },
+    {
+      type: 'box',
+      layout: 'horizontal',
+      margin: 'lg',
+      contents: [
+        { type: 'text', text: '金額', size: 'sm', color: '#AAAAAA', flex: 1 },
+        { type: 'text', text: `$${Number(amount).toLocaleString()}`, size: 'xl', weight: 'bold', color: '#1DB446', align: 'end', flex: 2 },
+      ],
+    },
+  );
 
   const bubble = {
     type: 'bubble',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: '#1DB446',
+      contents: [
+        { type: 'text', text: `💰 ${roomLabel ? roomLabel + ' ' : ''}買入通知`, color: '#FFFFFF', weight: 'bold', size: 'md' },
+      ],
+    },
     body: {
       type: 'box',
       layout: 'vertical',
-      contents: [
-        {
-          type: 'text',
-          text: notificationTitle,
-          weight: 'bold',
-          color: '#00B900',
-          size: 'sm',
-        },
-        {
-          type: 'text',
-          text: titleText,
-          weight: 'bold',
-          size: 'xl',
-          margin: 'md',
-          wrap: true,
-        },
-        {
-          type: 'text',
-          text: `金額：$${amount}`,
-          size: 'md',
-          color: '#27ACB2',
-          margin: 'md',
-        },
-      ],
+      contents: bodyContents,
     },
   };
 
@@ -190,39 +204,51 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId
  */
 const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId) => {
   if (!lineNotifyEnabled.value) return false;
-  const roomLabel = roomName ? `${roomName} ` : '';
-  const altText = `↩️ ${roomLabel}${actionName} 撤銷了 ${targetName} 的一筆 $${amount} 買入`;
-  const notificationTitle = `↩️ ${roomLabel}撤銷通知`;
+  const roomLabel = roomName || '';
+  const altText = `↩️ 撤銷 ${targetName} 的 $${amount} 買入`;
+
+  const bodyContents = [
+    {
+      type: 'text',
+      text: `${targetName} 撤銷買入`,
+      weight: 'bold',
+      size: 'xl',
+      color: '#333333',
+      wrap: true,
+    },
+    {
+      type: 'text',
+      text: `by ${actionName}`,
+      size: 'sm',
+      color: '#999999',
+      margin: 'sm',
+    },
+    { type: 'separator', color: '#EEEEEE', margin: 'lg' },
+    {
+      type: 'box',
+      layout: 'horizontal',
+      margin: 'lg',
+      contents: [
+        { type: 'text', text: '撤銷金額', size: 'sm', color: '#AAAAAA', flex: 1 },
+        { type: 'text', text: `$${Number(amount).toLocaleString()}`, size: 'xl', weight: 'bold', color: '#FF4444', align: 'end', flex: 2 },
+      ],
+    },
+  ];
 
   const bubble = {
     type: 'bubble',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: '#FF4444',
+      contents: [
+        { type: 'text', text: `↩️ ${roomLabel ? roomLabel + ' ' : ''}撤銷通知`, color: '#FFFFFF', weight: 'bold', size: 'md' },
+      ],
+    },
     body: {
       type: 'box',
       layout: 'vertical',
-      contents: [
-        {
-          type: 'text',
-          text: notificationTitle,
-          weight: 'bold',
-          color: '#FF4444',
-          size: 'sm',
-        },
-        {
-          type: 'text',
-          text: `${actionName} 撤銷了 ${targetName} 的買入`,
-          weight: 'bold',
-          size: 'xl',
-          margin: 'md',
-          wrap: true,
-        },
-        {
-          type: 'text',
-          text: `撤銷金額：$${amount}`,
-          size: 'md',
-          color: '#FF4444',
-          margin: 'md',
-        },
-      ],
+      contents: bodyContents,
     },
   };
 
