@@ -133,73 +133,73 @@ const sendMessages = async (messages) => {
 
 /**
  * Send a buy-in notification to the current LINE chat (Flex Message).
- * Tiered visual style based on amount for extra flair.
+ * One-line layout: "小明 買入  by 小華". Tiered by cumulative totalBuyIn.
+ * Entire bubble is tappable (no separate footer button).
  */
-const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId) => {
+const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId, { totalBuyIn = 0, baseBuyIn = 0 } = {}) => {
   if (!lineNotifyEnabled.value) return false;
   const isSelf = actionName === targetName;
   const roomLabel = roomName || '';
   const numAmount = Number(amount) || 0;
+  const numTotal = Number(totalBuyIn) || numAmount;
+  const numBase = Number(baseBuyIn) || numAmount;
+  const buyCount = numBase > 0 ? Math.round(numTotal / numBase) : 1;
   const altText = isSelf
     ? `💰 ${targetName} 買入 $${numAmount.toLocaleString()}`
     : `💰 ${targetName} 買入 $${numAmount.toLocaleString()} (by ${actionName})`;
 
-  // Tiered visuals based on amount
+  // Tiered visuals based on cumulative totalBuyIn
   let headerEmoji = '💰';
-  let headerText = '買入通知';
   let headerColor = '#1DB446';
   let amountColor = '#1DB446';
-  let amountSize = 'xxl';
-  let amountDecor = '';
 
-  if (numAmount >= 10000) {
+  if (numTotal >= 20000) {
     headerEmoji = '🚀🔥';
-    headerText = '瘋狂買入！！';
     headerColor = '#DC143C';
     amountColor = '#DC143C';
-    amountSize = '3xl';
-    amountDecor = '💰🔥 ';
-  } else if (numAmount >= 5000) {
-    headerEmoji = '🔥';
-    headerText = '大額買入！';
+  } else if (numTotal >= 10000) {
+    headerEmoji = '💎';
     headerColor = '#FF8C00';
     amountColor = '#FF8C00';
-    amountSize = '3xl';
-    amountDecor = '💎 ';
+  }
+
+  // Name row: "小明 買入" (bold) + "by 小華" (small, red-ish) on same line
+  const nameRowContents = [
+    { type: 'text', text: `${targetName} 買入`, weight: 'bold', size: 'lg', color: '#333333', flex: 0 },
+  ];
+  if (!isSelf) {
+    nameRowContents.push(
+      { type: 'text', text: `by ${actionName}`, size: 'xs', color: '#E06666', align: 'end', gravity: 'bottom', flex: 0, margin: 'md' },
+    );
   }
 
   const bodyContents = [
     {
-      type: 'text',
-      text: `${targetName} 買入`,
-      weight: 'bold',
-      size: 'xl',
-      color: '#333333',
+      type: 'box',
+      layout: 'horizontal',
+      contents: nameRowContents,
     },
-  ];
-
-  if (!isSelf) {
-    bodyContents.push({
-      type: 'text',
-      text: `by ${actionName}`,
-      size: 'sm',
-      color: '#999999',
-      margin: 'sm',
-    });
-  }
-
-  bodyContents.push(
     { type: 'separator', color: '#EEEEEE', margin: 'lg' },
     {
       type: 'text',
-      text: `${amountDecor}$${numAmount.toLocaleString()}`,
-      size: amountSize,
+      text: `籌碼 $${numAmount.toLocaleString()}`,
+      size: 'xxl',
       weight: 'bold',
       color: amountColor,
       align: 'center',
       margin: 'lg',
     },
-  );
+    {
+      type: 'text',
+      text: `已買入 ${buyCount} 組 $${numTotal.toLocaleString()}`,
+      size: 'xs',
+      color: '#999999',
+      align: 'center',
+      margin: 'sm',
+    },
+  ];
+
+  const liffUrl = gameId && LIFF_ID ? `https://liff.line.me/${LIFF_ID}/game/${gameId}` : undefined;
 
   const bubble = {
     type: 'bubble',
@@ -208,26 +208,24 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId
       layout: 'vertical',
       backgroundColor: headerColor,
       contents: [
-        { type: 'text', text: `${headerEmoji} ${roomLabel ? roomLabel + ' ' : ''}${headerText}`, color: '#FFFFFF', weight: 'bold', size: 'md' },
+        { type: 'text', text: `${headerEmoji} ${roomLabel ? roomLabel + ' ' : ''}買入通知`, color: '#FFFFFF', weight: 'bold', size: 'md' },
       ],
+      ...(liffUrl ? { action: { type: 'uri', label: '查看牌桌', uri: liffUrl } } : {}),
     },
     body: {
       type: 'box',
       layout: 'vertical',
       contents: bodyContents,
+      ...(liffUrl ? { action: { type: 'uri', label: '查看牌桌', uri: liffUrl } } : {}),
     },
   };
-
-  if (gameId && LIFF_ID) {
-    bubble.footer = buildFooter(`https://liff.line.me/${LIFF_ID}/game/${gameId}`, '查看牌桌');
-  }
 
   return sendMessages([{ type: 'flex', altText, contents: bubble }]);
 };
 
 /**
  * Send an undo notification to the current LINE chat (Flex Message).
- * Matches the buy-in style: target name first, operator as "by" line.
+ * One-line layout matching buy-in. Entire bubble tappable.
  */
 const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId) => {
   if (!lineNotifyEnabled.value) return false;
@@ -236,28 +234,21 @@ const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId)
   const numAmount = Number(amount) || 0;
   const altText = `↩️ ${targetName} 撤銷買入 $${numAmount.toLocaleString()}`;
 
-  const bodyContents = [
-    {
-      type: 'text',
-      text: `${targetName} 撤銷買入`,
-      weight: 'bold',
-      size: 'xl',
-      color: '#333333',
-      wrap: true,
-    },
+  const nameRowContents = [
+    { type: 'text', text: `${targetName} 撤銷買入`, weight: 'bold', size: 'lg', color: '#333333', flex: 0 },
   ];
-
   if (!isSelf) {
-    bodyContents.push({
-      type: 'text',
-      text: `by ${actionName}`,
-      size: 'sm',
-      color: '#999999',
-      margin: 'sm',
-    });
+    nameRowContents.push(
+      { type: 'text', text: `by ${actionName}`, size: 'xs', color: '#E06666', align: 'end', gravity: 'bottom', flex: 0, margin: 'md' },
+    );
   }
 
-  bodyContents.push(
+  const bodyContents = [
+    {
+      type: 'box',
+      layout: 'horizontal',
+      contents: nameRowContents,
+    },
     { type: 'separator', color: '#EEEEEE', margin: 'lg' },
     {
       type: 'text',
@@ -268,7 +259,9 @@ const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId)
       align: 'center',
       margin: 'lg',
     },
-  );
+  ];
+
+  const liffUrl = gameId && LIFF_ID ? `https://liff.line.me/${LIFF_ID}/game/${gameId}` : undefined;
 
   const bubble = {
     type: 'bubble',
@@ -279,17 +272,15 @@ const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId)
       contents: [
         { type: 'text', text: `↩️ ${roomLabel ? roomLabel + ' ' : ''}撤銷通知`, color: '#FFFFFF', weight: 'bold', size: 'md' },
       ],
+      ...(liffUrl ? { action: { type: 'uri', label: '查看牌桌', uri: liffUrl } } : {}),
     },
     body: {
       type: 'box',
       layout: 'vertical',
       contents: bodyContents,
+      ...(liffUrl ? { action: { type: 'uri', label: '查看牌桌', uri: liffUrl } } : {}),
     },
   };
-
-  if (gameId && LIFF_ID) {
-    bubble.footer = buildFooter(`https://liff.line.me/${LIFF_ID}/game/${gameId}`, '查看牌桌');
-  }
 
   return sendMessages([{ type: 'flex', altText, contents: bubble }]);
 };
@@ -374,7 +365,8 @@ const sendSettlementMessage = async ({ gameName, gameId, rate, players }) => {
   };
 
   if (gameId && LIFF_ID) {
-    bubble.footer = buildFooter(`https://liff.line.me/${LIFF_ID}/report/${gameId}`, '查看結算');
+    const liffUrl = `https://liff.line.me/${LIFF_ID}/report/${gameId}`;
+    bubble.body.action = { type: 'uri', label: '查看結算', uri: liffUrl };
   }
 
   return sendMessages([{ type: 'flex', altText, contents: bubble }]);
@@ -476,7 +468,8 @@ const sendDailySettlementMessage = async ({ dateLabel, startDateStr, endDateStr,
   };
 
   if (LIFF_ID) {
-    bubble.footer = buildFooter(`https://liff.line.me/${LIFF_ID}/daily-report${dateQuery}`, '查看詳情');
+    const liffUrl = `https://liff.line.me/${LIFF_ID}/daily-report${dateQuery}`;
+    bubble.body.action = { type: 'uri', label: '查看詳情', uri: liffUrl };
   }
 
   return sendMessages([{ type: 'flex', altText, contents: bubble }]);
@@ -553,7 +546,8 @@ const sendDailyRankingMessage = async ({ dateLabel, startDateStr, endDateStr, to
   };
 
   if (LIFF_ID) {
-    bubble.footer = buildFooter(`https://liff.line.me/${LIFF_ID}/daily-report${dateQuery}`, '查看詳情');
+    const liffUrl = `https://liff.line.me/${LIFF_ID}/daily-report${dateQuery}`;
+    bubble.body.action = { type: 'uri', label: '查看詳情', uri: liffUrl };
   }
 
   return sendMessages([{ type: 'flex', altText, contents: bubble }]);
