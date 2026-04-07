@@ -46,7 +46,7 @@
     </div>
 
     <!-- Recent Records Tab -->
-    <div v-if="activeTab === 'recent'">
+    <div v-show="activeTab === 'recent'">
       <!-- Game count selector -->
       <div class="flex gap-2 mb-4">
         <button
@@ -107,7 +107,7 @@
     </div>
 
     <!-- Career Stats Tab -->
-    <div v-if="activeTab === 'career'">
+    <div v-show="activeTab === 'career'">
       <!-- Charts -->
       <div class="space-y-4 mb-6">
         <ProfitTrendChart />
@@ -131,7 +131,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
+import { computed, ref, watch, onMounted, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useUserStore } from '../store/modules/user.js';
 import { useNotification } from '../composables/useNotification.js';
@@ -148,14 +148,13 @@ import { CHART_COLORS } from '../utils/constants.js';
 const { t } = useI18n();
 const userStore = useUserStore();
 const { success } = useNotification();
-const { createLineChart } = useChart();
+const { createLineChart, destroyChart, debounce } = useChart();
 
 const activeTab = ref('recent');
 const selectedGameCount = ref(10);
 const gameCounts = [5, 10, 20];
 const gameTypeFilter = ref('all'); // 'all', 'live', 'online'
 const recentChartId = ref(`recent-chart-${Date.now()}-${Math.floor(Math.random() * 1000)}`);
-let recentChartInstance = null;
 
 const recentRecords = computed(() => {
   // Get sorted history (newest first)
@@ -232,15 +231,9 @@ const recentChartData = computed(() => {
 
 const renderRecentChart = () => {
   nextTick(() => {
-    // Destroy old chart instance before creating a new one
-    if (recentChartInstance) {
-      recentChartInstance.destroy();
-      recentChartInstance = null;
-    }
-    
-    // Only create chart if there are records
+    // Only create chart if there are records and canvas exists
     if (recentRecords.value.length > 0) {
-      recentChartInstance = createLineChart(recentChartId.value, recentChartData.value, {
+      createLineChart(recentChartId.value, recentChartData.value, {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
@@ -276,31 +269,31 @@ const renderRecentChart = () => {
           }
         }
       });
+    } else {
+      destroyChart();
     }
   });
 };
 
+const debouncedRenderRecentChart = debounce(() => {
+  renderRecentChart();
+}, 200);
+
 // Watch for changes in selectedGameCount or filter to re-render chart
 watch([selectedGameCount, gameTypeFilter], () => {
-  renderRecentChart();
+  debouncedRenderRecentChart();
 });
 
 // Watch for active tab changes
 watch(activeTab, (newTab) => {
   if (newTab === 'recent') {
-    renderRecentChart();
+    debouncedRenderRecentChart();
   }
 });
 
 onMounted(() => {
   if (activeTab.value === 'recent') {
     renderRecentChart();
-  }
-});
-
-onUnmounted(() => {
-  if (recentChartInstance) {
-    recentChartInstance.destroy();
   }
 });
 </script>

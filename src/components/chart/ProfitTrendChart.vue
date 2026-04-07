@@ -49,7 +49,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useChart } from '../../composables/useChart.js';
 import { useUserStore } from '../../store/modules/user.js';
@@ -60,9 +60,6 @@ import { TIME_PERIODS, CHART_COLORS } from '../../utils/constants.js';
 const { t } = useI18n();
 const { createLineChart, debounce } = useChart();
 const userStore = useUserStore();
-
-// Store chart instance locally
-let chartInstance = null;
 
 const canvasId = ref(`profit-chart-${Math.random().toString(36).substr(2, 9)}`);
 const selectedPeriod = ref(TIME_PERIODS.ALL);
@@ -115,13 +112,7 @@ const chartData = computed(() => {
 
 const renderChart = () => {
   nextTick(() => {
-    // Destroy old chart instance before creating a new one
-    if (chartInstance) {
-      chartInstance.destroy();
-      chartInstance = null;
-    }
-    
-    chartInstance = createLineChart(canvasId.value, chartData.value, {
+    createLineChart(canvasId.value, chartData.value, {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
@@ -161,7 +152,6 @@ const renderChart = () => {
     isLoading.value = false;
   });
 };
-
 // Debounced render function to prevent rapid re-renders
 const debouncedRenderChart = debounce(() => {
   renderChart();
@@ -190,11 +180,5 @@ watch(selectedPeriod, () => {
 
 onMounted(() => {
   renderChart();
-});
-
-onUnmounted(() => {
-  if (chartInstance) {
-    chartInstance.destroy();
-  }
 });
 </script>
