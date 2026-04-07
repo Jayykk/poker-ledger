@@ -233,6 +233,7 @@ const {
   totalProfitCash,
   totalGames,
   totalBuyInCash,
+  totalBuyInAllCash,
   playerRanking,
   topWinners,
   topLosers,
@@ -339,7 +340,10 @@ const getDateLabel = () =>
 const handleShareSettlement = async () => {
   const ok = await sendDailySettlementMessage({
     dateLabel: getDateLabel(),
+    totalGames: totalGames.value,
+    totalBuyInAllCash: totalBuyInAllCash.value,
     games: selectedGamesWithCash.value,
+    playerRanking: playerRanking.value,
   });
   if (ok) success(t('dailyReport.shared'));
   else showError(t('dailyReport.shareError'));

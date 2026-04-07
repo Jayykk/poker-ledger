@@ -98,6 +98,15 @@ export function useDailyReport() {
     }, 0);
   });
 
+  /** Total buy-in across ALL players, converted to cash */
+  const totalBuyInAllCash = computed(() =>
+    selectedGames.value.reduce((sum, h) => {
+      if (!h.settlement) return sum;
+      const rate = h.rate || 1;
+      return sum + h.settlement.reduce((s, p) => s + (p.buyIn || 0) / rate, 0);
+    }, 0)
+  );
+
   // ── Per-game detail with cash values ───────────────────────────
 
   /** Selected games enriched with cash-converted values for current user */
@@ -199,6 +208,7 @@ export function useDailyReport() {
     totalGames,
     totalBuyIn,
     totalBuyInCash,
+    totalBuyInAllCash,
     playerRanking,
     topWinners,
     topLosers,

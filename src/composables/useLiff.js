@@ -274,35 +274,45 @@ const sendSettlementMessage = async (reportText, gameId) => {
 
 /**
  * Send daily settlement report to the current LINE chat (Flex Message).
- * Shows per-game breakdown with cash conversion and total P&L.
+ * Public-friendly layout: summary → game names → all players ranked by P&L.
  */
-const sendDailySettlementMessage = async ({ dateLabel, games }) => {
+const sendDailySettlementMessage = async ({ dateLabel, totalGames, totalBuyInAllCash, games, playerRanking }) => {
   if (!lineNotifyEnabled.value) return false;
 
   const altText = `💰 日結結算 ${dateLabel}`;
+  const buyInText = `$${Math.round(totalBuyInAllCash).toLocaleString()}`;
 
-  // Per-game rows
-  const gameRows = (games || []).slice(0, 10).flatMap((g) => {
+  // Game name rows (max 10)
+  const gameNameRows = (games || []).slice(0, 10).map((g) => {
     const rate = g.rate || 1;
-    const cashProfit = Math.round(g.profit / rate);
     const rateLabel = rate !== 1 ? ` (1:${rate})` : '';
-    return [
-      {
-        type: 'box',
-        layout: 'horizontal',
-        contents: [
-          { type: 'text', text: g.gameName || '未命名', size: 'sm', color: '#555555', flex: 3, wrap: true },
-          {
-            type: 'text',
-            text: `${cashProfit > 0 ? '+' : ''}$${cashProfit.toLocaleString()}${rateLabel}`,
-            size: 'sm',
-            color: cashProfit >= 0 ? '#1DB446' : '#FF4444',
-            align: 'end',
-            flex: 2,
-          },
-        ],
-      },
-    ];
+    return {
+      type: 'text',
+      text: `${g.gameName || '未命名'}${rateLabel}`,
+      size: 'sm',
+      color: '#555555',
+    };
+  });
+
+  // Player settlement rows (all players, max 20)
+  const playerRows = (playerRanking || []).slice(0, 20).map((p) => {
+    const cash = Math.round(p.profitCash);
+    return {
+      type: 'box',
+      layout: 'horizontal',
+      contents: [
+        { type: 'text', text: p.name || '???', size: 'sm', color: '#555555', flex: 3 },
+        {
+          type: 'text',
+          text: `${cash > 0 ? '+' : ''}$${cash.toLocaleString()}`,
+          size: 'sm',
+          color: cash >= 0 ? '#1DB446' : '#FF4444',
+          align: 'end',
+          flex: 2,
+          weight: 'bold',
+        },
+      ],
+    };
   });
 
   const bubble = {
@@ -321,9 +331,37 @@ const sendDailySettlementMessage = async ({ dateLabel, games }) => {
       layout: 'vertical',
       spacing: 'md',
       contents: [
-        // Per-game breakdown
-        { type: 'text', text: '📋 各場明細', weight: 'bold', size: 'sm', color: '#333333' },
-        ...gameRows,
+        // Summary: 場次 + 總買入
+        {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            {
+              type: 'box', layout: 'vertical', flex: 1,
+              contents: [
+                { type: 'text', text: '場次', size: 'xs', color: '#AAAAAA' },
+                { type: 'text', text: String(totalGames), size: 'xxl', weight: 'bold', color: '#333333' },
+              ],
+            },
+            {
+              type: 'box', layout: 'vertical', flex: 1,
+              contents: [
+                { type: 'text', text: '總買入', size: 'xs', color: '#AAAAAA' },
+                { type: 'text', text: buyInText, size: 'xxl', weight: 'bold', color: '#333333' },
+              ],
+            },
+          ],
+        },
+        // Separator
+        { type: 'separator', color: '#EEEEEE' },
+        // Game names
+        { type: 'text', text: '📋 場次名稱', weight: 'bold', size: 'sm', color: '#333333' },
+        ...gameNameRows,
+        // Separator
+        { type: 'separator', color: '#EEEEEE' },
+        // All players settlement
+        { type: 'text', text: '📊 結算統計', weight: 'bold', size: 'sm', color: '#333333' },
+        ...playerRows,
       ],
     },
   };
