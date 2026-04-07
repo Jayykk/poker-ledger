@@ -132,15 +132,41 @@ const sendMessages = async (messages) => {
 };
 
 /**
- * Send a buy-in notification to the current LINE chat (Flex Message)
+ * Send a buy-in notification to the current LINE chat (Flex Message).
+ * Tiered visual style based on amount for extra flair.
  */
 const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId) => {
   if (!lineNotifyEnabled.value) return false;
   const isSelf = actionName === targetName;
   const roomLabel = roomName || '';
+  const numAmount = Number(amount) || 0;
   const altText = isSelf
-    ? `💰 ${targetName} 買入 $${amount}`
-    : `💰 ${targetName} 買入 $${amount} (by ${actionName})`;
+    ? `💰 ${targetName} 買入 $${numAmount.toLocaleString()}`
+    : `💰 ${targetName} 買入 $${numAmount.toLocaleString()} (by ${actionName})`;
+
+  // Tiered visuals based on amount
+  let headerEmoji = '💰';
+  let headerText = '買入通知';
+  let headerColor = '#1DB446';
+  let amountColor = '#1DB446';
+  let amountSize = 'xxl';
+  let amountDecor = '';
+
+  if (numAmount >= 10000) {
+    headerEmoji = '🚀🔥';
+    headerText = '瘋狂買入！！';
+    headerColor = '#DC143C';
+    amountColor = '#DC143C';
+    amountSize = '3xl';
+    amountDecor = '💰🔥 ';
+  } else if (numAmount >= 5000) {
+    headerEmoji = '🔥';
+    headerText = '大額買入！';
+    headerColor = '#FF8C00';
+    amountColor = '#FF8C00';
+    amountSize = '3xl';
+    amountDecor = '💎 ';
+  }
 
   const bodyContents = [
     {
@@ -165,13 +191,13 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId
   bodyContents.push(
     { type: 'separator', color: '#EEEEEE', margin: 'lg' },
     {
-      type: 'box',
-      layout: 'horizontal',
+      type: 'text',
+      text: `${amountDecor}$${numAmount.toLocaleString()}`,
+      size: amountSize,
+      weight: 'bold',
+      color: amountColor,
+      align: 'center',
       margin: 'lg',
-      contents: [
-        { type: 'text', text: '金額', size: 'sm', color: '#AAAAAA', flex: 1 },
-        { type: 'text', text: `$${Number(amount).toLocaleString()}`, size: 'xl', weight: 'bold', color: '#1DB446', align: 'end', flex: 2 },
-      ],
     },
   );
 
@@ -180,9 +206,9 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId
     header: {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: '#1DB446',
+      backgroundColor: headerColor,
       contents: [
-        { type: 'text', text: `💰 ${roomLabel ? roomLabel + ' ' : ''}買入通知`, color: '#FFFFFF', weight: 'bold', size: 'md' },
+        { type: 'text', text: `${headerEmoji} ${roomLabel ? roomLabel + ' ' : ''}${headerText}`, color: '#FFFFFF', weight: 'bold', size: 'md' },
       ],
     },
     body: {
@@ -200,12 +226,15 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId
 };
 
 /**
- * Send an undo notification to the current LINE chat (Flex Message)
+ * Send an undo notification to the current LINE chat (Flex Message).
+ * Matches the buy-in style: target name first, operator as "by" line.
  */
 const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId) => {
   if (!lineNotifyEnabled.value) return false;
   const roomLabel = roomName || '';
-  const altText = `↩️ 撤銷 ${targetName} 的 $${amount} 買入`;
+  const isSelf = actionName === targetName;
+  const numAmount = Number(amount) || 0;
+  const altText = `↩️ ${targetName} 撤銷買入 $${numAmount.toLocaleString()}`;
 
   const bodyContents = [
     {
@@ -216,24 +245,30 @@ const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId)
       color: '#333333',
       wrap: true,
     },
-    {
+  ];
+
+  if (!isSelf) {
+    bodyContents.push({
       type: 'text',
       text: `by ${actionName}`,
       size: 'sm',
       color: '#999999',
       margin: 'sm',
-    },
+    });
+  }
+
+  bodyContents.push(
     { type: 'separator', color: '#EEEEEE', margin: 'lg' },
     {
-      type: 'box',
-      layout: 'horizontal',
+      type: 'text',
+      text: `-$${numAmount.toLocaleString()}`,
+      size: 'xxl',
+      weight: 'bold',
+      color: '#FF4444',
+      align: 'center',
       margin: 'lg',
-      contents: [
-        { type: 'text', text: '撤銷金額', size: 'sm', color: '#AAAAAA', flex: 1 },
-        { type: 'text', text: `$${Number(amount).toLocaleString()}`, size: 'xl', weight: 'bold', color: '#FF4444', align: 'end', flex: 2 },
-      ],
     },
-  ];
+  );
 
   const bubble = {
     type: 'bubble',
