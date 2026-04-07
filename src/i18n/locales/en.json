@@ -347,6 +347,8 @@
     "deselectAll": "Deselect All",
     "untitled": "Untitled",
     "shareToLine": "Share",
+    "shareSettlement": "Settlement",
+    "shareRanking": "Ranking",
     "shared": "Shared to LINE",
     "shareError": "Share failed. Please open in LINE."
   }

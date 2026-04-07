@@ -273,33 +273,40 @@ const sendSettlementMessage = async (reportText, gameId) => {
 };
 
 /**
- * Send daily report summary to the current LINE chat (Flex Message)
- * @param {{ dateLabel: string, totalProfit: number, totalGames: number, totalBuyIn: number, ranking: Array }} data
+ * Send daily settlement report to the current LINE chat (Flex Message).
+ * Shows per-game breakdown with cash conversion and total P&L.
  */
-const sendDailyReportMessage = async ({ dateLabel, totalProfit, totalGames, totalBuyIn, ranking }) => {
+const sendDailySettlementMessage = async ({ dateLabel, totalProfitCash, totalGames, games }) => {
   if (!lineNotifyEnabled.value) return false;
 
-  const isProfit = totalProfit >= 0;
-  const profitText = `${isProfit ? '+' : ''}${totalProfit.toLocaleString()}`;
+  const isProfit = totalProfitCash >= 0;
+  const profitCashText = `${isProfit ? '+' : ''}$${Math.round(totalProfitCash).toLocaleString()}`;
   const headerColor = isProfit ? '#1DB446' : '#FF4444';
-  const altText = `📊 日結報表 ${dateLabel}\n總盈虧: ${profitText}`;
+  const altText = `💰 日結結算 ${dateLabel}\n總盈虧: ${profitCashText}`;
 
-  // Build ranking rows
-  const rankingContents = (ranking || []).map((p, i) => ({
-    type: 'box',
-    layout: 'horizontal',
-    contents: [
-      { type: 'text', text: `${i + 1}. ${p.name}`, size: 'sm', color: '#555555', flex: 3 },
+  // Per-game rows
+  const gameRows = (games || []).slice(0, 10).flatMap((g) => {
+    const rate = g.rate || 1;
+    const cashProfit = Math.round(g.profit / rate);
+    const rateLabel = rate !== 1 ? ` (1:${rate})` : '';
+    return [
       {
-        type: 'text',
-        text: `${p.profit > 0 ? '+' : ''}${p.profit.toLocaleString()}`,
-        size: 'sm',
-        color: p.profit >= 0 ? '#1DB446' : '#FF4444',
-        align: 'end',
-        flex: 2,
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: g.gameName || '未命名', size: 'sm', color: '#555555', flex: 3, wrap: true },
+          {
+            type: 'text',
+            text: `${cashProfit > 0 ? '+' : ''}$${cashProfit.toLocaleString()}${rateLabel}`,
+            size: 'sm',
+            color: cashProfit >= 0 ? '#1DB446' : '#FF4444',
+            align: 'end',
+            flex: 2,
+          },
+        ],
       },
-    ],
-  }));
+    ];
+  });
 
   const bubble = {
     type: 'bubble',
@@ -308,7 +315,7 @@ const sendDailyReportMessage = async ({ dateLabel, totalProfit, totalGames, tota
       layout: 'vertical',
       backgroundColor: headerColor,
       contents: [
-        { type: 'text', text: '📊 日結報表', color: '#FFFFFF', weight: 'bold', size: 'md' },
+        { type: 'text', text: '💰 日結結算', color: '#FFFFFF', weight: 'bold', size: 'md' },
         { type: 'text', text: dateLabel, color: '#FFFFFFCC', size: 'xs', margin: 'sm' },
       ],
     },
@@ -317,50 +324,109 @@ const sendDailyReportMessage = async ({ dateLabel, totalProfit, totalGames, tota
       layout: 'vertical',
       spacing: 'md',
       contents: [
-        // Summary row
+        // Total summary
         {
           type: 'box',
           layout: 'horizontal',
           contents: [
             {
-              type: 'box',
-              layout: 'vertical',
-              flex: 1,
+              type: 'box', layout: 'vertical', flex: 1,
               contents: [
                 { type: 'text', text: '總盈虧', size: 'xs', color: '#AAAAAA' },
-                { type: 'text', text: profitText, size: 'xl', weight: 'bold', color: isProfit ? '#1DB446' : '#FF4444' },
+                { type: 'text', text: profitCashText, size: 'xxl', weight: 'bold', color: isProfit ? '#1DB446' : '#FF4444' },
               ],
             },
             {
-              type: 'box',
-              layout: 'vertical',
-              flex: 1,
+              type: 'box', layout: 'vertical', flex: 1,
               contents: [
                 { type: 'text', text: '場次', size: 'xs', color: '#AAAAAA' },
-                { type: 'text', text: String(totalGames), size: 'xl', weight: 'bold', color: '#333333' },
-              ],
-            },
-            {
-              type: 'box',
-              layout: 'vertical',
-              flex: 1,
-              contents: [
-                { type: 'text', text: '總買入', size: 'xs', color: '#AAAAAA' },
-                { type: 'text', text: totalBuyIn.toLocaleString(), size: 'lg', weight: 'bold', color: '#FF8C00' },
+                { type: 'text', text: String(totalGames), size: 'xxl', weight: 'bold', color: '#333333' },
               ],
             },
           ],
         },
         // Separator
         { type: 'separator', color: '#EEEEEE' },
-        // Ranking title
-        ...(rankingContents.length > 0
-          ? [
-              { type: 'text', text: '🏆 排行榜', weight: 'bold', size: 'sm', color: '#333333' },
-              ...rankingContents,
-            ]
-          : []),
+        // Per-game breakdown
+        { type: 'text', text: '📋 各場明細', weight: 'bold', size: 'sm', color: '#333333' },
+        ...gameRows,
       ],
+    },
+  };
+
+  if (LIFF_ID) {
+    bubble.footer = buildFooter(`https://liff.line.me/${LIFF_ID}/daily-report`, '查看詳情');
+  }
+
+  return sendMessages([{ type: 'flex', altText, contents: bubble }]);
+};
+
+/**
+ * Send daily ranking to the current LINE chat (Flex Message).
+ * Shows top 3 winners and top 3 losers.
+ */
+const sendDailyRankingMessage = async ({ dateLabel, topWinners, topLosers }) => {
+  if (!lineNotifyEnabled.value) return false;
+
+  const altText = `🏆 日結排行 ${dateLabel}`;
+
+  const buildPlayerRow = (p, i, emoji) => ({
+    type: 'box',
+    layout: 'horizontal',
+    contents: [
+      { type: 'text', text: `${emoji} ${p.name}`, size: 'sm', color: '#555555', flex: 3 },
+      {
+        type: 'text',
+        text: `${p.profitCash > 0 ? '+' : ''}$${Math.round(p.profitCash).toLocaleString()}`,
+        size: 'sm',
+        color: p.profitCash >= 0 ? '#1DB446' : '#FF4444',
+        align: 'end',
+        flex: 2,
+      },
+    ],
+  });
+
+  const medalEmojis = ['🥇', '🥈', '🥉'];
+  const winnerRows = (topWinners || []).map((p, i) => buildPlayerRow(p, i, medalEmojis[i] || `${i + 1}.`));
+  const loserRows = (topLosers || []).map((p, i) => buildPlayerRow(p, i, `💸`));
+
+  const bodyContents = [];
+
+  if (winnerRows.length > 0) {
+    bodyContents.push(
+      { type: 'text', text: '🏆 最大贏家', weight: 'bold', size: 'sm', color: '#1DB446' },
+      ...winnerRows,
+    );
+  }
+
+  if (loserRows.length > 0) {
+    if (winnerRows.length > 0) bodyContents.push({ type: 'separator', color: '#EEEEEE', margin: 'md' });
+    bodyContents.push(
+      { type: 'text', text: '💸 最大輸家', weight: 'bold', size: 'sm', color: '#FF4444', margin: winnerRows.length > 0 ? 'md' : 'none' },
+      ...loserRows,
+    );
+  }
+
+  if (bodyContents.length === 0) {
+    bodyContents.push({ type: 'text', text: '暫無排行資料', size: 'sm', color: '#AAAAAA' });
+  }
+
+  const bubble = {
+    type: 'bubble',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: '#FF8C00',
+      contents: [
+        { type: 'text', text: '🏆 日結排行', color: '#FFFFFF', weight: 'bold', size: 'md' },
+        { type: 'text', text: dateLabel, color: '#FFFFFFCC', size: 'xs', margin: 'sm' },
+      ],
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'md',
+      contents: bodyContents,
     },
   };
 
@@ -424,7 +490,8 @@ export function useLiff() {
     sendBuyInMessage,
     sendUndoMessage,
     sendSettlementMessage,
-    sendDailyReportMessage,
+    sendDailySettlementMessage,
+    sendDailyRankingMessage,
     shareGameInvite,
     closeLiff,
     toggleLineNotify,

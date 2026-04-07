@@ -347,6 +347,8 @@
     "deselectAll": "選択解除",
     "untitled": "無題",
     "shareToLine": "共有",
+    "shareSettlement": "決算を共有",
+    "shareRanking": "ランキング共有",
     "shared": "LINEに共有しました",
     "shareError": "共有に失敗しました。LINEで開いてください。"
   }
