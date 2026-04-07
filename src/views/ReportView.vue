@@ -61,7 +61,7 @@
       </div>
 
       <!-- Line chart for recent records -->
-      <BaseCard v-if="recentRecords.length > 0" :title="$t('report.profitTrend')" padding="md" class="mb-4">
+      <BaseCard v-show="recentRecords.length > 0" :title="$t('report.profitTrend')" padding="md" class="mb-4">
         <div class="relative h-48 w-full">
           <canvas :id="recentChartId"></canvas>
         </div>
@@ -131,7 +131,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted, nextTick } from 'vue';
+import { computed, ref, watch, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useUserStore } from '../store/modules/user.js';
 import { useNotification } from '../composables/useNotification.js';
@@ -229,55 +229,54 @@ const recentChartData = computed(() => {
   };
 });
 
-const renderRecentChart = () => {
-  nextTick(() => {
-    // Only create chart if there are records and canvas exists
-    if (recentRecords.value.length > 0) {
-      createLineChart(recentChartId.value, recentChartData.value, {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false
-          },
-          tooltip: {
-            callbacks: {
-              label: (context) => {
-                return `Profit: ${context.parsed.y >= 0 ? '+' : ''}${formatNumber(context.parsed.y)}`;
-              }
-            }
-          }
-        },
-        scales: {
-          x: {
-            display: true,
-            grid: {
-              display: false
-            },
-            ticks: {
-              color: '#94a3b8'
-            }
-          },
-          y: {
-            grid: {
-              color: '#334155'
-            },
-            ticks: {
-              color: '#94a3b8',
-              callback: (value) => formatNumber(value)
-            }
-          }
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false
+    },
+    tooltip: {
+      callbacks: {
+        label: (context) => {
+          return `Profit: ${context.parsed.y >= 0 ? '+' : ''}${formatNumber(context.parsed.y)}`;
         }
-      });
-    } else {
-      destroyChart();
+      }
     }
-  });
+  },
+  scales: {
+    x: {
+      display: true,
+      grid: {
+        display: false
+      },
+      ticks: {
+        color: '#94a3b8'
+      }
+    },
+    y: {
+      grid: {
+        color: '#334155'
+      },
+      ticks: {
+        color: '#94a3b8',
+        callback: (value) => formatNumber(value)
+      }
+    }
+  }
+};
+
+const renderRecentChart = () => {
+  if (recentRecords.value.length > 0) {
+    createLineChart(recentChartId.value, recentChartData.value, chartOptions);
+  } else {
+    destroyChart();
+  }
 };
 
 const debouncedRenderRecentChart = debounce(() => {
   renderRecentChart();
-}, 200);
+}, 300);
 
 // Watch for changes in selectedGameCount or filter to re-render chart
 watch([selectedGameCount, gameTypeFilter], () => {
