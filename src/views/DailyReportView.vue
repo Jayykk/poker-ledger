@@ -8,14 +8,23 @@
         </button>
         <h2 class="text-2xl font-bold text-white">{{ $t('dailyReport.title') }}</h2>
       </div>
-      <button
-        v-if="totalGames > 0"
-        @click="handleShareToLine"
-        class="px-3 py-1.5 rounded-lg text-sm bg-[#06C755] text-white hover:bg-[#05b04d] transition flex items-center gap-1.5"
-      >
-        <i class="fab fa-line"></i>
-        {{ $t('dailyReport.shareToLine') }}
-      </button>
+      <!-- Share dropdown -->
+      <div v-if="totalGames > 0" class="flex gap-2">
+        <button
+          @click="handleShareSettlement"
+          class="px-3 py-1.5 rounded-lg text-xs bg-[#06C755] text-white hover:bg-[#05b04d] transition flex items-center gap-1"
+        >
+          <i class="fab fa-line"></i>
+          {{ $t('dailyReport.shareSettlement') }}
+        </button>
+        <button
+          @click="handleShareRanking"
+          class="px-3 py-1.5 rounded-lg text-xs bg-[#FF8C00] text-white hover:bg-[#e07e00] transition flex items-center gap-1"
+        >
+          <i class="fas fa-trophy"></i>
+          {{ $t('dailyReport.shareRanking') }}
+        </button>
+      </div>
     </div>
 
     <!-- Date Range Picker -->
@@ -80,9 +89,9 @@
             <div class="text-xs text-gray-400 mb-1">{{ $t('dailyReport.totalProfit') }}</div>
             <div
               class="text-xl font-mono font-bold"
-              :class="totalProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'"
+              :class="totalProfitCash >= 0 ? 'text-emerald-400' : 'text-rose-400'"
             >
-              {{ totalProfit > 0 ? '+' : '' }}{{ formatNumber(totalProfit) }}
+              {{ totalProfitCash > 0 ? '+' : '' }}${{ formatNumber(Math.round(totalProfitCash)) }}
             </div>
           </div>
         </BaseCard>
@@ -95,7 +104,7 @@
         <BaseCard padding="sm">
           <div class="text-center">
             <div class="text-xs text-gray-400 mb-1">{{ $t('dailyReport.totalBuyIn') }}</div>
-            <div class="text-xl font-mono font-bold text-amber-400">{{ formatNumber(totalBuyIn) }}</div>
+            <div class="text-xl font-mono font-bold text-amber-400">${{ formatNumber(Math.round(totalBuyInCash)) }}</div>
           </div>
         </BaseCard>
       </div>
@@ -127,9 +136,9 @@
             <!-- Profit -->
             <div
               class="font-mono font-bold text-sm"
-              :class="player.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'"
+              :class="player.profitCash >= 0 ? 'text-emerald-400' : 'text-rose-400'"
             >
-              {{ player.profit > 0 ? '+' : '' }}{{ formatNumber(player.profit) }}
+              {{ player.profitCash > 0 ? '+' : '' }}${{ formatNumber(Math.round(player.profitCash)) }}
             </div>
           </div>
         </div>
@@ -149,7 +158,7 @@
       </div>
       <div class="space-y-2">
         <div
-          v-for="game in gamesInRange"
+          v-for="game in gamesInRangeWithCash"
           :key="gameKey(game)"
           class="flex items-center gap-3 p-3 rounded-lg bg-slate-700 transition-colors"
           :class="isGameSelected(game) ? 'opacity-100' : 'opacity-40'"
@@ -168,14 +177,22 @@
             @click="handleGameClick(game)"
           >
             <div class="text-white font-bold text-sm">{{ game.gameName || $t('dailyReport.untitled') }}</div>
-            <div class="text-xs text-gray-400">{{ formatDate(game.createdAt || game.date) }}</div>
+            <div class="text-xs text-gray-400">
+              {{ formatDate(game.createdAt || game.date) }}
+              <span v-if="game.rate && game.rate !== 1" class="ml-1 text-gray-500">(1:{{ game.rate }})</span>
+            </div>
           </div>
-          <!-- Profit -->
-          <div
-            class="font-mono font-bold"
-            :class="game.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'"
-          >
-            {{ game.profit > 0 ? '+' : '' }}{{ formatNumber(game.profit) }}
+          <!-- Profit (cash) -->
+          <div class="text-right">
+            <div
+              class="font-mono font-bold"
+              :class="game.profitCash >= 0 ? 'text-emerald-400' : 'text-rose-400'"
+            >
+              {{ game.profitCash > 0 ? '+' : '' }}${{ formatNumber(Math.round(game.profitCash)) }}
+            </div>
+            <div v-if="game.rate && game.rate !== 1" class="text-xs text-gray-500 font-mono">
+              {{ game.profit > 0 ? '+' : '' }}{{ formatNumber(game.profit) }} chips
+            </div>
           </div>
         </div>
       </div>
@@ -201,21 +218,25 @@ import { formatNumber, formatDate, formatShortDate } from '../utils/formatters.j
 
 const { t } = useI18n();
 const { success, error: showError } = useNotification();
-const { sendDailyReportMessage } = useLiff();
+const { sendDailySettlementMessage, sendDailyRankingMessage } = useLiff();
 
 const {
   startDate,
   endDate,
   gamesInRange,
   selectedGames,
+  selectedGamesWithCash,
   toggleGame,
   isGameSelected,
   selectAll,
   deselectAll,
-  totalProfit,
+  totalProfitCash,
   totalGames,
-  totalBuyIn,
+  totalBuyInCash,
+  totalBuyInAllCash,
   playerRanking,
+  topWinners,
+  topLosers,
   setDateRange,
   setToday,
   gameKey,
@@ -285,6 +306,14 @@ const allSelected = computed(() =>
   gamesInRange.value.length > 0 && selectedGames.value.length === gamesInRange.value.length
 );
 
+// ── Enriched game list with cash values for display ──────────────
+const gamesInRangeWithCash = computed(() =>
+  gamesInRange.value.map((h) => {
+    const rate = h.rate || 1;
+    return { ...h, profitCash: (h.profit || 0) / rate };
+  })
+);
+
 // ── Settlement modal ─────────────────────────────────────────────
 const showSettlementModal = ref(false);
 const selectedRecord = ref(null);
@@ -303,23 +332,30 @@ const rankClass = (index) => {
 };
 
 // ── LINE share ───────────────────────────────────────────────────
-const handleShareToLine = async () => {
-  const dateLabel = isTodaySelected.value
+const getDateLabel = () =>
+  isTodaySelected.value
     ? t('dailyReport.today')
     : `${formatShortDate(startDate.value)} ~ ${formatShortDate(endDate.value)}`;
 
-  const ok = await sendDailyReportMessage({
-    dateLabel,
-    totalProfit: totalProfit.value,
+const handleShareSettlement = async () => {
+  const ok = await sendDailySettlementMessage({
+    dateLabel: getDateLabel(),
     totalGames: totalGames.value,
-    totalBuyIn: totalBuyIn.value,
-    ranking: playerRanking.value.slice(0, 5), // Top 5
+    totalBuyInAllCash: totalBuyInAllCash.value,
+    games: selectedGamesWithCash.value,
+    playerRanking: playerRanking.value,
   });
+  if (ok) success(t('dailyReport.shared'));
+  else showError(t('dailyReport.shareError'));
+};
 
-  if (ok) {
-    success(t('dailyReport.shared'));
-  } else {
-    showError(t('dailyReport.shareError'));
-  }
+const handleShareRanking = async () => {
+  const ok = await sendDailyRankingMessage({
+    dateLabel: getDateLabel(),
+    topWinners: topWinners.value,
+    topLosers: topLosers.value,
+  });
+  if (ok) success(t('dailyReport.shared'));
+  else showError(t('dailyReport.shareError'));
 };
 </script>

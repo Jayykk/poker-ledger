@@ -68,6 +68,11 @@ export function useDailyReport() {
     selectedGames.value.reduce((sum, h) => sum + (h.profit || 0), 0)
   );
 
+  /** Total profit converted to cash (chips / rate per game) */
+  const totalProfitCash = computed(() =>
+    selectedGames.value.reduce((sum, h) => sum + ((h.profit || 0) / (h.rate || 1)), 0)
+  );
+
   const totalGames = computed(() => selectedGames.value.length);
 
   const totalBuyIn = computed(() => {
@@ -81,23 +86,64 @@ export function useDailyReport() {
     }, 0);
   });
 
-  // ── Player ranking (across all selected games) ─────────────────
+  /** Total buy-in converted to cash */
+  const totalBuyInCash = computed(() => {
+    const currentUid = authStore.user?.uid;
+    return selectedGames.value.reduce((sum, h) => {
+      if (!h.settlement) return sum;
+      const rate = h.rate || 1;
+      const me = (currentUid && h.settlement.find((p) => p.odId === currentUid))
+        || h.settlement.find((p) => p.profit === h.profit);
+      return sum + (me ? me.buyIn / rate : 0);
+    }, 0);
+  });
+
+  /** Total buy-in across ALL players, converted to cash */
+  const totalBuyInAllCash = computed(() =>
+    selectedGames.value.reduce((sum, h) => {
+      if (!h.settlement) return sum;
+      const rate = h.rate || 1;
+      return sum + h.settlement.reduce((s, p) => s + (p.buyIn || 0) / rate, 0);
+    }, 0)
+  );
+
+  // ── Per-game detail with cash values ───────────────────────────
+
+  /** Selected games enriched with cash-converted values for current user */
+  const selectedGamesWithCash = computed(() => {
+    const currentUid = authStore.user?.uid;
+    return selectedGames.value.map((h) => {
+      const rate = h.rate || 1;
+      const me = h.settlement
+        && ((currentUid && h.settlement.find((p) => p.odId === currentUid))
+          || h.settlement.find((p) => p.profit === h.profit));
+      return {
+        ...h,
+        profitCash: (h.profit || 0) / rate,
+        buyInCash: me ? me.buyIn / rate : 0,
+        stackCash: me ? (me.stack || 0) / rate : 0,
+      };
+    });
+  });
+
+  // ── Player ranking (across all selected games, in cash) ────────
 
   const playerRanking = computed(() => {
-    const map = new Map(); // key: odId or name → { odId, name, profit, games }
+    const map = new Map(); // key: odId or name → { odId, name, profitCash, games }
 
     for (const game of selectedGames.value) {
       if (!game.settlement) continue;
+      const rate = game.rate || 1;
       for (const p of game.settlement) {
         // Use odId as primary key; fallback to name for legacy data
         const key = p.odId || p.name;
         if (!key) continue;
 
+        const cashProfit = (p.profit || 0) / rate;
         const existing = map.get(key);
         if (existing) {
-          existing.profit += p.profit || 0;
+          existing.profitCash += cashProfit;
           existing.games += 1;
-          // Prefer the name from the entry that has odId
           if (p.odId && !existing.odId) {
             existing.odId = p.odId;
           }
@@ -105,15 +151,25 @@ export function useDailyReport() {
           map.set(key, {
             odId: p.odId || null,
             name: p.name,
-            profit: p.profit || 0,
+            profitCash: cashProfit,
             games: 1,
           });
         }
       }
     }
 
-    return [...map.values()].sort((a, b) => b.profit - a.profit);
+    return [...map.values()].sort((a, b) => b.profitCash - a.profitCash);
   });
+
+  /** Top 3 winners (profitCash > 0) */
+  const topWinners = computed(() =>
+    playerRanking.value.filter((p) => p.profitCash > 0).slice(0, 3)
+  );
+
+  /** Top 3 losers (profitCash < 0, sorted worst first) */
+  const topLosers = computed(() =>
+    playerRanking.value.filter((p) => p.profitCash < 0).slice(-3).reverse()
+  );
 
   // ── Date helpers ───────────────────────────────────────────────
 
@@ -141,15 +197,21 @@ export function useDailyReport() {
     endDate,
     gamesInRange,
     selectedGames,
+    selectedGamesWithCash,
     excludedGames,
     toggleGame,
     isGameSelected,
     selectAll,
     deselectAll,
     totalProfit,
+    totalProfitCash,
     totalGames,
     totalBuyIn,
+    totalBuyInCash,
+    totalBuyInAllCash,
     playerRanking,
+    topWinners,
+    topLosers,
     setDateRange,
     setToday,
     gameKey,

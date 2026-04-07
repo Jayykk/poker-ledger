@@ -347,6 +347,8 @@
     "deselectAll": "取消全选",
     "untitled": "未命名",
     "shareToLine": "分享",
+    "shareSettlement": "分享结算",
+    "shareRanking": "分享排行",
     "shared": "已分享至 LINE",
     "shareError": "分享失败，请在 LINE 中打开"
   }
