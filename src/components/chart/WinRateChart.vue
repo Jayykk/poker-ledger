@@ -43,7 +43,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useChart } from '../../composables/useChart.js';
 import { useUserStore } from '../../store/modules/user.js';
@@ -107,8 +107,7 @@ const chartData = computed(() => {
 });
 
 const renderChart = () => {
-  nextTick(() => {
-    createPieChart(canvasId.value, chartData.value, {
+  createPieChart(canvasId.value, chartData.value, {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
@@ -134,7 +133,6 @@ const renderChart = () => {
           }
         }
       }
-    });
   });
 };
 

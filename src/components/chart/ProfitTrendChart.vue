@@ -49,7 +49,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, nextTick } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useChart } from '../../composables/useChart.js';
 import { useUserStore } from '../../store/modules/user.js';
@@ -111,8 +111,7 @@ const chartData = computed(() => {
 });
 
 const renderChart = () => {
-  nextTick(() => {
-    createLineChart(canvasId.value, chartData.value, {
+  createLineChart(canvasId.value, chartData.value, {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
@@ -147,10 +146,9 @@ const renderChart = () => {
           }
         }
       }
-    });
-    
-    isLoading.value = false;
   });
+  
+  isLoading.value = false;
 };
 // Debounced render function to prevent rapid re-renders
 const debouncedRenderChart = debounce(() => {

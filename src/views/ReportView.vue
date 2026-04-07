@@ -131,7 +131,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted, nextTick } from 'vue';
+import { computed, ref, watch, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useUserStore } from '../store/modules/user.js';
 import { useNotification } from '../composables/useNotification.js';
@@ -148,7 +148,7 @@ import { CHART_COLORS } from '../utils/constants.js';
 const { t } = useI18n();
 const userStore = useUserStore();
 const { success } = useNotification();
-const { chartInstance, createLineChart, updateChart, destroyChart, debounce } = useChart();
+const { createLineChart, destroyChart, debounce } = useChart();
 
 const activeTab = ref('recent');
 const selectedGameCount = ref(10);
@@ -267,18 +267,11 @@ const chartOptions = {
 };
 
 const renderRecentChart = () => {
-  nextTick(() => {
-    if (recentRecords.value.length > 0) {
-      // Use update if chart already exists, otherwise create
-      if (chartInstance.value && chartInstance.value.canvas) {
-        updateChart(recentChartData.value);
-      } else {
-        createLineChart(recentChartId.value, recentChartData.value, chartOptions);
-      }
-    } else {
-      destroyChart();
-    }
-  });
+  if (recentRecords.value.length > 0) {
+    createLineChart(recentChartId.value, recentChartData.value, chartOptions);
+  } else {
+    destroyChart();
+  }
 };
 
 const debouncedRenderRecentChart = debounce(() => {
