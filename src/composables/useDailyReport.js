@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue';
 import { useUserStore } from '../store/modules/user.js';
+import { useAuthStore } from '../store/modules/auth.js';
 
 /**
  * Composable for daily settlement report.
@@ -9,11 +10,12 @@ import { useUserStore } from '../store/modules/user.js';
  */
 export function useDailyReport() {
   const userStore = useUserStore();
+  const authStore = useAuthStore();
 
-  // ── Date range (defaults to today 00:00 – 23:59) ──────────────
+  // ── Date range (defaults to today 00:00 – 23:59:59.999) ───────
   const today = new Date();
   const startDate = ref(new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0));
-  const endDate = ref(new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59));
+  const endDate = ref(new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999));
 
   // ── Per-game toggle (Set of createdAt timestamps used as identity) ──
   const excludedGames = ref(new Set());
@@ -31,8 +33,8 @@ export function useDailyReport() {
     });
   });
 
-  /** Unique key for a history entry (createdAt + gameName) */
-  const gameKey = (h) => `${h.createdAt}_${h.gameName}`;
+  /** Unique key for a history entry */
+  const gameKey = (h) => `${h.createdAt}_${h.gameId || ''}_${h.gameName}`;
 
   /** Games currently selected (all minus excluded) */
   const selectedGames = computed(() =>
@@ -68,14 +70,16 @@ export function useDailyReport() {
 
   const totalGames = computed(() => selectedGames.value.length);
 
-  const totalBuyIn = computed(() =>
-    selectedGames.value.reduce((sum, h) => {
+  const totalBuyIn = computed(() => {
+    const currentUid = authStore.user?.uid;
+    return selectedGames.value.reduce((sum, h) => {
       if (!h.settlement) return sum;
-      // Find the current user's buyIn from settlement
-      const me = h.settlement.find((p) => p.profit === h.profit);
+      // Find the current user in settlement by uid, fallback to profit matching for legacy data
+      const me = (currentUid && h.settlement.find((p) => p.odId === currentUid))
+        || h.settlement.find((p) => p.profit === h.profit);
       return sum + (me ? me.buyIn : 0);
-    }, 0)
-  );
+    }, 0);
+  });
 
   // ── Player ranking (across all selected games) ─────────────────
 
@@ -114,6 +118,10 @@ export function useDailyReport() {
   // ── Date helpers ───────────────────────────────────────────────
 
   const setDateRange = (start, end) => {
+    // Swap if start is after end
+    if (start.getTime() > end.getTime()) {
+      [start, end] = [end, start];
+    }
     startDate.value = start;
     endDate.value = end;
     // Reset game selection when date changes
@@ -124,7 +132,7 @@ export function useDailyReport() {
     const now = new Date();
     setDateRange(
       new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0),
-      new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59),
+      new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999),
     );
   };
 

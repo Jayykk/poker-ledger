@@ -239,7 +239,7 @@ const handleStartDateChange = (val) => {
 };
 
 const handleEndDateChange = (val) => {
-  const d = new Date(val + 'T23:59:59');
+  const d = new Date(val + 'T23:59:59.999');
   if (!isNaN(d)) setDateRange(startDate.value, d);
 };
 
@@ -248,7 +248,7 @@ const setYesterday = () => {
   const y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
   setDateRange(
     new Date(y.getFullYear(), y.getMonth(), y.getDate(), 0, 0, 0),
-    new Date(y.getFullYear(), y.getMonth(), y.getDate(), 23, 59, 59),
+    new Date(y.getFullYear(), y.getMonth(), y.getDate(), 23, 59, 59, 999),
   );
 };
 
@@ -256,7 +256,7 @@ const setLast7Days = () => {
   const now = new Date();
   setDateRange(
     new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0),
-    new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59),
+    new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999),
   );
 };
 
