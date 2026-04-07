@@ -44,7 +44,9 @@ export function useChart() {
       const ctx = canvas.getContext('2d');
       
       if (chartInstance.value) {
-        chartInstance.value.destroy();
+        if (chartInstance.value.canvas) {
+          chartInstance.value.destroy();
+        }
         chartInstance.value = null;
       }
 
@@ -99,7 +101,9 @@ export function useChart() {
       const ctx = canvas.getContext('2d');
       
       if (chartInstance.value) {
-        chartInstance.value.destroy();
+        if (chartInstance.value.canvas) {
+          chartInstance.value.destroy();
+        }
         chartInstance.value = null;
       }
 
@@ -147,7 +151,9 @@ export function useChart() {
       const ctx = canvas.getContext('2d');
       
       if (chartInstance.value) {
-        chartInstance.value.destroy();
+        if (chartInstance.value.canvas) {
+          chartInstance.value.destroy();
+        }
         chartInstance.value = null;
       }
 
@@ -200,7 +206,9 @@ export function useChart() {
 
   const destroyChart = () => {
     if (chartInstance.value) {
-      chartInstance.value.destroy();
+      if (chartInstance.value.canvas) {
+        chartInstance.value.destroy();
+      }
       chartInstance.value = null;
     }
     isUpdating.value = false;
