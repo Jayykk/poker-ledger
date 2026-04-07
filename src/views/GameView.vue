@@ -464,7 +464,11 @@ const handleAddBuy = async (player) => {
       await updatePlayer(updatedPlayer);
     }
     success(t('transaction.buyInSuccess'));
-    sendBuyInMessage(displayName.value, player.name, buyInAmount, game.value?.name, game.value?.id);
+    const newTotalBuyIn = (player.buyIn || 0) + buyInAmount;
+    sendBuyInMessage(displayName.value, player.name, buyInAmount, game.value?.name, game.value?.id, {
+      totalBuyIn: newTotalBuyIn,
+      baseBuyIn: buyInAmount,
+    });
   }
 };
 

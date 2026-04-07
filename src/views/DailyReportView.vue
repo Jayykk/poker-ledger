@@ -207,8 +207,9 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRoute } from 'vue-router';
 import { useDailyReport } from '../composables/useDailyReport.js';
 import { useLiff } from '../composables/useLiff.js';
 import { useNotification } from '../composables/useNotification.js';
@@ -217,6 +218,7 @@ import SettlementDetailModal from '../components/common/SettlementDetailModal.vu
 import { formatNumber, formatDate, formatShortDate } from '../utils/formatters.js';
 
 const { t } = useI18n();
+const route = useRoute();
 const { success, error: showError } = useNotification();
 const { sendDailySettlementMessage, sendDailyRankingMessage } = useLiff();
 
@@ -253,6 +255,17 @@ const toLocalDateStr = (d) => {
 
 const startDateStr = computed(() => toLocalDateStr(startDate.value));
 const endDateStr = computed(() => toLocalDateStr(endDate.value));
+
+// Restore date range from query params (e.g. from LIFF footer link)
+onMounted(() => {
+  const qs = route.query.start;
+  const qe = route.query.end;
+  if (qs && qe) {
+    const s = new Date(qs + 'T00:00:00');
+    const e = new Date(qe + 'T23:59:59.999');
+    if (!isNaN(s) && !isNaN(e)) setDateRange(s, e);
+  }
+});
 
 const handleStartDateChange = (val) => {
   const d = new Date(val + 'T00:00:00');
@@ -340,6 +353,8 @@ const getDateLabel = () =>
 const handleShareSettlement = async () => {
   const ok = await sendDailySettlementMessage({
     dateLabel: getDateLabel(),
+    startDateStr: startDateStr.value,
+    endDateStr: endDateStr.value,
     totalGames: totalGames.value,
     totalBuyInAllCash: totalBuyInAllCash.value,
     games: selectedGamesWithCash.value,
@@ -352,6 +367,8 @@ const handleShareSettlement = async () => {
 const handleShareRanking = async () => {
   const ok = await sendDailyRankingMessage({
     dateLabel: getDateLabel(),
+    startDateStr: startDateStr.value,
+    endDateStr: endDateStr.value,
     topWinners: topWinners.value,
     topLosers: topLosers.value,
   });
