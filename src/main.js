@@ -81,6 +81,7 @@ import PokerGame from './views/PokerGame.vue';
       { path: '/game', name: 'Game', component: GameView, meta: { requiresAuth: true } },
       { path: '/game/:gameId', name: 'GameDirect', component: GameView, meta: { requiresAuth: true } },
       { path: '/report', name: 'Report', component: ReportView, meta: { requiresAuth: true } },
+      { path: '/report/:gameId', name: 'ReportDetail', component: ReportView, meta: { requiresAuth: true } },
       { path: '/profile', name: 'Profile', component: ProfileView, meta: { requiresAuth: true } },
       { path: '/friends', name: 'Friends', component: FriendsView, meta: { requiresAuth: true } },
       { path: '/poker-lobby', name: 'GameLobby', component: GameLobby, meta: { requiresAuth: true } },

@@ -132,6 +132,7 @@
 
 <script setup>
 import { computed, ref, watch, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useUserStore } from '../store/modules/user.js';
 import { useNotification } from '../composables/useNotification.js';
@@ -146,6 +147,7 @@ import { exportHistoryToCSV } from '../utils/exportReport.js';
 import { CHART_COLORS } from '../utils/constants.js';
 
 const { t } = useI18n();
+const route = useRoute();
 const userStore = useUserStore();
 const { success } = useNotification();
 const { createLineChart, destroyChart, debounce } = useChart();
@@ -294,5 +296,30 @@ onMounted(() => {
   if (activeTab.value === 'recent') {
     renderRecentChart();
   }
+
+  // Deep-link: auto-open settlement detail when gameId is in the route
+  const deepLinkGameId = route.params.gameId;
+  if (deepLinkGameId) {
+    const record = userStore.history.find(h => h.gameId === deepLinkGameId);
+    if (record) {
+      handleRecordClick(record);
+    }
+  }
 });
+
+// Fallback: history may load after mount (Firestore listener)
+if (route.params.gameId) {
+  const stopWatcher = watch(
+    () => userStore.history,
+    (history) => {
+      if (showSettlementModal.value) return; // Already opened
+      const record = history.find(h => h.gameId === route.params.gameId);
+      if (record) {
+        handleRecordClick(record);
+        stopWatcher();
+      }
+    },
+    { deep: true }
+  );
+}
 </script>

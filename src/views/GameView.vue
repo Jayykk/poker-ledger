@@ -464,7 +464,7 @@ const handleAddBuy = async (player) => {
       await updatePlayer(updatedPlayer);
     }
     success(t('transaction.buyInSuccess'));
-    sendBuyInMessage(displayName.value, player.name, buyInAmount, game.value?.name);
+    sendBuyInMessage(displayName.value, player.name, buyInAmount, game.value?.name, game.value?.id);
   }
 };
 
@@ -488,7 +488,7 @@ const handleUndoBuyIn = async (tx) => {
         }
       }
       success(t('transaction.undoSuccess'));
-      sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount), game.value?.name);
+      sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount), game.value?.name, game.value?.id);
     }
   }
 };
@@ -511,11 +511,14 @@ const handleSettle = async () => {
     await withLoading(async () => {
       // Generate report text before settling (game data still available)
       const report = generateTextReport(game.value, exchangeRate.value);
+      // LINE notification omits transfer suggestions (kept in copy-report)
+      const lineReport = generateTextReport(game.value, exchangeRate.value, { includeTransfers: false });
+      const gameId = game.value?.id;
       const settleSuccess = await settleGame(exchangeRate.value);
       if (settleSuccess) {
         showSettlement.value = false;
         // Send settlement report to LINE chat (user's own name, free)
-        sendSettlementMessage(report);
+        sendSettlementMessage(lineReport, gameId);
         router.push('/report');
       }
     }, t('loading.settling'));

@@ -61,8 +61,9 @@ const calculateMinimumTransfers = (players) => {
  * @param {number} rate - Exchange rate
  * @returns {string} Text report
  */
-export const generateTextReport = (game, rate = 10) => {
+export const generateTextReport = (game, rate = 10, options = {}) => {
   if (!game) return '';
+  const { includeTransfers = true } = options;
   
   const gap = game.players.reduce((sum, p) => sum + (p.stack || 0), 0) - 
               game.players.reduce((sum, p) => sum + p.buyIn, 0);
@@ -83,12 +84,14 @@ export const generateTextReport = (game, rate = 10) => {
   }
   
   // Add minimum transfer suggestions
-  const transfers = calculateMinimumTransfers(game.players);
-  if (transfers.length > 0) {
-    text += `---\n=== 轉帳建議 ===\n`;
-    transfers.forEach(t => {
-      text += `${t.from} → ${t.to}: ${formatCash(t.amount, rate)}\n`;
-    });
+  if (includeTransfers) {
+    const transfers = calculateMinimumTransfers(game.players);
+    if (transfers.length > 0) {
+      text += `---\n=== 轉帳建議 ===\n`;
+      transfers.forEach(t => {
+        text += `${t.from} → ${t.to}: ${formatCash(t.amount, rate)}\n`;
+      });
+    }
   }
   
   return text;

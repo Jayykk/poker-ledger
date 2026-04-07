@@ -95,6 +95,28 @@ const fetchProfile = async () => {
 };
 
 /**
+ * Build a Flex Message footer with a single URI action button
+ */
+const buildFooter = (uri, label) => ({
+  type: 'box',
+  layout: 'vertical',
+  spacing: 'sm',
+  contents: [
+    {
+      type: 'button',
+      style: 'link',
+      height: 'sm',
+      action: {
+        type: 'uri',
+        label,
+        uri,
+      },
+    },
+  ],
+  flex: 0,
+});
+
+/**
  * Send messages to the current chat (user's own name) — FREE, no quota
  * Only works when opened from a LINE chat room.
  */
@@ -112,7 +134,7 @@ const sendMessages = async (messages) => {
 /**
  * Send a buy-in notification to the current LINE chat (Flex Message)
  */
-const sendBuyInMessage = async (actionName, targetName, amount, roomName) => {
+const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId) => {
   if (!lineNotifyEnabled.value) return false;
   const isSelf = actionName === targetName;
   const roomLabel = roomName ? `${roomName} ` : '';
@@ -124,124 +146,130 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName) => {
     : `${actionName} 幫 ${targetName} 買入`;
   const notificationTitle = `💰 ${roomLabel}買入通知`;
 
-  return sendMessages([{
-    type: 'flex',
-    altText,
-    contents: {
-      type: 'bubble',
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          {
-            type: 'text',
-            text: notificationTitle,
-            weight: 'bold',
-            color: '#00B900',
-            size: 'sm',
-          },
-          {
-            type: 'text',
-            text: titleText,
-            weight: 'bold',
-            size: 'xl',
-            margin: 'md',
-            wrap: true,
-          },
-          {
-            type: 'text',
-            text: `金額：$${amount}`,
-            size: 'md',
-            color: '#27ACB2',
-            margin: 'md',
-          },
-        ],
-      },
+  const bubble = {
+    type: 'bubble',
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      contents: [
+        {
+          type: 'text',
+          text: notificationTitle,
+          weight: 'bold',
+          color: '#00B900',
+          size: 'sm',
+        },
+        {
+          type: 'text',
+          text: titleText,
+          weight: 'bold',
+          size: 'xl',
+          margin: 'md',
+          wrap: true,
+        },
+        {
+          type: 'text',
+          text: `金額：$${amount}`,
+          size: 'md',
+          color: '#27ACB2',
+          margin: 'md',
+        },
+      ],
     },
-  }]);
+  };
+
+  if (gameId && LIFF_ID) {
+    bubble.footer = buildFooter(`https://liff.line.me/${LIFF_ID}/game/${gameId}`, '查看牌桌');
+  }
+
+  return sendMessages([{ type: 'flex', altText, contents: bubble }]);
 };
 
 /**
  * Send an undo notification to the current LINE chat (Flex Message)
  */
-const sendUndoMessage = async (actionName, targetName, amount, roomName) => {
+const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId) => {
   if (!lineNotifyEnabled.value) return false;
   const roomLabel = roomName ? `${roomName} ` : '';
   const altText = `↩️ ${roomLabel}${actionName} 撤銷了 ${targetName} 的一筆 $${amount} 買入`;
   const notificationTitle = `↩️ ${roomLabel}撤銷通知`;
 
-  return sendMessages([{
-    type: 'flex',
-    altText,
-    contents: {
-      type: 'bubble',
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          {
-            type: 'text',
-            text: notificationTitle,
-            weight: 'bold',
-            color: '#FF4444',
-            size: 'sm',
-          },
-          {
-            type: 'text',
-            text: `${actionName} 撤銷了 ${targetName} 的買入`,
-            weight: 'bold',
-            size: 'xl',
-            margin: 'md',
-            wrap: true,
-          },
-          {
-            type: 'text',
-            text: `撤銷金額：$${amount}`,
-            size: 'md',
-            color: '#FF4444',
-            margin: 'md',
-          },
-        ],
-      },
+  const bubble = {
+    type: 'bubble',
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      contents: [
+        {
+          type: 'text',
+          text: notificationTitle,
+          weight: 'bold',
+          color: '#FF4444',
+          size: 'sm',
+        },
+        {
+          type: 'text',
+          text: `${actionName} 撤銷了 ${targetName} 的買入`,
+          weight: 'bold',
+          size: 'xl',
+          margin: 'md',
+          wrap: true,
+        },
+        {
+          type: 'text',
+          text: `撤銷金額：$${amount}`,
+          size: 'md',
+          color: '#FF4444',
+          margin: 'md',
+        },
+      ],
     },
-  }]);
+  };
+
+  if (gameId && LIFF_ID) {
+    bubble.footer = buildFooter(`https://liff.line.me/${LIFF_ID}/game/${gameId}`, '查看牌桌');
+  }
+
+  return sendMessages([{ type: 'flex', altText, contents: bubble }]);
 };
 
 /**
  * Send settlement report to the current LINE chat (Flex Message)
  */
-const sendSettlementMessage = async (reportText) => {
+const sendSettlementMessage = async (reportText, gameId) => {
   if (!lineNotifyEnabled.value) return false;
   const altText = `🎲 結算報表\n${reportText.slice(0, MAX_ALT_TEXT_LENGTH)}`;
 
-  return sendMessages([{
-    type: 'flex',
-    altText,
-    contents: {
-      type: 'bubble',
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          {
-            type: 'text',
-            text: '🎲 結算報表',
-            weight: 'bold',
-            color: '#1DB446',
-            size: 'sm',
-          },
-          {
-            type: 'text',
-            text: reportText,
-            size: 'sm',
-            color: '#555555',
-            margin: 'md',
-            wrap: true,
-          },
-        ],
-      },
+  const bubble = {
+    type: 'bubble',
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      contents: [
+        {
+          type: 'text',
+          text: '🎲 結算報表',
+          weight: 'bold',
+          color: '#1DB446',
+          size: 'sm',
+        },
+        {
+          type: 'text',
+          text: reportText,
+          size: 'sm',
+          color: '#555555',
+          margin: 'md',
+          wrap: true,
+        },
+      ],
     },
-  }]);
+  };
+
+  if (gameId && LIFF_ID) {
+    bubble.footer = buildFooter(`https://liff.line.me/${LIFF_ID}/report/${gameId}`, '查看結算');
+  }
+
+  return sendMessages([{ type: 'flex', altText, contents: bubble }]);
 };
 
 /**
