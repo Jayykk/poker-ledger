@@ -61,7 +61,7 @@
       </div>
 
       <!-- Line chart for recent records -->
-      <BaseCard v-if="recentRecords.length > 0" :title="$t('report.profitTrend')" padding="md" class="mb-4">
+      <BaseCard v-show="recentRecords.length > 0" :title="$t('report.profitTrend')" padding="md" class="mb-4">
         <div class="relative h-48 w-full">
           <canvas :id="recentChartId"></canvas>
         </div>
@@ -148,7 +148,7 @@ import { CHART_COLORS } from '../utils/constants.js';
 const { t } = useI18n();
 const userStore = useUserStore();
 const { success } = useNotification();
-const { createLineChart, destroyChart, debounce } = useChart();
+const { chartInstance, createLineChart, updateChart, destroyChart, debounce } = useChart();
 
 const activeTab = ref('recent');
 const selectedGameCount = ref(10);
@@ -229,46 +229,52 @@ const recentChartData = computed(() => {
   };
 });
 
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false
+    },
+    tooltip: {
+      callbacks: {
+        label: (context) => {
+          return `Profit: ${context.parsed.y >= 0 ? '+' : ''}${formatNumber(context.parsed.y)}`;
+        }
+      }
+    }
+  },
+  scales: {
+    x: {
+      display: true,
+      grid: {
+        display: false
+      },
+      ticks: {
+        color: '#94a3b8'
+      }
+    },
+    y: {
+      grid: {
+        color: '#334155'
+      },
+      ticks: {
+        color: '#94a3b8',
+        callback: (value) => formatNumber(value)
+      }
+    }
+  }
+};
+
 const renderRecentChart = () => {
   nextTick(() => {
-    // Only create chart if there are records and canvas exists
     if (recentRecords.value.length > 0) {
-      createLineChart(recentChartId.value, recentChartData.value, {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false
-          },
-          tooltip: {
-            callbacks: {
-              label: (context) => {
-                return `Profit: ${context.parsed.y >= 0 ? '+' : ''}${formatNumber(context.parsed.y)}`;
-              }
-            }
-          }
-        },
-        scales: {
-          x: {
-            display: true,
-            grid: {
-              display: false
-            },
-            ticks: {
-              color: '#94a3b8'
-            }
-          },
-          y: {
-            grid: {
-              color: '#334155'
-            },
-            ticks: {
-              color: '#94a3b8',
-              callback: (value) => formatNumber(value)
-            }
-          }
-        }
-      });
+      // Use update if chart already exists, otherwise create
+      if (chartInstance.value && chartInstance.value.canvas) {
+        updateChart(recentChartData.value);
+      } else {
+        createLineChart(recentChartId.value, recentChartData.value, chartOptions);
+      }
     } else {
       destroyChart();
     }
@@ -277,7 +283,7 @@ const renderRecentChart = () => {
 
 const debouncedRenderRecentChart = debounce(() => {
   renderRecentChart();
-}, 200);
+}, 300);
 
 // Watch for changes in selectedGameCount or filter to re-render chart
 watch([selectedGameCount, gameTypeFilter], () => {
