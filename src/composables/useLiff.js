@@ -323,10 +323,11 @@ const sendSettlementMessage = async ({ gameName, gameId, rate, players }) => {
  * Send daily settlement report to the current LINE chat (Flex Message).
  * Public-friendly layout: summary → game names → all players ranked by P&L.
  */
-const sendDailySettlementMessage = async ({ dateLabel, totalGames, totalBuyInAllCash, games, playerRanking }) => {
+const sendDailySettlementMessage = async ({ dateLabel, startDateStr, endDateStr, totalGames, totalBuyInAllCash, games, playerRanking }) => {
   if (!lineNotifyEnabled.value) return false;
 
   const altText = `💰 日結結算 ${dateLabel}`;
+  const dateQuery = startDateStr && endDateStr ? `?start=${startDateStr}&end=${endDateStr}` : '';
   const buyInText = `$${Math.round(totalBuyInAllCash).toLocaleString()}`;
 
   // Game name rows (max 10)
@@ -414,7 +415,7 @@ const sendDailySettlementMessage = async ({ dateLabel, totalGames, totalBuyInAll
   };
 
   if (LIFF_ID) {
-    bubble.footer = buildFooter(`https://liff.line.me/${LIFF_ID}/daily-report`, '查看詳情');
+    bubble.footer = buildFooter(`https://liff.line.me/${LIFF_ID}/daily-report${dateQuery}`, '查看詳情');
   }
 
   return sendMessages([{ type: 'flex', altText, contents: bubble }]);
@@ -424,10 +425,11 @@ const sendDailySettlementMessage = async ({ dateLabel, totalGames, totalBuyInAll
  * Send daily ranking to the current LINE chat (Flex Message).
  * Shows top 3 winners and top 3 losers.
  */
-const sendDailyRankingMessage = async ({ dateLabel, topWinners, topLosers }) => {
+const sendDailyRankingMessage = async ({ dateLabel, startDateStr, endDateStr, topWinners, topLosers }) => {
   if (!lineNotifyEnabled.value) return false;
 
   const altText = `🏆 日結排行 ${dateLabel}`;
+  const dateQuery = startDateStr && endDateStr ? `?start=${startDateStr}&end=${endDateStr}` : '';
 
   const buildPlayerRow = (p, i, emoji) => ({
     type: 'box',
@@ -490,7 +492,7 @@ const sendDailyRankingMessage = async ({ dateLabel, topWinners, topLosers }) => 
   };
 
   if (LIFF_ID) {
-    bubble.footer = buildFooter(`https://liff.line.me/${LIFF_ID}/daily-report`, '查看詳情');
+    bubble.footer = buildFooter(`https://liff.line.me/${LIFF_ID}/daily-report${dateQuery}`, '查看詳情');
   }
 
   return sendMessages([{ type: 'flex', altText, contents: bubble }]);
