@@ -509,16 +509,20 @@ const handleSettle = async () => {
   });
   if (shouldSettle) {
     await withLoading(async () => {
-      // Generate report text before settling (game data still available)
-      const report = generateTextReport(game.value, exchangeRate.value);
-      // LINE notification omits transfer suggestions (kept in copy-report)
-      const lineReport = generateTextReport(game.value, exchangeRate.value, { includeTransfers: false });
-      const gameId = game.value?.id;
+      // Capture game data before settling (game state gets cleared)
+      const gameName = game.value?.name;
+      const gId = game.value?.id;
+      const rate = exchangeRate.value;
+      const players = (game.value?.players || []).map((p) => ({
+        name: p.name,
+        buyIn: p.buyIn || 0,
+        profit: calculateNet(p),
+      }));
       const settleSuccess = await settleGame(exchangeRate.value);
       if (settleSuccess) {
         showSettlement.value = false;
         // Send settlement report to LINE chat (user's own name, free)
-        sendSettlementMessage(lineReport, gameId);
+        sendSettlementMessage({ gameName, gameId: gId, rate, players });
         router.push('/report');
       }
     }, t('loading.settling'));

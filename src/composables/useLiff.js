@@ -234,33 +234,80 @@ const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId)
 };
 
 /**
- * Send settlement report to the current LINE chat (Flex Message)
+ * Send single-game settlement report to the current LINE chat (Flex Message).
+ * Structured layout matching daily settlement style.
  */
-const sendSettlementMessage = async (reportText, gameId) => {
+const sendSettlementMessage = async ({ gameName, gameId, rate, players }) => {
   if (!lineNotifyEnabled.value) return false;
-  const altText = `🎲 結算報表\n${reportText.slice(0, MAX_ALT_TEXT_LENGTH)}`;
+
+  const totalBuyInCash = Math.round((players || []).reduce((s, p) => s + p.buyIn, 0) / (rate || 1));
+  const altText = `🎲 結算報表 — ${gameName || '未命名'}`;
+
+  const rateLabel = rate && rate !== 1 ? ` (1:${rate})` : '';
+
+  // Player rows sorted by profit descending
+  const sorted = [...(players || [])].sort((a, b) => (b.profit ?? 0) - (a.profit ?? 0));
+  const playerRows = sorted.slice(0, 20).map((p) => {
+    const cash = Math.round((p.profit ?? 0) / (rate || 1));
+    return {
+      type: 'box',
+      layout: 'horizontal',
+      contents: [
+        { type: 'text', text: p.name || '???', size: 'sm', color: '#555555', flex: 3 },
+        {
+          type: 'text',
+          text: `${cash > 0 ? '+' : ''}$${cash.toLocaleString()}`,
+          size: 'sm',
+          color: cash >= 0 ? '#1DB446' : '#FF4444',
+          align: 'end',
+          flex: 2,
+          weight: 'bold',
+        },
+      ],
+    };
+  });
 
   const bubble = {
     type: 'bubble',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: '#1DB446',
+      contents: [
+        { type: 'text', text: '🎲 結算報表', color: '#FFFFFF', weight: 'bold', size: 'md' },
+        { type: 'text', text: `${gameName || '未命名'}${rateLabel}`, color: '#FFFFFFCC', size: 'xs', margin: 'sm' },
+      ],
+    },
     body: {
       type: 'box',
       layout: 'vertical',
+      spacing: 'md',
       contents: [
+        // Summary
         {
-          type: 'text',
-          text: '🎲 結算報表',
-          weight: 'bold',
-          color: '#1DB446',
-          size: 'sm',
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            {
+              type: 'box', layout: 'vertical', flex: 1,
+              contents: [
+                { type: 'text', text: '人數', size: 'xs', color: '#AAAAAA' },
+                { type: 'text', text: String(players?.length || 0), size: 'xxl', weight: 'bold', color: '#333333' },
+              ],
+            },
+            {
+              type: 'box', layout: 'vertical', flex: 1,
+              contents: [
+                { type: 'text', text: '總買入', size: 'xs', color: '#AAAAAA' },
+                { type: 'text', text: `$${totalBuyInCash.toLocaleString()}`, size: 'xxl', weight: 'bold', color: '#333333' },
+              ],
+            },
+          ],
         },
-        {
-          type: 'text',
-          text: reportText,
-          size: 'sm',
-          color: '#555555',
-          margin: 'md',
-          wrap: true,
-        },
+        { type: 'separator', color: '#EEEEEE' },
+        // Player settlement
+        { type: 'text', text: '📊 結算統計', weight: 'bold', size: 'sm', color: '#333333' },
+        ...playerRows,
       ],
     },
   };
