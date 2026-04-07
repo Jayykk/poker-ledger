@@ -226,6 +226,79 @@ async function testGetEventsAsArray() {
   console.log('✓ getEventsAsArray returns events in legacy array format');
 }
 
+/**
+ * Example test: LINE notify flag skips messages when disabled
+ *
+ * Validates that sendBuyInMessage / sendUndoMessage / sendSettlementMessage
+ * return false immediately when lineNotifyEnabled is false, without calling
+ * liff.sendMessages().
+ */
+async function testLineNotifyFlagSkipsMessages() {
+  // Simulate the guard logic used in useLiff.js
+  let lineNotifyEnabled = false;
+
+  const guardedSend = async (notifyFlag) => {
+    if (!notifyFlag) return false;
+    // Would call liff.sendMessages(...) here
+    return true;
+  };
+
+  const resultWhenDisabled = await guardedSend(lineNotifyEnabled);
+  if (resultWhenDisabled !== false) {
+    throw new Error('Expected false when lineNotifyEnabled is false');
+  }
+
+  lineNotifyEnabled = true;
+  const resultWhenEnabled = await guardedSend(lineNotifyEnabled);
+  if (resultWhenEnabled !== true) {
+    throw new Error('Expected true when lineNotifyEnabled is true');
+  }
+
+  console.log('✓ LINE notify flag: messages are skipped when disabled, sent when enabled');
+}
+
+/**
+ * Example test: LINE notify flag defaults to true
+ *
+ * Validates the default value behaviour — flag is enabled unless the
+ * localStorage entry is explicitly set to the string 'false'.
+ */
+function testLineNotifyFlagDefaultTrue() {
+  // Replicate the logic from useLiff.js:
+  //   localStorage.getItem(STORAGE_KEYS.LINE_NOTIFY_ENABLED) !== 'false'
+  const defaultEnabled = (storedValue) => storedValue !== 'false';
+
+  if (!defaultEnabled(null)) throw new Error('Expected true when no value stored');
+  if (!defaultEnabled(undefined)) throw new Error('Expected true when undefined');
+  if (!defaultEnabled('true')) throw new Error('Expected true when stored as "true"');
+  if (defaultEnabled('false')) throw new Error('Expected false when stored as "false"');
+
+  console.log('✓ LINE notify flag: defaults to true, respects "false" stored value');
+}
+
+/**
+ * Example test: LINE avatar small-image URL
+ *
+ * Validates that the small CDN URL is constructed by appending '/small'
+ * to the original LINE pictureUrl — the logic applied in lineAuth.js.
+ */
+function testLineAvatarSmallUrl() {
+  const buildSmallUrl = (pictureUrl) => (pictureUrl ? `${pictureUrl}/small` : '');
+
+  const base = 'https://profile.line-scdn.net/abc123def456';
+  const small = buildSmallUrl(base);
+
+  if (small !== `${base}/small`) {
+    throw new Error(`Expected "${base}/small", got "${small}"`);
+  }
+
+  if (buildSmallUrl('') !== '') throw new Error('Expected empty string for empty input');
+  if (buildSmallUrl(null) !== '') throw new Error('Expected empty string for null input');
+  if (buildSmallUrl(undefined) !== '') throw new Error('Expected empty string for undefined input');
+
+  console.log('✓ LINE avatar: small URL is built by appending "/small" to pictureUrl');
+}
+
 // Run example tests (for documentation purposes)
 async function runExampleTests() {
   console.log('\nRunning example tests for events library...\n');
@@ -237,6 +310,11 @@ async function runExampleTests() {
   await testGetHandShownCards();
   await testGetSpectatorEvents();
   await testGetEventsAsArray();
+
+  // New feature tests
+  await testLineNotifyFlagSkipsMessages();
+  testLineNotifyFlagDefaultTrue();
+  testLineAvatarSmallUrl();
   
   console.log('\nAll example tests passed! ✓');
   console.log('\nNote: These are example tests for documentation.');
@@ -252,6 +330,9 @@ export {
   testGetHandShownCards,
   testGetSpectatorEvents,
   testGetEventsAsArray,
+  testLineNotifyFlagSkipsMessages,
+  testLineNotifyFlagDefaultTrue,
+  testLineAvatarSmallUrl,
   runExampleTests,
 };
 

@@ -1,8 +1,9 @@
 <template>
   <div class="pt-8 px-4 pb-24 text-center">
     <!-- Avatar -->
-    <div class="w-20 h-20 bg-slate-700 rounded-full mx-auto flex items-center justify-center text-3xl mb-4">
-      <i class="fas fa-user text-gray-400"></i>
+    <div class="w-20 h-20 bg-slate-700 rounded-full mx-auto overflow-hidden flex items-center justify-center text-3xl mb-4">
+      <img v-if="userAvatar" :src="userAvatar" :alt="displayName" class="w-full h-full object-cover rounded-full" />
+      <i v-else class="fas fa-user text-gray-400"></i>
     </div>
     
     <h2 class="text-xl font-bold text-white mb-1">
@@ -130,6 +131,23 @@
         </div>
       </BaseCard>
 
+      <!-- LINE Notify -->
+      <BaseCard v-if="isLineUser" padding="md">
+        <div class="flex justify-between items-center">
+          <span class="text-white">{{ $t('profile.lineNotify') }}</span>
+          <button
+            @click="toggleLineNotify"
+            class="w-12 h-6 rounded-full transition relative"
+            :class="lineNotifyEnabled ? 'bg-emerald-600' : 'bg-slate-700'"
+          >
+            <div
+              class="w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform"
+              :class="lineNotifyEnabled ? 'translate-x-6' : 'translate-x-0.5'"
+            ></div>
+          </button>
+        </div>
+      </BaseCard>
+
       <!-- Logout -->
       <BaseButton @click="handleLogout" variant="danger" fullWidth>
         {{ $t('auth.logout') }}
@@ -149,6 +167,7 @@ import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
 import { usePushNotification } from '../composables/usePushNotification.js';
 import { useNotification } from '../composables/useNotification.js';
+import { useLiff } from '../composables/useLiff.js';
 import BaseCard from '../components/common/BaseCard.vue';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
@@ -156,9 +175,13 @@ import { STORAGE_KEYS, THEMES } from '../utils/constants.js';
 
 const { t, locale } = useI18n();
 const router = useRouter();
-const { displayName, isGuest, logout, linkEmailToGuest } = useAuth();
+const { displayName, isGuest, user, logout, linkEmailToGuest } = useAuth();
 const { notificationsEnabled, toggleNotifications } = usePushNotification();
+const { lineNotifyEnabled, toggleLineNotify } = useLiff();
 const notification = useNotification();
+
+const userAvatar = computed(() => user.value?.photoURL || null);
+const isLineUser = computed(() => user.value?.uid?.startsWith('line_') ?? false);
 
 const selectedLanguage = ref(locale.value);
 const currentTheme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
