@@ -8,6 +8,44 @@ import './styles/main.css';
 import './styles/themes/dark.css';
 import './styles/themes/light.css';
 
+// ── Service Worker registration with update detection ────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register(
+        import.meta.env.BASE_URL + 'sw.js'
+      );
+      // Check for updates every 5 minutes
+      setInterval(() => reg.update(), 5 * 60 * 1000);
+
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', () => {
+          // New SW is ready and there's an existing one controlling the page
+          if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+            // Notify user to refresh
+            if (confirm('有新版本可用，是否立即更新？')) {
+              window.location.reload();
+            }
+          }
+        });
+      });
+
+      // If a new SW took over, reload to get the latest assets
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
+    } catch (err) {
+      console.error('[SW] Registration failed:', err);
+    }
+  });
+}
+
 // ── LIFF deep-link → hash-route redirect ────────────────────────────
 // GitHub Pages doesn't support SPA rewrites. When LINE opens a LIFF URL
 // like liff.line.me/ID/game/abc123, GitHub Pages returns 404.html which
@@ -25,7 +63,8 @@ import './styles/themes/light.css';
     params.delete('__path');
     const remaining = params.toString();
     const qs = remaining ? `?${remaining}` : '';
-    window.location.replace(`${base}${qs}#/${pathFromQuery}`);
+    // Query params must be INSIDE the hash for Vue Router (hash history) to read them
+    window.location.replace(`${base}#/${pathFromQuery}${qs}`);
     throw new Error('LIFF_REDIRECT');
   }
 

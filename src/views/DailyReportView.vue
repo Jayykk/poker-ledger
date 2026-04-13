@@ -258,8 +258,10 @@ const endDateStr = computed(() => toLocalDateStr(endDate.value));
 
 // Restore date range from query params (e.g. from LIFF footer link)
 onMounted(() => {
-  const qs = route.query.start;
-  const qe = route.query.end;
+  // Vue Router hash-history reads query from hash fragment,
+  // but also check window.location.search as a fallback
+  const qs = route.query.start || new URLSearchParams(window.location.search).get('start');
+  const qe = route.query.end || new URLSearchParams(window.location.search).get('end');
   if (qs && qe) {
     const s = new Date(qs + 'T00:00:00');
     const e = new Date(qe + 'T23:59:59.999');
