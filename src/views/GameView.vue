@@ -492,7 +492,15 @@ const handleUndoBuyIn = async (tx) => {
         }
       }
       success(t('transaction.undoSuccess'));
-      sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount), game.value?.name, game.value?.id);
+      // Calculate remaining buyIn after undo
+      const player = game.value?.players?.find(
+        p => tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName
+      );
+      const remainingBuyIn = player ? (player.buyIn || 0) : 0;
+      sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount), game.value?.name, game.value?.id, {
+        totalBuyIn: remainingBuyIn,
+        baseBuyIn: game.value?.baseBuyIn || Math.abs(tx.amount),
+      });
     }
   }
 };
