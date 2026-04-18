@@ -143,7 +143,7 @@ export const useGameStore = defineStore('game', () => {
       }
       
       const unboundPlayers = players.filter(p => !p.uid);
-      return { status: 'open', unboundPlayers };
+      return { status: 'open', unboundPlayers, baseBuyIn: snap.data().baseBuyIn || DEFAULT_BUY_IN };
     } catch (err) {
       console.error('Check game error:', err);
       return { status: 'error', msg: err.message };
