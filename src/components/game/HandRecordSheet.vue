@@ -114,7 +114,7 @@ import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useHand } from '../../composables/useHand.js';
 import { useNotification } from '../../composables/useNotification.js';
-import { HAND_TYPES, CARD_LIMITS } from '../../utils/constants.js';
+import { HAND_TYPES, CARD_LIMITS, DEFAULT_BUY_IN } from '../../utils/constants.js';
 import { evaluateHand } from '../../utils/pokerHandEvaluator.js';
 import BaseModal from '../common/BaseModal.vue';
 import BaseButton from '../common/BaseButton.vue';
@@ -136,7 +136,7 @@ const props = defineProps({
   },
   baseBuyIn: {
     type: Number,
-    default: 2000
+    default: DEFAULT_BUY_IN
   }
 });
 

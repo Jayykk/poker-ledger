@@ -6,6 +6,7 @@ import { state, setView } from './store.js';
 import * as Auth from './auth.js';
 import * as Game from './game.js';
 import { LoginView, LobbyView, GameView, ReportView, ProfileView } from './views.js';
+import { DEFAULT_BUY_IN } from './src/utils/constants.js';
 
 // Helper function to show notifications (non-blocking)
 const showNotification = (message, type = 'info') => {
@@ -176,7 +177,7 @@ const app = createApp({
             addPlayer: Game.addPlayer,
             savePlayer: Game.savePlayer,
             removePlayer: Game.removePlayer,
-            addBuy: (p) => Game.savePlayer({ ...p, buyIn: p.buyIn + 2000 }),
+            addBuy: (p) => Game.savePlayer({ ...p, buyIn: p.buyIn + (state.game?.baseBuyIn || DEFAULT_BUY_IN) }),
             bindSeat: handleBindSeat,
             settle: Game.settleGame,
             closeGame: handleCloseGame, // 🔥 這裡綁定上面的 log wrapper

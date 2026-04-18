@@ -32,6 +32,7 @@
 
 <script setup>
 import { computed } from 'vue';
+import { DEFAULT_BUY_IN } from '../../utils/constants.js';
 
 const props = defineProps({
   modelValue: {
@@ -44,14 +45,14 @@ const props = defineProps({
   },
   baseBuyIn: {
     type: Number,
-    default: 2000
+    default: DEFAULT_BUY_IN
   }
 });
 
 const emit = defineEmits(['update:modelValue']);
 
 // Calculate quick amounts proportionally based on baseBuyIn
-// Default buttons for 2000 buy-in: [100, 500, 1000, -100, -500, -1000]
+// Default buttons for DEFAULT_BUY_IN: [100, 500, 1000, -100, -500, -1000]
 // Ratio: 0.05, 0.25, 0.5, -0.05, -0.25, -0.5
 const quickAmounts = computed(() => {
   const base = props.baseBuyIn;
