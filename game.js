@@ -2,6 +2,8 @@ import { collection, doc, addDoc, updateDoc, deleteDoc, arrayUnion, runTransacti
 import { db } from './firebase-init.js';
 import { state, setLoading, setView } from './store.js';
 
+const DEFAULT_BUY_IN = 2000;
+
 // Helper function to show notifications (non-blocking)
 const showNotification = (message, type = 'info') => {
     console.log(`[${type.toUpperCase()}] ${message}`);
@@ -33,7 +35,7 @@ export const createGame = async (name) => {
                 id: Date.now().toString(), 
                 name: hostName, 
                 uid: state.user.uid, 
-                buyIn: 2000, 
+                buyIn: DEFAULT_BUY_IN, 
                 stack: 0 
             }]
         });
@@ -89,7 +91,7 @@ export const checkGameStatus = async (gameId) => {
 
         const unbound = players.filter(p => !p.uid);
         console.log("【Game】檢查完成，空位:", unbound);
-        return { status: 'open', unboundPlayers: unbound };
+        return { status: 'open', unboundPlayers: unbound, baseBuyIn: snap.data().baseBuyIn || DEFAULT_BUY_IN };
 
     } catch (e) {
         console.error("【Game】檢查報錯:", e);
@@ -165,7 +167,13 @@ export const joinAsNewPlayer = async (gameId, buyIn) => {
 // ... 其他 addPlayer, savePlayer, removePlayer, bindSeat, settleGame 保持不變 (請複製前面的內容) ...
 export const addPlayer = async (name) => {
     if (!state.gameId) return;
-    const newPlayer = { id: Date.now().toString(), name: name || '路人', uid: null, buyIn: 2000, stack: 0 };
+    const newPlayer = {
+        id: Date.now().toString(),
+        name: name || '路人',
+        uid: null,
+        buyIn: state.game?.baseBuyIn || DEFAULT_BUY_IN,
+        stack: 0
+    };
     await updateDoc(doc(db, 'games', state.gameId), { players: arrayUnion(newPlayer) });
 };
 

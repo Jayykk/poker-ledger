@@ -133,7 +133,7 @@ const sendMessages = async (messages) => {
 
 /**
  * Send a buy-in notification to the current LINE chat (Flex Message).
- * One-line layout: "小明 買入  by 小華". Tiered by cumulative totalBuyIn.
+ * One-line layout: "小明 買入  by 小華". Tiered by buy-in groups.
  * Entire bubble is tappable (no separate footer button).
  */
 const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId, { totalBuyIn = 0, baseBuyIn = 0 } = {}) => {
@@ -148,16 +148,16 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId
     ? `💰 ${targetName} 買入 $${numAmount.toLocaleString()}`
     : `💰 ${targetName} 買入 $${numAmount.toLocaleString()} (by ${actionName})`;
 
-  // Tiered visuals based on cumulative totalBuyIn
+  // Tiered visuals based on buy-in groups
   let headerEmoji = '💰';
   let headerColor = '#1DB446';
   let amountColor = '#1DB446';
 
-  if (numTotal >= 20000) {
+  if (buyCount >= 5) {
     headerEmoji = '🚀🔥';
     headerColor = '#DC143C';
     amountColor = '#DC143C';
-  } else if (numTotal >= 10000) {
+  } else if (buyCount >= 3) {
     headerEmoji = '💎';
     headerColor = '#FF8C00';
     amountColor = '#FF8C00';

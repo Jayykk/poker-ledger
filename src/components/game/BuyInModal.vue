@@ -72,6 +72,7 @@ import BaseModal from '../common/BaseModal.vue';
 import BaseButton from '../common/BaseButton.vue';
 import BaseInput from '../common/BaseInput.vue';
 import { formatNumber } from '../../utils/formatters.js';
+import { DEFAULT_BUY_IN } from '../../utils/constants.js';
 
 const { t } = useI18n();
 const { user } = useAuth();
@@ -79,7 +80,7 @@ const { user } = useAuth();
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   players: { type: Array, default: () => [] },
-  baseBuyIn: { type: Number, default: 2000 },
+  baseBuyIn: { type: Number, default: DEFAULT_BUY_IN },
   loading: { type: Boolean, default: false },
 });
 

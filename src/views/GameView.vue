@@ -192,7 +192,7 @@
       v-model="showHandRecord"
       :game-id="gameId"
       :players="game.players"
-      :base-buy-in="game.baseBuyIn || 2000"
+      :base-buy-in="game.baseBuyIn || DEFAULT_BUY_IN"
       @saved="handleHandRecordSaved"
     />
 
@@ -455,7 +455,7 @@ const handleShareToLine = async () => {
 };
 
 const handleAddBuy = async (player) => {
-  const buyInAmount = game.value?.baseBuyIn || 2000;
+  const buyInAmount = game.value?.baseBuyIn || DEFAULT_BUY_IN;
   const result = await recordBuyIn(player.uid || null, player.name, buyInAmount, 'buy_in');
   if (result) {
     // If the transaction was recorded via fallback (direct write),

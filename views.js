@@ -1,5 +1,7 @@
 import { ref, computed, nextTick, onMounted, watch } from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
 
+const DEFAULT_BUY_IN = 2000;
+
 // Helper for notifications
 const showNotification = (message, type = 'info') => {
     console.log(`[${type.toUpperCase()}] ${message}`);
@@ -82,7 +84,7 @@ export const LobbyView = {
         </div></div>
     </div>`,
     setup(props, { emit }) {
-        const showCreate = ref(false); const showJoin = ref(false); const joinStep = ref(1); const name = ref('德州撲克'); const code = ref(''); const buyIn = ref(2000); const unboundPlayers = ref([]);
+        const showCreate = ref(false); const showJoin = ref(false); const joinStep = ref(1); const name = ref('德州撲克'); const code = ref(''); const buyIn = ref(DEFAULT_BUY_IN); const unboundPlayers = ref([]);
         
         const checkGame = async () => {
             console.log("【Views】使用者點擊下一步，Game ID:", code.value); // LOG 1
@@ -97,7 +99,7 @@ export const LobbyView = {
                     showNotification('已在局內', 'info'); 
                     emit('join-direct', code.value); 
                 }
-                else if(res.status==='open'){ unboundPlayers.value=res.unboundPlayers; joinStep.value=2; }
+                else if(res.status==='open'){ unboundPlayers.value=res.unboundPlayers; buyIn.value = res.baseBuyIn || DEFAULT_BUY_IN; joinStep.value=2; }
                 else showNotification(res.msg||'無法加入', 'error');
             });
         };
