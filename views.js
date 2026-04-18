@@ -1,6 +1,5 @@
 import { ref, computed, nextTick, onMounted, watch } from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
-
-const DEFAULT_BUY_IN = 2000;
+import { DEFAULT_BUY_IN } from './src/utils/constants.js';
 
 // Helper for notifications
 const showNotification = (message, type = 'info') => {

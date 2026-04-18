@@ -1,8 +1,7 @@
 import { collection, doc, addDoc, updateDoc, deleteDoc, arrayUnion, runTransaction, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { db } from './firebase-init.js';
 import { state, setLoading, setView } from './store.js';
-
-const DEFAULT_BUY_IN = 2000;
+import { DEFAULT_BUY_IN } from './src/utils/constants.js';
 
 // Helper function to show notifications (non-blocking)
 const showNotification = (message, type = 'info') => {
