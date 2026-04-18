@@ -272,7 +272,8 @@ onMounted(async () => {
       await joinGameListener(targetGameId);
     } else if (result.status === 'open') {
       // Not in game yet — auto-join as new player with baseBuyIn
-      await joinAsNewPlayer(targetGameId);
+      const baseBuyIn = result.baseBuyIn || DEFAULT_BUY_IN;
+      await joinAsNewPlayer(targetGameId, baseBuyIn);
     } else {
       // Game not found or ended
       router.push('/lobby');
