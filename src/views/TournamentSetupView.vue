@@ -405,6 +405,7 @@ function importConfig(e) {
           buyIn: data.buyIn || 0,
           startingChips: data.startingChips || DEFAULT_STARTING_CHIPS,
           reentryUntilLevel: data.reentryUntilLevel || DEFAULT_REENTRY_LEVEL,
+          maxReentries: data.maxReentries ?? DEFAULT_MAX_REENTRIES,
           levels: data.levels,
           payoutRatios: data.payoutRatios || [],
         };
