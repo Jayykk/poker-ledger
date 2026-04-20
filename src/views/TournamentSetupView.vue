@@ -43,6 +43,7 @@
             <div>
               <label class="field-label">{{ $t('tournament.reentryLevel') }}</label>
               <input v-model.number="form.reentryUntilLevel" type="number" min="0" class="field-input" />
+              <span v-if="form.reentryUntilLevel > 0" class="text-[10px] text-gray-500">{{ $t('tournament.reentryLevelHint', { level: form.reentryUntilLevel }) }}</span>
             </div>
           </div>
           <div class="grid grid-cols-3 gap-3 mt-3">
