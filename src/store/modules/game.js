@@ -448,6 +448,221 @@ export const useGameStore = defineStore('game', () => {
   };
 
   /**
+   * Eliminate a player (tournament only)
+   * Sets placement = current alive count (last out = highest number = worst rank)
+   * If only 1 player remains after elimination, auto-crown them as champion (placement=1)
+   */
+  const eliminatePlayer = async (playerId) => {
+    if (!gameId.value || !isHost.value) return false;
+
+    try {
+      const players = game.value.players;
+      const aliveBefore = players.filter(p => !p.eliminated);
+      const placement = aliveBefore.length; // e.g. 5 alive → eliminated gets 5th
+
+      const updatedPlayers = players.map(p => {
+        if (p.id === playerId) {
+          return { ...p, eliminated: true, eliminatedAt: Date.now(), placement };
+        }
+        return p;
+      });
+
+      // If only 1 player left alive, auto-crown champion
+      const aliveAfter = updatedPlayers.filter(p => !p.eliminated);
+      if (aliveAfter.length === 1) {
+        const champIdx = updatedPlayers.findIndex(p => p.id === aliveAfter[0].id);
+        updatedPlayers[champIdx] = { ...updatedPlayers[champIdx], placement: 1 };
+      }
+
+      await updateDoc(doc(db, 'games', gameId.value), { players: updatedPlayers });
+      return true;
+    } catch (err) {
+      console.error('Eliminate player error:', err);
+      error.value = 'Failed to eliminate player: ' + err.message;
+      return false;
+    }
+  };
+
+  /**
+   * Re-entry a previously eliminated player (tournament only)
+   * Resets elimination state, adds another baseBuyIn to their total buyIn.
+   * Also updates the tournament session counters so the clock stays in sync.
+   */
+  const reentryPlayer = async (playerId) => {
+    if (!gameId.value || !isHost.value) return false;
+
+    try {
+      // Validate re-entry level limit and per-player count from tournament session
+      const sessionId = game.value.tournamentSessionId;
+      if (sessionId) {
+        const sessionRef = doc(db, 'tournamentSessions', sessionId);
+        const sessionSnap = await getDoc(sessionRef);
+        if (sessionSnap.exists()) {
+          const sessionData = sessionSnap.data();
+          const cfg = sessionData.config || {};
+          const st = sessionData.state || {};
+
+          // Check per-player re-entry count limit
+          const maxReentries = cfg.maxReentries ?? 0;
+          if (maxReentries > 0) {
+            const player = game.value.players.find(p => p.id === playerId);
+            const baseBuyIn = game.value.baseBuyIn || DEFAULT_BUY_IN;
+            const reentryCount = Math.max(0, Math.round((player?.buyIn || 0) / baseBuyIn) - 1);
+            if (reentryCount >= maxReentries) {
+              error.value = 'Player has reached the maximum re-entry limit';
+              return false;
+            }
+          }
+
+          // Check level limit
+          const reentryUntilLevel = cfg.reentryUntilLevel || 0;
+          if (reentryUntilLevel > 0) {
+            const levels = cfg.levels || [];
+            const idx = st.currentLevelIndex ?? 0;
+            let effectiveLevel = 0;
+            for (let i = idx; i >= 0; i--) {
+              if (!levels[i]?.isBreak) {
+                effectiveLevel = levels[i]?.level ?? 0;
+                break;
+              }
+            }
+            if (effectiveLevel >= reentryUntilLevel) {
+              error.value = 'Re-entry is no longer allowed at this level';
+              return false;
+            }
+          }
+        }
+      }
+
+      const baseBuyIn = game.value.baseBuyIn || DEFAULT_BUY_IN;
+      const updatedPlayers = game.value.players.map(p => {
+        if (p.id === playerId) {
+          return {
+            ...p,
+            eliminated: false,
+            eliminatedAt: null,
+            placement: null,
+            buyIn: (p.buyIn || 0) + baseBuyIn,
+          };
+        }
+        return p;
+      });
+
+      await updateDoc(doc(db, 'games', gameId.value), { players: updatedPlayers });
+
+      // Sync tournament session counters (playersRemaining, reentries, playersRegistered)
+      if (sessionId) {
+        const sessionRef = doc(db, 'tournamentSessions', sessionId);
+        const sessionSnap = await getDoc(sessionRef);
+        if (sessionSnap.exists()) {
+          const st = sessionSnap.data().state || {};
+          await updateDoc(sessionRef, {
+            'state.playersRemaining': (st.playersRemaining || 0) + 1,
+            'state.reentries': (st.reentries || 0) + 1,
+            'state.playersRegistered': (st.playersRegistered || 0) + 1,
+          });
+        }
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Reentry player error:', err);
+      error.value = 'Failed to re-entry player: ' + err.message;
+      return false;
+    }
+  };
+
+  /**
+   * Settle a tournament game.
+   * Uses payoutRatios from the tournament session config to distribute the prize pool.
+   * No exchange rate — buy-in is real money, profit = prize won − total buy-in paid.
+   */
+  const settleTournament = async (payoutRatios = []) => {
+    if (!gameId.value) return false;
+
+    loading.value = true;
+    try {
+      await runTransaction(db, async (t) => {
+        const gameRef = doc(db, 'games', gameId.value);
+        const gameDoc = await t.get(gameRef);
+        if (!gameDoc.exists()) throw new Error('Game not found');
+
+        const gameData = gameDoc.data();
+        const players = gameData.players;
+
+        // Calculate prize pool from all buy-ins
+        const totalBuyIns = players.reduce((sum, p) => sum + (p.buyIn || 0), 0);
+
+        // Build placement → prize map
+        const prizeMap = {};
+        for (const r of payoutRatios) {
+          prizeMap[r.place] = Math.round(totalBuyIns * r.percentage / 100);
+        }
+
+        // Read all user documents
+        const userReads = [];
+        for (const p of players) {
+          if (p.uid) {
+            const userRef = doc(db, 'users', p.uid);
+            userReads.push({ player: p, userRef, userDoc: await t.get(userRef) });
+          }
+        }
+
+        // Prepare settlement records
+        const settlement = players
+          .filter(p => p.placement)
+          .sort((a, b) => a.placement - b.placement)
+          .map(p => ({
+            odId: p.uid || null,
+            name: p.name,
+            placement: p.placement,
+            buyIn: p.buyIn || 0,
+            prize: prizeMap[p.placement] || 0,
+            profit: (prizeMap[p.placement] || 0) - (p.buyIn || 0),
+          }));
+
+        // Write history for each user with uid
+        for (const { player, userRef, userDoc } of userReads) {
+          const prize = prizeMap[player.placement] || 0;
+          const record = {
+            date: new Date().toISOString(),
+            createdAt: Date.now(),
+            profit: prize - (player.buyIn || 0),
+            rate: 1, // no exchange rate for tournaments
+            gameName: gameData.name,
+            gameId: gameId.value,
+            type: 'tournament',
+            placement: player.placement || null,
+            settlement,
+          };
+          if (userDoc.exists()) {
+            t.update(userRef, { history: arrayUnion(record) });
+          } else {
+            t.set(userRef, { history: [record], createdAt: Date.now() });
+          }
+        }
+
+        // Mark game as completed
+        t.update(gameRef, { status: GAME_STATUS.COMPLETED });
+      });
+
+      // Clean up
+      game.value = null;
+      gameId.value = null;
+      localStorage.removeItem(STORAGE_KEYS.LAST_GAME_ID);
+      await userStore.loadUserData();
+
+      return true;
+    } catch (err) {
+      console.error('Settle tournament error:', err);
+      error.value = 'Failed to settle tournament: ' + err.message;
+      return false;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  /**
    * Load my rooms (active rooms created or joined by user)
    * Note: For better performance with many active games, consider:
    * - Using a compound query with an array-contains filter
@@ -520,6 +735,9 @@ export const useGameStore = defineStore('game', () => {
     bindSeat,
     settleGame,
     closeGame,
+    eliminatePlayer,
+    reentryPlayer,
+    settleTournament,
     loadMyRooms,
     cleanup
   };

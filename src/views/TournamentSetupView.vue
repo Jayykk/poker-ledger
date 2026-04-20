@@ -45,6 +45,13 @@
               <input v-model.number="form.reentryUntilLevel" type="number" min="0" class="field-input" />
             </div>
           </div>
+          <div class="grid grid-cols-3 gap-3 mt-3">
+            <div>
+              <label class="field-label">{{ $t('tournament.maxReentries') }}</label>
+              <input v-model.number="form.maxReentries" type="number" min="0" class="field-input" :placeholder="$t('tournament.unlimited')" />
+              <span class="text-[10px] text-gray-500">{{ $t('tournament.maxReentriesHint') }}</span>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -166,7 +173,7 @@ import { useI18n } from 'vue-i18n';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useNotification } from '../composables/useNotification.js';
 import { TOURNAMENT_TEMPLATES, createBlankTournamentConfig, cloneTemplate } from '../utils/tournamentTemplates.js';
-import { DEFAULT_STARTING_CHIPS, DEFAULT_REENTRY_LEVEL } from '../utils/constants.js';
+import { DEFAULT_STARTING_CHIPS, DEFAULT_REENTRY_LEVEL, DEFAULT_MAX_REENTRIES } from '../utils/constants.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -213,6 +220,7 @@ onMounted(() => {
           buyIn: found.buyIn || 0,
           startingChips: found.startingChips || DEFAULT_STARTING_CHIPS,
           reentryUntilLevel: found.reentryUntilLevel || DEFAULT_REENTRY_LEVEL,
+          maxReentries: found.maxReentries ?? DEFAULT_MAX_REENTRIES,
           levels: found.levels || [],
           payoutRatios: found.payoutRatios || [],
         };
@@ -315,6 +323,7 @@ function encodePresetToBase64(data) {
     b: data.buyIn,
     c: data.startingChips,
     r: data.reentryUntilLevel,
+    m: data.maxReentries || 0,
     l: data.levels.map(lv => lv.isBreak
       ? [0, 0, 0, 0, lv.duration, 1]
       : [lv.level, lv.small, lv.big, lv.ante, lv.duration, 0]
@@ -334,6 +343,7 @@ function decodePresetFromBase64(b64) {
       buyIn: c.b || 0,
       startingChips: c.c || DEFAULT_STARTING_CHIPS,
       reentryUntilLevel: c.r || DEFAULT_REENTRY_LEVEL,
+      maxReentries: c.m ?? DEFAULT_MAX_REENTRIES,
       levels: (c.l || []).map(lv => ({
         level: lv[0], small: lv[1], big: lv[2], ante: lv[3],
         duration: lv[4], isBreak: !!lv[5],

@@ -264,6 +264,7 @@ const editingPlayer = ref(null);
 const exchangeRate = ref(DEFAULT_EXCHANGE_RATE);
 const selectedHand = ref(null);
 const autoJoinLoading = ref(false);
+const buyInProcessing = ref(new Set());
 
 /**
  * Auto-join flow: when opened via /game/:gameId (e.g. LIFF deep link)
@@ -467,21 +468,31 @@ const handleShareToLine = async () => {
 };
 
 const handleAddBuy = async (player) => {
-  const buyInAmount = game.value?.baseBuyIn || DEFAULT_BUY_IN;
-  const result = await recordBuyIn(player.uid || null, player.name, buyInAmount, 'buy_in');
-  if (result) {
-    // If the transaction was recorded via fallback (direct write),
-    // we also need to update the player's buyIn in the game document
-    if (result.fallback) {
-      const updatedPlayer = { ...player, buyIn: (player.buyIn || 0) + buyInAmount };
-      await updatePlayer(updatedPlayer);
+  // Prevent rapid duplicate buy-ins for the same player
+  if (buyInProcessing.value.has(player.id)) return;
+  buyInProcessing.value.add(player.id);
+  try {
+    const buyInAmount = game.value?.baseBuyIn || DEFAULT_BUY_IN;
+    const result = await recordBuyIn(player.uid || null, player.name, buyInAmount, 'buy_in');
+    if (result) {
+      // If the transaction was recorded via fallback (direct write),
+      // we also need to update the player's buyIn in the game document
+      if (result.fallback) {
+        const updatedPlayer = { ...player, buyIn: (player.buyIn || 0) + buyInAmount };
+        await updatePlayer(updatedPlayer);
+      }
+      success(t('transaction.buyInSuccess'));
+      // Prefer CF-returned totalBuyIn (accurate) over local cache
+      const newTotalBuyIn = result.totalBuyIn || ((player.buyIn || 0) + buyInAmount);
+      const gameType = game.value?.type || 'live';
+      sendBuyInMessage(displayName.value, player.name, buyInAmount, game.value?.name, game.value?.id, {
+        totalBuyIn: newTotalBuyIn,
+        baseBuyIn: buyInAmount,
+        gameType,
+      });
     }
-    success(t('transaction.buyInSuccess'));
-    const newTotalBuyIn = (player.buyIn || 0) + buyInAmount;
-    sendBuyInMessage(displayName.value, player.name, buyInAmount, game.value?.name, game.value?.id, {
-      totalBuyIn: newTotalBuyIn,
-      baseBuyIn: buyInAmount,
-    });
+  } finally {
+    buyInProcessing.value.delete(player.id);
   }
 };
 
@@ -513,6 +524,7 @@ const handleUndoBuyIn = async (tx) => {
       sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount), game.value?.name, game.value?.id, {
         totalBuyIn: remainingBuyIn,
         baseBuyIn: game.value?.baseBuyIn || Math.abs(tx.amount),
+        gameType: game.value?.type || 'live',
       });
     }
   }

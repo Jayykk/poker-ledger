@@ -204,16 +204,14 @@ export function useTournamentClock(options = {}) {
       const gameData = snap.data();
       const players = gameData.players || [];
       const playerCount = players.length;
+      const eliminatedCount = players.filter(p => p.eliminated).length;
+      const aliveCount = playerCount - eliminatedCount;
 
-      // Only auto-sync if different from current value
       const currentRegistered = session.value?.state?.playersRegistered ?? 0;
       const currentRemaining = session.value?.state?.playersRemaining ?? 0;
-      if (playerCount !== currentRegistered || (currentRemaining === 0 && playerCount > 0)) {
-        // Auto-update: remaining defaults to registered count if not manually adjusted
-        const newRemaining = currentRemaining === currentRegistered || currentRemaining === 0
-          ? playerCount
-          : currentRemaining;
-        updatePlayers(playerCount, Math.min(newRemaining, playerCount));
+      // Sync when player count or alive count diverges
+      if (playerCount !== currentRegistered || aliveCount !== currentRemaining) {
+        updatePlayers(playerCount, aliveCount);
       }
     });
   }
@@ -246,6 +244,7 @@ export function useTournamentClock(options = {}) {
         buyIn: config.buyIn || 0,
         startingChips: config.startingChips || DEFAULT_STARTING_CHIPS,
         reentryUntilLevel: config.reentryUntilLevel || DEFAULT_REENTRY_LEVEL,
+        maxReentries: config.maxReentries ?? 0,
         levels: config.levels || [],
         payoutRatios: config.payoutRatios || [],
       },

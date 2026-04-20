@@ -62,6 +62,18 @@ export function useGame() {
     return await gameStore.closeGame();
   };
 
+  const eliminatePlayer = async (playerId) => {
+    return await gameStore.eliminatePlayer(playerId);
+  };
+
+  const reentryPlayer = async (playerId) => {
+    return await gameStore.reentryPlayer(playerId);
+  };
+
+  const settleTournament = async (payoutRatios) => {
+    return await gameStore.settleTournament(payoutRatios);
+  };
+
   return {
     game,
     gameId,
@@ -83,6 +95,9 @@ export function useGame() {
     removePlayer,
     bindSeat,
     settleGame,
-    closeGame
+    closeGame,
+    eliminatePlayer,
+    reentryPlayer,
+    settleTournament
   };
 }

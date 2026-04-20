@@ -4,7 +4,7 @@
  */
 
 import {
-  DEFAULT_STARTING_CHIPS, DEFAULT_REENTRY_LEVEL,
+  DEFAULT_STARTING_CHIPS, DEFAULT_REENTRY_LEVEL, DEFAULT_MAX_REENTRIES,
   DEFAULT_TOURNAMENT_LEVEL_DURATION,
 } from './constants.js';
 
@@ -16,6 +16,7 @@ export const TOURNAMENT_TEMPLATES = [
     buyIn: 100,
     startingChips: 10000,
     reentryUntilLevel: 4,
+    maxReentries: 1,
     levels: [
       { level: 1, small: 25, big: 50, ante: 0, duration: 5, isBreak: false },
       { level: 2, small: 50, big: 100, ante: 0, duration: 5, isBreak: false },
@@ -42,6 +43,7 @@ export const TOURNAMENT_TEMPLATES = [
     buyIn: 200,
     startingChips: 15000,
     reentryUntilLevel: 6,
+    maxReentries: 2,
     levels: [
       { level: 1, small: 10, big: 20, ante: 0, duration: 10, isBreak: false },
       { level: 2, small: 25, big: 50, ante: 0, duration: 10, isBreak: false },
@@ -70,6 +72,7 @@ export const TOURNAMENT_TEMPLATES = [
     buyIn: 250,
     startingChips: 25000,
     reentryUntilLevel: 7,
+    maxReentries: 2,
     levels: [
       { level: 1, small: 10, big: 20, ante: 20, duration: 15, isBreak: false },
       { level: 2, small: 25, big: 50, ante: 50, duration: 15, isBreak: false },
@@ -102,6 +105,7 @@ export const TOURNAMENT_TEMPLATES = [
     buyIn: 500,
     startingChips: 50000,
     reentryUntilLevel: 8,
+    maxReentries: 3,
     levels: [
       { level: 1, small: 25, big: 50, ante: 50, duration: 20, isBreak: false },
       { level: 2, small: 50, big: 100, ante: 100, duration: 20, isBreak: false },
@@ -144,6 +148,7 @@ export function createBlankTournamentConfig() {
     buyIn: 250,
     startingChips: DEFAULT_STARTING_CHIPS,
     reentryUntilLevel: DEFAULT_REENTRY_LEVEL,
+    maxReentries: DEFAULT_MAX_REENTRIES,
     levels: [
       { level: 1, small: 25, big: 50, ante: 0, duration: DEFAULT_TOURNAMENT_LEVEL_DURATION, isBreak: false },
       { level: 2, small: 50, big: 100, ante: 0, duration: DEFAULT_TOURNAMENT_LEVEL_DURATION, isBreak: false },
@@ -167,6 +172,7 @@ export function cloneTemplate(template) {
     buyIn: template.buyIn,
     startingChips: template.startingChips,
     reentryUntilLevel: template.reentryUntilLevel,
+    maxReentries: template.maxReentries ?? DEFAULT_MAX_REENTRIES,
     levels: template.levels,
     payoutRatios: template.payoutRatios,
   }));

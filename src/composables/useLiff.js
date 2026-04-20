@@ -136,8 +136,9 @@ const sendMessages = async (messages) => {
  * One-line layout: "小明 買入  by 小華". Tiered by buy-in groups.
  * Entire bubble is tappable (no separate footer button).
  */
-const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId, { totalBuyIn = 0, baseBuyIn = 0 } = {}) => {
+const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId, { totalBuyIn = 0, baseBuyIn = 0, gameType = 'live' } = {}) => {
   if (!lineNotifyEnabled.value) return false;
+  const isTournament = gameType === 'tournament';
   const isSelf = actionName === targetName;
   const roomLabel = roomName || '';
   const numAmount = Number(amount) || 0;
@@ -149,7 +150,7 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId
     : `💰 ${targetName} 買入 $${numAmount.toLocaleString()} (by ${actionName})`;
 
   // Tiered visuals based on buy-in groups
-  let headerEmoji = '💰';
+  let headerEmoji = isTournament ? '🏆' : '💰';
   let headerColor = '#1DB446';
   let amountColor = '#1DB446';
 
@@ -173,6 +174,11 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId
     );
   }
 
+  // Tournament: "買入 $xxx" + "已買入 N 次"; Cash: "籌碼 $xxx" + "已買入 N 組"
+  const amountLabel = isTournament ? `買入 $${numAmount.toLocaleString()}` : `籌碼 $${numAmount.toLocaleString()}`;
+  const countUnit = isTournament ? '次' : '組';
+  const countLabel = `已買入 ${buyCount} ${countUnit} $${numTotal.toLocaleString()}`;
+
   const bodyContents = [
     {
       type: 'box',
@@ -185,8 +191,8 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId
       layout: 'horizontal',
       margin: 'lg',
       contents: [
-        { type: 'text', text: `籌碼 $${numAmount.toLocaleString()}`, size: 'lg', weight: 'bold', color: amountColor, flex: 0 },
-        { type: 'text', text: `已買入 ${buyCount} 組 $${numTotal.toLocaleString()}`, size: 'xs', color: '#999999', align: 'end', gravity: 'bottom', flex: 0, margin: 'md' },
+        { type: 'text', text: amountLabel, size: 'lg', weight: 'bold', color: amountColor, flex: 0 },
+        { type: 'text', text: countLabel, size: 'xs', color: '#999999', align: 'end', gravity: 'bottom', flex: 0, margin: 'md' },
       ],
     },
   ];
@@ -219,14 +225,16 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId
  * Send an undo notification to the current LINE chat (Flex Message).
  * One-line layout matching buy-in. Entire bubble tappable.
  */
-const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId, { totalBuyIn = 0, baseBuyIn = 0 } = {}) => {
+const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId, { totalBuyIn = 0, baseBuyIn = 0, gameType = 'live' } = {}) => {
   if (!lineNotifyEnabled.value) return false;
+  const isTournament = gameType === 'tournament';
   const roomLabel = roomName || '';
   const isSelf = actionName === targetName;
   const numAmount = Number(amount) || 0;
   const numTotal = Number(totalBuyIn) || 0;
   const numBase = Number(baseBuyIn) || numAmount;
   const buyCount = numBase > 0 ? Math.round(numTotal / numBase) : 0;
+  const countUnit = isTournament ? '次' : '組';
   const altText = `↩️ ${targetName} 撤銷買入 $${numAmount.toLocaleString()}`;
 
   const nameRowContents = [
@@ -251,7 +259,7 @@ const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId,
       margin: 'lg',
       contents: [
         { type: 'text', text: `-$${numAmount.toLocaleString()}`, size: 'lg', weight: 'bold', color: '#FF4444', flex: 0 },
-        ...(numTotal > 0 ? [{ type: 'text', text: `剩餘 ${buyCount} 組 $${numTotal.toLocaleString()}`, size: 'xs', color: '#999999', align: 'end', gravity: 'bottom', flex: 0, margin: 'md' }] : []),
+        ...(numTotal > 0 ? [{ type: 'text', text: `剩餘 ${buyCount} ${countUnit} $${numTotal.toLocaleString()}`, size: 'xs', color: '#999999', align: 'end', gravity: 'bottom', flex: 0, margin: 'md' }] : []),
       ],
     },
   ];
