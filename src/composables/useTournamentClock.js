@@ -31,6 +31,7 @@ export function useTournamentClock(options = {}) {
   let tickInterval = null;
   let unsubscribe = null;
   let unsubscribeGame = null;
+  let isAdvancing = false;
 
   // ── Computed ────────────────────────────────────────
   const isHost = computed(() => {
@@ -126,27 +127,33 @@ export function useTournamentClock(options = {}) {
   });
 
   // ── Local tick (1 Hz) ───────────────────────────────
+  function computeTimeLeft() {
+    if (!session.value?.state?.lastTickAt) return;
+    const lastTick = session.value.state.lastTickAt;
+    const lastTickMs = lastTick instanceof Timestamp
+      ? lastTick.toMillis()
+      : (typeof lastTick === 'number' ? lastTick : Date.now());
+    const savedTimeLeft = session.value.state.timeLeftSeconds ?? 0;
+    const elapsed = Math.floor((Date.now() - lastTickMs) / 1000);
+    localTimeLeft.value = Math.max(0, savedTimeLeft - elapsed);
+  }
+
   function startLocalTick() {
     stopLocalTick();
     tickInterval = setInterval(() => {
       if (status.value !== 'running') return;
-      if (!session.value?.state?.lastTickAt) return;
+      computeTimeLeft();
 
-      const lastTick = session.value.state.lastTickAt;
-      const lastTickMs = lastTick instanceof Timestamp
-        ? lastTick.toMillis()
-        : (typeof lastTick === 'number' ? lastTick : Date.now());
-
-      const savedTimeLeft = session.value.state.timeLeftSeconds ?? 0;
-      const elapsed = Math.floor((Date.now() - lastTickMs) / 1000);
-      localTimeLeft.value = Math.max(0, savedTimeLeft - elapsed);
-
-      // Auto-advance level when time runs out (host only)
-      // Skip if already on the last level (tournament stays at final blinds)
-      if (localTimeLeft.value <= 0 && isHost.value) {
+      // Auto-advance or repeat last level when time runs out (host only)
+      if (localTimeLeft.value <= 0 && isHost.value && !isAdvancing) {
         const nextIdx = currentLevelIndex.value + 1;
         if (nextIdx < levels.value.length) {
-          advanceLevel();
+          isAdvancing = true;
+          advanceLevel().finally(() => { isAdvancing = false; });
+        } else {
+          // Last level: restart timer with same level duration
+          isAdvancing = true;
+          repeatCurrentLevel().finally(() => { isAdvancing = false; });
         }
       }
     }, 1000);
@@ -169,12 +176,13 @@ export function useTournamentClock(options = {}) {
     unsubscribe = onSnapshot(docRef, (snap) => {
       loading.value = false;
       if (snap.exists()) {
-        session.value = { id: snap.id, ...snap.data() };
+        session.value = { id: snap.id, ...snap.data({ serverTimestamps: 'estimate' }) };
 
         // Sync local countdown from server state
         const st = session.value.state || {};
-        if (st.status === 'running') {
-          // Compute from lastTickAt
+        if (st.status === 'running' && st.lastTickAt) {
+          // Immediately compute so display doesn't wait for first tick
+          computeTimeLeft();
           startLocalTick();
         } else {
           localTimeLeft.value = st.timeLeftSeconds ?? 0;
@@ -269,7 +277,7 @@ export function useTournamentClock(options = {}) {
     if (!sessionId.value || !isHost.value) return;
     await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
       'state.status': 'running',
-      'state.lastTickAt': Timestamp.now(),
+      'state.lastTickAt': serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
   }
@@ -288,24 +296,26 @@ export function useTournamentClock(options = {}) {
   async function advanceLevel() {
     if (!sessionId.value || !isHost.value) return;
     const nextIdx = currentLevelIndex.value + 1;
-    if (nextIdx >= levels.value.length) {
-      // Last level — stay on it with timer at 0, tournament continues until manually ended
-      await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
-        'state.timeLeftSeconds': 0,
-        'state.lastTickAt': null,
-        'state.status': 'running',
-        updatedAt: serverTimestamp(),
-      });
-      return;
-    }
+    if (nextIdx >= levels.value.length) return; // Already on last level
 
     const nextLevel = levels.value[nextIdx];
     const wasRunning = status.value === 'running';
     await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
       'state.currentLevelIndex': nextIdx,
       'state.timeLeftSeconds': (nextLevel.duration || DEFAULT_TOURNAMENT_LEVEL_DURATION) * 60,
-      'state.lastTickAt': wasRunning ? Timestamp.now() : null,
+      'state.lastTickAt': wasRunning ? serverTimestamp() : null,
       'state.status': wasRunning ? 'running' : 'paused',
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  async function repeatCurrentLevel() {
+    if (!sessionId.value || !isHost.value) return;
+    const current = currentLevelEntry.value;
+    const duration = (current?.duration || DEFAULT_TOURNAMENT_LEVEL_DURATION) * 60;
+    await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
+      'state.timeLeftSeconds': duration,
+      'state.lastTickAt': serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
   }

@@ -184,22 +184,22 @@ describe('Tournament clock lifecycle', () => {
       expect(lastLevelBlock[0]).not.toContain("'ended'");
     });
 
-    it('advanceLevel should keep status running at last level', () => {
-      // When at last level, status stays running with time at 0
+    it('advanceLevel should return early at last level', () => {
+      // When at last level, advanceLevel does nothing (returns early)
       expect(clockComposable).toMatch(
-        /nextIdx >= levels\.value\.length[\s\S]*?'state\.status':\s*'running'/
+        /nextIdx >= levels\.value\.length[\s\S]*?return/
       );
     });
 
-    it('advanceLevel should set timeLeft to 0 at last level', () => {
+    it('repeatCurrentLevel should restart timer at last level', () => {
       expect(clockComposable).toMatch(
-        /nextIdx >= levels\.value\.length[\s\S]*?'state\.timeLeftSeconds':\s*0/
+        /async function repeatCurrentLevel[\s\S]*?'state\.timeLeftSeconds':\s*duration/
       );
     });
 
-    it('auto-advance should skip when on last level', () => {
-      // The tick loop should check nextIdx < levels.value.length
-      expect(clockComposable).toContain('nextIdx < levels.value.length');
+    it('auto-advance should repeat when on last level', () => {
+      // The tick loop should call repeatCurrentLevel for last level
+      expect(clockComposable).toContain('repeatCurrentLevel');
     });
 
     it('endTournament must be called manually', () => {
