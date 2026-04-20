@@ -139,8 +139,12 @@ export function useTournamentClock() {
       localTimeLeft.value = Math.max(0, savedTimeLeft - elapsed);
 
       // Auto-advance level when time runs out (host only)
+      // Skip if already on the last level (tournament stays at final blinds)
       if (localTimeLeft.value <= 0 && isHost.value) {
-        advanceLevel();
+        const nextIdx = currentLevelIndex.value + 1;
+        if (nextIdx < levels.value.length) {
+          advanceLevel();
+        }
       }
     }, 1000);
   }
@@ -246,11 +250,11 @@ export function useTournamentClock() {
     if (!sessionId.value || !isHost.value) return;
     const nextIdx = currentLevelIndex.value + 1;
     if (nextIdx >= levels.value.length) {
-      // No more levels — end
+      // Last level — stay on it with timer at 0, tournament continues until manually ended
       await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
-        'state.status': 'ended',
         'state.timeLeftSeconds': 0,
         'state.lastTickAt': null,
+        'state.status': 'running',
         updatedAt: serverTimestamp(),
       });
       return;

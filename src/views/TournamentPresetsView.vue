@@ -26,9 +26,10 @@
           <div
             v-for="tmpl in builtInTemplates"
             :key="tmpl.id"
-            class="preset-card"
+            @click="editFromTemplate(tmpl)"
+            class="preset-card cursor-pointer hover:border-amber-500/50 transition-colors"
           >
-            <div class="flex-1">
+            <div class="flex-1 min-w-0">
               <h3 class="font-bold text-white">{{ tmpl.name }}</h3>
               <p class="text-sm text-gray-400 mt-0.5">
                 BuyIn ${{ tmpl.buyIn }} · {{ tmpl.startingChips.toLocaleString() }} chips · {{ tmpl.levels.filter(l => !l.isBreak).length }} levels
@@ -38,22 +39,7 @@
                 {{ $t('tournament.reentryUntil', { level: tmpl.reentryUntilLevel }) }}
               </p>
             </div>
-            <div class="flex gap-2">
-              <button
-                @click="startFromTemplate(tmpl)"
-                class="action-btn bg-emerald-600 hover:bg-emerald-500"
-                :title="$t('tournament.startNow')"
-              >
-                <i class="fas fa-play"></i>
-              </button>
-              <button
-                @click="editFromTemplate(tmpl)"
-                class="action-btn bg-slate-600 hover:bg-slate-500"
-                :title="$t('tournament.customizeAndSave')"
-              >
-                <i class="fas fa-copy"></i>
-              </button>
-            </div>
+            <i class="fas fa-chevron-right text-gray-500 flex-shrink-0"></i>
           </div>
         </div>
       </section>
@@ -73,36 +59,24 @@
           <div
             v-for="preset in userPresets"
             :key="preset.id"
-            class="preset-card"
+            @click="editPreset(preset)"
+            class="preset-card cursor-pointer hover:border-blue-500/50 transition-colors"
           >
-            <div class="flex-1">
+            <div class="flex-1 min-w-0">
               <h3 class="font-bold text-white">{{ preset.name || 'Untitled' }}</h3>
               <p class="text-sm text-gray-400 mt-0.5">
                 BuyIn ${{ preset.buyIn || 0 }} · {{ (preset.startingChips || 0).toLocaleString() }} chips · {{ (preset.levels || []).filter(l => !l.isBreak).length }} levels
               </p>
             </div>
-            <div class="flex gap-2">
+            <div class="flex items-center gap-3">
               <button
-                @click="startFromPreset(preset)"
-                class="action-btn bg-emerald-600 hover:bg-emerald-500"
-                :title="$t('tournament.startNow')"
-              >
-                <i class="fas fa-play"></i>
-              </button>
-              <button
-                @click="editPreset(preset)"
-                class="action-btn bg-blue-600 hover:bg-blue-500"
-                :title="$t('common.edit')"
-              >
-                <i class="fas fa-pen"></i>
-              </button>
-              <button
-                @click="handleDelete(preset)"
-                class="action-btn bg-red-600/50 hover:bg-red-500"
+                @click.stop="handleDelete(preset)"
+                class="action-btn bg-red-600/30 hover:bg-red-500 text-red-400 hover:text-white"
                 :title="$t('common.delete')"
               >
                 <i class="fas fa-trash-alt"></i>
               </button>
+              <i class="fas fa-chevron-right text-gray-500"></i>
             </div>
           </div>
         </div>
@@ -118,13 +92,13 @@ import { useI18n } from 'vue-i18n';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
-import { TOURNAMENT_TEMPLATES, cloneTemplate } from '../utils/tournamentTemplates.js';
+import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
 
 const router = useRouter();
 const { t } = useI18n();
 const { success, error: showError } = useNotification();
 const { confirm } = useConfirm();
-const { createSession, listenPresets, deletePreset } = useTournamentClock();
+const { listenPresets, deletePreset } = useTournamentClock();
 
 const builtInTemplates = TOURNAMENT_TEMPLATES;
 const userPresets = ref([]);
@@ -140,37 +114,8 @@ onUnmounted(() => {
   if (unsubPresets) unsubPresets();
 });
 
-async function startFromTemplate(tmpl) {
-  try {
-    const config = cloneTemplate(tmpl);
-    config.name = config.name || tmpl.name;
-    const sessionId = await createSession(config);
-    router.push(`/tournament-clock/${sessionId}`);
-  } catch (e) {
-    showError(e.message);
-  }
-}
-
 function editFromTemplate(tmpl) {
   router.push({ path: '/tournament-setup', query: { template: tmpl.id } });
-}
-
-async function startFromPreset(preset) {
-  try {
-    const config = {
-      name: preset.name,
-      subtitle: preset.subtitle || '',
-      buyIn: preset.buyIn,
-      startingChips: preset.startingChips,
-      reentryUntilLevel: preset.reentryUntilLevel,
-      levels: preset.levels,
-      payoutRatios: preset.payoutRatios,
-    };
-    const sessionId = await createSession(config);
-    router.push(`/tournament-clock/${sessionId}`);
-  } catch (e) {
-    showError(e.message);
-  }
 }
 
 function editPreset(preset) {

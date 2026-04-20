@@ -65,7 +65,7 @@ export const useGameStore = defineStore('game', () => {
         hostUid: authStore.user.uid,
         hostName,
         type, // Add game type
-        status: type === GAME_TYPE.LIVE ? GAME_STATUS.ACTIVE : GAME_STATUS.WAITING,
+        status: type === GAME_TYPE.ONLINE ? GAME_STATUS.WAITING : GAME_STATUS.ACTIVE,
         createdAt: Date.now(),
         baseBuyIn: parseInt(buyInAmount),
         players: [{

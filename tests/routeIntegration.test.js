@@ -192,20 +192,15 @@ describe('ActionModal integration', () => {
   const { resolve } = require('path');
   const content = readFileSync(resolve(__dirname, '../src/components/common/ActionModal.vue'), 'utf-8');
 
-  it('should have tournament action option', () => {
-    expect(content).toContain('tournament-presets');
+  it('should not have tournament/timebank actions (moved to lobby)', () => {
+    expect(content).not.toContain('tournament-presets');
+    expect(content).not.toContain('time-bank');
   });
 
-  it('should have time-bank action option', () => {
-    expect(content).toContain('time-bank');
-  });
-
-  it('should use i18n for tournament action label', () => {
-    expect(content).toContain("$t('action.tournamentSetup')");
-  });
-
-  it('should use i18n for time-bank action label', () => {
-    expect(content).toContain("$t('action.timeBank')");
+  it('should have live track and online actions', () => {
+    expect(content).toContain("$t('action.liveTrack')");
+    expect(content).toContain("$t('action.createOnline')");
+    expect(content).toContain("$t('action.joinOnline')");
   });
 });
 

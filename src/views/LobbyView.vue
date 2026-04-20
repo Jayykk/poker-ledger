@@ -161,6 +161,29 @@
       </BaseCard>
     </div>
 
+    <!-- Tools Section -->
+    <div class="mt-6">
+      <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wide mb-3">{{ $t('lobby.tools') }}</h3>
+      <div class="grid grid-cols-2 gap-3">
+        <BaseCard padding="md" clickable @click="$router.push('/tournament-presets')">
+          <div class="flex flex-col items-center gap-2 text-center py-1">
+            <div class="w-10 h-10 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg">
+              🏆
+            </div>
+            <span class="text-white text-sm font-semibold">{{ $t('action.tournamentSetup') }}</span>
+          </div>
+        </BaseCard>
+        <BaseCard padding="md" clickable @click="$router.push('/time-bank/new')">
+          <div class="flex flex-col items-center gap-2 text-center py-1">
+            <div class="w-10 h-10 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg">
+              ⏱
+            </div>
+            <span class="text-white text-sm font-semibold">{{ $t('action.timeBank') }}</span>
+          </div>
+        </BaseCard>
+      </div>
+    </div>
+
     <!-- Create Game Modal -->
     <BaseModal v-model="showCreateModal" :title="$t('lobby.createGame')">
       <!-- Step 1: Choose game type -->
