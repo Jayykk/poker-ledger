@@ -258,11 +258,36 @@ async function handleToggleDealerMode() {
 function copyDealerUrl() {
   const baseUrl = window.location.origin + window.location.pathname;
   const dealerUrl = `${baseUrl}#/dealer-clock/${session.value?.id || route.params.sessionId}`;
-  navigator.clipboard.writeText(dealerUrl).then(() => {
+  // Use fallback for contexts where clipboard API may not be available
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(dealerUrl).then(() => {
+        success(t('tournament.dealerUrlCopied'));
+      }).catch(() => {
+        fallbackCopy(dealerUrl);
+      });
+    } else {
+      fallbackCopy(dealerUrl);
+    }
+  } catch {
+    fallbackCopy(dealerUrl);
+  }
+}
+
+function fallbackCopy(text) {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    document.execCommand('copy');
     success(t('tournament.dealerUrlCopied'));
-  }).catch(() => {
+  } catch {
     showError(t('common.copyFailed'));
-  });
+  }
+  document.body.removeChild(textarea);
 }
 
 function playSound(type) {

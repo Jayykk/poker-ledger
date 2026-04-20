@@ -11,7 +11,7 @@ import {
   onSnapshot, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { useAuthStore } from '../store/modules/auth.js';
-import { DEFAULT_TIME_BANK_SECONDS } from '../utils/constants.js';
+import { DEFAULT_TIME_BANK_SECONDS, DEFAULT_TIME_BANK_INTERVAL, DEFAULT_TIME_BANK_BUTTON_COUNT } from '../utils/constants.js';
 
 export function useTimeBank() {
   const authStore = useAuthStore();
@@ -31,7 +31,17 @@ export function useTimeBank() {
   const state = computed(() => session.value?.state || {});
   const status = computed(() => state.value.status || 'idle');
   const totalSeconds = computed(() => config.value.totalSeconds || DEFAULT_TIME_BANK_SECONDS);
+  const minSeconds = computed(() => config.value.minSeconds || DEFAULT_TIME_BANK_SECONDS);
+  const intervalSeconds = computed(() => config.value.intervalSeconds || DEFAULT_TIME_BANK_INTERVAL);
+  const buttonCount = computed(() => config.value.buttonCount || DEFAULT_TIME_BANK_BUTTON_COUNT);
   const label = computed(() => config.value.label || 'Time Bank');
+
+  const quickPresets = computed(() => {
+    const min = minSeconds.value;
+    const interval = intervalSeconds.value;
+    const count = buttonCount.value;
+    return Array.from({ length: count }, (_, i) => min + i * interval);
+  });
 
   const percentage = computed(() => {
     if (totalSeconds.value <= 0) return 0;
@@ -120,18 +130,23 @@ export function useTimeBank() {
 
     const colRef = collection(db, 'timeBankSessions');
     const docRef = doc(colRef);
-    const seconds = cfg.totalSeconds || DEFAULT_TIME_BANK_SECONDS;
+    const min = cfg.minSeconds || DEFAULT_TIME_BANK_SECONDS;
+    const interval = cfg.intervalSeconds || DEFAULT_TIME_BANK_INTERVAL;
+    const count = cfg.buttonCount || DEFAULT_TIME_BANK_BUTTON_COUNT;
 
     await setDoc(docRef, {
       hostUid: uid,
       hostName: authStore.user?.displayName || 'Dealer',
       config: {
-        totalSeconds: seconds,
+        totalSeconds: min,
+        minSeconds: min,
+        intervalSeconds: interval,
+        buttonCount: count,
         label: cfg.label || 'Time Bank',
       },
       state: {
         status: 'idle',
-        timeLeftSeconds: seconds,
+        timeLeftSeconds: min,
         lastTickAt: null,
       },
       createdAt: serverTimestamp(),
@@ -182,11 +197,15 @@ export function useTimeBank() {
 
   async function updateConfig(cfg) {
     if (!sessionId.value || !isHost.value) return;
+    const min = cfg.minSeconds ?? minSeconds.value;
     await updateDoc(doc(db, 'timeBankSessions', sessionId.value), {
-      'config.totalSeconds': cfg.totalSeconds ?? totalSeconds.value,
+      'config.totalSeconds': min,
+      'config.minSeconds': min,
+      'config.intervalSeconds': cfg.intervalSeconds ?? intervalSeconds.value,
+      'config.buttonCount': cfg.buttonCount ?? buttonCount.value,
       'config.label': cfg.label ?? label.value,
       'state.status': 'idle',
-      'state.timeLeftSeconds': cfg.totalSeconds ?? totalSeconds.value,
+      'state.timeLeftSeconds': min,
       'state.lastTickAt': null,
     });
   }
@@ -231,6 +250,10 @@ export function useTimeBank() {
     state,
     status,
     totalSeconds,
+    minSeconds,
+    intervalSeconds,
+    buttonCount,
+    quickPresets,
     label,
     percentage,
     urgency,
