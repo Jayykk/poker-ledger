@@ -50,6 +50,9 @@
       <BaseButton @click="handleCopyId" variant="ghost" size="sm">
         <i class="fas fa-copy mr-1"></i>{{ $t('game.copyId') }}
       </BaseButton>
+      <BaseButton v-if="liffReady" @click="handleShareToLine" variant="ghost" size="sm" class="!text-[#06C755]">
+        <i class="fab fa-line mr-1"></i>{{ $t('game.shareToLine') }}
+      </BaseButton>
       <BaseButton
         v-if="game.tournamentSessionId"
         @click="$router.push(`/tournament-clock/${game.tournamentSessionId}`)"
@@ -61,6 +64,32 @@
       <BaseButton @click="showSettlement = true" variant="secondary">
         {{ $t('tournament.settleTournament') }}
       </BaseButton>
+    </div>
+
+    <!-- Transaction Log -->
+    <div class="mt-6">
+      <TransactionLog
+        :transactions="transactions"
+        :host-uid="game.hostUid"
+        :error="txError"
+        :loading="txLoading"
+        @undo="handleUndoBuyIn"
+      />
+    </div>
+
+    <!-- Record hand button -->
+    <BaseButton
+      @click="showHandRecord = true"
+      variant="primary"
+      fullWidth
+      class="mt-4"
+    >
+      <i class="fas fa-save mr-2"></i>{{ $t('hand.recordHand') }}
+    </BaseButton>
+
+    <!-- Hand history -->
+    <div v-if="hands.length > 0" class="mt-6">
+      <HandHistoryList :hands="hands" @select="handleSelectHand" />
     </div>
 
     <!-- Add player button (host only) -->
@@ -176,15 +205,33 @@
         </BaseButton>
       </div>
     </BaseModal>
+
+    <!-- Hand Record Sheet -->
+    <HandRecordSheet
+      v-model="showHandRecord"
+      :game-id="gameId"
+      :players="game?.players || []"
+      @saved="handleHandRecordSaved"
+    />
+
+    <!-- Hand Detail Modal -->
+    <HandHistoryDetail
+      v-if="selectedHand"
+      :hand="selectedHand"
+      :show="showHandDetail"
+      @close="showHandDetail = false; selectedHand = null"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
 import { useGame } from '../composables/useGame.js';
+import { useHand } from '../composables/useHand.js';
+import { useTransactions } from '../composables/useTransactions.js';
 import { useLiff } from '../composables/useLiff.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useNotification } from '../composables/useNotification.js';
@@ -195,6 +242,10 @@ import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import TournamentPlayerCard from '../components/game/TournamentPlayerCard.vue';
+import TransactionLog from '../components/game/TransactionLog.vue';
+import HandRecordSheet from '../components/game/HandRecordSheet.vue';
+import HandHistoryList from '../components/game/HandHistoryList.vue';
+import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
 import { formatNumber } from '../utils/formatters.js';
 import { DEFAULT_BUY_IN } from '../utils/constants.js';
 
@@ -207,10 +258,13 @@ const {
   checkGameStatus, joinAsNewPlayer, joinGameListener,
   closeGame, eliminatePlayer, reentryPlayer, settleTournament,
 } = useGame();
-const { sendBuyInMessage } = useLiff();
+const { sendBuyInMessage, sendUndoMessage, shareGameInvite, isInitialized: liffReady } = useLiff();
 const { success, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
+
+const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
+const { transactions, txLoading, txError, recordAction, undoBuyIn } = useTransactions(gameId);
 
 // Tournament session data (for reentryUntilLevel, payoutRatios)
 const {
@@ -223,8 +277,11 @@ const {
 const showAddPlayer = ref(false);
 const showEditPlayer = ref(false);
 const showSettlement = ref(false);
+const showHandRecord = ref(false);
+const showHandDetail = ref(false);
 const newPlayerName = ref('');
 const editingPlayer = ref(null);
+const selectedHand = ref(null);
 const autoJoinLoading = ref(false);
 
 // ── Computed ──
@@ -353,6 +410,22 @@ onMounted(async () => {
   }
 });
 
+// Watch for game data becoming available (onSnapshot fires async)
+watch(() => game.value?.tournamentSessionId, (sid) => {
+  if (sid && !tournamentConfig.value) {
+    joinTournamentSession(sid);
+  }
+});
+
+// Listen to hand records
+watch(() => gameId.value, (newGameId) => {
+  if (newGameId) {
+    listenToHandRecords(newGameId);
+  } else {
+    cleanupHands();
+  }
+}, { immediate: true });
+
 // ── Handlers ──
 
 const handleEliminate = async (player) => {
@@ -449,6 +522,36 @@ const handleAddPlayer = async () => {
 
 const handleCopyId = async () => {
   await copyWithNotification(game.value.id, t('game.copyId'));
+};
+
+const handleShareToLine = async () => {
+  const shared = await shareGameInvite(
+    game.value.name,
+    game.value.id,
+    game.value.hostName || displayName.value,
+  );
+  if (shared) {
+    success(t('game.shareSuccess'));
+  }
+};
+
+const handleUndoBuyIn = async (tx) => {
+  const shouldUndo = await confirm({ message: t('transaction.confirmUndo'), type: 'warning' });
+  if (shouldUndo) {
+    await withLoading(async () => {
+      await undoBuyIn(tx.txId);
+      sendUndoMessage(displayName.value, tx.playerName, tx.amount, game.value?.name, game.value?.id);
+    }, t('loading.saving'));
+  }
+};
+
+const handleSelectHand = (hand) => {
+  selectedHand.value = hand;
+  showHandDetail.value = true;
+};
+
+const handleHandRecordSaved = () => {
+  showHandRecord.value = false;
 };
 
 const handleSettle = async () => {
