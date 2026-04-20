@@ -11,12 +11,22 @@ A modern, progressive web application for tracking and synchronizing poker game 
 - 👥 **Multi-player Support** - Support up to 10 players per game
 - 🔗 **Invite System** - Share game links to invite players to specific seats
 
+### 🏆 Tournament System
+- 🕐 **Tournament Clock** - Full-screen blind level timer with auto-advance, break periods, and sound alerts
+- 🎛️ **Dealer Clock Mode** - Dedicated dealer view with anonymous auth, shareable via URL
+- ⏱️ **Time Bank** - Configurable countdown timer with quick presets, synced via Firestore
+- 📋 **Tournament Presets** - Save and reuse custom blind structures and tournament configurations
+- 🎮 **Tournament Game View** - Integrated game management with re-entry controls and prize pool tracking
+- 💤 **Screen Wake Lock** - Prevents device sleep during tournament clock display (cross-browser, including iOS)
+- 🔄 **Re-entry Management** - Per-player buy-in count limits with undo support and session counter sync
+
 ### Analytics & Reports
 - 📈 **Profit Trend Charts** - Visualize your poker performance over time
 - 🎯 **Win Rate Analysis** - Track wins, losses, and win rate percentages
 - 📅 **Time Period Filters** - Analyze by week, month, year, or all-time
 - 💾 **CSV Export** - Export game history for external analysis
 - 📋 **Game Reports** - Copy formatted reports to share with friends
+- 📆 **Daily Reports** - Aggregate settlements by date range with player rankings
 
 ### Social Features
 - 👫 **Friend System** - Add friends and track their performance
@@ -24,19 +34,28 @@ A modern, progressive web application for tracking and synchronizing poker game 
 - 💬 **Game Chat** - Real-time chat during games with emoji support
 - 🎯 **Friend Invitations** - Directly invite friends to your games
 
+### 🃏 Live Texas Hold'em
+- 🃏 **Server-side Dealing** - Fair card dealing handled by Cloud Functions
+- 👥 **Multiplayer** - Up to 6 players per table
+- 💰 **Integrated Ledger** - Seamless integration with the existing buy-in tracking system
+- 📱 **Mobile Optimized** - Touch-optimized betting controls with slider and quick buttons
+- ⚡ **Real-time Sync** - Firestore real-time listeners for instant game state updates
+- 🎬 **Animations** - Card reveal and showdown animations
+
 ### Advanced Game Features
 - ⏱️ **Blind Timer** - Customizable blind level timer with break periods
-- 🔊 **Sound Notifications** - Audio alerts for blind level changes
-- 📝 **Game Notes** - Add notes to memorable hands or sessions
+- 🔊 **Sound Notifications** - Audio alerts for blind level changes and timer warnings
 - 💱 **Multi-currency Support** - Track in TWD, USD, CNY, or JPY
 - 📜 **Rebuy History** - Complete tracking of all rebuys during a session
+- 📝 **Hand Records** - View, create, and manage individual hand histories
 
 ### LINE Integration
 - 📱 **LINE Login** - Sign in with LINE account via LIFF SDK
-- 💬 **Chat Room Messages** - Send buy-in/settlement notifications to LINE chat via `liff.sendMessages()`
+- 💬 **Chat Room Messages** - Send buy-in/settlement notifications to LINE chat via Flex Messages
 - 🔗 **Game Invites** - Share game links to LINE friends/groups with `shareTargetPicker`
 - 📒 **Transaction Audit** - Full buy-in history with "who did it for whom" tracking
 - ↩️ **Undo Support** - Reverse buy-in transactions with audit trail
+- 🏆 **Tournament Links** - Deep links route correctly to tournament game views
 
 ### Internationalization
 - 🌍 **Multi-language Support**
@@ -68,10 +87,13 @@ A modern, progressive web application for tracking and synchronizing poker game 
 - **Internationalization**: vue-i18n
 - **Database**: Firebase Firestore
 - **Authentication**: Firebase Auth (Email/Password, Anonymous, LINE Login)
+- **Backend**: Firebase Cloud Functions (Node.js)
 - **LINE Integration**: LIFF SDK v2
 - **Charts**: Chart.js 4
 - **Styling**: Tailwind CSS 3
 - **Icons**: Font Awesome 6
+- **Screen Wake Lock**: nosleep.js
+- **Testing**: Vitest + @vue/test-utils
 
 ## 📦 Installation
 
@@ -274,110 +296,6 @@ This project is licensed under the MIT License.
 - Tailwind CSS for the utility-first CSS framework
 - Font Awesome for the icon library
 
-## 🎰 線上德州撲克 (Live Texas Hold'em)
-
-**新功能**: 與朋友即時對戰的線上德州撲克遊戲！
-
-### 功能特色
-- 🃏 **公平發牌** - 伺服器端處理，確保遊戲公平性
-- 👥 **多人對戰** - 最多 6 人同桌競技
-- 💰 **整合記帳** - 與現有記帳系統完美整合
-- 📱 **手機友好** - 觸控優化的操作介面
-- ⚡ **即時同步** - Firestore 即時更新遊戲狀態
-- 🎯 **智慧下注** - 滑桿 + 快捷按鈕的下注控制
-
-### 遊戲規則
-- **德州撲克** (Texas Hold'em) - 最受歡迎的撲克變體
-- **盲注結構** - 可自訂大小盲注
-- **買入範圍** - 設定最小/最大買入籌碼
-- **完整回合** - Preflop → Flop → Turn → River → Showdown
-
-### 技術架構
-- **前端**: Vue 3 + Pinia + Composition API
-- **後端**: Firebase Cloud Functions (Node.js)
-- **即時同步**: Firestore Real-time Listeners
-- **認證**: Firebase Authentication
-- **遊戲引擎**: 伺服器端德州撲克引擎
-
-### Cloud Functions 設定
-
-初次部署需要設定 Firebase Functions：
-
-```bash
-# 安裝 Firebase CLI
-npm install -g firebase-tools
-
-# 登入 Firebase
-firebase login
-
-# 初始化 Functions（若尚未初始化）
-firebase init functions
-
-# 部署 Cloud Functions
-cd functions
-npm install
-firebase deploy --only functions
-
-# 部署 Firestore 安全規則
-firebase deploy --only firestore:rules
-```
-
-### 遊戲數據結構
-
-詳細的 Firestore 數據結構請參考 [TODO.md](./TODO.md)
-
-主要集合：
-- `/pokerGames/{gameId}` - 遊戲房間資訊
-- `/pokerGames/{gameId}/hands/{handId}` - 每手牌記錄
-- `/pokerGames/{gameId}/private/{userId}` - 玩家私密手牌
-- `/pokerGames/{gameId}/events/{eventId}` - 遊戲事件記錄
-- `/transactions/{txId}` - 買入交易歷程（含代操作、撤銷審計）
-
-### 數據遷移 (Data Migration)
-
-**Important**: If you have existing game data with actions, shownCards, or spectators stored in array fields, you need to run a migration to move them to the new events subcollection structure.
-
-**Why migrate?** Firestore does not allow `FieldValue.serverTimestamp()` inside array elements, which caused runtime errors in the previous implementation. The new structure stores each event as a separate document in a subcollection, enabling proper timestamp handling and better queryability.
-
-**Migration steps**:
-
-1. Install Firebase Admin SDK dependencies:
-   ```bash
-   cd functions
-   npm install
-   ```
-
-2. Set up Firebase credentials (choose one):
-   - Place service account JSON in project root as `serviceAccountKey.json`
-   - Set `GOOGLE_APPLICATION_CREDENTIALS` environment variable
-   - Use default application credentials
-
-3. Run migration (dry run first to preview):
-   ```bash
-   # Preview what will be migrated
-   node scripts/migrate_entries_to_events.js --dry-run
-   
-   # Run actual migration (keeps original arrays)
-   node scripts/migrate_entries_to_events.js
-   
-   # Run migration and delete old arrays
-   node scripts/migrate_entries_to_events.js --delete-old
-   ```
-
-For more details, see [scripts/README.md](./scripts/README.md).
-
-### 開發路線圖
-
-完整的功能開發計畫請查看 [TODO.md](./TODO.md)
-
-**Phase 1**: 基礎架構 (Foundation) 🚧  
-**Phase 2**: 核心遊戲功能 (Core Game) 📝  
-**Phase 3**: UI/UX 優化 (User Experience) 📝  
-**Phase 4**: 社交功能 (Social Features) 📝  
-**Phase 5**: 進階功能 (Advanced) 📝
-
----
-
 ## 📞 Support
 
 For issues, questions, or suggestions, please open an issue on GitHub.
@@ -385,5 +303,5 @@ For issues, questions, or suggestions, please open an issue on GitHub.
 ---
 
 **Version**: 10.0.0  
-**Last Updated**: March 2026  
+**Last Updated**: April 2026  
 **Author**: Jayykk

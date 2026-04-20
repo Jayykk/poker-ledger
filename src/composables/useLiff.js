@@ -197,7 +197,8 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId
     },
   ];
 
-  const liffUrl = gameId && LIFF_ID ? `https://liff.line.me/${LIFF_ID}/game/${gameId}` : undefined;
+  const liffPath = isTournament ? `tournament-game/${gameId}` : `game/${gameId}`;
+  const liffUrl = gameId && LIFF_ID ? `https://liff.line.me/${LIFF_ID}/${liffPath}` : undefined;
 
   const bubble = {
     type: 'bubble',
@@ -264,7 +265,8 @@ const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId,
     },
   ];
 
-  const liffUrl = gameId && LIFF_ID ? `https://liff.line.me/${LIFF_ID}/game/${gameId}` : undefined;
+  const liffPath = isTournament ? `tournament-game/${gameId}` : `game/${gameId}`;
+  const liffUrl = gameId && LIFF_ID ? `https://liff.line.me/${LIFF_ID}/${liffPath}` : undefined;
 
   const bubble = {
     type: 'bubble',

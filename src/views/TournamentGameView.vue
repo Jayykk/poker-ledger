@@ -333,10 +333,10 @@ const canReentry = (player) => {
   // If session not loaded yet, block re-entry by default
   if (!tournamentConfig.value || !reentryUntilLevel.value) return false;
 
-  // Check per-player re-entry count limit
+  // Check per-player total buy-in count limit (maxReentries = total buy-in times including initial)
   if (maxReentries.value > 0) {
     const count = getPlayerReentryCount(player);
-    if (count >= maxReentries.value) return false;
+    if (count + 1 >= maxReentries.value) return false;
   }
 
   // Check level limit — during breaks, look at the nearest preceding play level
@@ -567,7 +567,43 @@ const handleUndoBuyIn = async (tx) => {
   if (shouldUndo) {
     await withLoading(async () => {
       await undoBuyIn(tx.txId);
-      sendUndoMessage(displayName.value, tx.playerName, tx.amount, game.value?.name, game.value?.id);
+
+      // Also revert the player's buyIn in the game document
+      if (game.value && tx.playerName && tx.amount) {
+        const { doc, updateDoc, getDoc } = await import('firebase/firestore');
+        const { db } = await import('../firebase-init.js');
+
+        const updatedPlayers = game.value.players.map(p => {
+          if (p.name === tx.playerName) {
+            return { ...p, buyIn: Math.max(0, (p.buyIn || 0) - (tx.amount || 0)) };
+          }
+          return p;
+        });
+        await updateDoc(doc(db, 'games', game.value.id), { players: updatedPlayers });
+
+        // Decrement tournament session reentry counter if applicable
+        const sessionId = game.value.tournamentSessionId;
+        if (sessionId && tx.type === 'reentry') {
+          const sessionRef = doc(db, 'tournamentSessions', sessionId);
+          const snap = await getDoc(sessionRef);
+          if (snap.exists()) {
+            const st = snap.data().state || {};
+            await updateDoc(sessionRef, {
+              'state.reentries': Math.max(0, (st.reentries || 0) - 1),
+              'state.playersRegistered': Math.max(0, (st.playersRegistered || 0) - 1),
+            });
+          }
+        }
+      }
+
+      const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
+      const player = game.value?.players?.find(p => p.name === tx.playerName);
+      const newTotal = player?.buyIn || 0;
+      sendUndoMessage(displayName.value, tx.playerName, tx.amount, game.value?.name, game.value?.id, {
+        totalBuyIn: newTotal,
+        baseBuyIn,
+        gameType: 'tournament',
+      });
     }, t('loading.saving'));
   }
 };

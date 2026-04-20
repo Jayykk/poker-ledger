@@ -166,6 +166,7 @@ import { signInAnonymously } from 'firebase/auth';
 import { auth } from '../firebase-init.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useNotification } from '../composables/useNotification.js';
+import { useWakeLock } from '../composables/useWakeLock.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import TournamentControls from '../components/tournament/TournamentControls.vue';
 import {
@@ -176,6 +177,8 @@ const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
 const { error: showError } = useNotification();
+
+useWakeLock();
 
 const authLoading = ref(true);
 const showControls = ref(false);

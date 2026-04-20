@@ -85,12 +85,6 @@
             </div>
           </div>
         </div>
-        <button
-          @click="$emit('add-reentry')"
-          class="ctrl-btn bg-blue-600 hover:bg-blue-500 mt-3 w-full"
-        >
-          <i class="fas fa-redo mr-1"></i>{{ $t('tournament.addReentry') }}
-        </button>
       </div>
 
       <!-- End Tournament -->
@@ -125,7 +119,7 @@ const props = defineProps({
 
 const emit = defineEmits([
   'start', 'pause', 'advance', 'previous',
-  'update-players', 'add-reentry', 'end', 'close',
+  'update-players', 'end', 'close',
 ]);
 
 const localRegistered = ref(props.playersRegistered);
