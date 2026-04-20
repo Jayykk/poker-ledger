@@ -467,13 +467,6 @@ export const useGameStore = defineStore('game', () => {
         return p;
       });
 
-      // If only 1 player left alive, auto-crown champion
-      const aliveAfter = updatedPlayers.filter(p => !p.eliminated);
-      if (aliveAfter.length === 1) {
-        const champIdx = updatedPlayers.findIndex(p => p.id === aliveAfter[0].id);
-        updatedPlayers[champIdx] = { ...updatedPlayers[champIdx], placement: 1 };
-      }
-
       await updateDoc(doc(db, 'games', gameId.value), { players: updatedPlayers });
       return true;
     } catch (err) {
@@ -592,6 +585,13 @@ export const useGameStore = defineStore('game', () => {
 
         // Calculate prize pool from all buy-ins
         const totalBuyIns = players.reduce((sum, p) => sum + (p.buyIn || 0), 0);
+
+        // Auto-crown last alive player as champion (placement=1) if not already set
+        const alive = players.filter(p => !p.eliminated);
+        if (alive.length === 1 && !alive[0].placement) {
+          const champIdx = players.findIndex(p => p.id === alive[0].id);
+          players[champIdx] = { ...players[champIdx], placement: 1 };
+        }
 
         // Build placement → prize map
         const prizeMap = {};

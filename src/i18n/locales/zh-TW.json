@@ -440,6 +440,7 @@
     "viewClock": "錦標賽時鐘",
     "dealerMode": "荷官模式",
     "dealerUrlCopied": "荷官連結已複製",
+    "dealerUrlHint": "長按下方連結即可複製，分享給荷官使用",
     "fullscreen": "全螢幕",
     "eliminate": "淘汰",
     "confirmEliminate": "確定要淘汰 {name} 嗎？",

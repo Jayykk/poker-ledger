@@ -150,6 +150,30 @@
       />
     </div>
 
+    <!-- Dealer URL Modal -->
+    <div v-if="showDealerUrlModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" @click.self="showDealerUrlModal = false">
+      <div class="bg-slate-800 border border-slate-600 rounded-xl p-5 mx-4 max-w-sm w-full shadow-2xl">
+        <h3 class="text-white font-bold text-sm mb-3">
+          <i class="fas fa-user-shield text-amber-400 mr-1"></i>{{ $t('tournament.dealerMode') }}
+        </h3>
+        <p class="text-gray-400 text-xs mb-3">{{ $t('tournament.dealerUrlHint') }}</p>
+        <div
+          class="bg-slate-900 border border-slate-600 rounded-lg p-3 text-emerald-400 text-xs font-mono break-all select-all cursor-text"
+          @click="selectAllText"
+        >
+          {{ dealerUrlText }}
+        </div>
+        <div class="flex gap-2 mt-4">
+          <button @click="copyDealerUrlToClipboard" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white text-sm font-semibold transition">
+            <i class="fas fa-copy mr-1"></i>{{ $t('common.copy') }}
+          </button>
+          <button @click="showDealerUrlModal = false" class="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm font-semibold transition">
+            {{ $t('common.close') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Audio element for alerts -->
     <audio ref="audioRef" preload="auto"></audio>
   </div>
@@ -174,6 +198,8 @@ const { error: showError, success } = useNotification();
 
 const showControls = ref(false);
 const audioRef = ref(null);
+const showDealerUrlModal = ref(false);
+const dealerUrlText = ref('');
 let warningPlayed = false;
 
 const {
@@ -255,39 +281,36 @@ async function handleToggleDealerMode() {
   }
 }
 
-function copyDealerUrl() {
+async function copyDealerUrl() {
   const baseUrl = window.location.origin + window.location.pathname;
   const dealerUrl = `${baseUrl}#/dealer-clock/${session.value?.id || route.params.sessionId}`;
-  // Use fallback for contexts where clipboard API may not be available
+  dealerUrlText.value = dealerUrl;
+  // Try clipboard first — if it succeeds, no modal needed
   try {
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(dealerUrl).then(() => {
-        success(t('tournament.dealerUrlCopied'));
-      }).catch(() => {
-        fallbackCopy(dealerUrl);
-      });
-    } else {
-      fallbackCopy(dealerUrl);
-    }
+    await navigator.clipboard.writeText(dealerUrl);
+    success(t('common.copySuccess'));
   } catch {
-    fallbackCopy(dealerUrl);
+    // Clipboard unavailable (LIFF / non-secure context) — show modal for manual copy
+    showDealerUrlModal.value = true;
   }
 }
 
-function fallbackCopy(text) {
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    document.execCommand('copy');
-    success(t('tournament.dealerUrlCopied'));
-  } catch {
+function copyDealerUrlToClipboard() {
+  navigator.clipboard.writeText(dealerUrlText.value).then(() => {
+    success(t('common.copySuccess'));
+    showDealerUrlModal.value = false;
+  }).catch(() => {
+    // Clipboard blocked (LIFF / non-secure context) — URL remains visible for manual copy
     showError(t('common.copyFailed'));
-  }
-  document.body.removeChild(textarea);
+  });
+}
+
+function selectAllText(e) {
+  const range = document.createRange();
+  range.selectNodeContents(e.target);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
 }
 
 function playSound(type) {

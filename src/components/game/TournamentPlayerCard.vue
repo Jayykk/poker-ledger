@@ -25,7 +25,7 @@
 
           <!-- Placement badge -->
           <div class="text-right flex-shrink-0 ml-2">
-            <div v-if="player.placement === 1" class="flex items-center gap-1">
+            <div v-if="isChampion || player.placement === 1" class="flex items-center gap-1">
               <span class="text-2xl">🏆</span>
               <span class="text-amber-400 font-bold text-sm">{{ $t('tournament.champion') }}</span>
             </div>
@@ -91,6 +91,7 @@ const props = defineProps({
   isHost: { type: Boolean, default: false },
   canReentry: { type: Boolean, default: false },
   baseBuyIn: { type: Number, default: 0 },
+  isChampion: { type: Boolean, default: false },
 });
 
 defineEmits(['eliminate', 'reentry', 'edit']);
