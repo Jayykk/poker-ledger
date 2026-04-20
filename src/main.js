@@ -88,6 +88,10 @@ import FriendsView from './views/FriendsView.vue';
 import GameLobby from './views/GameLobby.vue';
 import PokerGame from './views/PokerGame.vue';
 import DailyReportView from './views/DailyReportView.vue';
+import TournamentClockView from './views/TournamentClockView.vue';
+import TournamentSetupView from './views/TournamentSetupView.vue';
+import TournamentPresetsView from './views/TournamentPresetsView.vue';
+import TimeBankView from './views/TimeBankView.vue';
 
 // ── Async bootstrap ─────────────────────────────────────────────────
 // Must be async so we can await LIFF token processing BEFORE Vue Router
@@ -126,7 +130,12 @@ import DailyReportView from './views/DailyReportView.vue';
       { path: '/profile', name: 'Profile', component: ProfileView, meta: { requiresAuth: true } },
       { path: '/friends', name: 'Friends', component: FriendsView, meta: { requiresAuth: true } },
       { path: '/poker-lobby', name: 'GameLobby', component: GameLobby, meta: { requiresAuth: true } },
-      { path: '/poker-game/:gameId', name: 'PokerGame', component: PokerGame, meta: { requiresAuth: true } }
+      { path: '/poker-game/:gameId', name: 'PokerGame', component: PokerGame, meta: { requiresAuth: true } },
+      { path: '/tournament-presets', name: 'TournamentPresets', component: TournamentPresetsView, meta: { requiresAuth: true } },
+      { path: '/tournament-setup', name: 'TournamentSetup', component: TournamentSetupView, meta: { requiresAuth: true } },
+      { path: '/tournament-setup/:presetId', name: 'TournamentSetupEdit', component: TournamentSetupView, meta: { requiresAuth: true } },
+      { path: '/tournament-clock/:sessionId', name: 'TournamentClock', component: TournamentClockView, meta: { requiresAuth: true } },
+      { path: '/time-bank/:sessionId', name: 'TimeBank', component: TimeBankView, meta: { requiresAuth: true } }
     ]
   });
 

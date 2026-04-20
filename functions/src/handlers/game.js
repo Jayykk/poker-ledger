@@ -283,11 +283,13 @@ export async function startHand(gameId) {
 
   // 🔑 POST-TRANSACTION: Create Cloud Task only after transaction succeeds
   if (result.shouldCreateTask && result.currentTurnId) {
-    await createPokerTask(gameId, result.currentTurnId, result.turnTimeout);
+    createPokerTask(gameId, result.currentTurnId, result.turnTimeout)
+      .catch((err) => console.error('Turn task creation failed:', err));
   }
 
-  // Best-effort: delay auto-close after manual start.
-  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  // Best-effort (fire-and-forget): delay auto-close after manual start.
+  createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
+    .catch((err) => console.error('Auto-close task creation failed:', err));
 
   return result;
 }
@@ -505,9 +507,14 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
     };
   });
 
-  // 🔑 POST-TRANSACTION: Create Cloud Task only after transaction succeeds
+  // 🔑 POST-TRANSACTION: Create Cloud Tasks only after transaction succeeds (fire-and-forget)
+  const postTxTasks = [];
+
   if (result.shouldCreateTask && result.nextTurnId) {
-    await createPokerTask(gameId, result.nextTurnId, result.turnTimeout);
+    postTxTasks.push(
+      createPokerTask(gameId, result.nextTurnId, result.turnTimeout)
+        .catch((err) => console.error('Turn task creation failed:', err)),
+    );
   }
 
   // New flow: showdown is resolved immediately in-transaction.
@@ -516,33 +523,43 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
     const delaySeconds = typeof result.nextHandDelaySeconds === 'number' ?
       result.nextHandDelaySeconds :
       SHOWDOWN_RESOLVE_DELAY_SECONDS;
-    await createPokerHttpTask({
-      endpoint: 'handleStartNextHand',
-      payload: {
-        gameId,
-        nextHandId: result.nextHandId,
-        timestamp: Date.now(),
-      },
-      delaySeconds,
-      logLabel: `nextHandId: ${result.nextHandId}`,
-    });
+    postTxTasks.push(
+      createPokerHttpTask({
+        endpoint: 'handleStartNextHand',
+        payload: {
+          gameId,
+          nextHandId: result.nextHandId,
+          timestamp: Date.now(),
+        },
+        delaySeconds,
+        logLabel: `nextHandId: ${result.nextHandId}`,
+      }).catch((err) => console.error('Start next hand task failed:', err)),
+    );
   }
 
   if (result.shouldCreateWinByFoldTask && result.winByFoldId) {
-    await createPokerHttpTask({
-      endpoint: 'handleWinByFoldTimeout',
-      payload: {
-        gameId,
-        winByFoldId: result.winByFoldId,
-        timestamp: Date.now(),
-      },
-      delaySeconds: WIN_BY_FOLD_TIMEOUT_SECONDS,
-      logLabel: `winByFoldId: ${result.winByFoldId}`,
-    });
+    postTxTasks.push(
+      createPokerHttpTask({
+        endpoint: 'handleWinByFoldTimeout',
+        payload: {
+          gameId,
+          winByFoldId: result.winByFoldId,
+          timestamp: Date.now(),
+        },
+        delaySeconds: WIN_BY_FOLD_TIMEOUT_SECONDS,
+        logLabel: `winByFoldId: ${result.winByFoldId}`,
+      }).catch((err) => console.error('Win-by-fold task failed:', err)),
+    );
   }
 
-  // Best-effort: delay auto-close after any manual action.
-  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  // Best-effort (fire-and-forget): delay auto-close after any manual action.
+  postTxTasks.push(
+    createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
+      .catch((err) => console.error('Auto-close task creation failed:', err)),
+  );
+
+  // Fire all tasks in parallel, don't block the response
+  Promise.all(postTxTasks).catch(() => {});
 
   return result;
 }
@@ -1234,7 +1251,8 @@ export async function setEndAfterHand(gameId) {
     'meta.autoCloseToken': autoCloseToken,
   });
 
-  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
+    .catch((err) => console.error('Auto-close task creation failed:', err));
 }
 
 /**
@@ -1321,7 +1339,8 @@ export async function settlePokerGame(gameId) {
     });
   });
 
-  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
+    .catch((err) => console.error('Auto-close task creation failed:', err));
   return result;
 }
 
@@ -1605,7 +1624,8 @@ export async function sitDown(gameId, userId, userInfo, seatNumber, buyIn) {
     };
   });
 
-  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
+    .catch((err) => console.error('Auto-close task creation failed:', err));
   return result;
 }
 
@@ -1689,7 +1709,8 @@ export async function togglePause(gameId, userId) {
     }
   });
 
-  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
+    .catch((err) => console.error('Auto-close task creation failed:', err));
   return result;
 }
 
@@ -1729,7 +1750,8 @@ export async function stopNextHand(gameId, userId) {
     return { success: true };
   });
 
-  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
+    .catch((err) => console.error('Auto-close task creation failed:', err));
   return result;
 }
 
@@ -1786,7 +1808,8 @@ export async function resumeGame(gameId, userId) {
     return { success: true, nextTurn: nextPlayer };
   });
 
-  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
+    .catch((err) => console.error('Auto-close task creation failed:', err));
   return result;
 }
 

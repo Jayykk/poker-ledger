@@ -229,13 +229,16 @@ const isLiffMode = computed(() => isInLineClient.value);
 // Immersive mode: PokerTable / PokerGame route.
 // Use both name + path for robustness.
 const isPokerTableRoute = computed(() => {
-  return route?.name === 'PokerGame' || String(route?.path || '').startsWith('/poker-game');
+  const path = String(route?.path || '');
+  return route?.name === 'PokerGame' || path.startsWith('/poker-game') || path.startsWith('/tournament-clock') || path.startsWith('/time-bank');
 });
 
 // In LIFF mode, also hide bottom nav on game detail pages
 const hideBottomNav = computed(() => {
   if (!isAuthenticated.value || route.path === '/login') return true;
   if (route.path.startsWith('/poker-game')) return true;
+  if (route.path.startsWith('/tournament-clock')) return true;
+  if (route.path.startsWith('/time-bank')) return true;
   return false;
 });
 

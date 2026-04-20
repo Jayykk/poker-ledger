@@ -35,7 +35,7 @@ export async function recordBuyIn({ gameId, targetUid, targetName, amount, type 
   const txRef = db.collection('transactions').doc();
   const gameRef = db.collection('games').doc(gameId);
 
-  await db.runTransaction(async (transaction) => {
+  const totalBuyIn = await db.runTransaction(async (transaction) => {
     const gameSnap = await transaction.get(gameRef);
     const txData = {
       gameId,
@@ -52,18 +52,25 @@ export async function recordBuyIn({ gameId, targetUid, targetName, amount, type 
     };
     transaction.set(txRef, txData);
 
+    let computedTotal = safeAmount;
+
     if (gameSnap.exists) {
       const players = gameSnap.data().players || [];
       const updatedPlayers = players.map((p) => {
         const isTarget = targetUid ? p.uid === targetUid : p.name === targetName;
-        // 使用 safeAmount 確保就算 type 是 join，加上的也是 0 而不是 NaN
-        return isTarget ? { ...p, buyIn: (p.buyIn || 0) + safeAmount } : p;
+        if (isTarget) {
+          const newBuyIn = (p.buyIn || 0) + safeAmount;
+          computedTotal = newBuyIn;
+          return { ...p, buyIn: newBuyIn };
+        }
+        return p;
       });
       transaction.update(gameRef, { players: updatedPlayers });
     }
+
+    return computedTotal;
   });
 
-  const totalBuyIn = await getPlayerTotalBuyIn(gameId, targetUid, targetName);
   return { txId: txRef.id, totalBuyIn };
 }
 

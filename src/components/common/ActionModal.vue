@@ -42,6 +42,34 @@
           <p class="text-gray-400 text-sm">{{ $t('action.joinOnlineDesc') }}</p>
         </div>
       </div>
+
+      <!-- Tournament Clock Option -->
+      <div
+        @click="handleTournamentSetup"
+        class="action-option bg-slate-700/50 hover:bg-slate-600/50 border border-slate-600 rounded-lg p-4 cursor-pointer transition-all active:scale-98 flex items-start gap-4"
+      >
+        <div class="w-12 h-12 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl flex-shrink-0">
+          <i class="fas fa-trophy"></i>
+        </div>
+        <div class="flex-1">
+          <h4 class="text-white font-bold text-lg mb-1">🏆 {{ $t('action.tournamentSetup') }}</h4>
+          <p class="text-gray-400 text-sm">{{ $t('action.tournamentSetupDesc') }}</p>
+        </div>
+      </div>
+
+      <!-- Time Bank Option -->
+      <div
+        @click="handleTimeBank"
+        class="action-option bg-slate-700/50 hover:bg-slate-600/50 border border-slate-600 rounded-lg p-4 cursor-pointer transition-all active:scale-98 flex items-start gap-4"
+      >
+        <div class="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-2xl flex-shrink-0">
+          <i class="fas fa-hourglass-half"></i>
+        </div>
+        <div class="flex-1">
+          <h4 class="text-white font-bold text-lg mb-1">⏱ {{ $t('action.timeBank') }}</h4>
+          <p class="text-gray-400 text-sm">{{ $t('action.timeBankDesc') }}</p>
+        </div>
+      </div>
     </div>
   </BaseModal>
 </template>
@@ -80,6 +108,16 @@ const handleCreateOnline = () => {
 const handleJoinOnline = () => {
   isOpen.value = false;
   emit('join-online');
+};
+
+const handleTournamentSetup = () => {
+  isOpen.value = false;
+  router.push('/tournament-presets');
+};
+
+const handleTimeBank = () => {
+  isOpen.value = false;
+  router.push('/time-bank/new');
 };
 </script>
 

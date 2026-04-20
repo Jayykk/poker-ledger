@@ -133,6 +133,11 @@ export const usePokerStore = defineStore('poker', {
       this.error = null;
 
       try {
+        // Start listening early (non-blocking) so UI updates arrive faster
+        if (!this.gameUnsubscribe) {
+          this.joinGameListener(gameId);
+        }
+
         const functions = getFunctions(app);
         
         // Use sitDown endpoint (works for both waiting and playing games)
@@ -141,10 +146,6 @@ export const usePokerStore = defineStore('poker', {
         const result = await sitDown({ gameId, seatNumber, buyIn });
         
         if (result.data.success) {
-          // Start listening to game updates if not already
-          if (!this.gameUnsubscribe) {
-            await this.joinGameListener(gameId);
-          }
           return result.data.result;
         }
       } catch (error) {
