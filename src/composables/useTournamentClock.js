@@ -33,6 +33,7 @@ export function useTournamentClock(options = {}) {
   let unsubscribeGame = null;
   let isAdvancing = false;
   let lastSyncedLevelIndex = -1;
+  const MAX_ACCEPTABLE_DRIFT_SECONDS = 2;
 
   // ── Computed ────────────────────────────────────────
   const isHost = computed(() => {
@@ -210,7 +211,7 @@ export function useTournamentClock(options = {}) {
             const prevLocal = localTimeLeft.value;
             computeTimeLeft();
             const drift = Math.abs(prevLocal - localTimeLeft.value);
-            if (drift <= 2) {
+            if (drift <= MAX_ACCEPTABLE_DRIFT_SECONDS) {
               // Small drift from server timestamp estimate update — keep local value
               localTimeLeft.value = prevLocal;
             }
