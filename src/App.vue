@@ -230,7 +230,7 @@ const isLiffMode = computed(() => isInLineClient.value);
 // Use both name + path for robustness.
 const isPokerTableRoute = computed(() => {
   const path = String(route?.path || '');
-  return route?.name === 'PokerGame' || path.startsWith('/poker-game') || path.startsWith('/tournament-clock') || path.startsWith('/time-bank');
+  return route?.name === 'PokerGame' || path.startsWith('/poker-game');
 });
 
 // In LIFF mode, also hide bottom nav on game detail pages
