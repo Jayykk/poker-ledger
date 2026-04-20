@@ -150,6 +150,25 @@
       />
     </div>
 
+    <!-- Dealer URL Modal -->
+    <div v-if="showDealerUrlModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" @click.self="showDealerUrlModal = false">
+      <div class="bg-slate-800 border border-slate-600 rounded-xl p-5 mx-4 max-w-sm w-full shadow-2xl">
+        <h3 class="text-white font-bold text-sm mb-3">
+          <i class="fas fa-user-shield text-amber-400 mr-1"></i>{{ $t('tournament.dealerMode') }}
+        </h3>
+        <p class="text-gray-400 text-xs mb-3">{{ $t('tournament.dealerUrlHint') }}</p>
+        <div
+          class="bg-slate-900 border border-slate-600 rounded-lg p-3 text-emerald-400 text-xs font-mono break-all select-all cursor-text"
+          @click="selectAllText"
+        >
+          {{ dealerUrlText }}
+        </div>
+        <button @click="showDealerUrlModal = false" class="mt-4 w-full py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm font-semibold transition">
+          {{ $t('common.close') }}
+        </button>
+      </div>
+    </div>
+
     <!-- Audio element for alerts -->
     <audio ref="audioRef" preload="auto"></audio>
   </div>
@@ -174,6 +193,8 @@ const { error: showError, success } = useNotification();
 
 const showControls = ref(false);
 const audioRef = ref(null);
+const showDealerUrlModal = ref(false);
+const dealerUrlText = ref('');
 let warningPlayed = false;
 
 const {
@@ -258,36 +279,24 @@ async function handleToggleDealerMode() {
 function copyDealerUrl() {
   const baseUrl = window.location.origin + window.location.pathname;
   const dealerUrl = `${baseUrl}#/dealer-clock/${session.value?.id || route.params.sessionId}`;
-  // Use fallback for contexts where clipboard API may not be available
+  dealerUrlText.value = dealerUrl;
+  showDealerUrlModal.value = true;
+  // Also try clipboard copy silently
   try {
     if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(dealerUrl).then(() => {
-        success(t('tournament.dealerUrlCopied'));
-      }).catch(() => {
-        fallbackCopy(dealerUrl);
-      });
-    } else {
-      fallbackCopy(dealerUrl);
+      navigator.clipboard.writeText(dealerUrl).catch(() => {});
     }
   } catch {
-    fallbackCopy(dealerUrl);
+    // ignore
   }
 }
 
-function fallbackCopy(text) {
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    document.execCommand('copy');
-    success(t('tournament.dealerUrlCopied'));
-  } catch {
-    showError(t('common.copyFailed'));
-  }
-  document.body.removeChild(textarea);
+function selectAllText(e) {
+  const range = document.createRange();
+  range.selectNodeContents(e.target);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
 }
 
 function playSound(type) {

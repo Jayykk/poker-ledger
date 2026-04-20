@@ -440,6 +440,7 @@
     "viewClock": "Tournament Clock",
     "dealerMode": "Dealer Mode",
     "dealerUrlCopied": "Dealer link copied",
+    "dealerUrlHint": "Long press the link below to copy and share with the dealer",
     "fullscreen": "Fullscreen",
     "eliminate": "Eliminate",
     "confirmEliminate": "Eliminate {name}?",

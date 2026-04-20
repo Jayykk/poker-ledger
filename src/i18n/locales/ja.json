@@ -440,6 +440,7 @@
     "viewClock": "トーナメントクロック",
     "dealerMode": "ディーラーモード",
     "dealerUrlCopied": "ディーラーリンクをコピーしました",
+    "dealerUrlHint": "以下のリンクを長押しでコピーし、ディーラーに共有してください",
     "fullscreen": "フルスクリーン",
     "eliminate": "脱落",
     "confirmEliminate": "{name} を脱落させますか？",
