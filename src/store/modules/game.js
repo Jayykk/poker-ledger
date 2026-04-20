@@ -242,7 +242,7 @@ export const useGameStore = defineStore('game', () => {
    * Add player (host only)
    */
   const addPlayer = async (name, buyIn) => {
-    if (!gameId.value || !isHost.value) return false;
+    if (!gameId.value || !isHost.value) return null;
     
     try {
       const buyInAmount = buyIn || game.value?.baseBuyIn || DEFAULT_BUY_IN;
@@ -258,11 +258,11 @@ export const useGameStore = defineStore('game', () => {
         players: arrayUnion(newPlayer)
       });
       
-      return true;
+      return newPlayer;
     } catch (err) {
       console.error('Add player error:', err);
       error.value = 'Failed to add player: ' + err.message;
-      return false;
+      return null;
     }
   };
 
@@ -453,7 +453,7 @@ export const useGameStore = defineStore('game', () => {
    * If only 1 player remains after elimination, auto-crown them as champion (placement=1)
    */
   const eliminatePlayer = async (playerId) => {
-    if (!gameId.value || !isHost.value) return false;
+    if (!gameId.value) return false;
 
     try {
       const players = game.value.players;
@@ -482,7 +482,7 @@ export const useGameStore = defineStore('game', () => {
    * Also updates the tournament session counters so the clock stays in sync.
    */
   const reentryPlayer = async (playerId) => {
-    if (!gameId.value || !isHost.value) return false;
+    if (!gameId.value) return false;
 
     try {
       // Validate re-entry level limit and per-player count from tournament session
@@ -527,7 +527,6 @@ export const useGameStore = defineStore('game', () => {
         }
       }
 
-      const baseBuyIn = game.value.baseBuyIn || DEFAULT_BUY_IN;
       const updatedPlayers = game.value.players.map(p => {
         if (p.id === playerId) {
           return {
@@ -535,7 +534,6 @@ export const useGameStore = defineStore('game', () => {
             eliminated: false,
             eliminatedAt: null,
             placement: null,
-            buyIn: (p.buyIn || 0) + baseBuyIn,
           };
         }
         return p;

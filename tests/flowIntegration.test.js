@@ -493,9 +493,10 @@ describe('Tournament clock view', () => {
   });
 
   describe('display sections', () => {
-    it('should display player stats (registered, remaining, reentries)', () => {
-      expect(clockViewContent).toContain("$t('tournament.players')");
-      expect(clockViewContent).toContain("$t('tournament.reentries')");
+    it('should display player stats (entries, playersLeft, totalPlayers)', () => {
+      expect(clockViewContent).toContain("$t('tournament.entries')");
+      expect(clockViewContent).toContain("$t('tournament.playersLeft')");
+      expect(clockViewContent).toContain("$t('tournament.totalPlayers')");
       expect(clockViewContent).toContain('playersRemaining');
       expect(clockViewContent).toContain('playersRegistered');
     });

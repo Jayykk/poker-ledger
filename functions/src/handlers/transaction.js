@@ -9,6 +9,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
  *
  * @param {object} params
  * @param {string} params.gameId
+ * @param {string} params.targetId - player's unique id (timestamp-based)
  * @param {string} params.targetUid - player receiving chips (may be null for unbound seats)
  * @param {string} params.targetName - display name of target
  * @param {number} params.amount
@@ -17,7 +18,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
  * @param {string} actionName - caller's display name
  * @return {{ txId: string, totalBuyIn: number }}
  */
-export async function recordBuyIn({ gameId, targetUid, targetName, amount, type = 'buy_in' }, actionUid, actionName) {
+export async function recordBuyIn({ gameId, targetId, targetUid, targetName, amount, type = 'buy_in' }, actionUid, actionName) {
   const db = getFirestore();
 
   // 1. 加回防呆驗證（保護資料庫不被塞入髒資料）
@@ -39,6 +40,7 @@ export async function recordBuyIn({ gameId, targetUid, targetName, amount, type 
     const gameSnap = await transaction.get(gameRef);
     const txData = {
       gameId,
+      targetId: targetId || null,
       targetUid: targetUid || null,
       targetName,
       actionUid,
@@ -57,7 +59,7 @@ export async function recordBuyIn({ gameId, targetUid, targetName, amount, type 
     if (gameSnap.exists) {
       const players = gameSnap.data().players || [];
       const updatedPlayers = players.map((p) => {
-        const isTarget = targetUid ? p.uid === targetUid : p.name === targetName;
+        const isTarget = targetId ? p.id === targetId : (targetUid ? p.uid === targetUid : p.name === targetName);
         if (isTarget) {
           const newBuyIn = (p.buyIn || 0) + safeAmount;
           computedTotal = newBuyIn;
@@ -109,7 +111,7 @@ export async function undoBuyIn(txId, callerUid, callerName) {
     if (gameSnap.exists) {
       const players = gameSnap.data().players || [];
       const updatedPlayers = players.map((p) => {
-        const isTarget = tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName;
+        const isTarget = tx.targetId ? p.id === tx.targetId : (tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName);
         return isTarget ? { ...p, buyIn: Math.max(0, (p.buyIn || 0) - tx.amount) } : p;
       });
       transaction.update(gameRef, { players: updatedPlayers });

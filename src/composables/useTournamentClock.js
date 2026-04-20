@@ -80,16 +80,28 @@ export function useTournamentClock(options = {}) {
   const playersRegistered = computed(() => state.value.playersRegistered ?? 0);
   const playersRemaining = computed(() => state.value.playersRemaining ?? 0);
   const reentries = computed(() => state.value.reentries ?? 0);
+  const entries = computed(() => playersRegistered.value + reentries.value);
   const chipsInPlay = computed(() => {
-    return (playersRegistered.value + reentries.value) * (config.value.startingChips || 0);
+    return entries.value * (config.value.startingChips || 0);
   });
   const averageStack = computed(() => {
     if (playersRemaining.value <= 0) return 0;
     return Math.round(chipsInPlay.value / playersRemaining.value);
   });
+  const averageStackBB = computed(() => {
+    const bb = currentBlinds.value.big;
+    if (!bb || bb <= 0) return 0;
+    return Math.round(averageStack.value / bb);
+  });
+
+  const isRegistrationClosed = computed(() => {
+    const cutoff = config.value.reentryUntilLevel || 0;
+    if (cutoff <= 0) return false;
+    return currentLevel.value >= cutoff;
+  });
 
   const prizePool = computed(() => {
-    return (playersRegistered.value + reentries.value) * (config.value.buyIn || 0);
+    return entries.value * (config.value.buyIn || 0);
   });
 
   const payouts = computed(() => {
@@ -445,8 +457,11 @@ export function useTournamentClock(options = {}) {
     playersRegistered,
     playersRemaining,
     reentries,
+    entries,
     chipsInPlay,
     averageStack,
+    averageStackBB,
+    isRegistrationClosed,
     prizePool,
     payouts,
     formattedTime,

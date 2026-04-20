@@ -560,12 +560,12 @@ export const recordBuyInTx = onCall(async (request) => {
   }
 
   try {
-    const { gameId, targetUid, targetName, amount, type } = request.data;
+    const { gameId, targetId, targetUid, targetName, amount, type } = request.data;
     const actionUid = request.auth.uid;
     const actionName = request.auth.token.name || 'Player';
 
     const result = await recordBuyInHandler(
-      { gameId, targetUid, targetName, amount, type },
+      { gameId, targetId, targetUid, targetName, amount, type },
       actionUid,
       actionName,
     );

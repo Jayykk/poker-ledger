@@ -164,10 +164,12 @@ describe('i18n locale completeness', () => {
       'start', 'pause', 'prevLevel', 'nextLevel',
       'playerManagement', 'registered', 'remaining', 'addReentry',
       'endTournament', 'confirmEnd',
-      'players', 'reentries', 'chipsInPlay', 'averageStack',
+      'players', 'entries', 'playersLeft', 'totalPlayers',
+      'reentries', 'chipsInPlay', 'averageStack',
       'breakIn', 'breakTime', 'level',
       'prizePool', 'payouts', 'nextBlinds',
       'waitingToStart', 'paused', 'ended', 'viewClock',
+      'registrationClosed',
     ];
 
     for (const locale of LOCALES) {

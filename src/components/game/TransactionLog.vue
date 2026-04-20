@@ -69,7 +69,7 @@
         <!-- Right: amount + undo -->
         <div class="flex items-center gap-2 ml-3">
           <span
-            v-if="tx.type === 'buy_in' || tx.type === 'add_on' || tx.type === 'undo' || (tx.type === 'modify' && tx.amount)"
+            v-if="tx.type === 'buy_in' || tx.type === 'add_on' || tx.type === 'reentry' || tx.type === 'undo' || (tx.type === 'modify' && tx.amount)"
             class="font-mono font-bold text-sm"
             :class="tx.type === 'undo' ? 'text-rose-400' : tx.amount < 0 ? 'text-rose-400' : 'text-emerald-400'"
           >
@@ -78,7 +78,7 @@
 
           <!-- Undo button: only on active buy-in/add-on, and only if current user did it or is host -->
           <button
-            v-if="tx.status === 'active' && (tx.type === 'buy_in' || tx.type === 'add_on') && canUndo(tx)"
+            v-if="tx.status === 'active' && (tx.type === 'buy_in' || tx.type === 'add_on' || tx.type === 'reentry') && canUndo(tx)"
             @click="$emit('undo', tx)"
             class="text-gray-500 hover:text-rose-400 transition text-xs px-2 py-1 rounded border border-slate-700 hover:border-rose-500"
           >

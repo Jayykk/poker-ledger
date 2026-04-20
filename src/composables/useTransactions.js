@@ -113,7 +113,7 @@ export function useTransactions(gameIdRef) {
    * Record a buy-in transaction.
    * Tries Cloud Function first; falls back to direct Firestore write.
    */
-  const recordBuyIn = async (targetUid, targetName, amount, type = 'buy_in') => {
+  const recordBuyIn = async (targetId, targetUid, targetName, amount, type = 'buy_in') => {
     txLoading.value = true;
     txError.value = '';
     const gameId = resolveGameId();
@@ -130,6 +130,7 @@ export function useTransactions(gameIdRef) {
       const fn = httpsCallable(functions, 'recordBuyInTx');
       const { data } = await fn({
         gameId,
+        targetId,
         targetUid,
         targetName,
         amount: safeAmount,
@@ -145,6 +146,7 @@ export function useTransactions(gameIdRef) {
     try {
       const result = await writeTransactionDirect({
         gameId,
+        targetId: targetId || null,
         targetUid: targetUid || null,
         targetName,
         actionUid: user.value?.uid || null,
@@ -173,7 +175,7 @@ export function useTransactions(gameIdRef) {
    * Record a non-buy-in action (join, modify, remove, bind).
    * Writes directly to Firestore with CF fallback.
    */
-  const recordAction = async (targetUid, targetName, type, amount = 0) => {
+  const recordAction = async (targetId, targetUid, targetName, type, amount = 0) => {
     txLoading.value = true;
     txError.value = '';
     const gameId = resolveGameId();
@@ -190,6 +192,7 @@ export function useTransactions(gameIdRef) {
       const fn = httpsCallable(functions, 'recordBuyInTx');
       const { data } = await fn({
         gameId,
+        targetId,
         targetUid,
         targetName,
         amount: safeAmount,
@@ -205,6 +208,7 @@ export function useTransactions(gameIdRef) {
     try {
       const result = await writeTransactionDirect({
         gameId,
+        targetId: targetId || null,
         targetUid: targetUid || null,
         targetName,
         actionUid: user.value?.uid || null,
@@ -263,6 +267,7 @@ export function useTransactions(gameIdRef) {
         const undoRef = doc(collection(db, 'transactions'));
         transaction.set(undoRef, {
           gameId: txData.gameId,
+          targetId: txData.targetId || null,
           targetUid: txData.targetUid || null,
           targetName: txData.targetName,
           actionUid: user.value?.uid || null,
@@ -291,12 +296,13 @@ export function useTransactions(gameIdRef) {
    * Record a transaction directly to Firestore (no Cloud Function).
    * Used for recording initial buy-ins that are already reflected in the game state.
    */
-  const recordDirect = async (targetUid, targetName, type, amount = 0) => {
+  const recordDirect = async (targetId, targetUid, targetName, type, amount = 0) => {
     const gameId = resolveGameId();
     if (!gameId || !targetName) return null;
 
     return writeTransactionDirect({
       gameId,
+      targetId: targetId || null,
       targetUid: targetUid || null,
       targetName,
       actionUid: user.value?.uid || null,

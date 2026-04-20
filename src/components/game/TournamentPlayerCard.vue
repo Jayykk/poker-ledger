@@ -38,8 +38,8 @@
           </div>
         </div>
 
-        <!-- Action buttons (host only) -->
-        <div v-if="isHost" class="flex gap-2 mt-2">
+        <!-- Action buttons -->
+        <div class="flex gap-2 mt-2">
           <!-- Eliminate button (active players only) -->
           <BaseButton
             v-if="!player.eliminated"

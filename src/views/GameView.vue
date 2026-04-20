@@ -333,6 +333,7 @@ watch(
     for (const player of g.players) {
       if (player.buyIn > 0) {
         await recordDirect(
+          player.id,
           player.uid || null,
           player.name,
           'buy_in',
@@ -390,8 +391,10 @@ const decrementNewPlayerBuyIn = () => {
 const handleAddPlayer = async () => {
   await withLoading(async () => {
     const playerName = newPlayerName.value || 'Player';
-    await addPlayer(playerName, newPlayerBuyIn.value);
-    await recordAction(null, playerName, 'join', 0);
+    const newPlayer = await addPlayer(playerName, newPlayerBuyIn.value);
+    if (newPlayer) {
+      await recordAction(newPlayer.id, null, playerName, 'join', 0);
+    }
     showAddPlayer.value = false;
     newPlayerName.value = '';
     newPlayerBuyIn.value = game.value?.baseBuyIn || DEFAULT_BUY_IN;
@@ -410,6 +413,7 @@ const handleSavePlayer = async () => {
     await updatePlayer(editingPlayer.value);
     if (buyInChanged) {
       await recordAction(
+        editingPlayer.value.id,
         editingPlayer.value.uid || null,
         editingPlayer.value.name,
         'modify',
@@ -430,7 +434,7 @@ const handleRemovePlayer = async () => {
     await withLoading(async () => {
       const removedPlayer = { ...editingPlayer.value };
       await removePlayer(editingPlayer.value);
-      await recordAction(removedPlayer.uid || null, removedPlayer.name, 'remove', 0);
+      await recordAction(removedPlayer.id, removedPlayer.uid || null, removedPlayer.name, 'remove', 0);
       showEditPlayer.value = false;
       editingPlayer.value = null;
     }, t('loading.removing'));
@@ -446,7 +450,7 @@ const handleBind = async (player) => {
     await withLoading(async () => {
       const originalSeatName = player.name;
       await bindSeat(player);
-      await recordAction(null, originalSeatName, 'bind', 0);
+      await recordAction(player.id, null, originalSeatName, 'bind', 0);
     }, t('loading.binding'));
   }
 };
@@ -473,7 +477,7 @@ const handleAddBuy = async (player) => {
   buyInProcessing.value.add(player.id);
   try {
     const buyInAmount = game.value?.baseBuyIn || DEFAULT_BUY_IN;
-    const result = await recordBuyIn(player.uid || null, player.name, buyInAmount, 'buy_in');
+    const result = await recordBuyIn(player.id, player.uid || null, player.name, buyInAmount, 'buy_in');
     if (result) {
       // If the transaction was recorded via fallback (direct write),
       // we also need to update the player's buyIn in the game document
@@ -508,7 +512,7 @@ const handleUndoBuyIn = async (tx) => {
       // If undo was via fallback, update the player's buyIn directly
       if (result.fallback && tx.targetName) {
         const player = game.value?.players?.find(
-          p => tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName
+          p => tx.targetId ? p.id === tx.targetId : (tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName)
         );
         if (player) {
           const updatedPlayer = { ...player, buyIn: Math.max(0, (player.buyIn || 0) - Math.abs(tx.amount || 0)) };
@@ -518,7 +522,7 @@ const handleUndoBuyIn = async (tx) => {
       success(t('transaction.undoSuccess'));
       // Calculate remaining buyIn after undo
       const player = game.value?.players?.find(
-        p => tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName
+        p => tx.targetId ? p.id === tx.targetId : (tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName)
       );
       const remainingBuyIn = player ? (player.buyIn || 0) : 0;
       sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount), game.value?.name, game.value?.id, {

@@ -28,8 +28,9 @@
         </div>
         <div class="header-center">
           <h1 class="tournament-name">{{ config.name || 'Tournament' }}</h1>
-          <p class="tournament-subtitle">
-            {{ config.subtitle || `BuyIn $${config.buyIn} | ${$t('tournament.reentryUntil', { level: config.reentryUntilLevel })}` }}
+          <p class="tournament-subtitle" :class="{ 'registration-closed': isRegistrationClosed }">
+            <template v-if="isRegistrationClosed">{{ $t('tournament.registrationClosed') }}</template>
+            <template v-else>{{ config.subtitle || `BuyIn $${config.buyIn} | ${$t('tournament.reentryUntil', { level: config.reentryUntilLevel })}` }}</template>
           </p>
           <div class="dealer-badge">
             <i class="fas fa-user-shield mr-1"></i>{{ $t('tournament.dealerMode') }}
@@ -50,12 +51,16 @@
         <!-- Left Panel -->
         <aside class="info-panel left-panel">
           <div class="info-item">
-            <div class="info-label">{{ $t('tournament.players') }}</div>
-            <div class="info-value">{{ playersRemaining }} / {{ playersRegistered }}</div>
+            <div class="info-label">{{ $t('tournament.entries') }}</div>
+            <div class="info-value">{{ entries }}</div>
           </div>
           <div class="info-item">
-            <div class="info-label">{{ $t('tournament.reentries') }}</div>
-            <div class="info-value">{{ reentries }}</div>
+            <div class="info-label">{{ $t('tournament.playersLeft') }}</div>
+            <div class="info-value">{{ playersRemaining }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">{{ $t('tournament.totalPlayers') }}</div>
+            <div class="info-value">{{ playersRegistered }}</div>
           </div>
           <div class="info-item">
             <div class="info-label">{{ $t('tournament.chipsInPlay') }}</div>
@@ -63,7 +68,7 @@
           </div>
           <div class="info-item">
             <div class="info-label">{{ $t('tournament.averageStack') }}</div>
-            <div class="info-value">{{ formatNumber(averageStack) }}</div>
+            <div class="info-value">{{ formatNumber(averageStack) }}<span v-if="averageStackBB" class="avg-bb"> ({{ averageStackBB }} BB)</span></div>
           </div>
           <div class="info-item" v-if="timeToBreak">
             <div class="info-label">{{ $t('tournament.breakIn') }}</div>
@@ -85,8 +90,7 @@
 
           <!-- Blinds display -->
           <div class="blinds-display" v-if="!isBreak">
-            <span class="blinds-value">{{ formatNumber(currentBlinds.small) }} / {{ formatNumber(currentBlinds.big) }}</span>
-            <span v-if="currentBlinds.ante" class="ante-value">{{ $t('tournament.ante') }} {{ formatNumber(currentBlinds.ante) }}</span>
+            <span class="blinds-value">{{ formatNumber(currentBlinds.small) }} / {{ formatNumber(currentBlinds.big) }}<span v-if="currentBlinds.ante" class="ante-value"> ({{ formatNumber(currentBlinds.ante) }})</span></span>
           </div>
 
           <!-- Timer -->
@@ -190,7 +194,8 @@ const {
   isHost, config, status, currentLevel, currentLevelIndex,
   currentLevelEntry, currentBlinds, nextPlayLevelEntry,
   isBreak, levels, playersRegistered, playersRemaining,
-  reentries, chipsInPlay, averageStack, prizePool, payouts,
+  reentries, entries, chipsInPlay, averageStack, averageStackBB,
+  isRegistrationClosed, prizePool, payouts,
   formattedTime, timeToBreak,
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
   updatePlayers, addReentry, endTournament, cleanup,
@@ -509,8 +514,25 @@ onUnmounted(() => {
 }
 
 .ante-value {
-  font-size: clamp(0.9rem, 1.5vw, 1.2rem);
-  color: rgba(255, 255, 255, 0.7);
+  font-size: clamp(1.4rem, 3.5vw, 2.8rem);
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.avg-bb {
+  font-size: clamp(0.75rem, 1.2vw, 1rem);
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 400;
+}
+
+.tournament-subtitle.registration-closed {
+  background: rgba(220, 38, 38, 0.35);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  padding: 0.15rem 0.75rem;
+  border-radius: 4px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
 }
 
 .timer-display {
