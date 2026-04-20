@@ -244,7 +244,8 @@ describe('No hardcoded magic numbers in composables', () => {
   it('TimeBankView should use constants', () => {
     const content = readFileSync(resolve(__dirname, '../src/views/TimeBankView.vue'), 'utf-8');
     expect(content).toContain('DEFAULT_TIME_BANK_SECONDS');
-    expect(content).toContain('TIME_BANK_PRESETS');
+    expect(content).toContain('DEFAULT_TIME_BANK_INTERVAL');
+    expect(content).toContain('DEFAULT_TIME_BANK_BUTTON_COUNT');
   });
 
   it('TournamentClockView should use timer threshold constants', () => {

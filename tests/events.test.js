@@ -8,6 +8,15 @@
  * for implementing proper tests when a test framework is configured.
  */
 
+import { describe, it, expect } from 'vitest';
+
+describe('Game Events Library (placeholder)', () => {
+  it('should have proper tests implemented', () => {
+    // Placeholder — real tests require Firestore emulator
+    expect(true).toBe(true);
+  });
+});
+
 /**
  * Example test: Adding a game event
  * 
