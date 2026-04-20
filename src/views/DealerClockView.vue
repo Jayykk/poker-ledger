@@ -427,7 +427,7 @@ onUnmounted(() => {
 }
 
 .info-label {
-  font-size: clamp(0.7rem, 1.2vw, 1rem);
+  font-size: clamp(0.85rem, 1.5vw, 1.1rem);
   font-weight: 700;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.8);
@@ -436,14 +436,14 @@ onUnmounted(() => {
 }
 
 .info-value {
-  font-size: clamp(1rem, 2vw, 1.5rem);
+  font-size: clamp(1.15rem, 2.2vw, 1.6rem);
   font-weight: 600;
   color: white;
 }
 
 .info-value.prize {
   color: #fbbf24;
-  font-size: clamp(1.2rem, 2.5vw, 2rem);
+  font-size: clamp(1.4rem, 2.8vw, 2.2rem);
   font-weight: 800;
 }
 
@@ -455,7 +455,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   gap: 0.5rem;
-  font-size: clamp(0.8rem, 1.4vw, 1.1rem);
+  font-size: clamp(0.9rem, 1.6vw, 1.2rem);
   padding: 0.15rem 0;
 }
 
@@ -572,10 +572,47 @@ onUnmounted(() => {
 }
 
 .next-blinds {
-  font-size: clamp(0.9rem, 2vw, 1.3rem);
+  font-size: clamp(1rem, 2.2vw, 1.5rem);
   color: rgba(255, 255, 255, 0.7);
   font-weight: 600;
   margin-top: 0.5rem;
+}
+
+/* ── Tablet & large screen responsive (≥ 769px) ─── */
+@media (min-width: 769px) {
+  .info-label {
+    font-size: 1.7rem;
+  }
+
+  .info-value {
+    font-size: 2.8rem;
+  }
+
+  .info-value.prize {
+    font-size: 3.5rem;
+  }
+
+  .payout-row {
+    font-size: 1.8rem;
+  }
+
+  .blinds-value {
+    font-size: 4rem;
+  }
+
+  .timer-display {
+    font-size: 7rem;
+  }
+
+  .level-text {
+    font-size: 1.3rem;
+  }
+
+  .hud-control-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 1.2rem;
+  }
 }
 
 @media (max-width: 768px) {

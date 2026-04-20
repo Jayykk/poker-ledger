@@ -639,17 +639,21 @@ onUnmounted(() => {
   margin-top: 0.5rem;
 }
 
-/* ── Tablet responsive (768px–1024px) ───────────── */
-@media (min-width: 769px) and (max-width: 1024px) {
+/* ── Tablet & large screen responsive (≥ 769px) ─── */
+@media (min-width: 769px) {
   .info-label {
-    font-size: 1rem;
+    font-size: 1.7rem;
   }
 
   .info-value {
-    font-size: 1.4rem;
+    font-size: 2.8rem;
   }
 
   .info-value.prize {
+    font-size: 3.5rem;
+  }
+
+  .payout-row {
     font-size: 1.8rem;
   }
 
