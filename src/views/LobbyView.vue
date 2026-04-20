@@ -224,9 +224,9 @@
       <div v-else-if="createStep === 2 && selectedGameType === 'tournament'" class="space-y-3">
         <p class="text-sm text-gray-400 mb-2">{{ $t('lobby.chooseTemplate') }}</p>
 
-        <!-- Built-in templates -->
+        <!-- Custom presets (shown first) -->
         <div
-          v-for="tmpl in allTemplateOptions"
+          v-for="tmpl in allTemplateOptions.filter(t => !t.isBuiltIn)"
           :key="tmpl.id"
           @click="selectedTemplate = tmpl"
           class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all"
@@ -234,7 +234,7 @@
         >
           <div class="flex-1 min-w-0">
             <div class="text-white font-semibold text-sm truncate">
-              {{ tmpl.isBuiltIn ? $t(tmpl.nameKey) : tmpl.name }}
+              {{ tmpl.name }}
             </div>
             <div class="text-gray-400 text-xs">
               {{ $t('tournament.buyInAmount') }}: {{ tmpl.buyIn }} ·
@@ -242,6 +242,37 @@
             </div>
           </div>
           <i v-if="selectedTemplate?.id === tmpl.id" class="fas fa-check text-amber-400"></i>
+        </div>
+
+        <!-- Built-in templates (collapsible) -->
+        <div class="border-t border-slate-700 pt-2">
+          <button
+            @click="showBuiltInTemplates = !showBuiltInTemplates"
+            class="flex items-center justify-between w-full py-2 text-sm text-gray-400 hover:text-white transition"
+          >
+            <span>{{ $t('tournament.builtInTemplates') }}</span>
+            <i class="fas" :class="showBuiltInTemplates ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+          </button>
+          <div v-if="showBuiltInTemplates" class="space-y-2">
+            <div
+              v-for="tmpl in allTemplateOptions.filter(t => t.isBuiltIn)"
+              :key="tmpl.id"
+              @click="selectedTemplate = tmpl"
+              class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all"
+              :class="selectedTemplate?.id === tmpl.id ? 'border-amber-500 bg-amber-500/10' : 'border-slate-600 bg-slate-700/50 hover:bg-slate-600/50'"
+            >
+              <div class="flex-1 min-w-0">
+                <div class="text-white font-semibold text-sm truncate">
+                  {{ $t(tmpl.nameKey) }}
+                </div>
+                <div class="text-gray-400 text-xs">
+                  {{ $t('tournament.buyInAmount') }}: {{ tmpl.buyIn }} ·
+                  {{ tmpl.levels.filter(l => !l.isBreak).length }} {{ $t('tournament.level') }}
+                </div>
+              </div>
+              <i v-if="selectedTemplate?.id === tmpl.id" class="fas fa-check text-amber-400"></i>
+            </div>
+          </div>
         </div>
 
         <div v-if="allTemplateOptions.length === 0" class="text-center text-gray-500 py-4 text-sm">
@@ -420,8 +451,11 @@ const { createSession: createTournamentSession, listenPresets } = useTournamentC
 const allTemplateOptions = computed(() => {
   const builtIn = TOURNAMENT_TEMPLATES.map((t) => ({ ...t, isBuiltIn: true }));
   const custom = userPresets.value.map((p) => ({ ...p, isBuiltIn: false }));
-  return [...builtIn, ...custom];
+  // Custom presets first, then built-in
+  return [...custom, ...builtIn];
 });
+
+const showBuiltInTemplates = ref(false);
 
 // Load user presets when modal opens
 let unsubPresets = null;
@@ -441,13 +475,25 @@ watch(showCreateModal, (val) => {
     selectedTemplate.value = null;
     gameName.value = 'Poker Game';
     createBuyIn.value = DEFAULT_BUY_IN;
+    showBuiltInTemplates.value = false;
   } else {
     // Load user presets when modal opens
     if (!unsubPresets) {
       unsubPresets = listenPresets((presets) => {
         userPresets.value = presets;
+        // Auto-expand built-in if no custom presets
+        if (presets.length === 0) {
+          showBuiltInTemplates.value = true;
+        }
       });
     }
+  }
+});
+
+// Auto-fill buy-in from tournament template
+watch(selectedTemplate, (tmpl) => {
+  if (tmpl && tmpl.buyIn) {
+    createBuyIn.value = tmpl.buyIn;
   }
 });
 
@@ -499,12 +545,13 @@ const handleCreateGame = async () => {
   await withLoading(async () => {
     let type = GAME_TYPE.LIVE;
     let options = {};
+    let tournamentSessionId = null;
 
     if (selectedGameType.value === 'tournament' && selectedTemplate.value) {
       type = GAME_TYPE.TOURNAMENT;
       // Auto-create a tournament clock session
       const tmpl = selectedTemplate.value;
-      const sessionId = await createTournamentSession({
+      tournamentSessionId = await createTournamentSession({
         name: gameName.value || tmpl.name || 'Tournament',
         subtitle: tmpl.subtitle || '',
         buyIn: createBuyIn.value,
@@ -513,11 +560,17 @@ const handleCreateGame = async () => {
         levels: tmpl.levels,
         payoutRatios: tmpl.payoutRatios,
       });
-      options.tournamentSessionId = sessionId;
+      options.tournamentSessionId = tournamentSessionId;
     }
 
     const gameId = await createGame(gameName.value, createBuyIn.value, type, options);
     if (gameId) {
+      // Link tournament session back to the game room
+      if (tournamentSessionId) {
+        const { doc, updateDoc } = await import('firebase/firestore');
+        const { db } = await import('../firebase-init.js');
+        await updateDoc(doc(db, 'tournamentSessions', tournamentSessionId), { gameId });
+      }
       showCreateModal.value = false;
       success(t('lobby.gameCreated'));
       await gameStore.loadMyRooms();

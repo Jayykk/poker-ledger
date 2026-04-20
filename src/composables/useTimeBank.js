@@ -166,6 +166,20 @@ export function useTimeBank() {
     });
   }
 
+  async function resetAndStart(seconds = null) {
+    if (!sessionId.value || !isHost.value) return;
+    const time = seconds || totalSeconds.value;
+    const updates = {
+      'state.status': 'running',
+      'state.timeLeftSeconds': time,
+      'state.lastTickAt': Timestamp.now(),
+    };
+    if (seconds) {
+      updates['config.totalSeconds'] = time;
+    }
+    await updateDoc(doc(db, 'timeBankSessions', sessionId.value), updates);
+  }
+
   async function updateConfig(cfg) {
     if (!sessionId.value || !isHost.value) return;
     await updateDoc(doc(db, 'timeBankSessions', sessionId.value), {
@@ -227,6 +241,7 @@ export function useTimeBank() {
     startTimer,
     pauseTimer,
     resetTimer,
+    resetAndStart,
     updateConfig,
     expireTimer,
     deleteSession,

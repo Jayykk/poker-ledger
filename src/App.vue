@@ -238,6 +238,7 @@ const hideBottomNav = computed(() => {
   if (!isAuthenticated.value || route.path === '/login') return true;
   if (route.path.startsWith('/poker-game')) return true;
   if (route.path.startsWith('/tournament-clock')) return true;
+  if (route.path.startsWith('/dealer-clock')) return true;
   if (route.path.startsWith('/time-bank')) return true;
   return false;
 });
@@ -458,8 +459,15 @@ onMounted(async () => {
         dbg(`🔀 Stay on: ${router.currentRoute.value.path}`);
       }
     } else {
-      dbg('❌ Not authenticated → /login');
-      router.push('/login');
+      // Don't redirect to login if on a public route (e.g., dealer mode)
+      const currentPath = router.currentRoute.value.path;
+      const isPublicRoute = router.currentRoute.value.meta?.requiresAuth === false;
+      if (isPublicRoute && currentPath !== '/' && currentPath !== '/login') {
+        dbg(`ℹ️ Not authenticated but on public route: ${currentPath}`);
+      } else {
+        dbg('❌ Not authenticated → /login');
+        router.push('/login');
+      }
     }
   } catch (err) {
     dbg(`❌ Fatal: ${err.message}`);

@@ -112,9 +112,10 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated()
         && request.resource.data.hostUid == request.auth.uid;
-      // Only the host can update tournament state
+      // Host can always update; any authenticated user can update if dealer mode is on
       allow update: if isAuthenticated()
-        && resource.data.hostUid == request.auth.uid;
+        && (resource.data.hostUid == request.auth.uid
+            || resource.data.dealerModeEnabled == true);
       allow delete: if isAuthenticated()
         && resource.data.hostUid == request.auth.uid;
     }

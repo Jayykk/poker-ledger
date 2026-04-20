@@ -16,7 +16,8 @@ import {
   DEFAULT_TOURNAMENT_LEVEL_DURATION,
 } from '../utils/constants.js';
 
-export function useTournamentClock() {
+export function useTournamentClock(options = {}) {
+  const { dealerMode = false } = options;
   const authStore = useAuthStore();
 
   // ── Reactive state ──────────────────────────────────
@@ -29,9 +30,11 @@ export function useTournamentClock() {
   const localTimeLeft = ref(0);
   let tickInterval = null;
   let unsubscribe = null;
+  let unsubscribeGame = null;
 
   // ── Computed ────────────────────────────────────────
   const isHost = computed(() => {
+    if (dealerMode) return true;
     return session.value?.hostUid === authStore.user?.uid;
   });
 
@@ -177,6 +180,11 @@ export function useTournamentClock() {
           localTimeLeft.value = st.timeLeftSeconds ?? 0;
           stopLocalTick();
         }
+
+        // Start syncing game room players if linked
+        if (session.value.gameId && !unsubscribeGame) {
+          startGameSync(session.value.gameId);
+        }
       } else {
         session.value = null;
         error.value = 'Session not found';
@@ -185,6 +193,36 @@ export function useTournamentClock() {
       loading.value = false;
       error.value = err.message;
     });
+  }
+
+  // ── Game room player sync ──────────────────────────
+  function startGameSync(gameId) {
+    stopGameSync();
+    const gameRef = doc(db, 'games', gameId);
+    unsubscribeGame = onSnapshot(gameRef, (snap) => {
+      if (!snap.exists() || !isHost.value || !sessionId.value) return;
+      const gameData = snap.data();
+      const players = gameData.players || [];
+      const playerCount = players.length;
+
+      // Only auto-sync if different from current value
+      const currentRegistered = session.value?.state?.playersRegistered ?? 0;
+      const currentRemaining = session.value?.state?.playersRemaining ?? 0;
+      if (playerCount !== currentRegistered || (currentRemaining === 0 && playerCount > 0)) {
+        // Auto-update: remaining defaults to registered count if not manually adjusted
+        const newRemaining = currentRemaining === currentRegistered || currentRemaining === 0
+          ? playerCount
+          : currentRemaining;
+        updatePlayers(playerCount, Math.min(newRemaining, playerCount));
+      }
+    });
+  }
+
+  function stopGameSync() {
+    if (unsubscribeGame) {
+      unsubscribeGame();
+      unsubscribeGame = null;
+    }
   }
 
   // ── Host actions ───────────────────────────────────
@@ -200,6 +238,8 @@ export function useTournamentClock() {
     const data = {
       hostUid: uid,
       hostName: name,
+      gameId: config.gameId || null,
+      dealerModeEnabled: false,
       config: {
         name: config.name || 'Tournament',
         subtitle: config.subtitle || '',
@@ -318,6 +358,16 @@ export function useTournamentClock() {
     await deleteDoc(doc(db, 'tournamentSessions', sessionId.value));
   }
 
+  async function toggleDealerMode(enabled) {
+    if (!sessionId.value || !isHost.value) return;
+    await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
+      dealerModeEnabled: enabled,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  const dealerModeEnabled = computed(() => session.value?.dealerModeEnabled === true);
+
   // ── Preset CRUD ────────────────────────────────────
   async function savePreset(presetData, presetId = null) {
     const uid = authStore.user?.uid;
@@ -350,6 +400,7 @@ export function useTournamentClock() {
   // ── Cleanup ────────────────────────────────────────
   function cleanup() {
     stopLocalTick();
+    stopGameSync();
     if (unsubscribe) {
       unsubscribe();
       unsubscribe = null;
@@ -391,6 +442,7 @@ export function useTournamentClock() {
     payouts,
     formattedTime,
     timeToBreak,
+    dealerModeEnabled,
 
     // Actions
     createSession,
@@ -403,6 +455,7 @@ export function useTournamentClock() {
     addReentry,
     endTournament,
     deleteSession,
+    toggleDealerMode,
     cleanup,
 
     // Presets

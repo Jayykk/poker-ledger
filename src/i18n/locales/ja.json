@@ -406,6 +406,8 @@
     "nameRequired": "トーナメント名を入力してください",
     "payoutMustBe100": "ペイアウト合計は100%である必要があります",
     "importExport": "インポート / エクスポート",
+    "shareImport": "共有 / インポート",
+    "copyLink": "リンクをコピー",
     "import": "インポート",
     "importSuccess": "インポート成功",
     "invalidFormat": "無効なファイル形式",
@@ -435,7 +437,10 @@
     "waitingToStart": "開始待ち",
     "paused": "一時停止中",
     "ended": "終了",
-    "viewClock": "トーナメントクロック"
+    "viewClock": "トーナメントクロック",
+    "dealerMode": "ディーラーモード",
+    "dealerUrlCopied": "ディーラーリンクをコピーしました",
+    "fullscreen": "フルスクリーン"
   },
   "timeBank": {
     "title": "Time Bank",

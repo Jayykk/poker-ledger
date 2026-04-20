@@ -406,6 +406,8 @@
     "nameRequired": "請輸入錦標賽名稱",
     "payoutMustBe100": "獎池分配比例合計必須為 100%",
     "importExport": "匯入 / 匯出",
+    "shareImport": "分享 / 匯入",
+    "copyLink": "複製連結",
     "import": "匯入",
     "importSuccess": "匯入成功",
     "invalidFormat": "檔案格式無效",
@@ -435,7 +437,10 @@
     "waitingToStart": "等待開始",
     "paused": "已暫停",
     "ended": "已結束",
-    "viewClock": "錦標賽時鐘"
+    "viewClock": "錦標賽時鐘",
+    "dealerMode": "荷官模式",
+    "dealerUrlCopied": "荷官連結已複製",
+    "fullscreen": "全螢幕"
   },
   "timeBank": {
     "title": "Time Bank",

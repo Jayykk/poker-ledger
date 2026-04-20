@@ -92,6 +92,7 @@ import TournamentClockView from './views/TournamentClockView.vue';
 import TournamentSetupView from './views/TournamentSetupView.vue';
 import TournamentPresetsView from './views/TournamentPresetsView.vue';
 import TimeBankView from './views/TimeBankView.vue';
+import DealerClockView from './views/DealerClockView.vue';
 
 // ── Async bootstrap ─────────────────────────────────────────────────
 // Must be async so we can await LIFF token processing BEFORE Vue Router
@@ -135,7 +136,8 @@ import TimeBankView from './views/TimeBankView.vue';
       { path: '/tournament-setup', name: 'TournamentSetup', component: TournamentSetupView, meta: { requiresAuth: true } },
       { path: '/tournament-setup/:presetId', name: 'TournamentSetupEdit', component: TournamentSetupView, meta: { requiresAuth: true } },
       { path: '/tournament-clock/:sessionId', name: 'TournamentClock', component: TournamentClockView, meta: { requiresAuth: true } },
-      { path: '/time-bank/:sessionId', name: 'TimeBank', component: TimeBankView, meta: { requiresAuth: true } }
+      { path: '/time-bank/:sessionId', name: 'TimeBank', component: TimeBankView, meta: { requiresAuth: true } },
+      { path: '/dealer-clock/:sessionId', name: 'DealerClock', component: DealerClockView, meta: { requiresAuth: false } }
     ]
   });
 
