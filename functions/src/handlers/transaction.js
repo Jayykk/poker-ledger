@@ -59,7 +59,9 @@ export async function recordBuyIn({ gameId, targetId, targetUid, targetName, amo
     if (gameSnap.exists) {
       const players = gameSnap.data().players || [];
       const updatedPlayers = players.map((p) => {
-        const isTarget = targetId ? p.id === targetId : (targetUid ? p.uid === targetUid : p.name === targetName);
+        const isTarget = targetId ?
+          p.id === targetId :
+          (targetUid ? p.uid === targetUid : p.name === targetName);
         if (isTarget) {
           const newBuyIn = (p.buyIn || 0) + safeAmount;
           computedTotal = newBuyIn;
@@ -111,8 +113,11 @@ export async function undoBuyIn(txId, callerUid, callerName) {
     if (gameSnap.exists) {
       const players = gameSnap.data().players || [];
       const updatedPlayers = players.map((p) => {
-        const isTarget = tx.targetId ? p.id === tx.targetId : (tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName);
-        return isTarget ? { ...p, buyIn: Math.max(0, (p.buyIn || 0) - tx.amount) } : p;
+        const isTarget = tx.targetId ?
+          p.id === tx.targetId :
+          (tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName);
+        return isTarget ?
+          { ...p, buyIn: Math.max(0, (p.buyIn || 0) - tx.amount) } : p;
       });
       transaction.update(gameRef, { players: updatedPlayers });
     }
