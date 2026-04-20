@@ -563,6 +563,7 @@ const handleCreateGame = async () => {
         buyIn: createBuyIn.value,
         startingChips: tmpl.startingChips,
         reentryUntilLevel: tmpl.reentryUntilLevel,
+        maxReentries: tmpl.maxReentries ?? 0,
         levels: tmpl.levels,
         payoutRatios: tmpl.payoutRatios,
       });
