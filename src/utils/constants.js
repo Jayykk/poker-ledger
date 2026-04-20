@@ -26,7 +26,9 @@ export const DEFAULT_TOURNAMENT_LEVEL_DURATION = 15; // minutes
 export const DEFAULT_STARTING_CHIPS = 25000;
 export const DEFAULT_REENTRY_LEVEL = 7;
 export const DEFAULT_MAX_REENTRIES = 0; // 0 = unlimited
-export const DEFAULT_TIME_BANK_SECONDS = 30;
+export const DEFAULT_TIME_BANK_SECONDS = 15;
+export const DEFAULT_TIME_BANK_INTERVAL = 5;
+export const DEFAULT_TIME_BANK_BUTTON_COUNT = 3;
 export const TIME_BANK_PRESETS = [15, 20, 30, 45, 60, 90];
 
 // Timer warning thresholds (seconds)

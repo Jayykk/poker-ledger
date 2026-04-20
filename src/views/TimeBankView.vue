@@ -17,26 +17,47 @@
             <label class="field-label">{{ $t('timeBank.label') }}</label>
             <input v-model="setupLabel" type="text" class="field-input" :placeholder="$t('timeBank.labelPlaceholder')" />
           </div>
-          <div>
-            <label class="field-label">{{ $t('timeBank.totalSeconds') }}</label>
-            <div class="flex items-center gap-3">
-              <button
-                v-for="preset in timePresets"
-                :key="preset"
-                @click="setupSeconds = preset"
-                class="preset-btn"
-                :class="{ active: setupSeconds === preset }"
-              >
-                {{ preset }}s
-              </button>
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="field-label">{{ $t('timeBank.minSeconds') }}</label>
+              <input
+                v-model.number="setupMinSeconds"
+                type="number"
+                min="5"
+                max="300"
+                class="field-input text-center"
+              />
             </div>
-            <input
-              v-model.number="setupSeconds"
-              type="number"
-              min="5"
-              max="300"
-              class="field-input mt-2"
-            />
+            <div>
+              <label class="field-label">{{ $t('timeBank.intervalSeconds') }}</label>
+              <input
+                v-model.number="setupInterval"
+                type="number"
+                min="1"
+                max="60"
+                class="field-input text-center"
+              />
+            </div>
+            <div>
+              <label class="field-label">{{ $t('timeBank.buttonCount') }}</label>
+              <input
+                v-model.number="setupButtonCount"
+                type="number"
+                min="1"
+                max="6"
+                class="field-input text-center"
+              />
+            </div>
+          </div>
+          <!-- Preview buttons -->
+          <div class="flex gap-2 justify-center flex-wrap">
+            <span
+              v-for="sec in setupPreviewPresets"
+              :key="sec"
+              class="preset-btn active"
+            >
+              {{ sec }}s
+            </span>
           </div>
           <button @click="handleCreate" class="w-full py-3 bg-amber-600 hover:bg-amber-500 rounded-lg font-bold text-white transition text-lg">
             {{ $t('timeBank.create') }}
@@ -105,13 +126,13 @@
       <!-- Quick preset buttons (host) -->
       <div v-if="isHost" class="quick-presets">
         <button
-          v-for="preset in timePresets"
-          :key="preset"
-          @click="resetAndStart(preset)"
+          v-for="sec in quickPresets"
+          :key="sec"
+          @click="resetAndStart(sec)"
           class="quick-preset-btn"
-          :class="{ active: totalSeconds === preset }"
+          :class="{ active: totalSeconds === sec }"
         >
-          {{ preset }}s
+          {{ sec }}s
         </button>
       </div>
 
@@ -123,9 +144,19 @@
             <label class="text-xs text-gray-400">{{ $t('timeBank.label') }}</label>
             <input v-model="editLabel" type="text" class="field-input" />
           </div>
-          <div>
-            <label class="text-xs text-gray-400">{{ $t('timeBank.totalSeconds') }}</label>
-            <input v-model.number="editSeconds" type="number" min="5" max="300" class="field-input" />
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="text-xs text-gray-400">{{ $t('timeBank.minSeconds') }}</label>
+              <input v-model.number="editMinSeconds" type="number" min="5" max="300" class="field-input text-center" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-400">{{ $t('timeBank.intervalSeconds') }}</label>
+              <input v-model.number="editInterval" type="number" min="1" max="60" class="field-input text-center" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-400">{{ $t('timeBank.buttonCount') }}</label>
+              <input v-model.number="editButtonCount" type="number" min="1" max="6" class="field-input text-center" />
+            </div>
           </div>
           <button @click="applySettings" class="w-full py-2 bg-amber-600 rounded-lg text-white font-semibold text-sm">
             {{ $t('common.save') }}
@@ -145,7 +176,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useTimeBank } from '../composables/useTimeBank.js';
 import { useNotification } from '../composables/useNotification.js';
-import { DEFAULT_TIME_BANK_SECONDS, TIME_BANK_PRESETS } from '../utils/constants.js';
+import { DEFAULT_TIME_BANK_SECONDS, DEFAULT_TIME_BANK_INTERVAL, DEFAULT_TIME_BANK_BUTTON_COUNT } from '../utils/constants.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 
 const route = useRoute();
@@ -155,17 +186,28 @@ const { error: showError } = useNotification();
 
 const {
   session, loading, localTimeLeft,
-  isHost, label, status, totalSeconds, percentage, urgency, formattedTime,
+  isHost, label, status, totalSeconds, minSeconds, intervalSeconds, buttonCount, quickPresets,
+  percentage, urgency, formattedTime,
   createSession, joinSession, startTimer, pauseTimer, resetTimer, resetAndStart, updateConfig, cleanup,
 } = useTimeBank();
 
 const showSettings = ref(false);
 const editLabel = ref('');
-const editSeconds = ref(DEFAULT_TIME_BANK_SECONDS);
+const editMinSeconds = ref(DEFAULT_TIME_BANK_SECONDS);
+const editInterval = ref(DEFAULT_TIME_BANK_INTERVAL);
+const editButtonCount = ref(DEFAULT_TIME_BANK_BUTTON_COUNT);
 const setupLabel = ref('');
-const setupSeconds = ref(DEFAULT_TIME_BANK_SECONDS);
-const timePresets = TIME_BANK_PRESETS;
+const setupMinSeconds = ref(DEFAULT_TIME_BANK_SECONDS);
+const setupInterval = ref(DEFAULT_TIME_BANK_INTERVAL);
+const setupButtonCount = ref(DEFAULT_TIME_BANK_BUTTON_COUNT);
 let warningAudioPlayed = false;
+
+const setupPreviewPresets = computed(() => {
+  const min = setupMinSeconds.value || DEFAULT_TIME_BANK_SECONDS;
+  const interval = setupInterval.value || DEFAULT_TIME_BANK_INTERVAL;
+  const count = setupButtonCount.value || DEFAULT_TIME_BANK_BUTTON_COUNT;
+  return Array.from({ length: count }, (_, i) => min + i * interval);
+});
 
 const isSetupMode = computed(() => {
   return route.params.sessionId === 'new' && !session.value;
@@ -223,7 +265,9 @@ function playSound(type) {
 async function handleCreate() {
   try {
     const id = await createSession({
-      totalSeconds: setupSeconds.value || DEFAULT_TIME_BANK_SECONDS,
+      minSeconds: setupMinSeconds.value || DEFAULT_TIME_BANK_SECONDS,
+      intervalSeconds: setupInterval.value || DEFAULT_TIME_BANK_INTERVAL,
+      buttonCount: setupButtonCount.value || DEFAULT_TIME_BANK_BUTTON_COUNT,
       label: setupLabel.value || '',
     });
     // Replace URL so "new" becomes actual ID
@@ -240,7 +284,9 @@ function handleBack() {
 
 async function applySettings() {
   await updateConfig({
-    totalSeconds: editSeconds.value,
+    minSeconds: editMinSeconds.value,
+    intervalSeconds: editInterval.value,
+    buttonCount: editButtonCount.value,
     label: editLabel.value,
   });
   showSettings.value = false;
@@ -259,7 +305,9 @@ onUnmounted(() => {
 
 // Sync edit fields with current config
 watch(label, (v) => { editLabel.value = v; });
-watch(totalSeconds, (v) => { editSeconds.value = v; });
+watch(minSeconds, (v) => { editMinSeconds.value = v; });
+watch(intervalSeconds, (v) => { editInterval.value = v; });
+watch(buttonCount, (v) => { editButtonCount.value = v; });
 </script>
 
 <style scoped>
@@ -490,22 +538,24 @@ watch(totalSeconds, (v) => { editSeconds.value = v; });
 
 .quick-presets {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
   margin-top: 1.5rem;
   flex-wrap: wrap;
   justify-content: center;
 }
 
 .quick-preset-btn {
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
+  padding: 0.875rem 1.5rem;
+  border-radius: 0.75rem;
   background: rgba(255, 255, 255, 0.08);
   color: #94a3b8;
   border: 1px solid rgba(255, 255, 255, 0.15);
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 1.25rem;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s;
+  min-width: 72px;
+  min-height: 52px;
 }
 
 .quick-preset-btn.active {
