@@ -265,7 +265,7 @@ const { confirm } = useConfirm();
 const { withLoading } = useLoading();
 
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
-const { transactions, txLoading, txError, recordAction, recordBuyIn, undoBuyIn } = useTransactions(gameId);
+const { transactions, txLoading, txError, recordAction, recordBuyIn, recordDirect, undoBuyIn } = useTransactions(gameId);
 
 // Tournament session data (for reentryUntilLevel, payoutRatios)
 const {
@@ -488,8 +488,8 @@ const handleReentry = async (player) => {
       const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
       const ok = await reentryPlayer(player.id);
       if (ok) {
-        // Record transaction so it appears in the transaction log
-        await recordBuyIn(player.id, player.uid || null, player.name, baseBuyIn, 'reentry');
+        // Log-only: reentryPlayer already updated buyIn atomically
+        await recordDirect(player.id, player.uid || null, player.name, 'reentry', baseBuyIn);
         success(t('tournament.reentryAction'));
         // Send LINE buy-in notification for re-entry
         const newTotalBuyIn = (player.buyIn || 0) + baseBuyIn;
@@ -531,7 +531,7 @@ const handleAddPlayer = async () => {
   await withLoading(async () => {
     const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
     const playerName = newPlayerName.value || 'Player';
-    const newPlayer = await addPlayer(playerName, baseBuyIn);
+    const newPlayer = await addPlayer(playerName, 0);
     if (newPlayer) {
       // Record transaction so it appears in the transaction log
       await recordBuyIn(newPlayer.id, null, playerName, baseBuyIn, 'buy_in');

@@ -70,7 +70,7 @@
             <div class="info-label">{{ $t('tournament.averageStack') }}</div>
             <div class="info-value">{{ formatNumber(averageStack) }}<span v-if="averageStackBB" class="avg-bb"> ({{ averageStackBB }} BB)</span></div>
           </div>
-          <div class="info-item" v-if="timeToBreak">
+          <div class="info-item break-in-desktop" v-if="timeToBreak">
             <div class="info-label">{{ $t('tournament.breakIn') }}</div>
             <div class="info-value">{{ timeToBreak }}</div>
           </div>
@@ -121,6 +121,10 @@
 
         <!-- Right Panel -->
         <aside class="info-panel right-panel">
+          <div class="info-item break-in-mobile" v-if="timeToBreak">
+            <div class="info-label">{{ $t('tournament.breakIn') }}</div>
+            <div class="info-value">{{ timeToBreak }}</div>
+          </div>
           <div class="info-item">
             <div class="info-label">{{ $t('tournament.prizePool') }}</div>
             <div class="info-value prize">${{ formatNumber(prizePool) }}</div>
@@ -637,6 +641,11 @@ onUnmounted(() => {
   }
 }
 
+/* ── Break In: desktop vs mobile ──────────────── */
+.break-in-mobile {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .clock-body {
     grid-template-columns: 1fr;
@@ -654,6 +663,17 @@ onUnmounted(() => {
 
   .info-panel {
     gap: 0.75rem;
+  }
+
+  .break-in-desktop {
+    display: none;
+  }
+
+  .break-in-mobile {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    order: -1;
   }
 
   .blinds-value {
