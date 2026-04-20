@@ -39,6 +39,7 @@
         :is-host="isHost"
         :can-reentry="canReentry(player)"
         :base-buy-in="game?.baseBuyIn || 0"
+        :is-champion="isChampion(player)"
         @eliminate="handleEliminate"
         @reentry="handleReentry"
         @edit="handleEditPlayer"
@@ -92,9 +93,9 @@
       <HandHistoryList :hands="hands" @select="handleSelectHand" />
     </div>
 
-    <!-- Add player button (host only) -->
+    <!-- Add player button (host only, only while re-entries are still open) -->
     <button
-      v-if="isHost"
+      v-if="isHost && reentriesOpen"
       @click="showAddPlayer = true"
       class="fixed bottom-24 right-4 w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center text-xl shadow-lg hover:bg-amber-600 transition active:scale-95"
     >
@@ -264,7 +265,7 @@ const { confirm } = useConfirm();
 const { withLoading } = useLoading();
 
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
-const { transactions, txLoading, txError, recordAction, undoBuyIn } = useTransactions(gameId);
+const { transactions, txLoading, txError, recordAction, recordBuyIn, undoBuyIn } = useTransactions(gameId);
 
 // Tournament session data (for reentryUntilLevel, payoutRatios)
 const {
@@ -311,6 +312,22 @@ const getPlayerReentryCount = (player) => {
   return Math.max(0, Math.round((player.buyIn || 0) / baseBuyIn) - 1);
 };
 
+// Check if reentries are globally still open (before cutoff level)
+const reentriesOpen = computed(() => {
+  // If no reentryUntilLevel configured, reentries are disabled entirely
+  if (!tournamentConfig.value || !reentryUntilLevel.value) return false;
+  const levels = tournamentConfig.value?.levels || [];
+  const idx = clockLevelIndex.value ?? 0;
+  let effectiveLevel = 0;
+  for (let i = idx; i >= 0; i--) {
+    if (!levels[i]?.isBreak) {
+      effectiveLevel = levels[i]?.level ?? 0;
+      break;
+    }
+  }
+  return effectiveLevel < reentryUntilLevel.value;
+});
+
 const canReentry = (player) => {
   if (!player.eliminated || player.placement === 1) return false;
   // If session not loaded yet, block re-entry by default
@@ -333,6 +350,13 @@ const canReentry = (player) => {
     }
   }
   return effectiveLevel < reentryUntilLevel.value;
+};
+
+// A player is champion if: placement=1 already set (post-settlement),
+// OR they are the last standing player and reentries are no longer open.
+const isChampion = (player) => {
+  if (player.placement === 1) return true;
+  return !player.eliminated && activePlayers.value.length === 1 && !reentriesOpen.value;
 };
 
 const sortedPlayers = computed(() => {
@@ -402,20 +426,15 @@ onMounted(async () => {
       }
     }
   }
-
-  // Listen to tournament session for reentryUntilLevel / payoutRatios
-  const sid = game.value?.tournamentSessionId;
-  if (sid) {
-    joinTournamentSession(sid);
-  }
 });
 
-// Watch for game data becoming available (onSnapshot fires async)
+// Watch for tournament session ID — fires immediately so that if game is already in store
+// the session is joined synchronously on mount; also handles async game load.
 watch(() => game.value?.tournamentSessionId, (sid) => {
-  if (sid && !tournamentConfig.value) {
+  if (sid && !tournamentSession.value) {
     joinTournamentSession(sid);
   }
-});
+}, { immediate: true });
 
 // Listen to hand records
 watch(() => gameId.value, (newGameId) => {
@@ -467,15 +486,19 @@ const handleReentry = async (player) => {
   if (shouldReentry) {
     await withLoading(async () => {
       const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
-      await reentryPlayer(player.id);
-      success(t('tournament.reentryAction'));
-      // Send LINE buy-in notification for re-entry
-      const newTotalBuyIn = (player.buyIn || 0) + baseBuyIn;
-      sendBuyInMessage(displayName.value, player.name, baseBuyIn, game.value?.name, game.value?.id, {
-        totalBuyIn: newTotalBuyIn,
-        baseBuyIn,
-        gameType: 'tournament',
-      });
+      const ok = await reentryPlayer(player.id);
+      if (ok) {
+        // Record transaction so it appears in the transaction log
+        await recordBuyIn(player.uid || null, player.name, baseBuyIn, 'reentry');
+        success(t('tournament.reentryAction'));
+        // Send LINE buy-in notification for re-entry
+        const newTotalBuyIn = (player.buyIn || 0) + baseBuyIn;
+        sendBuyInMessage(displayName.value, player.name, baseBuyIn, game.value?.name, game.value?.id, {
+          totalBuyIn: newTotalBuyIn,
+          baseBuyIn,
+          gameType: 'tournament',
+        });
+      }
     }, t('loading.saving'));
   }
 };
@@ -508,15 +531,19 @@ const handleAddPlayer = async () => {
   await withLoading(async () => {
     const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
     const playerName = newPlayerName.value || 'Player';
-    await addPlayer(playerName, baseBuyIn);
-    // Send LINE buy-in notification for new player
-    sendBuyInMessage(displayName.value, playerName, baseBuyIn, game.value?.name, game.value?.id, {
-      totalBuyIn: baseBuyIn,
-      baseBuyIn,
-      gameType: 'tournament',
-    });
-    showAddPlayer.value = false;
-    newPlayerName.value = '';
+    const ok = await addPlayer(playerName, baseBuyIn);
+    if (ok) {
+      // Record transaction so it appears in the transaction log
+      await recordBuyIn(null, playerName, baseBuyIn, 'buy_in');
+      // Send LINE buy-in notification for new player
+      sendBuyInMessage(displayName.value, playerName, baseBuyIn, game.value?.name, game.value?.id, {
+        totalBuyIn: baseBuyIn,
+        baseBuyIn,
+        gameType: 'tournament',
+      });
+      showAddPlayer.value = false;
+      newPlayerName.value = '';
+    }
   }, t('loading.saving'));
 };
 

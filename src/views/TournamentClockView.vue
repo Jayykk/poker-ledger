@@ -163,9 +163,14 @@
         >
           {{ dealerUrlText }}
         </div>
-        <button @click="showDealerUrlModal = false" class="mt-4 w-full py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm font-semibold transition">
-          {{ $t('common.close') }}
-        </button>
+        <div class="flex gap-2 mt-4">
+          <button @click="copyDealerUrlToClipboard" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white text-sm font-semibold transition">
+            <i class="fas fa-copy mr-1"></i>{{ $t('common.copy') }}
+          </button>
+          <button @click="showDealerUrlModal = false" class="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm font-semibold transition">
+            {{ $t('common.close') }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -276,19 +281,28 @@ async function handleToggleDealerMode() {
   }
 }
 
-function copyDealerUrl() {
+async function copyDealerUrl() {
   const baseUrl = window.location.origin + window.location.pathname;
   const dealerUrl = `${baseUrl}#/dealer-clock/${session.value?.id || route.params.sessionId}`;
   dealerUrlText.value = dealerUrl;
-  showDealerUrlModal.value = true;
-  // Also try clipboard copy silently
+  // Try clipboard first — if it succeeds, no modal needed
   try {
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(dealerUrl).catch(() => {});
-    }
+    await navigator.clipboard.writeText(dealerUrl);
+    success(t('common.copySuccess'));
   } catch {
-    // ignore
+    // Clipboard unavailable (LIFF / non-secure context) — show modal for manual copy
+    showDealerUrlModal.value = true;
   }
+}
+
+function copyDealerUrlToClipboard() {
+  navigator.clipboard.writeText(dealerUrlText.value).then(() => {
+    success(t('common.copySuccess'));
+    showDealerUrlModal.value = false;
+  }).catch(() => {
+    // Clipboard blocked (LIFF / non-secure context) — URL remains visible for manual copy
+    showError(t('common.copyFailed'));
+  });
 }
 
 function selectAllText(e) {
