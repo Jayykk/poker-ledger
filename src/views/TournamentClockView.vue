@@ -481,7 +481,7 @@ onUnmounted(() => {
 }
 
 .info-label {
-  font-size: clamp(0.85rem, 1.5vw, 1.1rem);
+  font-size: clamp(1.2rem, 2.2vw, 1.6rem);
   font-weight: 700;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.8);
@@ -490,14 +490,14 @@ onUnmounted(() => {
 }
 
 .info-value {
-  font-size: clamp(1.15rem, 2.2vw, 1.6rem);
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
   font-weight: 600;
   color: white;
 }
 
 .info-value.prize {
   color: #fbbf24;
-  font-size: clamp(1.4rem, 2.8vw, 2.2rem);
+  font-size: clamp(2rem, 4vw, 3rem);
   font-weight: 800;
 }
 
@@ -509,7 +509,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   gap: 0.5rem;
-  font-size: clamp(0.9rem, 1.6vw, 1.2rem);
+  font-size: clamp(1.2rem, 2.2vw, 1.7rem);
   padding: 0.15rem 0;
 }
 
@@ -642,15 +642,19 @@ onUnmounted(() => {
 /* ── Tablet responsive (768px–1024px) ───────────── */
 @media (min-width: 769px) and (max-width: 1024px) {
   .info-label {
-    font-size: 1rem;
+    font-size: 1.5rem;
   }
 
   .info-value {
-    font-size: 1.4rem;
+    font-size: 2rem;
   }
 
   .info-value.prize {
-    font-size: 1.8rem;
+    font-size: 2.5rem;
+  }
+
+  .payout-row {
+    font-size: 1.4rem;
   }
 
   .blinds-value {
