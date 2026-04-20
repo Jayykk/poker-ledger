@@ -136,27 +136,3 @@ export async function getTransactionLog(gameId) {
 
   return snap.docs.map((d) => ({ txId: d.id, ...d.data() }));
 }
-
-/**
- * Calculate total active buy-in for a player in a game.
- *
- * @param {string} gameId - game ID
- * @param {string} targetUid - player UID
- * @param {string} targetName - player display name
- * @return {Promise<number>} total buy-in amount
- */
-async function getPlayerTotalBuyIn(gameId, targetUid, targetName) {
-  const db = getFirestore();
-  let q = db.collection('transactions').where('gameId', '==', gameId).where('status', '==', 'active');
-  if (targetUid) q = q.where('targetUid', '==', targetUid);
-
-  const snap = await q.get();
-  let total = 0;
-  snap.docs.forEach((d) => {
-    const data = d.data();
-    if (!targetUid && data.targetName !== targetName) return;
-    if (data.type === 'undo') return; // 👈 濾掉 undo 避免雙重扣款
-    total += data.amount || 0;
-  });
-  return total;
-}
