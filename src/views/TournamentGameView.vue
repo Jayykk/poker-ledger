@@ -489,7 +489,7 @@ const handleReentry = async (player) => {
       const ok = await reentryPlayer(player.id);
       if (ok) {
         // Record transaction so it appears in the transaction log
-        await recordBuyIn(player.uid || null, player.name, baseBuyIn, 'reentry');
+        await recordBuyIn(player.id, player.uid || null, player.name, baseBuyIn, 'reentry');
         success(t('tournament.reentryAction'));
         // Send LINE buy-in notification for re-entry
         const newTotalBuyIn = (player.buyIn || 0) + baseBuyIn;
@@ -531,10 +531,10 @@ const handleAddPlayer = async () => {
   await withLoading(async () => {
     const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
     const playerName = newPlayerName.value || 'Player';
-    const ok = await addPlayer(playerName, baseBuyIn);
-    if (ok) {
+    const newPlayer = await addPlayer(playerName, baseBuyIn);
+    if (newPlayer) {
       // Record transaction so it appears in the transaction log
-      await recordBuyIn(null, playerName, baseBuyIn, 'buy_in');
+      await recordBuyIn(newPlayer.id, null, playerName, baseBuyIn, 'buy_in');
       // Send LINE buy-in notification for new player
       sendBuyInMessage(displayName.value, playerName, baseBuyIn, game.value?.name, game.value?.id, {
         totalBuyIn: baseBuyIn,
@@ -566,24 +566,30 @@ const handleUndoBuyIn = async (tx) => {
   const shouldUndo = await confirm({ message: t('transaction.confirmUndo'), type: 'warning' });
   if (shouldUndo) {
     await withLoading(async () => {
-      await undoBuyIn(tx.txId);
+      const result = await undoBuyIn(tx.txId);
 
-      // Also revert the player's buyIn in the game document
-      if (game.value && tx.playerName && tx.amount) {
-        const { doc, updateDoc, getDoc } = await import('firebase/firestore');
-        const { db } = await import('../firebase-init.js');
+      if (result) {
+        // If undo was via fallback, update the player's buyIn directly
+        // (Cloud function already handles this when not in fallback mode)
+        if (result.fallback && tx.targetName) {
+          const { doc, updateDoc } = await import('firebase/firestore');
+          const { db } = await import('../firebase-init.js');
 
-        const updatedPlayers = game.value.players.map(p => {
-          if (p.name === tx.playerName) {
-            return { ...p, buyIn: Math.max(0, (p.buyIn || 0) - (tx.amount || 0)) };
-          }
-          return p;
-        });
-        await updateDoc(doc(db, 'games', game.value.id), { players: updatedPlayers });
+          const updatedPlayers = game.value.players.map(p => {
+            const isTarget = tx.targetId ? p.id === tx.targetId : (tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName);
+            if (isTarget) {
+              return { ...p, buyIn: Math.max(0, (p.buyIn || 0) - Math.abs(tx.amount || 0)) };
+            }
+            return p;
+          });
+          await updateDoc(doc(db, 'games', game.value.id), { players: updatedPlayers });
+        }
 
         // Decrement tournament session reentry counter if applicable
-        const sessionId = game.value.tournamentSessionId;
+        const sessionId = game.value?.tournamentSessionId;
         if (sessionId && tx.type === 'reentry') {
+          const { doc, updateDoc, getDoc } = await import('firebase/firestore');
+          const { db } = await import('../firebase-init.js');
           const sessionRef = doc(db, 'tournamentSessions', sessionId);
           const snap = await getDoc(sessionRef);
           if (snap.exists()) {
@@ -594,12 +600,16 @@ const handleUndoBuyIn = async (tx) => {
             });
           }
         }
+
+        success(t('transaction.undoSuccess'));
       }
 
       const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
-      const player = game.value?.players?.find(p => p.name === tx.playerName);
+      const player = game.value?.players?.find(
+        p => tx.targetId ? p.id === tx.targetId : (tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName)
+      );
       const newTotal = player?.buyIn || 0;
-      sendUndoMessage(displayName.value, tx.playerName, tx.amount, game.value?.name, game.value?.id, {
+      sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount), game.value?.name, game.value?.id, {
         totalBuyIn: newTotal,
         baseBuyIn,
         gameType: 'tournament',
