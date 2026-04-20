@@ -245,7 +245,7 @@ export const useGameStore = defineStore('game', () => {
     if (!gameId.value || !isHost.value) return null;
     
     try {
-      const buyInAmount = buyIn || game.value?.baseBuyIn || DEFAULT_BUY_IN;
+      const buyInAmount = buyIn ?? game.value?.baseBuyIn ?? DEFAULT_BUY_IN;
       const newPlayer = {
         id: Date.now().toString(),
         name: name || 'Player',
@@ -487,27 +487,18 @@ export const useGameStore = defineStore('game', () => {
     try {
       // Validate re-entry level limit and per-player count from tournament session
       const sessionId = game.value.tournamentSessionId;
+      let cfg = {};
+      let sessionRef = null;
+
       if (sessionId) {
-        const sessionRef = doc(db, 'tournamentSessions', sessionId);
+        sessionRef = doc(db, 'tournamentSessions', sessionId);
         const sessionSnap = await getDoc(sessionRef);
         if (sessionSnap.exists()) {
           const sessionData = sessionSnap.data();
-          const cfg = sessionData.config || {};
+          cfg = sessionData.config || {};
           const st = sessionData.state || {};
 
-          // Check per-player total buy-in count limit (maxReentries = total buy-in times including initial)
-          const maxReentries = cfg.maxReentries ?? 0;
-          if (maxReentries > 0) {
-            const player = game.value.players.find(p => p.id === playerId);
-            const baseBuyIn = game.value.baseBuyIn || DEFAULT_BUY_IN;
-            const reentryCount = Math.max(0, Math.round((player?.buyIn || 0) / baseBuyIn) - 1);
-            if (reentryCount + 1 >= maxReentries) {
-              error.value = 'Player has reached the maximum re-entry limit';
-              return false;
-            }
-          }
-
-          // Check level limit
+          // Check level limit (session state is authoritative)
           const reentryUntilLevel = cfg.reentryUntilLevel || 0;
           if (reentryUntilLevel > 0) {
             const levels = cfg.levels || [];
@@ -527,23 +518,46 @@ export const useGameStore = defineStore('game', () => {
         }
       }
 
-      const updatedPlayers = game.value.players.map(p => {
-        if (p.id === playerId) {
-          return {
-            ...p,
-            eliminated: false,
-            eliminatedAt: null,
-            placement: null,
-          };
+      const baseBuyIn = game.value.baseBuyIn || DEFAULT_BUY_IN;
+      const maxReentries = cfg.maxReentries ?? 0;
+      const gameRef = doc(db, 'games', gameId.value);
+
+      // Use a Firestore transaction to atomically read the latest data,
+      // validate reentry count, and update both elimination state and buyIn.
+      await runTransaction(db, async (transaction) => {
+        const gameSnap = await transaction.get(gameRef);
+        if (!gameSnap.exists()) throw new Error('Game not found');
+
+        const players = gameSnap.data().players || [];
+        const player = players.find(p => p.id === playerId);
+        if (!player) throw new Error('Player not found');
+
+        // Validate per-player reentry count from the LATEST server data
+        if (maxReentries > 0) {
+          const reentryCount = Math.max(0, Math.round((player.buyIn || 0) / baseBuyIn) - 1);
+          if (reentryCount + 1 >= maxReentries) {
+            throw new Error('REENTRY_LIMIT');
+          }
         }
-        return p;
+
+        const updatedPlayers = players.map(p => {
+          if (p.id === playerId) {
+            return {
+              ...p,
+              eliminated: false,
+              eliminatedAt: null,
+              placement: null,
+              buyIn: (p.buyIn || 0) + baseBuyIn,
+            };
+          }
+          return p;
+        });
+
+        transaction.update(gameRef, { players: updatedPlayers });
       });
 
-      await updateDoc(doc(db, 'games', gameId.value), { players: updatedPlayers });
-
       // Sync tournament session counters (playersRemaining, reentries, playersRegistered)
-      if (sessionId) {
-        const sessionRef = doc(db, 'tournamentSessions', sessionId);
+      if (sessionRef) {
         const sessionSnap = await getDoc(sessionRef);
         if (sessionSnap.exists()) {
           const st = sessionSnap.data().state || {};
@@ -557,6 +571,10 @@ export const useGameStore = defineStore('game', () => {
 
       return true;
     } catch (err) {
+      if (err.message === 'REENTRY_LIMIT') {
+        error.value = 'Player has reached the maximum re-entry limit';
+        return false;
+      }
       console.error('Reentry player error:', err);
       error.value = 'Failed to re-entry player: ' + err.message;
       return false;
