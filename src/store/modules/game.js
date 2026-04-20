@@ -495,13 +495,13 @@ export const useGameStore = defineStore('game', () => {
           const cfg = sessionData.config || {};
           const st = sessionData.state || {};
 
-          // Check per-player re-entry count limit
+          // Check per-player total buy-in count limit (maxReentries = total buy-in times including initial)
           const maxReentries = cfg.maxReentries ?? 0;
           if (maxReentries > 0) {
             const player = game.value.players.find(p => p.id === playerId);
             const baseBuyIn = game.value.baseBuyIn || DEFAULT_BUY_IN;
             const reentryCount = Math.max(0, Math.round((player?.buyIn || 0) / baseBuyIn) - 1);
-            if (reentryCount >= maxReentries) {
+            if (reentryCount + 1 >= maxReentries) {
               error.value = 'Player has reached the maximum re-entry limit';
               return false;
             }

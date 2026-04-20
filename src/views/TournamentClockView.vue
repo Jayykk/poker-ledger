@@ -144,7 +144,6 @@
         @advance="advanceLevel"
         @previous="previousLevel"
         @update-players="handleUpdatePlayers"
-        @add-reentry="addReentry"
         @end="handleEnd"
         @close="showControls = false"
       />
@@ -185,6 +184,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useNotification } from '../composables/useNotification.js';
+import { useWakeLock } from '../composables/useWakeLock.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import TournamentControls from '../components/tournament/TournamentControls.vue';
 import {
@@ -195,6 +195,8 @@ const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
 const { error: showError, success } = useNotification();
+
+useWakeLock();
 
 const showControls = ref(false);
 const audioRef = ref(null);
@@ -210,7 +212,7 @@ const {
   reentries, chipsInPlay, averageStack, prizePool, payouts,
   formattedTime, timeToBreak, dealerModeEnabled,
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
-  updatePlayers, addReentry, endTournament, toggleDealerMode, cleanup,
+  updatePlayers, endTournament, toggleDealerMode, cleanup,
 } = useTournamentClock();
 
 // Timer color class
@@ -429,7 +431,7 @@ onUnmounted(() => {
 }
 
 .tournament-subtitle {
-  font-size: clamp(0.7rem, 1.5vw, 1rem);
+  font-size: clamp(0.85rem, 1.8vw, 1.2rem);
   color: rgba(255, 255, 255, 0.7);
   margin-top: 0.25rem;
 }
@@ -479,7 +481,7 @@ onUnmounted(() => {
 }
 
 .info-label {
-  font-size: clamp(0.7rem, 1.2vw, 1rem);
+  font-size: clamp(0.85rem, 1.5vw, 1.1rem);
   font-weight: 700;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.8);
@@ -488,14 +490,14 @@ onUnmounted(() => {
 }
 
 .info-value {
-  font-size: clamp(1rem, 2vw, 1.5rem);
+  font-size: clamp(1.15rem, 2.2vw, 1.6rem);
   font-weight: 600;
   color: white;
 }
 
 .info-value.prize {
   color: #fbbf24;
-  font-size: clamp(1.2rem, 2.5vw, 2rem);
+  font-size: clamp(1.4rem, 2.8vw, 2.2rem);
   font-weight: 800;
 }
 
@@ -507,7 +509,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   gap: 0.5rem;
-  font-size: clamp(0.8rem, 1.4vw, 1.1rem);
+  font-size: clamp(0.9rem, 1.6vw, 1.2rem);
   padding: 0.15rem 0;
 }
 
@@ -535,7 +537,7 @@ onUnmounted(() => {
 }
 
 .level-text {
-  font-size: clamp(1rem, 2vw, 1.4rem);
+  font-size: clamp(1.15rem, 2.2vw, 1.6rem);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.8);
   text-transform: uppercase;
@@ -544,7 +546,7 @@ onUnmounted(() => {
 
 .break-text {
   color: #6ee7b7;
-  font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+  font-size: clamp(1.4rem, 2.8vw, 2rem);
 }
 
 .blinds-display {
@@ -555,19 +557,19 @@ onUnmounted(() => {
 }
 
 .blinds-value {
-  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-size: clamp(2.8rem, 7vw, 5.5rem);
   font-weight: 800;
   color: white;
   text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .ante-value {
-  font-size: clamp(0.9rem, 1.5vw, 1.2rem);
+  font-size: clamp(1rem, 1.8vw, 1.4rem);
   color: rgba(255, 255, 255, 0.7);
 }
 
 .timer-display {
-  font-size: clamp(4rem, 12vw, 10rem);
+  font-size: clamp(4.5rem, 13vw, 11rem);
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.05em;
@@ -600,7 +602,7 @@ onUnmounted(() => {
 .status-badge {
   padding: 0.5rem 1.5rem;
   border-radius: 9999px;
-  font-size: clamp(0.8rem, 1.5vw, 1.1rem);
+  font-size: clamp(0.9rem, 1.8vw, 1.2rem);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -631,10 +633,43 @@ onUnmounted(() => {
 }
 
 .next-blinds {
-  font-size: clamp(0.9rem, 2vw, 1.3rem);
+  font-size: clamp(1rem, 2.2vw, 1.5rem);
   color: rgba(255, 255, 255, 0.7);
   font-weight: 600;
   margin-top: 0.5rem;
+}
+
+/* ── Tablet responsive (768px–1024px) ───────────── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .info-label {
+    font-size: 1rem;
+  }
+
+  .info-value {
+    font-size: 1.4rem;
+  }
+
+  .info-value.prize {
+    font-size: 1.8rem;
+  }
+
+  .blinds-value {
+    font-size: 4rem;
+  }
+
+  .timer-display {
+    font-size: 7rem;
+  }
+
+  .level-text {
+    font-size: 1.3rem;
+  }
+
+  .hud-control-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 1.2rem;
+  }
 }
 
 /* ── Mobile responsive ─────────────────────────── */
