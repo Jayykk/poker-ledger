@@ -43,7 +43,14 @@
         class="px-3 py-1 rounded-lg text-sm transition"
         :class="gameTypeFilter === 'live' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-gray-300'"
       >
-        🎰 {{ $t('report.filterLive') }}
+        💵 {{ $t('report.filterLive') }}
+      </button>
+      <button
+        @click="gameTypeFilter = 'tournament'"
+        class="px-3 py-1 rounded-lg text-sm transition"
+        :class="gameTypeFilter === 'tournament' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
+      >
+        🏆 {{ $t('report.filterTournament') }}
       </button>
       <button
         @click="gameTypeFilter = 'online'"

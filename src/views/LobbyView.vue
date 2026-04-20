@@ -73,9 +73,17 @@
           <div class="flex items-start gap-3 mb-2">
             <span
               class="px-2 py-0.5 rounded text-xs font-bold"
-              :class="room.type === 'online' ? 'bg-purple-600/50 text-purple-200' : 'bg-slate-600/50 text-slate-200'"
+              :class="room.type === 'tournament'
+                ? 'bg-amber-600/50 text-amber-200'
+                : room.type === 'online'
+                  ? 'bg-purple-600/50 text-purple-200'
+                  : 'bg-slate-600/50 text-slate-200'"
             >
-              {{ room.type === 'online' ? '🌐 ' + $t('lobby.onlineLabel') : '🎰 ' + $t('lobby.liveLabel') }}
+              {{ room.type === 'tournament'
+                ? '🏆 ' + $t('lobby.tournamentLabel')
+                : room.type === 'online'
+                  ? '🌐 ' + $t('lobby.onlineLabel')
+                  : '🎰 ' + $t('lobby.liveLabel') }}
             </span>
             <span
               v-if="room.hostUid === user?.uid"
@@ -155,28 +163,126 @@
 
     <!-- Create Game Modal -->
     <BaseModal v-model="showCreateModal" :title="$t('lobby.createGame')">
-      <BaseInput
-        v-model="gameName"
-        :placeholder="$t('game.playerName')"
-        class="mb-4"
-      />
-      <div class="flex gap-2 mb-4 items-center">
-        <BaseButton @click="decrementCreateBuyIn" size="sm">-100</BaseButton>
-        <label class="flex-1">
-          <BaseInput
-            v-model.number="createBuyIn"
-            type="number"
-            :min="MIN_BUY_IN"
-            :step="CHIP_STEP"
-            class="w-full"
-          />
-        </label>
-        <BaseButton @click="incrementCreateBuyIn" size="sm">+100</BaseButton>
-        <span class="text-white text-sm">{{ $t('game.chips') }}</span>
+      <!-- Step 1: Choose game type -->
+      <div v-if="createStep === 1" class="space-y-3">
+        <p class="text-sm text-gray-400 mb-2">{{ $t('lobby.chooseGameType') }}</p>
+        <div
+          @click="selectGameType('cash')"
+          class="flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-all active:scale-98"
+          :class="selectedGameType === 'cash' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-600 bg-slate-700/50 hover:bg-slate-600/50'"
+        >
+          <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
+            💵
+          </div>
+          <div>
+            <h4 class="text-white font-bold">{{ $t('lobby.cashGame') }}</h4>
+            <p class="text-gray-400 text-xs">{{ $t('lobby.cashGameDesc') }}</p>
+          </div>
+        </div>
+        <div
+          @click="selectGameType('tournament')"
+          class="flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-all active:scale-98"
+          :class="selectedGameType === 'tournament' ? 'border-amber-500 bg-amber-500/10' : 'border-slate-600 bg-slate-700/50 hover:bg-slate-600/50'"
+        >
+          <div class="w-10 h-10 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg">
+            🏆
+          </div>
+          <div>
+            <h4 class="text-white font-bold">{{ $t('lobby.tournamentGame') }}</h4>
+            <p class="text-gray-400 text-xs">{{ $t('lobby.tournamentGameDesc') }}</p>
+          </div>
+        </div>
+        <BaseButton @click="createStep = 2" variant="primary" fullWidth :disabled="!selectedGameType">
+          {{ $t('common.next') }}
+        </BaseButton>
       </div>
-      <BaseButton @click="handleCreateGame" variant="primary" fullWidth>
-        {{ $t('common.confirm') }}
-      </BaseButton>
+
+      <!-- Step 2 (tournament only): Choose template -->
+      <div v-else-if="createStep === 2 && selectedGameType === 'tournament'" class="space-y-3">
+        <p class="text-sm text-gray-400 mb-2">{{ $t('lobby.chooseTemplate') }}</p>
+
+        <!-- Built-in templates -->
+        <div
+          v-for="tmpl in allTemplateOptions"
+          :key="tmpl.id"
+          @click="selectedTemplate = tmpl"
+          class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all"
+          :class="selectedTemplate?.id === tmpl.id ? 'border-amber-500 bg-amber-500/10' : 'border-slate-600 bg-slate-700/50 hover:bg-slate-600/50'"
+        >
+          <div class="flex-1 min-w-0">
+            <div class="text-white font-semibold text-sm truncate">
+              {{ tmpl.isBuiltIn ? $t(tmpl.nameKey) : tmpl.name }}
+            </div>
+            <div class="text-gray-400 text-xs">
+              {{ $t('tournament.buyInAmount') }}: {{ tmpl.buyIn }} ·
+              {{ tmpl.levels.filter(l => !l.isBreak).length }} {{ $t('tournament.level') }}
+            </div>
+          </div>
+          <i v-if="selectedTemplate?.id === tmpl.id" class="fas fa-check text-amber-400"></i>
+        </div>
+
+        <div v-if="allTemplateOptions.length === 0" class="text-center text-gray-500 py-4 text-sm">
+          {{ $t('tournament.noPresets') }}
+        </div>
+
+        <div class="flex gap-2">
+          <BaseButton @click="createStep = 1" variant="ghost" class="flex-1">
+            {{ $t('common.back') }}
+          </BaseButton>
+          <BaseButton @click="createStep = 3" variant="primary" class="flex-1" :disabled="!selectedTemplate">
+            {{ $t('common.next') }}
+          </BaseButton>
+        </div>
+      </div>
+
+      <!-- Step 2 (cash) / Step 3 (tournament): Name + Buy-in -->
+      <div v-else>
+        <BaseInput
+          v-model="gameName"
+          :placeholder="$t('game.playerName')"
+          class="mb-4"
+        />
+
+        <!-- Show selected template summary for tournament -->
+        <div v-if="selectedGameType === 'tournament' && selectedTemplate" class="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+          <div class="flex items-center justify-between">
+            <span class="text-amber-400 text-sm font-semibold">
+              🏆 {{ selectedTemplate.isBuiltIn ? $t(selectedTemplate.nameKey) : selectedTemplate.name }}
+            </span>
+            <button @click="createStep = 2" class="text-xs text-gray-400 hover:text-white">
+              {{ $t('common.change') }}
+            </button>
+          </div>
+          <div class="text-gray-400 text-xs mt-1">
+            {{ $t('tournament.startingChips') }}: {{ formatNumber(selectedTemplate.startingChips) }} ·
+            {{ selectedTemplate.levels.filter(l => !l.isBreak).length }} {{ $t('tournament.level') }}
+          </div>
+        </div>
+
+        <div class="flex gap-2 mb-4 items-center">
+          <BaseButton @click="decrementCreateBuyIn" size="sm">-100</BaseButton>
+          <label class="flex-1">
+            <BaseInput
+              v-model.number="createBuyIn"
+              type="number"
+              :min="MIN_BUY_IN"
+              :step="CHIP_STEP"
+              class="w-full"
+            />
+          </label>
+          <BaseButton @click="incrementCreateBuyIn" size="sm">+100</BaseButton>
+          <span class="text-white text-sm">{{ $t('game.chips') }}</span>
+        </div>
+
+        <div class="flex gap-2">
+          <BaseButton @click="createStep = selectedGameType === 'tournament' ? 2 : 1" variant="ghost" class="flex-1">
+            {{ $t('common.back') }}
+          </BaseButton>
+          <BaseButton @click="handleCreateGame" variant="primary" class="flex-1">
+            {{ $t('common.confirm') }}
+          </BaseButton>
+        </div>
+      </div>
     </BaseModal>
 
     <!-- Join Game Modal -->
@@ -244,7 +350,9 @@ import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
 import { formatNumber, formatShortDate } from '../utils/formatters.js';
-import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from '../utils/constants.js';
+import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP, GAME_TYPE } from '../utils/constants.js';
+import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
+import { useTournamentClock } from '../composables/useTournamentClock.js';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -277,6 +385,49 @@ const buyIn = ref(DEFAULT_BUY_IN);
 const createBuyIn = ref(DEFAULT_BUY_IN);
 const unboundPlayers = ref([]);
 
+// Tournament create flow
+const createStep = ref(1);
+const selectedGameType = ref(null);
+const selectedTemplate = ref(null);
+const userPresets = ref([]);
+
+const { createSession: createTournamentSession, listenPresets } = useTournamentClock();
+
+// Merge built-in templates with user presets for the picker
+const allTemplateOptions = computed(() => {
+  const builtIn = TOURNAMENT_TEMPLATES.map((t) => ({ ...t, isBuiltIn: true }));
+  const custom = userPresets.value.map((p) => ({ ...p, isBuiltIn: false }));
+  return [...builtIn, ...custom];
+});
+
+// Load user presets when modal opens
+let unsubPresets = null;
+
+const selectGameType = (type) => {
+  selectedGameType.value = type;
+  if (type === 'cash') {
+    createStep.value = 2; // Skip template step, go straight to name+buyin
+  }
+};
+
+// Reset create modal state when it closes
+watch(showCreateModal, (val) => {
+  if (!val) {
+    createStep.value = 1;
+    selectedGameType.value = null;
+    selectedTemplate.value = null;
+    gameName.value = 'Poker Game';
+    createBuyIn.value = DEFAULT_BUY_IN;
+  } else {
+    // Load user presets when modal opens
+    if (!unsubPresets) {
+      unsubPresets = listenPresets((presets) => {
+        userPresets.value = presets;
+      });
+    }
+  }
+});
+
 // Track previously seen invitations to show notifications for new ones
 const seenInvitationIds = ref(new Set());
 
@@ -287,6 +438,9 @@ const formatDate = (timestamp) => {
 };
 
 const getRoomCardClass = (room) => {
+  if (room.type === 'tournament') {
+    return 'bg-gradient-to-br from-amber-900/30 to-amber-800/20 border-amber-700/30';
+  }
   if (room.type === 'online') {
     return 'bg-gradient-to-br from-purple-900/30 to-purple-800/20 border-purple-700/30';
   }
@@ -320,13 +474,30 @@ const decrementCreateBuyIn = () => {
 
 const handleCreateGame = async () => {
   await withLoading(async () => {
-    const gameId = await createGame(gameName.value, createBuyIn.value);
+    let type = GAME_TYPE.LIVE;
+    let options = {};
+
+    if (selectedGameType.value === 'tournament' && selectedTemplate.value) {
+      type = GAME_TYPE.TOURNAMENT;
+      // Auto-create a tournament clock session
+      const tmpl = selectedTemplate.value;
+      const sessionId = await createTournamentSession({
+        name: gameName.value || tmpl.name || 'Tournament',
+        subtitle: tmpl.subtitle || '',
+        buyIn: createBuyIn.value,
+        startingChips: tmpl.startingChips,
+        reentryUntilLevel: tmpl.reentryUntilLevel,
+        levels: tmpl.levels,
+        payoutRatios: tmpl.payoutRatios,
+      });
+      options.tournamentSessionId = sessionId;
+    }
+
+    const gameId = await createGame(gameName.value, createBuyIn.value, type, options);
     if (gameId) {
       showCreateModal.value = false;
-      success('Game created!');
-      // Reload rooms
+      success(t('lobby.gameCreated'));
       await gameStore.loadMyRooms();
-
       router.push('/game');
     }
   }, t('loading.creating'));
@@ -444,5 +615,9 @@ watch(pendingInvitations, (newInvitations, oldInvitations) => {
 
 onUnmounted(() => {
   cleanupInvitations();
+  if (unsubPresets) {
+    unsubPresets();
+    unsubPresets = null;
+  }
 });
 </script>

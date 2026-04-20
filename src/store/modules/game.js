@@ -83,6 +83,12 @@ export const useGameStore = defineStore('game', () => {
         gameData.blinds = options.blinds || { small: 1, big: 2 };
         gameData.invitedUsers = options.invitedUsers || [];
       }
+
+      // Add tournament-specific fields
+      if (type === GAME_TYPE.TOURNAMENT) {
+        gameData.tournamentSessionId = options.tournamentSessionId || null;
+        gameData.baseBuyIn = parseInt(buyInAmount);
+      }
       
       const docRef = await addDoc(collection(db, 'games'), gameData);
       

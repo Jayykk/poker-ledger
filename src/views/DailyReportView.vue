@@ -73,6 +73,30 @@
           {{ $t('dailyReport.last7Days') }}
         </button>
       </div>
+      <!-- Game Type Filter -->
+      <div class="flex gap-2">
+        <button
+          @click="gameTypeFilter = 'all'"
+          class="px-3 py-1 rounded-lg text-xs transition"
+          :class="gameTypeFilter === 'all' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-gray-300 hover:bg-slate-600'"
+        >
+          {{ $t('report.filterAll') }}
+        </button>
+        <button
+          @click="gameTypeFilter = 'live'"
+          class="px-3 py-1 rounded-lg text-xs transition"
+          :class="gameTypeFilter === 'live' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-gray-300 hover:bg-slate-600'"
+        >
+          💵 {{ $t('report.filterLive') }}
+        </button>
+        <button
+          @click="gameTypeFilter = 'tournament'"
+          class="px-3 py-1 rounded-lg text-xs transition"
+          :class="gameTypeFilter === 'tournament' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300 hover:bg-slate-600'"
+        >
+          🏆 {{ $t('report.filterTournament') }}
+        </button>
+      </div>
     </div>
 
     <!-- Empty state -->
@@ -244,6 +268,9 @@ const {
   gameKey,
 } = useDailyReport();
 
+// Game type filter for cash vs tournament
+const gameTypeFilter = ref('all');
+
 // ── Date helpers ─────────────────────────────────────────────────
 
 const toLocalDateStr = (d) => {
@@ -322,12 +349,16 @@ const allSelected = computed(() =>
 );
 
 // ── Enriched game list with cash values for display ──────────────
-const gamesInRangeWithCash = computed(() =>
-  gamesInRange.value.map((h) => {
+const gamesInRangeWithCash = computed(() => {
+  let games = gamesInRange.value;
+  if (gameTypeFilter.value !== 'all') {
+    games = games.filter((h) => (h.type || 'live') === gameTypeFilter.value);
+  }
+  return games.map((h) => {
     const rate = h.rate || 1;
     return { ...h, profitCash: (h.profit || 0) / rate };
-  })
-);
+  });
+});
 
 // ── Settlement modal ─────────────────────────────────────────────
 const showSettlementModal = ref(false);

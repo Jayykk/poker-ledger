@@ -77,8 +77,9 @@ export async function createRoom(config, userId) {
 
   const roomRef = await db.collection('pokerGames').add(roomData);
 
-  // Best-effort: schedule auto-close task after 60 minutes of inactivity.
-  await createRoomAutoCloseTask(roomRef.id, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  // Best-effort (fire-and-forget): schedule auto-close task after 60 minutes of inactivity.
+  createRoomAutoCloseTask(roomRef.id, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
+    .catch((err) => console.error('Auto-close task creation failed:', err));
 
   return {
     id: roomRef.id,
@@ -170,8 +171,9 @@ export async function joinSeat(gameId, userId, userInfo, seatNumber, buyIn) {
     };
   });
 
-  // Best-effort: delay auto-close after any state-changing write.
-  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  // Best-effort (fire-and-forget): delay auto-close after any state-changing write.
+  createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
+    .catch((err) => console.error('Auto-close task creation failed:', err));
 
   return result;
 }
@@ -342,25 +344,33 @@ export async function leaveSeat(gameId, userId) {
     return { success: true, forcedLeave: true, forcedFold: false, shouldCreateTask: false };
   });
 
-  // Post-transaction task creation
+  // Post-transaction task creation (fire-and-forget)
+  const postTxTasks = [];
   if (result?.shouldCreateTask && result?.nextTurnId) {
-    await createPokerTask(gameId, result.nextTurnId, result.turnTimeout);
+    postTxTasks.push(
+      createPokerTask(gameId, result.nextTurnId, result.turnTimeout)
+        .catch((err) => console.error('Turn task creation failed:', err)),
+    );
   }
   if (result?.shouldCreateWinByFoldTask && result?.winByFoldId) {
-    await createPokerHttpTask({
-      endpoint: 'handleWinByFoldTimeout',
-      payload: {
-        gameId,
-        winByFoldId: result.winByFoldId,
-        timestamp: Date.now(),
-      },
-      delaySeconds: 5,
-      logLabel: `winByFoldId: ${result.winByFoldId}`,
-    });
+    postTxTasks.push(
+      createPokerHttpTask({
+        endpoint: 'handleWinByFoldTimeout',
+        payload: {
+          gameId,
+          winByFoldId: result.winByFoldId,
+          timestamp: Date.now(),
+        },
+        delaySeconds: 5,
+        logLabel: `winByFoldId: ${result.winByFoldId}`,
+      }).catch((err) => console.error('Win-by-fold task failed:', err)),
+    );
   }
-
-  // Best-effort: delay auto-close after any state-changing write.
-  await createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS);
+  postTxTasks.push(
+    createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
+      .catch((err) => console.error('Auto-close task creation failed:', err)),
+  );
+  Promise.all(postTxTasks).catch(() => {});
 
   return result;
 }

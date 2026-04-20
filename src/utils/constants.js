@@ -21,10 +21,23 @@ export const BLIND_TIMER_PRESETS = [15, 20, 30, 45, 60];
 export const DEFAULT_BLIND_DURATION = 20;
 export const DEFAULT_BREAK_DURATION = 5;
 
+// Tournament defaults
+export const DEFAULT_TOURNAMENT_LEVEL_DURATION = 15; // minutes
+export const DEFAULT_STARTING_CHIPS = 25000;
+export const DEFAULT_REENTRY_LEVEL = 7;
+export const DEFAULT_TIME_BANK_SECONDS = 30;
+export const TIME_BANK_PRESETS = [15, 20, 30, 45, 60, 90];
+
+// Timer warning thresholds (seconds)
+export const TIMER_WARNING_THRESHOLD = 180;
+export const TIMER_DANGER_THRESHOLD = 60;
+export const TIMER_CRITICAL_THRESHOLD = 10;
+
 // Game types
 export const GAME_TYPE = {
-  LIVE: 'live',     // 現場記帳 (Live tracking)
-  ONLINE: 'online'  // 線上房間 (Online room)
+  LIVE: 'live',           // 現場記帳 (Live tracking)
+  ONLINE: 'online',       // 線上房間 (Online room)
+  TOURNAMENT: 'tournament' // 錦標賽 (Tournament)
 };
 
 // Game status

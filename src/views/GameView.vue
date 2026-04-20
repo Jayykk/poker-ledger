@@ -14,7 +14,11 @@
     <!-- Fixed header -->
     <div class="fixed top-0 inset-x-0 z-30 bg-slate-800/90 backdrop-blur px-4 py-3 border-b border-slate-700 flex justify-between items-center max-w-md mx-auto">
       <div>
-        <span class="text-white font-bold">{{ game.name }}</span>
+        <div class="flex items-center gap-2">
+          <span class="text-white font-bold">{{ game.name }}</span>
+          <span v-if="game.type === 'tournament'" class="text-[10px] px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded-full font-semibold">🏆</span>
+          <span v-else class="text-[10px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full font-semibold">💵</span>
+        </div>
         <div class="text-[10px] text-gray-400">{{ $t('game.host') }}: {{ game.hostName || $t('common.unknown') }}</div>
       </div>
       <div class="text-right">
@@ -48,6 +52,14 @@
       </BaseButton>
       <BaseButton @click="showSettlement = true" variant="secondary">
         {{ $t('game.settlement') }}
+      </BaseButton>
+      <BaseButton
+        v-if="game.tournamentSessionId"
+        @click="$router.push(`/tournament-clock/${game.tournamentSessionId}`)"
+        variant="ghost"
+        size="sm"
+      >
+        <i class="fas fa-trophy mr-1 text-amber-400"></i>{{ $t('tournament.viewClock') }}
       </BaseButton>
     </div>
 
