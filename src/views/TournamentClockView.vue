@@ -223,10 +223,10 @@ function formatNumber(n) {
 }
 
 function handleBack() {
-  // If there's a linked game room, go back to it; otherwise go to lobby
+  // If there's a linked game room, go back to tournament game view; otherwise go to lobby
   const gameId = session.value?.gameId;
   if (gameId) {
-    router.push('/game');
+    router.push('/tournament-game');
   } else {
     router.push('/lobby');
   }
