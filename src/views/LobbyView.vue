@@ -313,7 +313,8 @@
           </div>
         </div>
 
-        <div class="flex gap-2 mb-4 items-center">
+        <!-- Cash game: chip stepper -->
+        <div v-if="selectedGameType !== 'tournament'" class="flex gap-2 mb-4 items-center">
           <BaseButton @click="decrementCreateBuyIn" size="sm">-100</BaseButton>
           <label class="flex-1">
             <BaseInput
@@ -326,6 +327,11 @@
           </label>
           <BaseButton @click="incrementCreateBuyIn" size="sm">+100</BaseButton>
           <span class="text-white text-sm">{{ $t('game.chips') }}</span>
+        </div>
+        <!-- Tournament: read-only buy-in display -->
+        <div v-else class="mb-4 p-3 bg-slate-700/50 rounded-lg flex justify-between items-center">
+          <span class="text-gray-400 text-sm">{{ $t('tournament.buyInAmount') }}</span>
+          <span class="text-white font-mono font-bold text-lg">${{ formatNumber(createBuyIn) }}</span>
         </div>
 
         <div class="flex gap-2">
@@ -574,7 +580,7 @@ const handleCreateGame = async () => {
       showCreateModal.value = false;
       success(t('lobby.gameCreated'));
       await gameStore.loadMyRooms();
-      router.push('/game');
+      router.push(type === GAME_TYPE.TOURNAMENT ? '/tournament-game' : '/game');
     }
   }, t('loading.creating'));
 };
@@ -630,8 +636,10 @@ const handleNewJoin = async () => {
 
 const handleEnterRoom = async (roomId) => {
   await withLoading(async () => {
+    // Check room type to route to the correct view
+    const room = myRooms.value.find(r => r.id === roomId);
     await joinGameListener(roomId);
-    router.push('/game');
+    router.push(room?.type === 'tournament' ? '/tournament-game' : '/game');
   }, t('loading.loading'));
 };
 
