@@ -405,6 +405,8 @@
     "nameRequired": "请输入锦标赛名称",
     "payoutMustBe100": "派奖比例合计必须为 100%",
     "importExport": "导入 / 导出",
+    "shareImport": "分享 / 导入",
+    "copyLink": "复制链接",
     "import": "导入",
     "importSuccess": "导入成功",
     "invalidFormat": "文件格式无效",
@@ -434,7 +436,10 @@
     "waitingToStart": "等待开始",
     "paused": "已暂停",
     "ended": "已结束",
-    "viewClock": "锦标赛时钟"
+    "viewClock": "锦标赛时钟",
+    "dealerMode": "荷官模式",
+    "dealerUrlCopied": "荷官链接已复制",
+    "fullscreen": "全屏"
   },
   "timeBank": {
     "title": "Time Bank",

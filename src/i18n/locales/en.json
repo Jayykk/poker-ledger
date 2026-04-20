@@ -406,6 +406,8 @@
     "nameRequired": "Please enter a tournament name",
     "payoutMustBe100": "Payout percentages must total 100%",
     "importExport": "Import / Export",
+    "shareImport": "Share / Import",
+    "copyLink": "Copy Link",
     "import": "Import",
     "importSuccess": "Import successful",
     "invalidFormat": "Invalid file format",
@@ -435,7 +437,10 @@
     "waitingToStart": "Waiting to Start",
     "paused": "Paused",
     "ended": "Ended",
-    "viewClock": "Tournament Clock"
+    "viewClock": "Tournament Clock",
+    "dealerMode": "Dealer Mode",
+    "dealerUrlCopied": "Dealer link copied",
+    "fullscreen": "Fullscreen"
   },
   "timeBank": {
     "title": "Time Bank",

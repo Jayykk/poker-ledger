@@ -134,10 +134,18 @@
         </div>
       </section>
 
-      <!-- Import / Export -->
+      <!-- Share / Import -->
       <section class="card">
-        <h2 class="section-title">{{ $t('tournament.importExport') }}</h2>
+        <h2 class="section-title">{{ $t('tournament.shareImport') }}</h2>
         <div class="flex gap-2">
+          <button @click="shareByLink" class="ctrl-btn bg-amber-600 hover:bg-amber-500 flex-1">
+            <i class="fas fa-link mr-1"></i>{{ $t('tournament.copyLink') }}
+          </button>
+          <button @click="shareByLine" class="ctrl-btn bg-emerald-600 hover:bg-emerald-500 flex-1">
+            <i class="fab fa-line mr-1"></i>LINE
+          </button>
+        </div>
+        <div class="flex gap-2 mt-2">
           <button @click="exportConfig" class="ctrl-btn bg-slate-600 hover:bg-slate-500 flex-1">
             <i class="fas fa-download mr-1"></i>{{ $t('common.export') }}
           </button>
@@ -174,6 +182,18 @@ const form = ref(createBlankTournamentConfig());
 onMounted(() => {
   const presetId = route.params.presetId;
   const templateId = route.query.template;
+  const sharedPreset = route.query.preset;
+
+  // Import from shared link
+  if (sharedPreset) {
+    const decoded = decodePresetFromBase64(sharedPreset);
+    if (decoded) {
+      form.value = decoded;
+      success(t('tournament.importSuccess'));
+    } else {
+      showError(t('tournament.invalidFormat'));
+    }
+  }
 
   if (templateId) {
     const tmpl = TOURNAMENT_TEMPLATES.find((t) => t.id === templateId);
@@ -286,7 +306,69 @@ function handleBack() {
   router.push('/tournament-presets');
 }
 
-// ── Import / Export ───────────────────────────────────
+// ── Import / Export / Share ───────────────────────────
+function encodePresetToBase64(data) {
+  // Compact the data to reduce URL length
+  const compact = {
+    n: data.name,
+    s: data.subtitle,
+    b: data.buyIn,
+    c: data.startingChips,
+    r: data.reentryUntilLevel,
+    l: data.levels.map(lv => lv.isBreak
+      ? [0, 0, 0, 0, lv.duration, 1]
+      : [lv.level, lv.small, lv.big, lv.ante, lv.duration, 0]
+    ),
+    p: data.payoutRatios.map(pr => [pr.place, pr.percentage]),
+  };
+  return btoa(unescape(encodeURIComponent(JSON.stringify(compact))));
+}
+
+function decodePresetFromBase64(b64) {
+  try {
+    const json = decodeURIComponent(escape(atob(b64)));
+    const c = JSON.parse(json);
+    return {
+      name: c.n || '',
+      subtitle: c.s || '',
+      buyIn: c.b || 0,
+      startingChips: c.c || DEFAULT_STARTING_CHIPS,
+      reentryUntilLevel: c.r || DEFAULT_REENTRY_LEVEL,
+      levels: (c.l || []).map(lv => ({
+        level: lv[0], small: lv[1], big: lv[2], ante: lv[3],
+        duration: lv[4], isBreak: !!lv[5],
+      })),
+      payoutRatios: (c.p || []).map(pr => ({ place: pr[0], percentage: pr[1] })),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function shareByLink() {
+  const encoded = encodePresetToBase64(form.value);
+  const baseUrl = window.location.origin + window.location.pathname;
+  const shareUrl = `${baseUrl}#/tournament-setup?preset=${encoded}`;
+
+  navigator.clipboard.writeText(shareUrl).then(() => {
+    success(t('common.copySuccess'));
+  }).catch(() => {
+    // Fallback
+    showError(t('common.copyFailed'));
+  });
+}
+
+function shareByLine() {
+  const encoded = encodePresetToBase64(form.value);
+  const baseUrl = window.location.origin + window.location.pathname;
+  const shareUrl = `${baseUrl}#/tournament-setup?preset=${encoded}`;
+  const text = `🏆 ${form.value.name || 'Tournament'}\n${t('tournament.buyInAmount')}: ${form.value.buyIn}`;
+
+  // Use LINE share URL scheme
+  const lineShareUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`;
+  window.open(lineShareUrl, '_blank');
+}
+
 function exportConfig() {
   const data = JSON.stringify(form.value, null, 2);
   const blob = new Blob([data], { type: 'application/json' });

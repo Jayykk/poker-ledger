@@ -8,7 +8,7 @@
       <Transition name="slide-up">
         <div
           v-if="modelValue"
-          class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 mb-20 max-h-[80vh] overflow-y-auto"
+          class="bg-slate-800 w-full max-w-sm rounded-2xl p-6 mb-24 max-h-[75vh] overflow-y-auto"
         >
           <div v-if="title || $slots.header" class="flex justify-between items-center mb-4">
             <h3 class="text-white font-bold">

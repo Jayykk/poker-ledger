@@ -1,7 +1,13 @@
 <template>
   <div class="tournament-clock-view" :class="{ 'is-break': isBreak, 'time-critical': timerColorClass === 'timer-critical' && status === 'running' }">
-    <!-- Loading -->
-    <div v-if="loading" class="flex items-center justify-center h-screen bg-slate-900">
+    <!-- Auth loading -->
+    <div v-if="authLoading" class="flex flex-col items-center justify-center h-screen bg-slate-900 text-white">
+      <LoadingSpinner />
+      <p class="mt-4 text-gray-400">{{ $t('loading.loading') }}</p>
+    </div>
+
+    <!-- Data loading -->
+    <div v-else-if="loading" class="flex items-center justify-center h-screen bg-slate-900">
       <LoadingSpinner />
     </div>
 
@@ -9,9 +15,6 @@
     <div v-else-if="!session" class="flex flex-col items-center justify-center h-screen bg-slate-900 text-white">
       <i class="fas fa-exclamation-triangle text-4xl text-amber-400 mb-4"></i>
       <p class="text-xl">{{ $t('tournament.sessionNotFound') }}</p>
-      <button @click="$router.push('/lobby')" class="mt-4 px-6 py-2 bg-amber-600 rounded-lg">
-        {{ $t('common.back') }}
-      </button>
     </div>
 
     <!-- Main Clock Display -->
@@ -19,11 +22,8 @@
       <!-- Header -->
       <header class="clock-header">
         <div class="header-left">
-          <button v-if="isHost" @click="showControls = !showControls" class="hud-control-btn">
+          <button @click="showControls = !showControls" class="hud-control-btn">
             <i class="fas fa-cog"></i>
-          </button>
-          <button @click="handleBack" class="hud-control-btn">
-            <i class="fas fa-arrow-left"></i>
           </button>
         </div>
         <div class="header-center">
@@ -31,13 +31,16 @@
           <p class="tournament-subtitle">
             {{ config.subtitle || `BuyIn $${config.buyIn} | ${$t('tournament.reentryUntil', { level: config.reentryUntilLevel })}` }}
           </p>
+          <div class="dealer-badge">
+            <i class="fas fa-user-shield mr-1"></i>{{ $t('tournament.dealerMode') }}
+          </div>
         </div>
         <div class="header-right">
-          <button v-if="isHost" @click="handleToggleDealerMode" class="hud-control-btn" :class="{ 'dealer-active': dealerModeEnabled }" :title="$t('tournament.dealerMode')">
-            <i class="fas fa-user-shield"></i>
-          </button>
-          <button v-if="isHost" @click="showTimeBankFromClock" class="hud-control-btn" :title="$t('timeBank.title')">
+          <button @click="showTimeBankFromClock" class="hud-control-btn" :title="$t('timeBank.title')">
             <i class="fas fa-hourglass-half"></i>
+          </button>
+          <button @click="requestFullscreen" class="hud-control-btn" :title="$t('tournament.fullscreen')">
+            <i class="fas fa-expand"></i>
           </button>
         </div>
       </header>
@@ -130,9 +133,9 @@
         </aside>
       </div>
 
-      <!-- Host Controls Overlay -->
+      <!-- Host Controls Overlay (always available in dealer mode) -->
       <TournamentControls
-        v-if="isHost && showControls"
+        v-if="showControls"
         :status="status"
         :players-registered="playersRegistered"
         :players-remaining="playersRemaining"
@@ -159,6 +162,8 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import { signInAnonymously } from 'firebase/auth';
+import { auth } from '../firebase-init.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useNotification } from '../composables/useNotification.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
@@ -170,8 +175,9 @@ import {
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
-const { error: showError, success } = useNotification();
+const { error: showError } = useNotification();
 
+const authLoading = ref(true);
 const showControls = ref(false);
 const audioRef = ref(null);
 let warningPlayed = false;
@@ -182,10 +188,10 @@ const {
   currentLevelEntry, currentBlinds, nextPlayLevelEntry,
   isBreak, levels, playersRegistered, playersRemaining,
   reentries, chipsInPlay, averageStack, prizePool, payouts,
-  formattedTime, timeToBreak, dealerModeEnabled,
+  formattedTime, timeToBreak,
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
-  updatePlayers, addReentry, endTournament, toggleDealerMode, cleanup,
-} = useTournamentClock();
+  updatePlayers, addReentry, endTournament, cleanup,
+} = useTournamentClock({ dealerMode: true });
 
 // Timer color class
 const timerColorClass = ref('');
@@ -222,16 +228,6 @@ function formatNumber(n) {
   return Number(n).toLocaleString();
 }
 
-function handleBack() {
-  // If there's a linked game room, go back to it; otherwise go to lobby
-  const gameId = session.value?.gameId;
-  if (gameId) {
-    router.push('/game');
-  } else {
-    router.push('/lobby');
-  }
-}
-
 function handleUpdatePlayers({ registered, remaining }) {
   updatePlayers(registered, remaining);
 }
@@ -242,27 +238,13 @@ async function handleEnd() {
 }
 
 function showTimeBankFromClock() {
-  // Open time bank in a new window/tab so clock keeps running
   const url = router.resolve('/time-bank/new').href;
   window.open(url, '_blank');
 }
 
-async function handleToggleDealerMode() {
-  const newState = !dealerModeEnabled.value;
-  await toggleDealerMode(newState);
-  if (newState) {
-    copyDealerUrl();
-  }
-}
-
-function copyDealerUrl() {
-  const baseUrl = window.location.origin + window.location.pathname;
-  const dealerUrl = `${baseUrl}#/dealer-clock/${session.value?.id || route.params.sessionId}`;
-  navigator.clipboard.writeText(dealerUrl).then(() => {
-    success(t('tournament.dealerUrlCopied'));
-  }).catch(() => {
-    showError(t('common.copyFailed'));
-  });
+function requestFullscreen() {
+  const el = document.documentElement;
+  if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
 }
 
 function playSound(type) {
@@ -299,16 +281,22 @@ function playSound(type) {
   }
 }
 
-// Request fullscreen on mount (optional)
-function requestFullscreen() {
-  const el = document.documentElement;
-  if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
-}
+onMounted(async () => {
+  const sessionId = route.params.sessionId;
+  if (!sessionId) return;
 
-onMounted(() => {
-  const id = route.params.sessionId;
-  if (id) {
-    joinSession(id);
+  try {
+    // Auto sign-in anonymously for dealer mode (bypasses LINE login requirement)
+    if (!auth.currentUser) {
+      await signInAnonymously(auth);
+    }
+    authLoading.value = false;
+
+    // Register this anonymous user as a dealer and join the session
+    joinSession(sessionId);
+  } catch (e) {
+    authLoading.value = false;
+    showError(e.message);
   }
 });
 
@@ -348,7 +336,6 @@ onUnmounted(() => {
   height: 100dvh;
 }
 
-/* Header */
 .clock-header {
   display: flex;
   align-items: center;
@@ -386,6 +373,20 @@ onUnmounted(() => {
   margin-top: 0.25rem;
 }
 
+.dealer-badge {
+  display: inline-block;
+  margin-top: 0.25rem;
+  padding: 0.15rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
 .hud-control-btn {
   width: 40px;
   height: 40px;
@@ -402,13 +403,6 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.2);
 }
 
-.hud-control-btn.dealer-active {
-  background: rgba(245, 158, 11, 0.3);
-  border-color: #f59e0b;
-  color: #fbbf24;
-}
-
-/* Body */
 .clock-body {
   flex: 1;
   display: grid;
@@ -418,7 +412,6 @@ onUnmounted(() => {
   min-height: 0;
 }
 
-/* Info Panels */
 .info-panel {
   display: flex;
   flex-direction: column;
@@ -473,7 +466,6 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-/* Center */
 .clock-center {
   display: flex;
   flex-direction: column;
@@ -531,14 +523,8 @@ onUnmounted(() => {
   transition: color 0.3s;
 }
 
-.timer-warning {
-  color: #fbbf24;
-}
-
-.timer-danger {
-  color: #f87171;
-}
-
+.timer-warning { color: #fbbf24; }
+.timer-danger { color: #f87171; }
 .timer-critical {
   color: #ef4444;
   animation: timerPulse 0.5s ease-in-out infinite;
@@ -589,7 +575,6 @@ onUnmounted(() => {
   margin-top: 0.5rem;
 }
 
-/* ── Mobile responsive ─────────────────────────── */
 @media (max-width: 768px) {
   .clock-body {
     grid-template-columns: 1fr;
@@ -605,16 +590,16 @@ onUnmounted(() => {
     gap: 0.75rem;
   }
 
-  .info-item {
-    min-width: 80px;
+  .info-panel {
+    gap: 0.75rem;
   }
 
   .blinds-value {
-    font-size: 2.5rem;
+    font-size: clamp(2rem, 10vw, 3.5rem);
   }
 
   .timer-display {
-    font-size: 4rem;
+    font-size: clamp(3rem, 15vw, 6rem);
     padding: 0.5rem 1rem;
   }
 }

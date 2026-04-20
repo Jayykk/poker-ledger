@@ -87,7 +87,7 @@ describe('Room creation flow', () => {
     });
 
     it('should pass tournamentSessionId to createGame options', () => {
-      expect(lobbyContent).toContain('options.tournamentSessionId = sessionId');
+      expect(lobbyContent).toContain('options.tournamentSessionId = tournamentSessionId');
     });
 
     it('should merge built-in templates and user presets in allTemplateOptions', () => {

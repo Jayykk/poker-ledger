@@ -97,8 +97,21 @@
         >
           <i class="fas fa-pause mr-2"></i>{{ $t('timeBank.pause') }}
         </button>
-        <button @click="resetTimer" class="ctrl-btn reset">
+        <button @click="resetAndStart()" class="ctrl-btn reset">
           <i class="fas fa-redo mr-2"></i>{{ $t('timeBank.reset') }}
+        </button>
+      </div>
+
+      <!-- Quick preset buttons (host) -->
+      <div v-if="isHost" class="quick-presets">
+        <button
+          v-for="preset in timePresets"
+          :key="preset"
+          @click="resetAndStart(preset)"
+          class="quick-preset-btn"
+          :class="{ active: totalSeconds === preset }"
+        >
+          {{ preset }}s
         </button>
       </div>
 
@@ -143,7 +156,7 @@ const { error: showError } = useNotification();
 const {
   session, loading, localTimeLeft,
   isHost, label, status, totalSeconds, percentage, urgency, formattedTime,
-  createSession, joinSession, startTimer, pauseTimer, resetTimer, updateConfig, cleanup,
+  createSession, joinSession, startTimer, pauseTimer, resetTimer, resetAndStart, updateConfig, cleanup,
 } = useTimeBank();
 
 const showSettings = ref(false);
@@ -222,7 +235,7 @@ async function handleCreate() {
 }
 
 function handleBack() {
-  router.push('/tournament-presets');
+  router.push('/lobby');
 }
 
 async function applySettings() {
@@ -473,5 +486,36 @@ watch(totalSeconds, (v) => { editSeconds.value = v; });
 
 .preset-btn:hover:not(.active) {
   background: #475569;
+}
+
+.quick-presets {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.quick-preset-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.quick-preset-btn.active {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border-color: #f59e0b;
+}
+
+.quick-preset-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
 }
 </style>
