@@ -214,9 +214,6 @@
             >
               {{ game.profitCash > 0 ? '+' : '' }}${{ formatNumber(Math.round(game.profitCash)) }}
             </div>
-            <div v-if="game.rate && game.rate !== 1" class="text-xs text-gray-500 font-mono">
-              {{ game.profit > 0 ? '+' : '' }}{{ formatNumber(game.profit) }} chips
-            </div>
           </div>
         </div>
       </div>

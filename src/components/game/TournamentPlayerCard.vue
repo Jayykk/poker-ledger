@@ -42,7 +42,7 @@
         <div class="flex gap-2 mt-2">
           <!-- Eliminate button (active players only) -->
           <BaseButton
-            v-if="!player.eliminated"
+            v-if="!player.eliminated && !isChampion"
             @click="$emit('eliminate', player)"
             variant="danger"
             size="sm"
@@ -102,7 +102,7 @@ const entryCount = computed(() => {
 });
 
 const colorBarClass = computed(() => {
-  if (props.player.placement === 1) return 'bg-amber-400';
+  if (props.isChampion || props.player.placement === 1) return 'bg-amber-400';
   if (props.player.eliminated) return 'bg-gray-600';
   return 'bg-emerald-500';
 });

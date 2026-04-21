@@ -116,6 +116,55 @@ const buildFooter = (uri, label) => ({
   flex: 0,
 });
 
+const truncateAltText = (text) => {
+  if (!text) return '';
+  if (text.length <= MAX_ALT_TEXT_LENGTH) return text;
+  return `${text.slice(0, MAX_ALT_TEXT_LENGTH - 1)}...`;
+};
+
+const formatMoney = (amount) => `$${Math.round(Number(amount) || 0).toLocaleString()}`;
+
+const formatSignedMoney = (amount) => {
+  const rounded = Math.round(Number(amount) || 0);
+  const absText = formatMoney(Math.abs(rounded));
+  if (rounded > 0) return `+${absText}`;
+  if (rounded < 0) return `-${absText}`;
+  return absText;
+};
+
+const getTournamentPlacementTheme = (placement) => {
+  switch (placement) {
+    case 1:
+      return {
+        emoji: '🥇',
+        label: '冠軍',
+        backgroundColor: '#FFF7D6',
+        labelColor: '#B7791F',
+      };
+    case 2:
+      return {
+        emoji: '🥈',
+        label: '亞軍',
+        backgroundColor: '#F8FAFC',
+        labelColor: '#64748B',
+      };
+    case 3:
+      return {
+        emoji: '🥉',
+        label: '季軍',
+        backgroundColor: '#FFF1E6',
+        labelColor: '#C2410C',
+      };
+    default:
+      return {
+        emoji: '🎯',
+        label: placement ? `第 ${placement} 名` : '名次未定',
+        backgroundColor: '#F8FAFC',
+        labelColor: '#475569',
+      };
+  }
+};
+
 /**
  * Send messages to the current chat (user's own name) — FREE, no quota
  * Only works when opened from a LINE chat room.
@@ -378,6 +427,152 @@ const sendSettlementMessage = async ({ gameName, gameId, rate, players }) => {
 };
 
 /**
+ * Send tournament settlement report to the current LINE chat (Flex Message).
+ * Tournament-first layout: prize pool, champion, placements, buy-ins, and profit.
+ */
+const sendTournamentSettlementMessage = async ({ gameName, gameId, players }) => {
+  if (!lineNotifyEnabled.value) return false;
+
+  const sorted = [...(players || [])]
+    .filter((p) => p)
+    .sort((a, b) => (a.placement || 999) - (b.placement || 999));
+
+  if (sorted.length === 0) return false;
+
+  const champion = sorted.find((p) => p.placement === 1) || sorted[0];
+  const totalPrizePool = sorted.reduce((sum, p) => sum + (p.buyIn || 0), 0);
+  const altText = truncateAltText(`🏆 錦標賽結算 — ${gameName || '未命名'} 冠軍：${champion?.name || '未定'}`);
+  const liffUrl = gameId && LIFF_ID ? `https://liff.line.me/${LIFF_ID}/report/${gameId}` : undefined;
+
+  const placementRows = sorted.slice(0, 20).map((player) => {
+    const theme = getTournamentPlacementTheme(player.placement);
+    const profitText = formatSignedMoney(player.profit || 0);
+    const profitColor = (player.profit || 0) >= 0 ? '#0F9D58' : '#E11D48';
+
+    return {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      margin: 'md',
+      paddingAll: '12px',
+      backgroundColor: theme.backgroundColor,
+      cornerRadius: '12px',
+      contents: [
+        {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: theme.emoji, size: 'lg', flex: 0 },
+            {
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              margin: 'md',
+              contents: [
+                {
+                  type: 'text',
+                  text: `#${player.placement || '-'} ${player.name || '???'}`,
+                  size: 'sm',
+                  weight: 'bold',
+                  color: '#1F2937',
+                  wrap: true,
+                },
+                {
+                  type: 'text',
+                  text: theme.label,
+                  size: 'xs',
+                  color: theme.labelColor,
+                  weight: 'bold',
+                  margin: 'sm',
+                },
+              ],
+            },
+            {
+              type: 'text',
+              text: profitText,
+              size: 'sm',
+              weight: 'bold',
+              color: profitColor,
+              align: 'end',
+              flex: 0,
+            },
+          ],
+        },
+        {
+          type: 'text',
+          text: `獎金 ${formatMoney(player.prize)} ｜ 買入 ${formatMoney(player.buyIn)} ｜ 淨利 ${profitText}`,
+          size: 'xs',
+          color: '#6B7280',
+          wrap: true,
+        },
+      ],
+    };
+  });
+
+  const bubble = {
+    type: 'bubble',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: '#A16207',
+      contents: [
+        { type: 'text', text: '🏆 錦標賽結算', color: '#FFFFFF', weight: 'bold', size: 'md' },
+        { type: 'text', text: gameName || '未命名', color: '#FEF3C7', size: 'xs', margin: 'sm' },
+      ],
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'md',
+      contents: [
+        {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              contents: [
+                { type: 'text', text: '獎池', size: 'xs', color: '#9CA3AF' },
+                { type: 'text', text: formatMoney(totalPrizePool), size: 'xxl', weight: 'bold', color: '#1F2937' },
+              ],
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              contents: [
+                { type: 'text', text: '參賽', size: 'xs', color: '#9CA3AF' },
+                { type: 'text', text: `${sorted.length} 人`, size: 'xxl', weight: 'bold', color: '#1F2937' },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '12px',
+          backgroundColor: '#FFF7D6',
+          cornerRadius: '12px',
+          contents: [
+            { type: 'text', text: '👑 冠軍', size: 'xs', color: '#B7791F', weight: 'bold' },
+            { type: 'text', text: champion?.name || '未定', size: 'xl', color: '#92400E', weight: 'bold', margin: 'sm' },
+            { type: 'text', text: `淨利 ${formatSignedMoney(champion?.profit || 0)}`, size: 'xs', color: '#B45309', margin: 'sm' },
+          ],
+        },
+        { type: 'separator', color: '#EEEEEE' },
+        { type: 'text', text: '🏅 名次結果', weight: 'bold', size: 'sm', color: '#333333' },
+        ...placementRows,
+      ],
+    },
+    ...(liffUrl ? { footer: buildFooter(liffUrl, '查看結算') } : {}),
+  };
+
+  return sendMessages([{ type: 'flex', altText, contents: bubble }]);
+};
+
+/**
  * Send daily settlement report to the current LINE chat (Flex Message).
  * Public-friendly layout: summary → game names → all players ranked by P&L.
  */
@@ -611,6 +806,7 @@ export function useLiff() {
     sendBuyInMessage,
     sendUndoMessage,
     sendSettlementMessage,
+    sendTournamentSettlementMessage,
     sendDailySettlementMessage,
     sendDailyRankingMessage,
     shareGameInvite,

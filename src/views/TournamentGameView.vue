@@ -195,13 +195,13 @@
       </div>
 
       <!-- Warnings -->
-      <div v-if="activePlayers.length > 0" class="text-amber-400 text-center text-xs mb-4">
+      <div v-if="playersStillInPlay.length > 0" class="text-amber-400 text-center text-xs mb-4">
         <i class="fas fa-exclamation-triangle mr-1"></i>
-        {{ activePlayers.length }} {{ $t('tournament.inPlay') }}
+        {{ playersStillInPlay.length }} {{ $t('tournament.inPlay') }}
       </div>
 
       <div class="grid gap-3">
-        <BaseButton @click="handleSettle" variant="primary" fullWidth :disabled="activePlayers.length > 1">
+        <BaseButton @click="handleSettle" variant="primary" fullWidth :disabled="playersStillInPlay.length > 0">
           {{ $t('common.confirm') }}
         </BaseButton>
       </div>
@@ -259,7 +259,7 @@ const {
   checkGameStatus, joinAsNewPlayer, joinGameListener,
   closeGame, eliminatePlayer, reentryPlayer, settleTournament,
 } = useGame();
-const { sendBuyInMessage, sendUndoMessage, shareGameInvite, isInitialized: liffReady } = useLiff();
+const { sendBuyInMessage, sendUndoMessage, sendTournamentSettlementMessage, shareGameInvite, isInitialized: liffReady } = useLiff();
 const { success, error: showError, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
@@ -359,6 +359,10 @@ const isChampion = (player) => {
   return !player.eliminated && activePlayers.value.length === 1 && !reentriesOpen.value;
 };
 
+const playersStillInPlay = computed(() =>
+  activePlayers.value.filter(player => !isChampion(player))
+);
+
 const sortedPlayers = computed(() => {
   if (!game.value) return [];
   const players = [...game.value.players];
@@ -448,6 +452,8 @@ watch(() => gameId.value, (newGameId) => {
 // ── Handlers ──
 
 const handleEliminate = async (player) => {
+  if (isChampion(player)) return;
+
   const alive = activePlayers.value.length;
   const isFinalElimination = alive <= 2 && !reentriesOpen.value;
   const message = isFinalElimination
@@ -624,9 +630,16 @@ const handleSettle = async () => {
   });
   if (shouldSettle) {
     await withLoading(async () => {
-      const ok = await settleTournament(payoutRatios.value);
-      if (ok) {
+      const gameName = game.value?.name;
+      const gId = game.value?.id;
+      const settlement = await settleTournament(payoutRatios.value);
+      if (settlement !== false) {
         showSettlement.value = false;
+        sendTournamentSettlementMessage({
+          gameName,
+          gameId: gId,
+          players: settlement,
+        });
         router.push('/report');
       }
     }, t('loading.settling'));
