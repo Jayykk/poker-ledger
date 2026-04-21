@@ -1,5 +1,5 @@
 <template>
-  <div class="tournament-clock-view" :class="{ 'is-break': isBreak, 'time-critical': timerColorClass === 'timer-critical' && status === 'running' }">
+  <div>
     <!-- Auth loading -->
     <div v-if="authLoading" class="flex flex-col items-center justify-center h-screen bg-slate-900 text-white">
       <LoadingSpinner />
@@ -18,126 +18,31 @@
     </div>
 
     <!-- Main Clock Display -->
-    <div v-else class="clock-container">
-      <!-- Header -->
-      <header class="clock-header">
-        <div class="header-left">
-          <button @click="showControls = !showControls" class="hud-control-btn">
-            <i class="fas fa-cog"></i>
-          </button>
-        </div>
-        <div class="header-center">
-          <h1 class="tournament-name">{{ config.name || 'Tournament' }}</h1>
-          <p class="tournament-subtitle" :class="{ 'registration-closed': isRegistrationClosed }">
-            <template v-if="isRegistrationClosed">{{ $t('tournament.registrationClosed') }}</template>
-            <template v-else>{{ config.subtitle || `BuyIn $${config.buyIn} | ${$t('tournament.reentryUntil', { level: config.reentryUntilLevel })}` }}</template>
-          </p>
-          <div class="dealer-badge">
-            <i class="fas fa-user-shield mr-1"></i>{{ $t('tournament.dealerMode') }}
-          </div>
-        </div>
-        <div class="header-right">
-          <button @click="showTimeBankFromClock" class="hud-control-btn" :title="$t('timeBank.title')">
-            <i class="fas fa-hourglass-half"></i>
-          </button>
-          <button @click="requestFullscreen" class="hud-control-btn" :title="$t('tournament.fullscreen')">
-            <i class="fas fa-expand"></i>
-          </button>
-        </div>
-      </header>
-
-      <!-- Body: 3-column layout -->
-      <div class="clock-body">
-        <!-- Left Panel -->
-        <aside class="info-panel left-panel">
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.entries') }}</div>
-            <div class="info-value">{{ entries }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.playersLeft') }}</div>
-            <div class="info-value">{{ playersRemaining }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.totalPlayers') }}</div>
-            <div class="info-value">{{ playersRegistered }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.chipsInPlay') }}</div>
-            <div class="info-value">{{ formatNumber(chipsInPlay) }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.averageStack') }}</div>
-            <div class="info-value">{{ formatNumber(averageStack) }}<span v-if="averageStackBB" class="avg-bb"> ({{ averageStackBB }} BB)</span></div>
-          </div>
-        </aside>
-
-        <!-- Center: Main Clock -->
-        <main class="clock-center">
-          <!-- Level indicator -->
-          <div class="level-indicator">
-            <template v-if="isBreak">
-              <span class="level-text break-text">☕ {{ $t('tournament.breakTime') }}</span>
-            </template>
-            <template v-else>
-              <span class="level-text">{{ $t('tournament.level') }} {{ currentLevel }}</span>
-            </template>
-          </div>
-
-          <!-- Blinds display -->
-          <div class="blinds-display" v-if="!isBreak">
-            <span class="blinds-value">{{ formatNumber(currentBlinds.small) }} / {{ formatNumber(currentBlinds.big) }}<span v-if="currentBlinds.ante" class="ante-value"> ({{ formatNumber(currentBlinds.ante) }})</span></span>
-          </div>
-
-          <!-- Break in countdown -->
-          <div class="break-in-info" v-if="timeToBreak">
-            <span class="break-in-label">{{ $t('tournament.breakIn') }}</span>
-            <span class="break-in-value">{{ timeToBreak }}</span>
-          </div>
-
-          <!-- Timer -->
-          <div class="timer-display" :class="timerColorClass">
-            {{ formattedTime }}
-          </div>
-
-          <!-- Status badge -->
-          <div v-if="status === 'waiting'" class="status-badge waiting">
-            {{ $t('tournament.waitingToStart') }}
-          </div>
-          <div v-else-if="status === 'paused'" class="status-badge paused">
-            <i class="fas fa-pause mr-2"></i>{{ $t('tournament.paused') }}
-          </div>
-          <div v-else-if="status === 'ended'" class="status-badge ended">
-            {{ $t('tournament.ended') }}
-          </div>
-
-          <!-- Next blinds -->
-          <div class="next-blinds" v-if="nextPlayLevelEntry && !isBreak">
-            {{ $t('tournament.nextBlinds') }}: {{ formatNumber(nextPlayLevelEntry.small) }} / {{ formatNumber(nextPlayLevelEntry.big) }}
-            <span v-if="nextPlayLevelEntry.ante"> ({{ $t('tournament.ante') }} {{ formatNumber(nextPlayLevelEntry.ante) }})</span>
-          </div>
-          <div class="next-blinds" v-else-if="isBreak && nextPlayLevelEntry">
-            {{ $t('tournament.nextLevel') }}: {{ formatNumber(nextPlayLevelEntry.small) }} / {{ formatNumber(nextPlayLevelEntry.big) }}
-          </div>
-        </main>
-
-        <!-- Right Panel -->
-        <aside class="info-panel right-panel">
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.prizePool') }}</div>
-            <div class="info-value prize">${{ formatNumber(prizePool) }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.payouts') }}</div>
-            <div class="payout-list">
-              <div v-for="p in payouts" :key="p.place" class="payout-row">
-                <span class="payout-place">{{ p.place }}.</span>
-                <span class="payout-amount">${{ formatNumber(p.amount) }}</span>
-              </div>
-            </div>
-          </div>
-        </aside>
-      </div>
+    <template v-else>
+      <DealerClockDisplay
+        :title="config.name || 'Tournament'"
+        :subtitle-text="headerSubtitleText"
+        :is-registration-closed="isRegistrationClosed"
+        :entries="entries"
+        :players-remaining="playersRemaining"
+        :players-registered="playersRegistered"
+        :chips-in-play="chipsInPlay"
+        :average-stack="averageStack"
+        :average-stack-bb="averageStackBB"
+        :is-break="isBreak"
+        :current-level="currentLevel"
+        :current-blinds="currentBlinds"
+        :time-to-break="timeToBreak"
+        :formatted-time="formattedTime"
+        :timer-color-class="timerColorClass"
+        :status="status"
+        :next-play-level-entry="nextPlayLevelEntry"
+        :prize-pool="prizePool"
+        :payouts="payouts"
+        @toggle-settings="showControls = !showControls"
+        @open-time-bank="showTimeBankFromClock"
+        @request-fullscreen="requestFullscreen"
+      />
 
       <!-- Host Controls Overlay (always available in dealer mode) -->
       <TournamentControls
@@ -157,15 +62,12 @@
         @end="handleEnd"
         @close="showControls = false"
       />
-    </div>
-
-    <!-- Audio element for alerts -->
-    <audio ref="audioRef" preload="auto"></audio>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { signInAnonymously } from 'firebase/auth';
@@ -174,6 +76,7 @@ import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useWakeLock } from '../composables/useWakeLock.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
+import DealerClockDisplay from '../components/tournament/DealerClockDisplay.vue';
 import TournamentControls from '../components/tournament/TournamentControls.vue';
 import {
   TIMER_WARNING_THRESHOLD, TIMER_DANGER_THRESHOLD, TIMER_CRITICAL_THRESHOLD,
@@ -188,13 +91,12 @@ useWakeLock();
 
 const authLoading = ref(true);
 const showControls = ref(false);
-const audioRef = ref(null);
 let warningPlayed = false;
 
 const {
   session, loading, localTimeLeft,
-  isHost, config, status, currentLevel, currentLevelIndex,
-  currentLevelEntry, currentBlinds, nextPlayLevelEntry,
+  config, status, currentLevel, currentLevelIndex,
+  currentBlinds, nextPlayLevelEntry,
   isBreak, levels, playersRegistered, playersRemaining,
   reentries, entries, chipsInPlay, averageStack, averageStackBB,
   isRegistrationClosed, prizePool, payouts,
@@ -202,6 +104,17 @@ const {
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
   updatePlayers, addReentry, endTournament, cleanup,
 } = useTournamentClock({ dealerMode: true });
+
+const headerSubtitleText = computed(() => {
+  if (config.value.subtitle) return config.value.subtitle;
+
+  const buyInText = config.value.buyIn ? `BuyIn $${config.value.buyIn}` : '';
+  const reentryText = config.value.reentryUntilLevel
+    ? t('tournament.reentryUntil', { level: config.value.reentryUntilLevel })
+    : '';
+
+  return [buyInText, reentryText].filter(Boolean).join(' | ');
+});
 
 // Timer color class
 const timerColorClass = ref('');
@@ -314,378 +227,3 @@ onUnmounted(() => {
   cleanup();
 });
 </script>
-
-<style scoped>
-.tournament-clock-view {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
-  color: white;
-  font-family: 'Inter', system-ui, sans-serif;
-  overflow: hidden;
-}
-
-.tournament-clock-view.is-break {
-  background: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #064e3b 100%);
-}
-
-.tournament-clock-view.time-critical {
-  animation: borderPulse 1s ease-in-out infinite;
-}
-
-@keyframes borderPulse {
-  0%, 100% { box-shadow: inset 0 0 30px rgba(239, 68, 68, 0); }
-  50% { box-shadow: inset 0 0 30px rgba(239, 68, 68, 0.3); }
-}
-
-.clock-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
-}
-
-.clock-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1.5rem;
-  background: rgba(0, 0, 0, 0.4);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-}
-
-.header-left, .header-right {
-  display: flex;
-  gap: 0.5rem;
-  min-width: 80px;
-}
-
-.header-right {
-  justify-content: flex-end;
-}
-
-.header-center {
-  text-align: center;
-  flex: 1;
-}
-
-.tournament-name {
-  font-size: clamp(1.5rem, 4vw, 3rem);
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-}
-
-.tournament-subtitle {
-  font-size: clamp(0.7rem, 1.5vw, 1rem);
-  color: rgba(255, 255, 255, 0.7);
-  margin-top: 0.25rem;
-}
-
-.dealer-badge {
-  display: inline-block;
-  margin-top: 0.25rem;
-  padding: 0.15rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.4);
-}
-
-.hud-control-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.hud-control-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.clock-body {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 2fr 1fr;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  min-height: 0;
-}
-
-.info-panel {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1.5rem;
-}
-
-.info-item {
-  text-align: center;
-}
-
-.info-label {
-  font-size: clamp(0.85rem, 1.5vw, 1.1rem);
-  font-weight: 700;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.8);
-  letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
-}
-
-.info-value {
-  font-size: clamp(1.15rem, 2.2vw, 1.6rem);
-  font-weight: 600;
-  color: white;
-}
-
-.info-value.prize {
-  color: #fbbf24;
-  font-size: clamp(1.4rem, 2.8vw, 2.2rem);
-  font-weight: 800;
-}
-
-.payout-list {
-  margin-top: 0.5rem;
-}
-
-.payout-row {
-  display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-  font-size: clamp(0.9rem, 1.6vw, 1.2rem);
-  padding: 0.15rem 0;
-}
-
-.payout-place {
-  color: rgba(255, 255, 255, 0.6);
-  min-width: 1.5em;
-  text-align: right;
-}
-
-.payout-amount {
-  font-weight: 600;
-}
-
-.clock-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.level-indicator {
-  margin-bottom: 0.5rem;
-}
-
-.level-text {
-  font-size: clamp(1rem, 2vw, 1.4rem);
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.8);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.break-text {
-  color: #6ee7b7;
-  font-size: clamp(1.2rem, 2.5vw, 1.8rem);
-}
-
-.blinds-display {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.blinds-value {
-  font-size: clamp(2.5rem, 6vw, 5rem);
-  font-weight: 800;
-  color: white;
-  text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
-}
-
-.ante-value {
-  font-size: clamp(1.4rem, 3.5vw, 2.8rem);
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.avg-bb {
-  font-size: clamp(0.75rem, 1.2vw, 1rem);
-  color: rgba(255, 255, 255, 0.5);
-  font-weight: 400;
-}
-
-.tournament-subtitle.registration-closed {
-  background: rgba(220, 38, 38, 0.35);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  padding: 0.15rem 0.75rem;
-  border-radius: 4px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-}
-
-.break-in-info {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: clamp(1rem, 2vw, 1.4rem);
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 0.25rem;
-}
-
-.break-in-label {
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.break-in-value {
-  font-weight: 700;
-  color: #6ee7b7;
-  font-variant-numeric: tabular-nums;
-}
-
-.timer-display {
-  font-size: clamp(4rem, 12vw, 10rem);
-  font-weight: 900;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.05em;
-  line-height: 1;
-  padding: 1rem 2rem;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 1rem;
-  text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-  transition: color 0.3s;
-}
-
-.timer-warning { color: #fbbf24; }
-.timer-danger { color: #f87171; }
-.timer-critical {
-  color: #ef4444;
-  animation: timerPulse 0.5s ease-in-out infinite;
-}
-
-@keyframes timerPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.02); }
-}
-
-.status-badge {
-  padding: 0.5rem 1.5rem;
-  border-radius: 9999px;
-  font-size: clamp(0.8rem, 1.5vw, 1.1rem);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.status-badge.waiting {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.4);
-}
-
-.status-badge.paused {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.4);
-  animation: pauseBlink 2s ease-in-out infinite;
-}
-
-@keyframes pauseBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-.status-badge.ended {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.4);
-}
-
-.next-blinds {
-  font-size: clamp(1rem, 2.2vw, 1.5rem);
-  color: rgba(255, 255, 255, 0.7);
-  font-weight: 600;
-  margin-top: 0.5rem;
-}
-
-/* ── Tablet & large screen responsive (≥ 769px) ─── */
-@media (min-width: 769px) {
-  .info-label {
-    font-size: 1.7rem;
-  }
-
-  .info-value {
-    font-size: 2.8rem;
-  }
-
-  .info-value.prize {
-    font-size: 3.5rem;
-  }
-
-  .payout-row {
-    font-size: 1.8rem;
-  }
-
-  .blinds-value {
-    font-size: 4rem;
-  }
-
-  .timer-display {
-    font-size: 7rem;
-  }
-
-  .level-text {
-    font-size: 1.3rem;
-  }
-
-  .hud-control-btn {
-    width: 48px;
-    height: 48px;
-    font-size: 1.2rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .clock-body {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr auto;
-    padding: 0.5rem;
-    gap: 0.5rem;
-  }
-
-  .left-panel, .right-panel {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.75rem;
-  }
-
-  .info-panel {
-    gap: 0.75rem;
-  }
-
-  .blinds-value {
-    font-size: clamp(2rem, 10vw, 3.5rem);
-  }
-
-  .timer-display {
-    font-size: clamp(3rem, 15vw, 6rem);
-    padding: 0.5rem 1rem;
-  }
-}
-</style>
