@@ -21,6 +21,33 @@ import { useAuthStore } from './auth.js';
 import { useUserStore } from './user.js';
 import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';
 
+function getEffectiveTournamentLevel(levels = [], currentLevelIndex = 0) {
+  const normalizedIndex = Number.isFinite(Number(currentLevelIndex))
+    ? Math.min(levels.length - 1, Math.max(0, Math.floor(Number(currentLevelIndex))))
+    : 0;
+
+  for (let index = normalizedIndex; index >= 0; index -= 1) {
+    if (!levels[index]?.isBreak) {
+      return levels[index]?.level ?? 0;
+    }
+  }
+
+  return 0;
+}
+
+function isTournamentReentryClosed(sessionData = {}) {
+  const config = sessionData.config || {};
+  const state = sessionData.state || {};
+  const reentryUntilLevel = config.reentryUntilLevel || 0;
+
+  if (reentryUntilLevel <= 0) {
+    return true;
+  }
+
+  const effectiveLevel = getEffectiveTournamentLevel(config.levels || [], state.currentLevelIndex ?? 0);
+  return effectiveLevel >= reentryUntilLevel;
+}
+
 export const useGameStore = defineStore('game', () => {
   const authStore = useAuthStore();
   const userStore = useUserStore();
@@ -489,7 +516,8 @@ export const useGameStore = defineStore('game', () => {
   /**
    * Eliminate a player (tournament only)
    * Sets placement = current alive count (last out = highest number = worst rank)
-   * If only 1 player remains after elimination, auto-crown them as champion (placement=1)
+   * If only 1 player remains after elimination and re-entry is closed,
+   * auto-crown them as champion (placement=1)
    */
   const eliminatePlayer = async (playerId) => {
     if (!gameId.value) return false;
@@ -506,31 +534,50 @@ export const useGameStore = defineStore('game', () => {
         const target = players.find(p => p.id === playerId);
         if (!target) throw new Error('Player not found');
         if (target.eliminated) return;
+        if (aliveBefore.length <= 1) throw new Error('Cannot eliminate the last remaining player');
 
         const placement = aliveBefore.length; // e.g. 5 alive → eliminated gets 5th
-        const updatedPlayers = players.map(p => {
+        let updatedPlayers = players.map(p => {
           if (p.id === playerId) {
             return { ...p, eliminated: true, eliminatedAt: Date.now(), placement };
           }
           return p;
         });
 
-        transaction.update(gameRef, { players: updatedPlayers });
-
         const aliveAfter = updatedPlayers.filter(p => !p.eliminated).length;
+        const hasSingleWinner = aliveAfter === 1;
         const sessionId = gameData.tournamentSessionId;
-        if (sessionId && aliveAfter <= 1) {
+        let shouldEndTournament = hasSingleWinner && !sessionId;
+
+        if (sessionId) {
           const sessionRef = doc(db, 'tournamentSessions', sessionId);
           const sessionSnap = await transaction.get(sessionRef);
           if (sessionSnap.exists()) {
-            transaction.update(sessionRef, {
-              'state.status': 'ended',
-              'state.timeLeftSeconds': 0,
-              'state.lastTickAt': null,
+            shouldEndTournament = hasSingleWinner && isTournamentReentryClosed(sessionSnap.data());
+
+            const sessionUpdates = {
+              'state.playersRemaining': aliveAfter,
               updatedAt: serverTimestamp(),
-            });
+            };
+
+            if (shouldEndTournament) {
+              sessionUpdates['state.status'] = 'ended';
+              sessionUpdates['state.timeLeftSeconds'] = 0;
+              sessionUpdates['state.lastTickAt'] = null;
+            }
+
+            transaction.update(sessionRef, sessionUpdates);
           }
         }
+
+        if (shouldEndTournament) {
+          updatedPlayers = updatedPlayers.map(p => {
+            if (p.eliminated) return p;
+            return { ...p, placement: 1 };
+          });
+        }
+
+        transaction.update(gameRef, { players: updatedPlayers });
       });
       return true;
     } catch (err) {
@@ -565,15 +612,7 @@ export const useGameStore = defineStore('game', () => {
           // Check level limit (session state is authoritative)
           const reentryUntilLevel = cfg.reentryUntilLevel || 0;
           if (reentryUntilLevel > 0) {
-            const levels = cfg.levels || [];
-            const idx = st.currentLevelIndex ?? 0;
-            let effectiveLevel = 0;
-            for (let i = idx; i >= 0; i--) {
-              if (!levels[i]?.isBreak) {
-                effectiveLevel = levels[i]?.level ?? 0;
-                break;
-              }
-            }
+            const effectiveLevel = getEffectiveTournamentLevel(cfg.levels || [], st.currentLevelIndex ?? 0);
             if (effectiveLevel >= reentryUntilLevel) {
               error.value = 'Re-entry is no longer allowed at this level';
               return false;

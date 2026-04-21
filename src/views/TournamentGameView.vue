@@ -255,12 +255,12 @@ const router = useRouter();
 const route = useRoute();
 const { user, displayName } = useAuth();
 const {
-  game, gameId, isHost, addPlayer, updatePlayer, removePlayer,
+  game, gameId, isHost, error: gameError, addPlayer, updatePlayer, removePlayer,
   checkGameStatus, joinAsNewPlayer, joinGameListener,
   closeGame, eliminatePlayer, reentryPlayer, settleTournament,
 } = useGame();
 const { sendBuyInMessage, sendUndoMessage, shareGameInvite, isInitialized: liffReady } = useLiff();
-const { success, copyWithNotification } = useNotification();
+const { success, error: showError, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
 
@@ -449,31 +449,21 @@ watch(() => gameId.value, (newGameId) => {
 
 const handleEliminate = async (player) => {
   const alive = activePlayers.value.length;
-  const message = alive <= 2
+  const isFinalElimination = alive <= 2 && !reentriesOpen.value;
+  const message = isFinalElimination
     ? t('tournament.lastTwoWarning')
     : t('tournament.confirmEliminate', { name: player.name });
 
-  const shouldEliminate = await confirm({ message, type: alive <= 2 ? 'warning' : 'danger' });
+  const shouldEliminate = await confirm({ message, type: isFinalElimination ? 'warning' : 'danger' });
   if (shouldEliminate) {
     await withLoading(async () => {
       const ok = await eliminatePlayer(player.id);
-      if (ok) {
-        // Also update tournament session playersRemaining
-        const sessionId = game.value?.tournamentSessionId;
-        if (sessionId) {
-          const { doc, updateDoc, getDoc } = await import('firebase/firestore');
-          const { db } = await import('../firebase-init.js');
-          const sessionRef = doc(db, 'tournamentSessions', sessionId);
-          const snap = await getDoc(sessionRef);
-          if (snap.exists()) {
-            const st = snap.data().state || {};
-            await updateDoc(sessionRef, {
-              'state.playersRemaining': Math.max(0, (st.playersRemaining || 0) - 1),
-            });
-          }
-        }
-        success(t('tournament.eliminated'));
+      if (!ok) {
+        showError(gameError.value || 'Failed to eliminate player');
+        return;
       }
+
+      success(t('tournament.eliminated'));
     }, t('loading.saving'));
   }
 };
