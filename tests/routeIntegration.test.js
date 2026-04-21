@@ -36,6 +36,16 @@ describe('Route definitions', () => {
       expect(mainContent).toMatch(routeRegex);
     });
   }
+
+  it('should define route "/dealer-clock-demo" with name "DealerClockDemo"', () => {
+    expect(mainContent).toContain('/dealer-clock-demo');
+    expect(mainContent).toContain('DealerClockDemo');
+  });
+
+  it('dealer clock demo route should not require auth', () => {
+    const routeRegex = /path:\s*'\/dealer-clock-demo'[^}]*requiresAuth:\s*false/;
+    expect(mainContent).toMatch(routeRegex);
+  });
 });
 
 describe('Module interfaces', () => {
@@ -139,6 +149,25 @@ describe('Component files exist', () => {
 
   it('TournamentControls.vue should exist', () => {
     expect(existsSync(resolve(__dirname, '../src/components/tournament/TournamentControls.vue'))).toBe(true);
+  });
+
+  it('DealerClockDisplay.vue should exist', () => {
+    expect(existsSync(resolve(__dirname, '../src/components/tournament/DealerClockDisplay.vue'))).toBe(true);
+  });
+});
+
+describe('Dealer clock display integration', () => {
+  const { readFileSync } = require('fs');
+  const { resolve } = require('path');
+  const dealerViewContent = readFileSync(resolve(__dirname, '../src/views/DealerClockView.vue'), 'utf-8');
+  const dealerDemoContent = readFileSync(resolve(__dirname, '../src/views/DealerClockDemoView.vue'), 'utf-8');
+
+  it('DealerClockView should render the shared DealerClockDisplay', () => {
+    expect(dealerViewContent).toContain('DealerClockDisplay');
+  });
+
+  it('DealerClockDemoView should render the shared DealerClockDisplay', () => {
+    expect(dealerDemoContent).toContain('DealerClockDisplay');
   });
 });
 

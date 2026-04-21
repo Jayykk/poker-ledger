@@ -93,6 +93,7 @@ import TournamentSetupView from './views/TournamentSetupView.vue';
 import TournamentPresetsView from './views/TournamentPresetsView.vue';
 import TimeBankView from './views/TimeBankView.vue';
 import DealerClockView from './views/DealerClockView.vue';
+import DealerClockDemoView from './views/DealerClockDemoView.vue';
 import TournamentGameView from './views/TournamentGameView.vue';
 
 // ── Async bootstrap ─────────────────────────────────────────────────
@@ -140,6 +141,7 @@ import TournamentGameView from './views/TournamentGameView.vue';
       { path: '/time-bank/:sessionId', name: 'TimeBank', component: TimeBankView, meta: { requiresAuth: true } },
       { path: '/tournament-game', name: 'TournamentGame', component: TournamentGameView, meta: { requiresAuth: true } },
       { path: '/tournament-game/:gameId', name: 'TournamentGameDirect', component: TournamentGameView, meta: { requiresAuth: true } },
+      { path: '/dealer-clock-demo', name: 'DealerClockDemo', component: DealerClockDemoView, meta: { requiresAuth: false } },
       { path: '/dealer-clock/:sessionId', name: 'DealerClock', component: DealerClockView, meta: { requiresAuth: false } }
     ]
   });
