@@ -71,9 +71,9 @@
 
         <!-- Center: Main Clock -->
         <main class="clock-center">
-          <div class="info-item break-in-center" v-if="timeToBreak">
-            <div class="info-label">{{ $t('tournament.breakIn') }}</div>
-            <div class="info-value">{{ timeToBreak }}</div>
+          <div class="break-in-info break-in-top" v-if="timeToBreak">
+            <span class="break-in-label">{{ $t('tournament.breakIn') }}</span>
+            <span class="break-in-value">{{ timeToBreak }}</span>
           </div>
 
           <!-- Level indicator -->
@@ -89,12 +89,6 @@
           <!-- Blinds display -->
           <div class="blinds-display" v-if="!isBreak">
             <span class="blinds-value">{{ formatNumber(currentBlinds.small) }} / {{ formatNumber(currentBlinds.big) }}<span v-if="currentBlinds.ante" class="ante-value"> ({{ formatNumber(currentBlinds.ante) }})</span></span>
-          </div>
-
-          <!-- Break in countdown -->
-          <div class="break-in-info" v-if="timeToBreak">
-            <span class="break-in-label">{{ $t('tournament.breakIn') }}</span>
-            <span class="break-in-value">{{ timeToBreak }}</span>
           </div>
 
           <!-- Timer -->
@@ -606,6 +600,10 @@ onUnmounted(() => {
   margin-bottom: 0.25rem;
 }
 
+.break-in-top {
+  margin-bottom: 0.5rem;
+}
+
 .break-in-label {
   font-weight: 600;
   text-transform: uppercase;
@@ -619,12 +617,17 @@ onUnmounted(() => {
 }
 
 .timer-display {
-  font-size: clamp(4.5rem, 13vw, 11rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 6.4ch;
+  font-size: clamp(4.85rem, 13.6vw, 11rem);
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.05em;
   line-height: 1;
-  padding: 1rem 2rem;
+  text-align: center;
+  padding: clamp(0.85rem, 1.9vw, 1.15rem) clamp(1.25rem, 3.2vw, 2.2rem);
   background: rgba(0, 0, 0, 0.4);
   border-radius: 1rem;
   text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
@@ -712,7 +715,8 @@ onUnmounted(() => {
   }
 
   .timer-display {
-    font-size: 7rem;
+    font-size: clamp(7.5rem, 8.4vw, 8.75rem);
+    padding: 1rem 2.25rem;
   }
 
   .level-text {
@@ -751,8 +755,8 @@ onUnmounted(() => {
   }
 
   .timer-display {
-    font-size: 4rem;
-    padding: 0.5rem 1rem;
+    font-size: clamp(4.6rem, 17vw, 5.4rem);
+    padding: 0.7rem 1.1rem;
   }
 }
 </style>
