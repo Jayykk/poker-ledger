@@ -32,18 +32,18 @@
           <div>
             <div class="text-white font-medium">{{ player.name }}</div>
             <div class="text-xs text-gray-400">
-              買入: {{ formatNumber(player.buyIn) }} | 籌碼: {{ formatNumber(player.stack) }}
+              {{ getSettlementSummary(player) }}
             </div>
           </div>
           <div class="text-right">
             <div
               class="font-mono font-bold text-lg"
-              :class="getProfitColorClass(player.profit)"
+              :class="getProfitColorClass(getPlayerProfitCash(player))"
             >
-              {{ player.profit > 0 ? '+' : '' }}{{ formatNumber(player.profit) }}
+              {{ getPlayerProfitCash(player) > 0 ? '+' : '' }}${{ formatCash(player.profit || 0, record.rate || 1) }}
             </div>
-            <div class="text-xs text-gray-500">
-              Cash: {{ player.profit > 0 ? '+' : '' }}{{ formatCash(player.profit, record.rate) }}
+            <div v-if="showChipProfit" class="text-xs text-gray-500">
+              {{ player.profit > 0 ? '+' : '' }}{{ formatNumber(player.profit || 0) }} {{ $t('game.chips') }}
             </div>
           </div>
         </div>
@@ -197,11 +197,30 @@ const hasSettlement = computed(() => {
   return props.record?.settlement && Array.isArray(props.record.settlement) && props.record.settlement.length > 0;
 });
 
+const isTournamentRecord = computed(() => props.record?.type === 'tournament');
+
+const getRecordRate = () => props.record?.rate || 1;
+
+const showChipProfit = computed(() => getRecordRate() !== 1);
+
 const sortedSettlement = computed(() => {
   if (!hasSettlement.value) return [];
-  // Sort by profit (highest first)
-  return [...props.record.settlement].sort((a, b) => b.profit - a.profit);
+  if (isTournamentRecord.value) {
+    return [...props.record.settlement].sort((a, b) => (a.placement || 999) - (b.placement || 999));
+  }
+  return [...props.record.settlement].sort((a, b) => (b.profit || 0) - (a.profit || 0));
 });
+
+const getPlayerProfitCash = (player) => (player?.profit || 0) / getRecordRate();
+
+const getSettlementSummary = (player) => {
+  if (isTournamentRecord.value) {
+    const placement = player?.placement ? `#${player.placement}` : '-';
+    return `${t('tournament.placement')}: ${placement} | ${t('game.buyIn')}: $${formatNumber(player?.buyIn || 0)} | ${t('tournament.prize')}: $${formatNumber(player?.prize || 0)}`;
+  }
+
+  return `${t('game.buyIn')}: ${formatNumber(player?.buyIn || 0)} | ${t('game.stack')}: ${formatNumber(player?.stack || 0)}`;
+};
 
 // Load hand records when modal opens with a gameId
 watch(() => props.modelValue, async (isOpen) => {

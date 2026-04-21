@@ -109,13 +109,13 @@
           <!-- Result -->
           <div class="text-right">
             <div class="text-sm text-gray-400">
-              {{ record.profit >= 0 ? $t('report.win') : $t('report.loss') }}
+              {{ record.profitCash >= 0 ? $t('report.win') : $t('report.loss') }}
             </div>
             <div
               class="text-lg font-mono font-bold"
-              :class="record.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'"
+              :class="record.profitCash >= 0 ? 'text-emerald-400' : 'text-rose-400'"
             >
-              {{ record.profit > 0 ? '+' : '' }}{{ formatNumber(record.profit) }}
+              {{ record.profitCash > 0 ? '+' : '' }}${{ formatCash(record.profit, record.rate || 1) }}
             </div>
           </div>
         </div>
@@ -158,7 +158,7 @@ import BaseCard from '../components/common/BaseCard.vue';
 import SettlementDetailModal from '../components/common/SettlementDetailModal.vue';
 import ProfitTrendChart from '../components/chart/ProfitTrendChart.vue';
 import WinRateChart from '../components/chart/WinRateChart.vue';
-import { formatNumber, formatDate } from '../utils/formatters.js';
+import { formatNumber, formatDate, formatCash } from '../utils/formatters.js';
 import { exportHistoryToCSV } from '../utils/exportReport.js';
 import { CHART_COLORS } from '../utils/constants.js';
 
@@ -194,6 +194,7 @@ const recentRecords = computed(() => {
   // Format with date strings
   return sorted.map(h => ({
     ...h,
+    profitCash: (h.profit || 0) / (h.rate || 1),
     dateStr: formatDate(h.createdAt || h.date)
   }));
 });
@@ -230,7 +231,7 @@ const recentChartData = computed(() => {
   // Calculate cumulative profit
   let accumulated = 0;
   const data = recentRecords.value.map(record => {
-    accumulated += record.profit;
+    accumulated += record.profitCash;
     return accumulated;
   });
 
@@ -257,7 +258,7 @@ const chartOptions = {
     tooltip: {
       callbacks: {
         label: (context) => {
-          return `Profit: ${context.parsed.y >= 0 ? '+' : ''}${formatNumber(context.parsed.y)}`;
+              return `Profit: ${context.parsed.y >= 0 ? '+' : ''}$${formatNumber(context.parsed.y)}`;
         }
       }
     }
@@ -278,7 +279,7 @@ const chartOptions = {
       },
       ticks: {
         color: '#94a3b8',
-        callback: (value) => formatNumber(value)
+        callback: (value) => `$${formatNumber(value)}`
       }
     }
   }

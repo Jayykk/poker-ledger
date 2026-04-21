@@ -691,6 +691,8 @@ export const useGameStore = defineStore('game', () => {
 
     loading.value = true;
     try {
+      let settlementResult = [];
+
       await runTransaction(db, async (t) => {
         const gameRef = doc(db, 'games', gameId.value);
         const gameDoc = await t.get(gameRef);
@@ -736,6 +738,7 @@ export const useGameStore = defineStore('game', () => {
             prize: prizeMap[p.placement] || 0,
             profit: (prizeMap[p.placement] || 0) - (p.buyIn || 0),
           }));
+        settlementResult = settlement;
 
         // Write history for each user with uid
         for (const { player, userRef, userDoc } of userReads) {
@@ -768,7 +771,7 @@ export const useGameStore = defineStore('game', () => {
       localStorage.removeItem(STORAGE_KEYS.LAST_GAME_ID);
       await userStore.loadUserData();
 
-      return true;
+      return settlementResult;
     } catch (err) {
       console.error('Settle tournament error:', err);
       error.value = 'Failed to settle tournament: ' + err.message;
