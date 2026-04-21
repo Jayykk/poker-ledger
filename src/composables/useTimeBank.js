@@ -159,7 +159,7 @@ export function useTimeBank() {
     if (!sessionId.value || !isHost.value) return;
     await updateDoc(doc(db, 'timeBankSessions', sessionId.value), {
       'state.status': 'running',
-      'state.lastTickAt': Timestamp.now(),
+      'state.lastTickAt': serverTimestamp(),
     });
   }
 
@@ -187,7 +187,7 @@ export function useTimeBank() {
     const updates = {
       'state.status': 'running',
       'state.timeLeftSeconds': time,
-      'state.lastTickAt': Timestamp.now(),
+      'state.lastTickAt': serverTimestamp(),
     };
     if (seconds) {
       updates['config.totalSeconds'] = time;

@@ -71,6 +71,11 @@
 
         <!-- Center: Main Clock -->
         <main class="clock-center">
+          <div class="info-item break-in-center" v-if="timeToBreak">
+            <div class="info-label">{{ $t('tournament.breakIn') }}</div>
+            <div class="info-value">{{ timeToBreak }}</div>
+          </div>
+
           <!-- Level indicator -->
           <div class="level-indicator">
             <template v-if="isBreak">

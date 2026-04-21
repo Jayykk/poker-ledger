@@ -4,11 +4,11 @@
  * The host writes state; viewers compute countdown locally.
  */
 
-import { ref, computed, onUnmounted, watch } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import { db } from '../firebase-init.js';
 import {
   collection, doc, setDoc, updateDoc, deleteDoc,
-  onSnapshot, serverTimestamp, Timestamp,
+  onSnapshot, serverTimestamp, Timestamp, increment,
 } from 'firebase/firestore';
 import { useAuthStore } from '../store/modules/auth.js';
 import {
@@ -28,10 +28,12 @@ export function useTournamentClock(options = {}) {
 
   // Local countdown driven by requestAnimationFrame / setInterval
   const localTimeLeft = ref(0);
+  const localLevelIndex = ref(0);
   let tickInterval = null;
   let unsubscribe = null;
   let unsubscribeGame = null;
   let isAdvancing = false;
+  let isCatchupSyncing = false;
   let lastSyncedLevelIndex = -1;
   const MAX_ACCEPTABLE_DRIFT_SECONDS = 2;
 
@@ -44,7 +46,12 @@ export function useTournamentClock(options = {}) {
   const config = computed(() => session.value?.config || {});
   const state = computed(() => session.value?.state || {});
 
-  const currentLevelIndex = computed(() => state.value.currentLevelIndex ?? 0);
+  const currentLevelIndex = computed(() => {
+    if (state.value.status === 'running' && state.value.lastTickAt) {
+      return localLevelIndex.value;
+    }
+    return state.value.currentLevelIndex ?? 0;
+  });
 
   const levels = computed(() => config.value.levels || []);
 
@@ -122,6 +129,98 @@ export function useTournamentClock(options = {}) {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   });
 
+  function normalizeLevelIndex(index) {
+    const maxIdx = Math.max(0, levels.value.length - 1);
+    const parsed = Number.isFinite(Number(index)) ? Math.floor(Number(index)) : 0;
+    return Math.min(Math.max(0, parsed), maxIdx);
+  }
+
+  function getLevelDurationSeconds(levelIndex) {
+    const minutes = levels.value[levelIndex]?.duration || DEFAULT_TOURNAMENT_LEVEL_DURATION;
+    return Math.max(1, Math.floor(Number(minutes) * 60));
+  }
+
+  function resolveRunningState(st) {
+    const totalLevels = levels.value.length;
+    const startLevelIndex = normalizeLevelIndex(st.currentLevelIndex ?? 0);
+    const startTimeLeft = Math.max(0, Math.floor(Number(st.timeLeftSeconds ?? 0)));
+    const seedDuration = totalLevels > 0 ? getLevelDurationSeconds(startLevelIndex) : getLevelDurationSeconds(0);
+    const seedTimeLeft = startTimeLeft > 0 ? startTimeLeft : seedDuration;
+
+    const rawLastTick = st.lastTickAt;
+    const lastTickMs = rawLastTick instanceof Timestamp
+      ? rawLastTick.toMillis()
+      : (typeof rawLastTick?.toMillis === 'function'
+        ? rawLastTick.toMillis()
+        : (typeof rawLastTick === 'number' ? rawLastTick : Date.now()));
+    const elapsed = Math.max(0, Math.floor((Date.now() - lastTickMs) / 1000));
+
+    if (elapsed < seedTimeLeft) {
+      return {
+        levelIndex: startLevelIndex,
+        timeLeftSeconds: seedTimeLeft - elapsed,
+      };
+    }
+
+    let overshoot = elapsed - seedTimeLeft;
+
+    // No level definition: keep cycling with default duration.
+    if (totalLevels === 0) {
+      const cycle = getLevelDurationSeconds(0);
+      const inCycle = overshoot % cycle;
+      return {
+        levelIndex: 0,
+        timeLeftSeconds: cycle - inCycle,
+      };
+    }
+
+    let idx = startLevelIndex + 1;
+    while (idx < totalLevels) {
+      const duration = getLevelDurationSeconds(idx);
+      if (overshoot < duration) {
+        return {
+          levelIndex: idx,
+          timeLeftSeconds: duration - overshoot,
+        };
+      }
+      overshoot -= duration;
+      idx += 1;
+    }
+
+    // After the final level, repeat the last level forever.
+    const lastIdx = totalLevels - 1;
+    const lastDuration = getLevelDurationSeconds(lastIdx);
+    const inLastCycle = overshoot % lastDuration;
+    return {
+      levelIndex: lastIdx,
+      timeLeftSeconds: lastDuration - inLastCycle,
+    };
+  }
+
+  async function syncRunningStateToServer(st) {
+    if (!sessionId.value || !isHost.value || isCatchupSyncing) return;
+
+    const resolved = resolveRunningState(st);
+    const storedLevelIndex = normalizeLevelIndex(st.currentLevelIndex ?? 0);
+
+    // Keep writes minimal: only persist when running state has crossed levels.
+    if (resolved.levelIndex === storedLevelIndex) return;
+
+    isCatchupSyncing = true;
+    try {
+      await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
+        'state.currentLevelIndex': resolved.levelIndex,
+        'state.timeLeftSeconds': resolved.timeLeftSeconds,
+        'state.lastTickAt': serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error('[TournamentClock] running-state catch-up failed:', err);
+    } finally {
+      isCatchupSyncing = false;
+    }
+  }
+
   // Time until next break
   const timeToBreak = computed(() => {
     const all = levels.value;
@@ -142,14 +241,18 @@ export function useTournamentClock(options = {}) {
 
   // ── Local tick (1 Hz) ───────────────────────────────
   function computeTimeLeft() {
-    if (!session.value?.state?.lastTickAt) return;
-    const lastTick = session.value.state.lastTickAt;
-    const lastTickMs = lastTick instanceof Timestamp
-      ? lastTick.toMillis()
-      : (typeof lastTick === 'number' ? lastTick : Date.now());
-    const savedTimeLeft = session.value.state.timeLeftSeconds ?? 0;
-    const elapsed = Math.floor((Date.now() - lastTickMs) / 1000);
-    localTimeLeft.value = Math.max(0, savedTimeLeft - elapsed);
+    const st = session.value?.state;
+    if (!st) return;
+
+    if (st.status !== 'running' || !st.lastTickAt) {
+      localLevelIndex.value = normalizeLevelIndex(st.currentLevelIndex ?? 0);
+      localTimeLeft.value = Math.max(0, Math.floor(Number(st.timeLeftSeconds ?? 0)));
+      return;
+    }
+
+    const resolved = resolveRunningState(st);
+    localLevelIndex.value = resolved.levelIndex;
+    localTimeLeft.value = resolved.timeLeftSeconds;
   }
 
   function startLocalTick() {
@@ -196,7 +299,7 @@ export function useTournamentClock(options = {}) {
         const st = session.value.state || {};
         if (st.status === 'running' && st.lastTickAt) {
           const levelChanged = st.currentLevelIndex !== lastSyncedLevelIndex;
-          lastSyncedLevelIndex = st.currentLevelIndex;
+          lastSyncedLevelIndex = st.currentLevelIndex ?? -1;
 
           if (levelChanged) {
             // Level changed: always resync from server
@@ -209,16 +312,21 @@ export function useTournamentClock(options = {}) {
           } else {
             // Same level, tick already running: only resync if drift > 2s
             const prevLocal = localTimeLeft.value;
+            const prevLocalLevelIndex = localLevelIndex.value;
             computeTimeLeft();
             const drift = Math.abs(prevLocal - localTimeLeft.value);
-            if (drift <= MAX_ACCEPTABLE_DRIFT_SECONDS) {
+            if (drift <= MAX_ACCEPTABLE_DRIFT_SECONDS && localLevelIndex.value === prevLocalLevelIndex) {
               // Small drift from server timestamp estimate update — keep local value
               localTimeLeft.value = prevLocal;
+              localLevelIndex.value = prevLocalLevelIndex;
             }
             // tick is already running, no need to restart
           }
+
+          syncRunningStateToServer(st);
         } else {
           lastSyncedLevelIndex = st.currentLevelIndex ?? -1;
+          localLevelIndex.value = normalizeLevelIndex(st.currentLevelIndex ?? 0);
           localTimeLeft.value = st.timeLeftSeconds ?? 0;
           stopLocalTick();
         }
@@ -321,6 +429,7 @@ export function useTournamentClock(options = {}) {
     // Save the current localTimeLeft so viewers resume correctly
     await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
       'state.status': 'paused',
+      'state.currentLevelIndex': localLevelIndex.value,
       'state.timeLeftSeconds': localTimeLeft.value,
       'state.lastTickAt': null,
       updatedAt: serverTimestamp(),
@@ -378,10 +487,9 @@ export function useTournamentClock(options = {}) {
 
   async function addReentry() {
     if (!sessionId.value || !isHost.value) return;
-    const current = reentries.value;
     await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
-      'state.reentries': current + 1,
-      'state.playersRegistered': playersRegistered.value + 1,
+      'state.reentries': increment(1),
+      'state.playersRegistered': increment(1),
       updatedAt: serverTimestamp(),
     });
   }
