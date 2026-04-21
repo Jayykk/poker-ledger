@@ -67,14 +67,15 @@
             <div class="info-label">{{ $t('tournament.averageStack') }}</div>
             <div class="info-value">{{ formatNumber(averageStack) }}<span v-if="averageStackBB" class="avg-bb"> ({{ averageStackBB }} BB)</span></div>
           </div>
-          <div class="info-item break-in-desktop" v-if="timeToBreak">
-            <div class="info-label">{{ $t('tournament.breakIn') }}</div>
-            <div class="info-value">{{ timeToBreak }}</div>
-          </div>
         </aside>
 
         <!-- Center: Main Clock -->
         <main class="clock-center">
+          <div class="info-item break-in-center" v-if="timeToBreak">
+            <div class="info-label">{{ $t('tournament.breakIn') }}</div>
+            <div class="info-value">{{ timeToBreak }}</div>
+          </div>
+
           <!-- Level indicator -->
           <div class="level-indicator">
             <template v-if="isBreak">
@@ -118,10 +119,6 @@
 
         <!-- Right Panel -->
         <aside class="info-panel right-panel">
-          <div class="info-item break-in-mobile" v-if="timeToBreak">
-            <div class="info-label">{{ $t('tournament.breakIn') }}</div>
-            <div class="info-value">{{ timeToBreak }}</div>
-          </div>
           <div class="info-item">
             <div class="info-label">{{ $t('tournament.prizePool') }}</div>
             <div class="info-value prize">${{ formatNumber(prizePool) }}</div>

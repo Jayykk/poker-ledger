@@ -365,6 +365,101 @@ describe('computeTimerColorClass', () => {
   });
 });
 
+function projectRunningState(levels, currentLevelIndex, timeLeftSeconds, elapsedSeconds) {
+  const maxIdx = Math.max(0, levels.length - 1);
+  const startIdx = Math.min(Math.max(0, Math.floor(Number(currentLevelIndex) || 0)), maxIdx);
+  const durationAt = (idx) => {
+    const minutes = levels[idx]?.duration || DEFAULT_TOURNAMENT_LEVEL_DURATION;
+    return Math.max(1, Math.floor(Number(minutes) * 60));
+  };
+
+  const seedDuration = levels.length > 0 ? durationAt(startIdx) : durationAt(0);
+  const seedTimeLeft = Math.max(0, Math.floor(Number(timeLeftSeconds || 0))) || seedDuration;
+  const elapsed = Math.max(0, Math.floor(Number(elapsedSeconds) || 0));
+
+  if (elapsed < seedTimeLeft) {
+    return {
+      levelIndex: startIdx,
+      timeLeftSeconds: seedTimeLeft - elapsed,
+    };
+  }
+
+  let overshoot = elapsed - seedTimeLeft;
+
+  if (levels.length === 0) {
+    const cycle = durationAt(0);
+    const inCycle = overshoot % cycle;
+    return {
+      levelIndex: 0,
+      timeLeftSeconds: cycle - inCycle,
+    };
+  }
+
+  let idx = startIdx + 1;
+  while (idx < levels.length) {
+    const duration = durationAt(idx);
+    if (overshoot < duration) {
+      return {
+        levelIndex: idx,
+        timeLeftSeconds: duration - overshoot,
+      };
+    }
+    overshoot -= duration;
+    idx += 1;
+  }
+
+  const lastIdx = levels.length - 1;
+  const lastDuration = durationAt(lastIdx);
+  const inLastCycle = overshoot % lastDuration;
+  return {
+    levelIndex: lastIdx,
+    timeLeftSeconds: lastDuration - inLastCycle,
+  };
+}
+
+describe('projectRunningState', () => {
+  it('stays on same level when elapsed is below remaining time', () => {
+    const levels = [{ level: 1, isBreak: false, duration: 15 }];
+    const result = projectRunningState(levels, 0, 600, 120);
+    expect(result).toEqual({ levelIndex: 0, timeLeftSeconds: 480 });
+  });
+
+  it('catches up across multiple levels after long downtime', () => {
+    const levels = [
+      { level: 1, isBreak: false, duration: 20 },
+      { isBreak: true, duration: 10 },
+      { level: 2, isBreak: false, duration: 20 },
+      { level: 3, isBreak: false, duration: 20 },
+    ];
+
+    // Start on break with 10:00 left, then app is away for 3 hours.
+    const result = projectRunningState(levels, 1, 600, 3 * 60 * 60);
+
+    expect(result.levelIndex).toBe(3);
+    expect(result.timeLeftSeconds).toBe(600);
+  });
+
+  it('repeats the last level instead of freezing at zero', () => {
+    const levels = [
+      { level: 1, isBreak: false, duration: 15 },
+      { level: 2, isBreak: false, duration: 20 },
+    ];
+
+    // Exactly one full last-level duration elapses.
+    const result = projectRunningState(levels, 1, 1200, 1200);
+
+    expect(result).toEqual({ levelIndex: 1, timeLeftSeconds: 1200 });
+  });
+
+  it('falls back to default duration when no levels exist', () => {
+    const result = projectRunningState([], 0, 600, 650);
+    expect(result).toEqual({
+      levelIndex: 0,
+      timeLeftSeconds: (DEFAULT_TOURNAMENT_LEVEL_DURATION * 60) - 50,
+    });
+  });
+});
+
 // ── Time Bank Logic Tests ─────────────────────────────
 
 function computeTimeBankPercentage(localTimeLeft, totalSeconds) {

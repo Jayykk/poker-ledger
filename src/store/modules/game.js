@@ -11,8 +11,10 @@ import {
   query,
   where,
   arrayUnion, 
+  increment,
   runTransaction,
-  onSnapshot
+  onSnapshot,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
 import { useAuthStore } from './auth.js';
@@ -273,12 +275,29 @@ export const useGameStore = defineStore('game', () => {
     if (!gameId.value) return false;
     
     try {
-      const updatedPlayers = game.value.players.map(p => 
-        p.id === player.id ? player : p
-      );
-      
-      await updateDoc(doc(db, 'games', gameId.value), {
-        players: updatedPlayers
+      const gameRef = doc(db, 'games', gameId.value);
+      await runTransaction(db, async (transaction) => {
+        const gameSnap = await transaction.get(gameRef);
+        if (!gameSnap.exists()) throw new Error('Game not found');
+
+        const players = gameSnap.data().players || [];
+        let found = false;
+        const updatedPlayers = players.map(p => {
+          if (p.id === player.id) {
+            found = true;
+            const nextPlayer = { ...p };
+            for (const field of ['name', 'buyIn', 'stack']) {
+              if (Object.prototype.hasOwnProperty.call(player, field)) {
+                nextPlayer[field] = player[field];
+              }
+            }
+            return nextPlayer;
+          }
+          return p;
+        });
+
+        if (!found) throw new Error('Player not found');
+        transaction.update(gameRef, { players: updatedPlayers });
       });
       
       return true;
@@ -296,10 +315,18 @@ export const useGameStore = defineStore('game', () => {
     if (!gameId.value) return false;
     
     try {
-      const updatedPlayers = game.value.players.filter(p => p.id !== player.id);
-      
-      await updateDoc(doc(db, 'games', gameId.value), {
-        players: updatedPlayers
+      const gameRef = doc(db, 'games', gameId.value);
+      await runTransaction(db, async (transaction) => {
+        const gameSnap = await transaction.get(gameRef);
+        if (!gameSnap.exists()) throw new Error('Game not found');
+
+        const players = gameSnap.data().players || [];
+        const updatedPlayers = players.filter(p => p.id !== player.id);
+        if (updatedPlayers.length === players.length) {
+          throw new Error('Player not found');
+        }
+
+        transaction.update(gameRef, { players: updatedPlayers });
       });
       
       return true;
@@ -317,12 +344,24 @@ export const useGameStore = defineStore('game', () => {
     if (!gameId.value) return false;
     
     try {
-      const updatedPlayers = game.value.players.map(p => 
-        p.id === player.id ? { ...p, name: authStore.displayName, uid: authStore.user.uid } : p
-      );
-      
-      await updateDoc(doc(db, 'games', gameId.value), {
-        players: updatedPlayers
+      const gameRef = doc(db, 'games', gameId.value);
+      await runTransaction(db, async (transaction) => {
+        const gameSnap = await transaction.get(gameRef);
+        if (!gameSnap.exists()) throw new Error('Game not found');
+
+        const players = gameSnap.data().players || [];
+        let found = false;
+        const updatedPlayers = players.map(p => {
+          if (p.id !== player.id) return p;
+          found = true;
+          if (p.uid && p.uid !== authStore.user.uid) {
+            throw new Error('Seat already taken');
+          }
+          return { ...p, name: authStore.displayName, uid: authStore.user.uid };
+        });
+
+        if (!found) throw new Error('Player not found');
+        transaction.update(gameRef, { players: updatedPlayers });
       });
       
       return true;
@@ -456,18 +495,43 @@ export const useGameStore = defineStore('game', () => {
     if (!gameId.value) return false;
 
     try {
-      const players = game.value.players;
-      const aliveBefore = players.filter(p => !p.eliminated);
-      const placement = aliveBefore.length; // e.g. 5 alive → eliminated gets 5th
+      const gameRef = doc(db, 'games', gameId.value);
+      await runTransaction(db, async (transaction) => {
+        const gameSnap = await transaction.get(gameRef);
+        if (!gameSnap.exists()) throw new Error('Game not found');
 
-      const updatedPlayers = players.map(p => {
-        if (p.id === playerId) {
-          return { ...p, eliminated: true, eliminatedAt: Date.now(), placement };
+        const gameData = gameSnap.data();
+        const players = gameData.players || [];
+        const aliveBefore = players.filter(p => !p.eliminated);
+        const target = players.find(p => p.id === playerId);
+        if (!target) throw new Error('Player not found');
+        if (target.eliminated) return;
+
+        const placement = aliveBefore.length; // e.g. 5 alive → eliminated gets 5th
+        const updatedPlayers = players.map(p => {
+          if (p.id === playerId) {
+            return { ...p, eliminated: true, eliminatedAt: Date.now(), placement };
+          }
+          return p;
+        });
+
+        transaction.update(gameRef, { players: updatedPlayers });
+
+        const aliveAfter = updatedPlayers.filter(p => !p.eliminated).length;
+        const sessionId = gameData.tournamentSessionId;
+        if (sessionId && aliveAfter <= 1) {
+          const sessionRef = doc(db, 'tournamentSessions', sessionId);
+          const sessionSnap = await transaction.get(sessionRef);
+          if (sessionSnap.exists()) {
+            transaction.update(sessionRef, {
+              'state.status': 'ended',
+              'state.timeLeftSeconds': 0,
+              'state.lastTickAt': null,
+              updatedAt: serverTimestamp(),
+            });
+          }
         }
-        return p;
       });
-
-      await updateDoc(doc(db, 'games', gameId.value), { players: updatedPlayers });
       return true;
     } catch (err) {
       console.error('Eliminate player error:', err);
@@ -558,15 +622,12 @@ export const useGameStore = defineStore('game', () => {
 
       // Sync tournament session counters (playersRemaining, reentries, playersRegistered)
       if (sessionRef) {
-        const sessionSnap = await getDoc(sessionRef);
-        if (sessionSnap.exists()) {
-          const st = sessionSnap.data().state || {};
-          await updateDoc(sessionRef, {
-            'state.playersRemaining': (st.playersRemaining || 0) + 1,
-            'state.reentries': (st.reentries || 0) + 1,
-            'state.playersRegistered': (st.playersRegistered || 0) + 1,
-          });
-        }
+        await updateDoc(sessionRef, {
+          'state.playersRemaining': increment(1),
+          'state.reentries': increment(1),
+          'state.playersRegistered': increment(1),
+          updatedAt: serverTimestamp(),
+        });
       }
 
       return true;
