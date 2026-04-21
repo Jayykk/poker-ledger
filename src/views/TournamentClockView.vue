@@ -67,10 +67,6 @@
             <div class="info-label">{{ $t('tournament.averageStack') }}</div>
             <div class="info-value">{{ formatNumber(averageStack) }}<span v-if="averageStackBB" class="avg-bb"> ({{ averageStackBB }} BB)</span></div>
           </div>
-          <div class="info-item break-in-desktop" v-if="timeToBreak">
-            <div class="info-label">{{ $t('tournament.breakIn') }}</div>
-            <div class="info-value">{{ timeToBreak }}</div>
-          </div>
         </aside>
 
         <!-- Center: Main Clock -->
@@ -88,6 +84,12 @@
           <!-- Blinds display -->
           <div class="blinds-display" v-if="!isBreak">
             <span class="blinds-value">{{ formatNumber(currentBlinds.small) }} / {{ formatNumber(currentBlinds.big) }}<span v-if="currentBlinds.ante" class="ante-value"> ({{ formatNumber(currentBlinds.ante) }})</span></span>
+          </div>
+
+          <!-- Break in countdown -->
+          <div class="break-in-info" v-if="timeToBreak">
+            <span class="break-in-label">{{ $t('tournament.breakIn') }}</span>
+            <span class="break-in-value">{{ timeToBreak }}</span>
           </div>
 
           <!-- Timer -->
@@ -118,10 +120,6 @@
 
         <!-- Right Panel -->
         <aside class="info-panel right-panel">
-          <div class="info-item break-in-mobile" v-if="timeToBreak">
-            <div class="info-label">{{ $t('tournament.breakIn') }}</div>
-            <div class="info-value">{{ timeToBreak }}</div>
-          </div>
           <div class="info-item">
             <div class="info-label">{{ $t('tournament.prizePool') }}</div>
             <div class="info-value prize">${{ formatNumber(prizePool) }}</div>
@@ -594,6 +592,27 @@ onUnmounted(() => {
   letter-spacing: 0.1em;
 }
 
+.break-in-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: clamp(1rem, 2vw, 1.4rem);
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.25rem;
+}
+
+.break-in-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.break-in-value {
+  font-weight: 700;
+  color: #6ee7b7;
+  font-variant-numeric: tabular-nums;
+}
+
 .timer-display {
   font-size: clamp(4.5rem, 13vw, 11rem);
   font-weight: 900;
@@ -702,11 +721,6 @@ onUnmounted(() => {
   }
 }
 
-/* ── Break In: desktop vs mobile ──────────────── */
-.break-in-mobile {
-  display: none;
-}
-
 /* ── Mobile responsive ─────────────────────────── */
 @media (max-width: 768px) {
   .clock-body {
@@ -725,17 +739,6 @@ onUnmounted(() => {
 
   .info-item {
     min-width: 80px;
-  }
-
-  .break-in-desktop {
-    display: none;
-  }
-
-  .break-in-mobile {
-    display: flex;
-    width: 100%;
-    justify-content: center;
-    order: -1;
   }
 
   .blinds-value {

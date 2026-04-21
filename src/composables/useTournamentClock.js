@@ -32,6 +32,8 @@ export function useTournamentClock(options = {}) {
   let unsubscribe = null;
   let unsubscribeGame = null;
   let isAdvancing = false;
+  let lastSyncedLevelIndex = -1;
+  const MAX_ACCEPTABLE_DRIFT_SECONDS = 2;
 
   // ── Computed ────────────────────────────────────────
   const isHost = computed(() => {
@@ -193,10 +195,30 @@ export function useTournamentClock(options = {}) {
         // Sync local countdown from server state
         const st = session.value.state || {};
         if (st.status === 'running' && st.lastTickAt) {
-          // Immediately compute so display doesn't wait for first tick
-          computeTimeLeft();
-          startLocalTick();
+          const levelChanged = st.currentLevelIndex !== lastSyncedLevelIndex;
+          lastSyncedLevelIndex = st.currentLevelIndex;
+
+          if (levelChanged) {
+            // Level changed: always resync from server
+            computeTimeLeft();
+            startLocalTick();
+          } else if (!tickInterval) {
+            // Tick not running yet: initial sync
+            computeTimeLeft();
+            startLocalTick();
+          } else {
+            // Same level, tick already running: only resync if drift > 2s
+            const prevLocal = localTimeLeft.value;
+            computeTimeLeft();
+            const drift = Math.abs(prevLocal - localTimeLeft.value);
+            if (drift <= MAX_ACCEPTABLE_DRIFT_SECONDS) {
+              // Small drift from server timestamp estimate update — keep local value
+              localTimeLeft.value = prevLocal;
+            }
+            // tick is already running, no need to restart
+          }
         } else {
+          lastSyncedLevelIndex = st.currentLevelIndex ?? -1;
           localTimeLeft.value = st.timeLeftSeconds ?? 0;
           stopLocalTick();
         }
