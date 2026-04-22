@@ -106,10 +106,8 @@
               </div>
             </div>
 
-            <div class="timer-card">
-              <div class="timer-display" :class="timerColorClass">
-                {{ formattedTime }}
-              </div>
+            <div class="timer-display" :class="timerColorClass">
+              {{ formattedTime }}
             </div>
 
             <div class="center-bottom">
@@ -373,12 +371,30 @@ function formatNumber(value) {
   display: flex;
   flex-direction: column;
   gap: 0.32rem;
-  text-align: left;
+  text-align: center;
 }
 
 .info-item + .info-item {
   padding-top: clamp(0.95rem, 1.3vw, 1.15rem);
   border-top: 1px solid rgba(226, 232, 240, 0.08);
+}
+
+.left-panel {
+  justify-content: space-between;
+}
+
+.left-panel .info-item {
+  align-items: center;
+}
+
+.right-panel {
+  justify-content: flex-start;
+  gap: clamp(1.4rem, 2vw, 1.9rem);
+}
+
+.info-item-prize {
+  padding-bottom: clamp(1.1rem, 1.6vw, 1.4rem);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.1);
 }
 
 .info-label {
@@ -414,7 +430,7 @@ function formatNumber(value) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(1rem, 2vw, 1.75rem);
+  gap: clamp(1.35rem, 2.4vw, 2.2rem);
   padding: clamp(1.5rem, 2vw, 2rem);
   border-radius: 2rem;
   text-align: center;
@@ -495,34 +511,24 @@ function formatNumber(value) {
   color: rgba(226, 232, 240, 0.86);
 }
 
-.timer-card {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: clamp(0.85rem, 1.4vw, 1.1rem);
-  border-radius: 1.9rem;
-  background: linear-gradient(180deg, rgba(8, 15, 30, 0.72), rgba(15, 23, 42, 0.52));
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
 .timer-display {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   min-width: 6.4ch;
-  padding: clamp(0.9rem, 1.7vw, 1.15rem) clamp(1.4rem, 2.8vw, 2.4rem);
-  border-radius: 1.4rem;
+  padding: clamp(1.15rem, 2.1vw, 1.55rem) clamp(1.8rem, 3.4vw, 3rem);
+  border-radius: 1.8rem;
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(17, 24, 39, 0.76));
   border: 1px solid rgba(148, 163, 184, 0.18);
   color: #f8fafc;
   font-family: 'JetBrains Mono', monospace;
-  font-size: clamp(5.2rem, 8vw, 8.8rem);
+  font-size: clamp(6.1rem, 10.2vw, 10.8rem);
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.04em;
   text-shadow: 0 0 24px rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .timer-warning { color: #fbbf24; }
@@ -566,9 +572,13 @@ function formatNumber(value) {
 }
 
 .status-badge.ended {
-  background: rgba(236, 72, 153, 0.16);
-  border: 1px solid rgba(251, 113, 133, 0.34);
+  min-height: 54px;
+  padding: 0.8rem 1.85rem;
+  font-size: clamp(1rem, 1.45vw, 1.28rem);
+  background: linear-gradient(180deg, rgba(236, 72, 153, 0.28), rgba(219, 39, 119, 0.2));
+  border: 2px solid rgba(251, 113, 133, 0.42);
   color: #fecdd3;
+  box-shadow: 0 12px 24px rgba(136, 19, 55, 0.2);
 }
 
 @keyframes pauseBlink {
@@ -585,7 +595,11 @@ function formatNumber(value) {
 }
 
 .payouts-item {
-  gap: 0.65rem;
+  gap: 0.85rem;
+  padding: clamp(1rem, 1.5vw, 1.2rem);
+  border-radius: 1.2rem;
+  background: rgba(8, 15, 30, 0.28);
+  border: 1px solid rgba(226, 232, 240, 0.08);
 }
 
 .payout-list {
@@ -598,13 +612,16 @@ function formatNumber(value) {
   display: flex;
   align-items: baseline;
   gap: 0.55rem;
-  font-size: clamp(1.1rem, 1.45vw, 1.5rem);
-  font-weight: 600;
+  justify-content: center;
+  font-size: clamp(1.15rem, 1.5vw, 1.55rem);
+  font-weight: 700;
+  padding: 0.15rem 0;
 }
 
 .payout-place {
   min-width: 1.75em;
   color: rgba(226, 232, 240, 0.56);
+  text-align: right;
 }
 
 .payout-amount {
@@ -632,7 +649,7 @@ function formatNumber(value) {
   }
 
   .timer-display {
-    font-size: clamp(4.2rem, 7vw, 7rem);
+    font-size: clamp(4.8rem, 8.2vw, 7.9rem);
   }
 
   .blinds-value {
@@ -665,9 +682,27 @@ function formatNumber(value) {
     align-items: start;
   }
 
+  .left-panel .info-item,
+  .right-panel .info-item {
+    align-items: flex-start;
+    text-align: left;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-top: none;
+  }
+
   .info-item + .info-item {
     border-top: none;
     padding-top: 0;
+  }
+
+  .info-item-prize {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .payout-row {
+    justify-content: flex-start;
   }
 }
 
@@ -681,81 +716,142 @@ function formatNumber(value) {
   }
 
   .clock-header {
-    grid-template-columns: 56px 1fr 104px;
-    padding: 0.9rem;
+    grid-template-columns: 48px 1fr 90px;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.8rem 0.8rem 0.95rem;
     border-radius: 1.1rem;
   }
 
   .header-main {
-    gap: 0.65rem;
+    gap: 0.5rem;
   }
 
   .tournament-name {
-    font-size: clamp(1.6rem, 7vw, 2.3rem);
+    font-size: clamp(1.45rem, 6.4vw, 2rem);
   }
 
   .header-meta {
-    gap: 0.45rem;
+    gap: 0.35rem;
+    width: 100%;
+    max-width: 100%;
   }
 
   .meta-chip {
-    min-height: 36px;
-    padding: 0.45rem 0.8rem;
-    font-size: 0.8rem;
+    min-height: 34px;
+    max-width: min(100%, 260px);
+    padding: 0.38rem 0.72rem;
+    font-size: 0.75rem;
+    line-height: 1.1;
   }
 
   .hud-control-btn {
-    width: 42px;
-    height: 42px;
+    width: 40px;
+    height: 40px;
+    font-size: 0.95rem;
   }
 
   .clock-stage {
-    gap: 0.75rem;
+    gap: 0.7rem;
   }
 
   .info-panel,
   .clock-center {
-    padding: 1rem;
+    padding: 0.95rem;
+    border-radius: 1.2rem;
   }
 
   .left-panel,
   .right-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem 0.9rem;
   }
 
   .info-item {
-    gap: 0.2rem;
+    gap: 0.16rem;
+    align-items: flex-start;
+    text-align: left;
   }
 
   .info-label {
-    font-size: 0.82rem;
+    font-size: 0.76rem;
+    letter-spacing: 0.05em;
   }
 
   .info-value {
-    font-size: 1.45rem;
+    font-size: 1.35rem;
   }
 
   .info-value.prize {
-    font-size: 1.9rem;
+    font-size: 1.7rem;
+  }
+
+   .clock-center {
+    gap: 0.95rem;
+   }
+
+  .center-top,
+  .center-bottom {
+    gap: 0.65rem;
+    width: 100%;
+  }
+
+  .break-in-info {
+    font-size: 0.82rem;
+    padding: 0.36rem 0.72rem;
+  }
+
+  .level-indicator {
+    min-height: 38px;
+    padding: 0.4rem 0.85rem;
+  }
+
+  .level-text {
+    font-size: 0.95rem;
   }
 
   .blinds-value {
-    font-size: clamp(2.15rem, 9vw, 3.2rem);
+    font-size: clamp(2rem, 8.6vw, 2.85rem);
   }
 
   .ante-value {
-    font-size: clamp(1.2rem, 5vw, 1.9rem);
+    font-size: clamp(1.05rem, 4.4vw, 1.55rem);
   }
 
   .timer-display {
     min-width: auto;
     width: 100%;
-    font-size: clamp(3.4rem, 14vw, 5rem);
-    padding: 0.8rem 1rem;
+    font-size: clamp(3.45rem, 13.2vw, 4.75rem);
+    padding: 0.82rem 0.95rem;
+    border-radius: 1.2rem;
+  }
+
+  .status-badge {
+    min-height: 42px;
+    padding: 0.55rem 1.15rem;
+    font-size: 0.92rem;
+  }
+
+  .status-badge.ended {
+    min-height: 44px;
+    padding: 0.58rem 1.2rem;
+    font-size: 0.95rem;
+  }
+
+  .next-blinds {
+    max-width: 100%;
+    font-size: 0.92rem;
+    line-height: 1.35;
+  }
+
+  .payouts-item {
+    padding: 0.8rem;
+    gap: 0.55rem;
   }
 
   .payout-row {
-    font-size: 1rem;
+    justify-content: flex-start;
+    font-size: 0.96rem;
   }
 }
 </style>
