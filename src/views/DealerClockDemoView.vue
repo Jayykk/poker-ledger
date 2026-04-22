@@ -10,12 +10,12 @@
       title="Poker Game"
       :subtitle-text="demoSubtitle"
       :is-registration-closed="true"
-      :entries="11"
-      :players-remaining="3"
-      :players-registered="6"
-      :chips-in-play="220000"
-      :average-stack="73333"
-      :average-stack-bb="37"
+      :entries="demoStats.entries"
+      :players-remaining="demoPlayersRemaining"
+      :players-registered="demoPlayersRegistered"
+      :chips-in-play="demoStats.chipsInPlay"
+      :average-stack="demoStats.averageStack"
+      :average-stack-bb="demoStats.averageStackBB"
       :current-level="6"
       :current-blinds="demoBlinds"
       :formatted-time="demoTime"
@@ -35,9 +35,14 @@
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import DealerClockDisplay from '../components/tournament/DealerClockDisplay.vue';
+import { buildTournamentStats } from '../utils/tournamentStats.js';
 
 const { t } = useI18n();
 const demoMode = ref('break');
+const demoPlayersRegistered = 6;
+const demoReentries = 5;
+const demoPlayersRemaining = 3;
+const demoStartingChips = 20000;
 
 const demoBlinds = {
   small: 1000,
@@ -49,6 +54,14 @@ const demoPayouts = [
   { place: 1, amount: 1430 },
   { place: 2, amount: 770 },
 ];
+
+const demoStats = computed(() => buildTournamentStats({
+  playersRegistered: demoPlayersRegistered,
+  reentries: demoReentries,
+  playersRemaining: demoPlayersRemaining,
+  startingChips: demoStartingChips,
+  bigBlind: demoBlinds.big,
+}));
 
 const demoSubtitle = computed(() => `BuyIn $200 | ${t('tournament.reentryUntil', { level: 6 })}`);
 const demoStatus = computed(() => (demoMode.value === 'ended' ? 'ended' : 'running'));

@@ -436,6 +436,7 @@
     "level": "レベル",
     "prizePool": "プライズプール",
     "registrationClosed": "登録締切",
+    "registrationClosedShort": "締切",
     "payouts": "ペイアウト",
     "nextBlinds": "次のブラインド",
     "waitingToStart": "開始待ち",

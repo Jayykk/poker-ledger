@@ -435,6 +435,7 @@
     "level": "级别",
     "prizePool": "奖池",
     "registrationClosed": "报名已截止",
+    "registrationClosedShort": "截止",
     "payouts": "派奖",
     "nextBlinds": "下一级盲注",
     "waitingToStart": "等待开始",

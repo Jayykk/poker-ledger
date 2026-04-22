@@ -12,6 +12,12 @@ import {
   TIMER_CRITICAL_THRESHOLD,
 } from '../src/utils/constants.js';
 import { TOURNAMENT_TEMPLATES } from '../src/utils/tournamentTemplates.js';
+import {
+  computeEntries,
+  computeChipsInPlay,
+  computeAverageStack,
+  computeAverageStackBB,
+} from '../src/utils/tournamentStats.js';
 
 /**
  * Extracted pure logic from useTournamentClock.
@@ -40,15 +46,6 @@ function computeNextPlayLevelEntry(levels, currentLevelIndex) {
     if (!levels[i].isBreak) return levels[i];
   }
   return null;
-}
-
-function computeChipsInPlay(playersRegistered, reentries, startingChips) {
-  return (playersRegistered + reentries) * (startingChips || 0);
-}
-
-function computeAverageStack(chipsInPlay, playersRemaining) {
-  if (playersRemaining <= 0) return 0;
-  return Math.round(chipsInPlay / playersRemaining);
 }
 
 function computePrizePool(playersRegistered, reentries, buyIn) {
@@ -192,15 +189,15 @@ describe('computeNextPlayLevelEntry', () => {
 
 describe('computeChipsInPlay', () => {
   it('should calculate correctly', () => {
-    expect(computeChipsInPlay(10, 2, 25000)).toBe(300000);
+    expect(computeChipsInPlay(computeEntries(10, 2), 25000)).toBe(300000);
   });
 
   it('should handle zero players', () => {
-    expect(computeChipsInPlay(0, 0, 25000)).toBe(0);
+    expect(computeChipsInPlay(computeEntries(0, 0), 25000)).toBe(0);
   });
 
   it('should handle zero chips', () => {
-    expect(computeChipsInPlay(10, 0, 0)).toBe(0);
+    expect(computeChipsInPlay(computeEntries(10, 0), 0)).toBe(0);
   });
 });
 
@@ -216,6 +213,25 @@ describe('computeAverageStack', () => {
 
   it('should round to nearest integer', () => {
     expect(computeAverageStack(100, 3)).toBe(33); // 33.33 → 33
+  });
+});
+
+describe('computeAverageStackBB', () => {
+  it('should calculate BB from raw stack size', () => {
+    expect(computeAverageStackBB(220000, 3, 2000)).toBe(37);
+  });
+
+  it('should return 0 when players remaining is not positive', () => {
+    expect(computeAverageStackBB(100000, 0, 1000)).toBe(0);
+  });
+
+  it('should return 0 when big blind is not positive', () => {
+    expect(computeAverageStackBB(100000, 5, 0)).toBe(0);
+  });
+
+  it('should avoid double-rounding drift', () => {
+    expect(computeAverageStack(5, 2)).toBe(3);
+    expect(computeAverageStackBB(5, 2, 2)).toBe(1);
   });
 });
 
