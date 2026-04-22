@@ -798,6 +798,11 @@ function formatNumber(value) {
     align-items: start;
   }
 
+  .left-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+  }
+
   .left-panel .info-item,
   .right-panel .info-item {
     align-items: center;
@@ -808,6 +813,17 @@ function formatNumber(value) {
     border: 1px solid rgba(226, 232, 240, 0.08);
     border-radius: 1rem;
     background: rgba(8, 15, 30, 0.22);
+  }
+
+  .left-panel .info-item {
+    min-height: 7.25rem;
+  }
+
+  .left-panel .info-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.5em;
   }
 
   .left-panel .info-item:last-child {
@@ -894,6 +910,14 @@ function formatNumber(value) {
   .right-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.7rem 0.9rem;
+  }
+
+  .left-panel .info-item {
+    min-height: 6.4rem;
+  }
+
+  .left-panel .info-label {
+    min-height: 2.35em;
   }
 
   .info-item {
