@@ -15,6 +15,12 @@ import {
   DEFAULT_STARTING_CHIPS, DEFAULT_REENTRY_LEVEL,
   DEFAULT_TOURNAMENT_LEVEL_DURATION,
 } from '../utils/constants.js';
+import {
+  computeEntries,
+  computeChipsInPlay,
+  computeAverageStack,
+  computeAverageStackBB,
+} from '../utils/tournamentStats.js';
 
 export function useTournamentClock(options = {}) {
   const { dealerMode = false } = options;
@@ -89,18 +95,15 @@ export function useTournamentClock(options = {}) {
   const playersRegistered = computed(() => state.value.playersRegistered ?? 0);
   const playersRemaining = computed(() => state.value.playersRemaining ?? 0);
   const reentries = computed(() => state.value.reentries ?? 0);
-  const entries = computed(() => playersRegistered.value + reentries.value);
+  const entries = computed(() => computeEntries(playersRegistered.value, reentries.value));
   const chipsInPlay = computed(() => {
-    return entries.value * (config.value.startingChips || 0);
+    return computeChipsInPlay(entries.value, config.value.startingChips || 0);
   });
   const averageStack = computed(() => {
-    if (playersRemaining.value <= 0) return 0;
-    return Math.round(chipsInPlay.value / playersRemaining.value);
+    return computeAverageStack(chipsInPlay.value, playersRemaining.value);
   });
   const averageStackBB = computed(() => {
-    const bb = currentBlinds.value.big;
-    if (!bb || bb <= 0) return 0;
-    return Math.round(averageStack.value / bb);
+    return computeAverageStackBB(chipsInPlay.value, playersRemaining.value, currentBlinds.value.big);
   });
 
   const isRegistrationClosed = computed(() => {

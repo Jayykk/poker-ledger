@@ -436,6 +436,7 @@
     "level": "Level",
     "prizePool": "Prize Pool",
     "registrationClosed": "REGISTRATION CLOSED",
+    "registrationClosedShort": "CLOSED",
     "payouts": "Payouts",
     "nextBlinds": "Next Blinds",
     "waitingToStart": "Waiting to Start",

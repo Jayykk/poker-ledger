@@ -15,22 +15,25 @@
           </div>
 
           <div class="header-main">
-            <h1 class="tournament-name">{{ title }}</h1>
+            <div class="header-title-row">
+              <h1 class="tournament-name">{{ title }}</h1>
+
+              <div v-if="isRegistrationClosed" class="meta-chip meta-chip-status meta-chip-status-compact">
+                <i class="fas fa-lock"></i>
+                <span class="meta-chip-text-full">{{ t('tournament.registrationClosed') }}</span>
+                <span class="meta-chip-text-short">{{ t('tournament.registrationClosedShort') }}</span>
+              </div>
+            </div>
 
             <div class="header-meta" :class="{ 'header-meta-closed': isRegistrationClosed }">
-              <div v-if="isRegistrationClosed" class="meta-chip meta-chip-status">
-                <i class="fas fa-lock"></i>
-                <span>{{ t('tournament.registrationClosed') }}</span>
-              </div>
-
               <div v-if="subtitleText" class="meta-chip meta-chip-info">
                 <i class="fas" :class="isRegistrationClosed ? 'fa-coins' : 'fa-circle-info'"></i>
-                <span>{{ subtitleText }}</span>
+                <span class="meta-chip-info-text">{{ subtitleText }}</span>
               </div>
 
               <div v-if="showDealerBadge" class="meta-chip meta-chip-dealer">
                 <i class="fas fa-user-shield"></i>
-                <span>{{ t('tournament.dealerMode') }}</span>
+                <span class="meta-chip-text">{{ t('tournament.dealerMode') }}</span>
               </div>
             </div>
           </div>
@@ -46,7 +49,7 @@
             </button>
             <button
               v-if="showFullscreenButton"
-              class="hud-control-btn"
+              class="hud-control-btn hud-control-btn-fullscreen"
               :title="t('tournament.fullscreen')"
               @click="$emit('request-fullscreen')"
             >
@@ -201,18 +204,39 @@ function formatNumber(value) {
   inset: 0;
   z-index: 50;
   overflow: hidden;
+  isolation: isolate;
   color: #f8fafc;
   font-family: 'Noto Sans TC', system-ui, sans-serif;
+  background: #07111f;
+}
+
+.dealer-clock-display::before,
+.dealer-clock-display::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.dealer-clock-display::before {
+  z-index: -2;
   background:
     radial-gradient(circle at top, rgba(96, 165, 250, 0.28), transparent 30%),
     radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.22), transparent 28%),
     linear-gradient(135deg, #081325 0%, #12376a 52%, #07111f 100%);
 }
 
-.dealer-clock-display.is-break {
+.dealer-clock-display::after {
+  z-index: -1;
+  opacity: 0;
   background:
     radial-gradient(circle at top, rgba(110, 231, 183, 0.2), transparent 30%),
     linear-gradient(135deg, #053b31 0%, #075b48 52%, #062a25 100%);
+  transition: opacity 0.22s ease;
+}
+
+.dealer-clock-display.is-break::after {
+  opacity: 1;
 }
 
 .dealer-clock-display.time-critical {
@@ -279,6 +303,14 @@ function formatNumber(value) {
   min-width: 0;
 }
 
+.header-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  width: 100%;
+}
+
 .tournament-name {
   font-size: clamp(2rem, 4.1vw, 4rem);
   line-height: 0.95;
@@ -322,8 +354,16 @@ function formatNumber(value) {
   text-transform: uppercase;
 }
 
+.meta-chip-text-short {
+  display: none;
+}
+
 .meta-chip-info {
   max-width: min(100%, 620px);
+}
+
+.meta-chip-info-text {
+  min-width: 0;
 }
 
 .meta-chip-dealer {
@@ -406,6 +446,11 @@ function formatNumber(value) {
 }
 
 .info-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   font-size: clamp(2rem, 2.5vw, 3rem);
   line-height: 1;
   font-weight: 700;
@@ -662,8 +707,79 @@ function formatNumber(value) {
 }
 
 @media (max-width: 980px) {
+  .dealer-clock-display {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .clock-container {
+    min-height: max(100%, 100dvh);
+  }
+
   .clock-header {
-    grid-template-columns: 72px 1fr 112px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .header-actions {
+    min-width: 0;
+  }
+
+  .header-main {
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .header-title-row {
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.7rem;
+  }
+
+  .tournament-name {
+    text-align: left;
+  }
+
+  .header-meta {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+  }
+
+  .meta-chip-status-compact {
+    flex-shrink: 0;
+    min-height: 36px;
+    padding: 0.45rem 0.75rem;
+  }
+
+  .meta-chip-status-compact .meta-chip-text-full {
+    display: none;
+  }
+
+  .meta-chip-status-compact .meta-chip-text-short {
+    display: inline;
+  }
+
+  .meta-chip-info {
+    width: 100%;
+    max-width: none;
+    justify-content: flex-start;
+  }
+
+  .meta-chip-dealer {
+    min-width: 42px;
+    padding: 0.45rem 0.7rem;
+  }
+
+  .meta-chip-dealer .meta-chip-text {
+    display: none;
+  }
+
+  .hud-control-btn-fullscreen {
+    display: none;
   }
 
   .clock-stage {
@@ -684,11 +800,18 @@ function formatNumber(value) {
 
   .left-panel .info-item,
   .right-panel .info-item {
-    align-items: flex-start;
-    text-align: left;
-    padding-top: 0;
-    padding-bottom: 0;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.9rem 0.95rem;
     border-top: none;
+    border: 1px solid rgba(226, 232, 240, 0.08);
+    border-radius: 1rem;
+    background: rgba(8, 15, 30, 0.22);
+  }
+
+  .left-panel .info-item:last-child {
+    grid-column: 1 / -1;
   }
 
   .info-item + .info-item {
@@ -702,7 +825,7 @@ function formatNumber(value) {
   }
 
   .payout-row {
-    justify-content: flex-start;
+    justify-content: center;
   }
 }
 
@@ -716,33 +839,39 @@ function formatNumber(value) {
   }
 
   .clock-header {
-    grid-template-columns: 48px 1fr 90px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.7rem;
     padding: 0.8rem 0.8rem 0.95rem;
     border-radius: 1.1rem;
   }
 
-  .header-main {
-    gap: 0.5rem;
-  }
-
   .tournament-name {
     font-size: clamp(1.45rem, 6.4vw, 2rem);
   }
 
-  .header-meta {
-    gap: 0.35rem;
-    width: 100%;
-    max-width: 100%;
+  .header-title-row {
+    gap: 0.55rem;
   }
 
   .meta-chip {
     min-height: 34px;
-    max-width: min(100%, 260px);
     padding: 0.38rem 0.72rem;
     font-size: 0.75rem;
     line-height: 1.1;
+  }
+
+  .meta-chip-info {
+    min-height: 36px;
+  }
+
+  .meta-chip-status-compact {
+    padding: 0.38rem 0.65rem;
+  }
+
+  .meta-chip-dealer {
+    min-width: 36px;
+    padding: 0.38rem 0.55rem;
   }
 
   .hud-control-btn {
@@ -769,8 +898,8 @@ function formatNumber(value) {
 
   .info-item {
     gap: 0.16rem;
-    align-items: flex-start;
-    text-align: left;
+    align-items: center;
+    text-align: center;
   }
 
   .info-label {
@@ -780,6 +909,7 @@ function formatNumber(value) {
 
   .info-value {
     font-size: 1.35rem;
+    gap: 0.25rem;
   }
 
   .info-value.prize {
