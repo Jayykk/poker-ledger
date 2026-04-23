@@ -28,7 +28,7 @@
         :players-registered="playersRegistered"
         :chips-in-play="chipsInPlay"
         :average-stack="averageStack"
-        :average-stack-bb="averageStackBB"
+        :averageStackBB="averageStackBB"
         :is-break="isBreak"
         :current-level="currentLevel"
         :current-blinds="currentBlinds"
