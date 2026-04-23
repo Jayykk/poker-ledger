@@ -78,9 +78,9 @@
             </div>
             <div class="info-item">
               <div class="info-label">{{ $t('tournament.averageStack') }}</div>
-              <div class="info-value">
-                {{ formatNumber(averageStack) }}
-                <span v-if="averageStackBB" class="avg-bb">({{ averageStackBB }} BB)</span>
+              <div class="info-value info-value-stack">
+                <span class="info-value-primary">{{ formatNumber(averageStack) }}</span>
+                <span v-if="averageStackBB" class="avg-bb">{{ averageStackBB }} BB</span>
               </div>
             </div>
           </aside>
@@ -145,7 +145,8 @@
               <div class="payout-list">
                 <div v-for="payout in payouts" :key="payout.place" class="payout-row">
                   <span class="payout-place">{{ payout.place }}.</span>
-                  <span class="payout-amount">${{ formatNumber(payout.amount) }}</span>
+                  <span class="payout-currency">$</span>
+                  <span class="payout-amount">{{ formatNumber(payout.amount) }}</span>
                 </div>
               </div>
             </div>
@@ -459,17 +460,30 @@ function formatNumber(value) {
   color: #f8fafc;
 }
 
+.info-value-primary {
+  font-variant-numeric: tabular-nums;
+}
+
+.info-value-stack {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .info-value.prize {
   font-size: clamp(2.5rem, 3.2vw, 3.9rem);
   color: #fcd34d;
   text-shadow: 0 8px 20px rgba(133, 77, 14, 0.28);
+  font-variant-numeric: tabular-nums;
 }
 
 .avg-bb {
-  margin-left: 0.35rem;
-  font-size: clamp(0.8rem, 1vw, 1rem);
+  font-size: clamp(0.92rem, 1vw, 1.08rem);
   color: rgba(226, 232, 240, 0.56);
-  font-weight: 500;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.1;
 }
 
 .clock-center {
@@ -653,12 +667,15 @@ function formatNumber(value) {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+  width: fit-content;
+  margin: 0 auto;
 }
 
 .payout-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(1.75em, auto) auto minmax(4ch, auto);
   align-items: baseline;
-  gap: 0.55rem;
+  column-gap: 0.35rem;
   justify-content: center;
   font-size: clamp(1.15rem, 1.5vw, 1.55rem);
   font-weight: 700;
@@ -671,8 +688,15 @@ function formatNumber(value) {
   text-align: right;
 }
 
+.payout-currency {
+  color: #f8fafc;
+}
+
 .payout-amount {
   color: #f8fafc;
+  min-width: 4ch;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (min-width: 1440px) and (min-aspect-ratio: 16/9) {
@@ -959,6 +983,14 @@ function formatNumber(value) {
   .info-value {
     font-size: 1.35rem;
     gap: 0.25rem;
+  }
+
+  .info-value-stack {
+    gap: 0.28rem;
+  }
+
+  .avg-bb {
+    font-size: 0.72rem;
   }
 
   .info-value.prize {
