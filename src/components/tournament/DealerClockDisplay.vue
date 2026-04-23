@@ -249,6 +249,7 @@ function formatNumber(value) {
 }
 
 .clock-container {
+  display: flex;
   min-height: 100vh;
   min-height: 100dvh;
   padding:
@@ -260,6 +261,7 @@ function formatNumber(value) {
 .clock-shell {
   display: flex;
   flex-direction: column;
+  flex: 1;
   gap: clamp(1rem, 2vw, 1.75rem);
   width: min(100%, 1820px);
   min-height: 100%;
@@ -299,7 +301,7 @@ function formatNumber(value) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.8rem;
+  gap: clamp(0.9rem, 1.5vw, 1.15rem);
   min-width: 0;
 }
 
@@ -307,7 +309,7 @@ function formatNumber(value) {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.9rem;
+  gap: clamp(1rem, 1.6vw, 1.35rem);
   width: 100%;
 }
 
@@ -324,7 +326,7 @@ function formatNumber(value) {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.65rem;
+  gap: clamp(0.7rem, 1vw, 0.9rem);
   max-width: min(100%, 1100px);
 }
 
@@ -475,7 +477,7 @@ function formatNumber(value) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(1.35rem, 2.4vw, 2.2rem);
+  gap: clamp(1.7rem, 2.8vw, 2.8rem);
   padding: clamp(1.5rem, 2vw, 2rem);
   border-radius: 2rem;
   text-align: center;
@@ -486,7 +488,7 @@ function formatNumber(value) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.85rem;
+  gap: clamp(0.95rem, 1.2vw, 1.1rem);
 }
 
 .break-in-info {
@@ -675,16 +677,39 @@ function formatNumber(value) {
 
 @media (min-width: 1440px) and (min-aspect-ratio: 16/9) {
   .clock-shell {
-    gap: 1.9rem;
+    gap: 2.15rem;
   }
 
   .clock-stage {
     grid-template-columns: minmax(270px, 0.9fr) minmax(720px, 1.75fr) minmax(300px, 0.98fr);
     gap: 2.2rem;
+    min-height: min(68vh, 760px);
+  }
+
+  .header-main {
+    gap: 1.2rem;
+  }
+
+  .header-title-row {
+    gap: 1.45rem;
+  }
+
+  .header-meta {
+    gap: 0.9rem;
   }
 
   .clock-center {
-    padding: 2.1rem;
+    gap: 2.45rem;
+    padding: 2.2rem;
+  }
+
+  .center-top,
+  .center-bottom {
+    gap: 1.1rem;
+  }
+
+  .status-badge.ended {
+    margin-top: 0.2rem;
   }
 }
 
