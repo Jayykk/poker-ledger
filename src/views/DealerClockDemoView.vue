@@ -15,7 +15,7 @@
       :players-registered="demoPlayersRegistered"
       :chips-in-play="demoStats.chipsInPlay"
       :average-stack="demoStats.averageStack"
-      :average-stack-bb="demoStats.averageStackBB"
+      :averageStackBB="demoStats.averageStackBB"
       :current-level="6"
       :current-blinds="demoBlinds"
       :formatted-time="demoTime"
