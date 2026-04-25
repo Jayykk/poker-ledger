@@ -8,7 +8,10 @@ import { useAuthStore } from '../store/modules/auth.js';
  *
  * Permission model:
  *  - Admin (`admins/{uid}` document exists): can edit any game or tournament session.
- *  - Host (`item.hostUid === currentUser.uid`): can edit their own items.
+ *  - Host: can edit their own items.
+ *    Host UID is resolved from multiple possible fields for backward compatibility:
+ *      1. `item.hostUid`         – used by `games` / `tournamentSessions`
+ *      2. `item.meta.createdBy`  – used by `pokerGames` (legacy schema)
  *  - Others: read-only.
  *
  * Status restrictions (non-admin):
@@ -38,10 +41,18 @@ export function useTablePermissions() {
     }
   }
 
+  /**
+   * Resolve the host UID from an item, supporting multiple legacy field locations.
+   * Checks (in order): `hostUid`, `meta.createdBy`.
+   */
+  function resolveHostUid(item) {
+    return item?.hostUid || item?.meta?.createdBy || null;
+  }
+
   function canEdit(item) {
     if (!authStore.user?.uid) return false;
     if (isAdmin.value) return true;
-    return item?.hostUid === authStore.user.uid;
+    return resolveHostUid(item) === authStore.user.uid;
   }
 
   function getItemStatus(item) {
@@ -71,6 +82,7 @@ export function useTablePermissions() {
     permissionsLoaded,
     loadPermissions,
     canEdit,
+    resolveHostUid,
     isStatusLocked,
     isStatusWarning,
     getItemStatus,

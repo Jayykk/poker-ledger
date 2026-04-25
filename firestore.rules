@@ -87,6 +87,19 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && 
         resource.data.meta.createdBy == request.auth.uid;
       
+      // Config version history for cash table admin edits
+      // Host (meta.createdBy) or admin can create versions; no one can alter history.
+      match /configVersions/{versionId} {
+        allow read: if isAuthenticated() &&
+          (resource == null ||
+           request.auth.uid == get(/databases/$(database)/documents/pokerGames/$(gameId)).data.meta.createdBy ||
+           isAdmin());
+        allow create: if isAuthenticated() &&
+          (request.auth.uid == get(/databases/$(database)/documents/pokerGames/$(gameId)).data.meta.createdBy ||
+           isAdmin());
+        allow update, delete: if false;
+      }
+      
       // Hand history sub-collection
       // Records of each hand played
       match /hands/{handId} {

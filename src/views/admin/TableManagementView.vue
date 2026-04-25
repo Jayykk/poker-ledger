@@ -46,32 +46,32 @@
           <div class="space-y-3">
             <div
               v-for="room in filteredGames"
-              :key="room.id"
+              :key="room._key"
               class="bg-slate-800/80 border border-slate-700 rounded-2xl p-4"
             >
               <div class="flex items-start justify-between gap-3">
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-1">
-                    <span class="text-white font-bold truncate">{{ room.name }}</span>
+                    <span class="text-white font-bold truncate">{{ room.displayName }}</span>
                     <span
                       class="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0"
-                      :class="room.type === 'online'
+                      :class="room.displayType === 'online'
                         ? 'bg-purple-600/40 text-purple-200'
                         : 'bg-slate-600/40 text-slate-200'"
                     >
-                      {{ room.type === 'online' ? $t('lobby.onlineLabel') : $t('lobby.liveLabel') }}
+                      {{ room.displayType === 'online' ? $t('lobby.onlineLabel') : $t('lobby.liveLabel') }}
                     </span>
-                    <StatusBadge :status="room.status" />
+                    <StatusBadge :status="room.displayStatus" />
                   </div>
                   <div class="text-xs text-gray-400">
-                    {{ $t('lobby.hostName') }}: {{ room.hostName || $t('common.unknown') }}
+                    {{ $t('lobby.hostName') }}: {{ room.displayHostName }}
                   </div>
                   <div class="text-xs text-gray-500 mt-0.5">
-                    {{ $t('lobby.roomCode') }}: {{ room.roomCode }}
+                    {{ $t('lobby.roomCode') }}: {{ room.displayRoomCode }}
                   </div>
                 </div>
                 <button
-                  @click="$router.push(`/admin/cash/${room.id}`)"
+                  @click="$router.push(`/admin/cash/${room.id}?src=${room._collection}`)"
                   class="shrink-0 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 rounded-lg text-xs font-semibold text-white transition"
                 >
                   <i class="fas fa-edit mr-1"></i>{{ $t('common.edit') }}
@@ -144,8 +144,49 @@ const tabs = computed(() => [
   { key: 'tournament', label: t('admin.management.tabTournament') },
 ]);
 
+/**
+ * Normalize a `pokerGames` document into a common display shape.
+ * Old pokerGames have no top-level `name` / `hostName`; derive them from `meta`.
+ */
+function normalizePokerGame(raw) {
+  const meta = raw.meta || {};
+  const blinds = meta.blinds || {};
+  const sb = blinds.small ?? '?';
+  const bb = blinds.big ?? '?';
+  return {
+    // Keep original id and raw data for editing
+    id: raw.id,
+    _collection: 'pokerGames',
+    _key: `pokerGames-${raw.id}`,
+    _raw: raw,
+    // Normalized display fields
+    displayName: meta.name || `${sb}/${bb} Cash`,
+    displayHostName: raw.hostName || meta.hostName || t('common.unknown'),
+    displayStatus: raw.status || 'unknown',
+    displayType: 'online',
+    displayRoomCode: raw.id.slice(0, 8).toUpperCase(),
+  };
+}
+
+/**
+ * Normalize a `games` (ledger) document into the same display shape.
+ */
+function normalizeGame(raw) {
+  return {
+    id: raw.id,
+    _collection: 'games',
+    _key: `games-${raw.id}`,
+    _raw: raw,
+    displayName: raw.name || t('common.unknown'),
+    displayHostName: raw.hostName || t('common.unknown'),
+    displayStatus: raw.status || 'unknown',
+    displayType: raw.type || 'live',
+    displayRoomCode: raw.roomCode || raw.id.slice(0, 8).toUpperCase(),
+  };
+}
+
 const filteredGames = computed(() =>
-  games.value.filter((g) => canEdit(g))
+  games.value.filter((g) => canEdit(g._raw))
 );
 
 const filteredSessions = computed(() =>
@@ -159,20 +200,50 @@ async function loadData() {
     if (!uid) return;
 
     if (isAdmin.value) {
-      // Admin: load all
-      const [gSnap, sSnap] = await Promise.all([
-        getDocs(query(collection(db, 'games'), orderBy('createdAt', 'desc'))),
+      // Admin: load all from both collections
+      const [pgSnap, gSnap, sSnap] = await Promise.all([
+        getDocs(query(collection(db, 'pokerGames'), orderBy('meta.createdAt', 'desc'))).catch((err) => {
+          console.warn('[TableManagement] pokerGames orderBy failed, retrying without sort:', err.message);
+          return getDocs(collection(db, 'pokerGames'));
+        }),
+        getDocs(query(collection(db, 'games'), orderBy('createdAt', 'desc'))).catch((err) => {
+          console.warn('[TableManagement] games orderBy failed, retrying without sort:', err.message);
+          return getDocs(collection(db, 'games'));
+        }),
         getDocs(query(collection(db, 'tournamentSessions'), orderBy('createdAt', 'desc'))),
       ]);
-      games.value = gSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const pokerGames = pgSnap.docs.map((d) => normalizePokerGame({ id: d.id, ...d.data() }));
+      const ledgerGames = gSnap.docs.map((d) => normalizeGame({ id: d.id, ...d.data() }));
+      // pokerGames listed first (primary source), then ledger games
+      games.value = [...pokerGames, ...ledgerGames];
       sessions.value = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     } else {
-      // Host: load own
-      const [gSnap, sSnap] = await Promise.all([
-        getDocs(query(collection(db, 'games'), where('hostUid', '==', uid), orderBy('createdAt', 'desc'))),
-        getDocs(query(collection(db, 'tournamentSessions'), where('hostUid', '==', uid), orderBy('createdAt', 'desc'))),
+      // Host: load own items from both collections
+      // Note: pokerGames uses meta.createdBy; games uses hostUid
+      const [pgSnap, gSnap, sSnap] = await Promise.all([
+        getDocs(query(collection(db, 'pokerGames'), where('meta.createdBy', '==', uid))).catch((err) => {
+          console.warn('[TableManagement] pokerGames host query failed:', err.message);
+          return { docs: [] };
+        }),
+        getDocs(query(collection(db, 'games'), where('hostUid', '==', uid), orderBy('createdAt', 'desc'))).catch(
+          (err) => {
+            console.warn('[TableManagement] games orderBy failed, retrying without sort:', err.message);
+            return getDocs(query(collection(db, 'games'), where('hostUid', '==', uid)));
+          }
+        ),
+        getDocs(
+          query(collection(db, 'tournamentSessions'), where('hostUid', '==', uid), orderBy('createdAt', 'desc'))
+        ),
       ]);
-      games.value = gSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const pokerGames = pgSnap.docs.map((d) => normalizePokerGame({ id: d.id, ...d.data() }));
+      const ledgerGames = gSnap.docs.map((d) => normalizeGame({ id: d.id, ...d.data() }));
+      // Sort pokerGames by createdAt desc (client-side, since we skipped orderBy to avoid index)
+      pokerGames.sort((a, b) => {
+        const ta = a._raw.meta?.createdAt?.toMillis?.() ?? 0;
+        const tb = b._raw.meta?.createdAt?.toMillis?.() ?? 0;
+        return tb - ta;
+      });
+      games.value = [...pokerGames, ...ledgerGames];
       sessions.value = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     }
   } catch (e) {
