@@ -154,7 +154,10 @@ async function loadData() {
     if (!uid) return;
 
     if (isAdmin.value) {
-      // Admin: load all pokerGames and tournament sessions
+      // Admin: load all pokerGames and tournament sessions.
+      // NOTE: orderBy('meta.createdAt') on a nested field may require a manual Firestore
+      // single-field index for the pokerGames collection. If the query fails, remove the
+      // orderBy clause or create the index in the Firebase console.
       const [gSnap, sSnap] = await Promise.all([
         getDocs(query(collection(db, 'pokerGames'), orderBy('meta.createdAt', 'desc'))),
         getDocs(query(collection(db, 'tournamentSessions'), orderBy('createdAt', 'desc'))),
@@ -162,7 +165,8 @@ async function loadData() {
       games.value = gSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       sessions.value = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     } else {
-      // Host: load own pokerGames (match old schema: meta.createdBy)
+      // Host: load own pokerGames using the old schema field meta.createdBy.
+      // Single equality filter on a nested field is auto-indexed by Firestore.
       const [gSnap, sSnap] = await Promise.all([
         getDocs(query(collection(db, 'pokerGames'), where('meta.createdBy', '==', uid))),
         getDocs(query(collection(db, 'tournamentSessions'), where('hostUid', '==', uid), orderBy('createdAt', 'desc'))),
