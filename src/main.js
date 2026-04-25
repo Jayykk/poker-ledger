@@ -95,6 +95,9 @@ import TimeBankView from './views/TimeBankView.vue';
 import DealerClockView from './views/DealerClockView.vue';
 import DealerClockDemoView from './views/DealerClockDemoView.vue';
 import TournamentGameView from './views/TournamentGameView.vue';
+import TableManagementView from './views/admin/TableManagementView.vue';
+import CashTableEditView from './views/admin/CashTableEditView.vue';
+import TournamentEditView from './views/admin/TournamentEditView.vue';
 
 // ── Async bootstrap ─────────────────────────────────────────────────
 // Must be async so we can await LIFF token processing BEFORE Vue Router
@@ -142,7 +145,10 @@ import TournamentGameView from './views/TournamentGameView.vue';
       { path: '/tournament-game', name: 'TournamentGame', component: TournamentGameView, meta: { requiresAuth: true } },
       { path: '/tournament-game/:gameId', name: 'TournamentGameDirect', component: TournamentGameView, meta: { requiresAuth: true } },
       { path: '/dealer-clock-demo', name: 'DealerClockDemo', component: DealerClockDemoView, meta: { requiresAuth: false } },
-      { path: '/dealer-clock/:sessionId', name: 'DealerClock', component: DealerClockView, meta: { requiresAuth: false } }
+      { path: '/dealer-clock/:sessionId', name: 'DealerClock', component: DealerClockView, meta: { requiresAuth: false } },
+      { path: '/admin/tables', name: 'AdminTables', component: TableManagementView, meta: { requiresAuth: true } },
+      { path: '/admin/cash/:gameId', name: 'AdminCashEdit', component: CashTableEditView, meta: { requiresAuth: true } },
+      { path: '/admin/tournament/:sessionId', name: 'AdminTournamentEdit', component: TournamentEditView, meta: { requiresAuth: true } }
     ]
   });
 

@@ -491,5 +491,52 @@
     "settings": "设置",
     "ready": "准备就绪",
     "paused": "已暂停",
-    "expired": "时间到！"  }
+    "expired": "时间到！"  },
+  "admin": {
+    "management": {
+      "title": "桌次管理",
+      "adminBadge": "管理员",
+      "tabCash": "现金桌",
+      "tabTournament": "锦标赛",
+      "noGames": "没有可管理的桌次",
+      "noTournaments": "没有可管理的锦标赛"
+    },
+    "cashEdit": {
+      "title": "编辑现金桌设定",
+      "baseBuyIn": "基本买入",
+      "notes": "备注",
+      "notesPlaceholder": "填写备注（选填）"
+    },
+    "tournamentEdit": {
+      "title": "编辑锦标赛设定"
+    },
+    "permissionDenied": "权限不足",
+    "permissionDeniedHint": "只有房主或管理员可以编辑此桌次",
+    "statusLocked": "已结束 — 不可修改",
+    "statusLockedHint": "此桌次已结算，设定已锁定。管理员可回滚至历史版本。",
+    "statusActiveWarning": "游戏进行中",
+    "statusActiveHint": "修改设定可能影响进行中的游戏，请谨慎操作。",
+    "versionHistory": {
+      "title": "版本记录",
+      "load": "载入记录",
+      "empty": "尚无版本记录",
+      "rollback": "回滚",
+      "rollbackSuccess": "已回滚至此版本"
+    },
+    "diffPreview": {
+      "title": "保存前预览",
+      "noChanges": "没有检测到变更",
+      "risky": "高风险",
+      "activeWarning": "游戏进行中：修改高风险字段可能影响当前游戏结果",
+      "reason": "修改原因（选填）",
+      "reasonPlaceholder": "说明为什么要修改这些设定...",
+      "payoutHint": "修改奖池分配会影响未来结算计算，请确认总和为 100%"
+    },
+    "validation": {
+      "buyInNegative": "买入金额不可为负数",
+      "blindsNegative": "盲注不可为负数",
+      "bigBlindLessThanSmall": "大盲必须大于等于小盲",
+      "startingChipsMin": "起始筹码至少需要 100"
+    }
+  }
 }

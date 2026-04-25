@@ -493,5 +493,52 @@
     "ready": "準備完了",
     "paused": "一時停止中",
     "expired": "時間切れ！"
+  },
+  "admin": {
+    "management": {
+      "title": "テーブル管理",
+      "adminBadge": "管理者",
+      "tabCash": "キャッシュゲーム",
+      "tabTournament": "トーナメント",
+      "noGames": "管理できるテーブルがありません",
+      "noTournaments": "管理できるトーナメントがありません"
+    },
+    "cashEdit": {
+      "title": "キャッシュテーブル設定の編集",
+      "baseBuyIn": "基本バイイン",
+      "notes": "メモ",
+      "notesPlaceholder": "メモを入力（任意）"
+    },
+    "tournamentEdit": {
+      "title": "トーナメント設定の編集"
+    },
+    "permissionDenied": "権限がありません",
+    "permissionDeniedHint": "ホストまたは管理者のみがこのテーブルを編集できます",
+    "statusLocked": "終了済み — 読み取り専用",
+    "statusLockedHint": "このゲームは終了しました。設定はロックされています。",
+    "statusActiveWarning": "ゲーム進行中",
+    "statusActiveHint": "設定を変更すると進行中のゲームに影響する場合があります。",
+    "versionHistory": {
+      "title": "バージョン履歴",
+      "load": "履歴を読み込む",
+      "empty": "バージョン履歴なし",
+      "rollback": "ロールバック",
+      "rollbackSuccess": "このバージョンにロールバックしました"
+    },
+    "diffPreview": {
+      "title": "変更プレビュー",
+      "noChanges": "変更が検出されませんでした",
+      "risky": "高リスク",
+      "activeWarning": "ゲーム進行中：高リスクフィールドの編集はゲーム結果に影響する可能性があります",
+      "reason": "変更理由（任意）",
+      "reasonPlaceholder": "変更理由を入力...",
+      "payoutHint": "ペイアウト比率の変更は今後の決済計算に影響します。合計が100%であることを確認してください。"
+    },
+    "validation": {
+      "buyInNegative": "バイインは負の値にできません",
+      "blindsNegative": "ブラインドは負の値にできません",
+      "bigBlindLessThanSmall": "ビッグブラインドはスモールブラインド以上でなければなりません",
+      "startingChipsMin": "スターティングチップスは最低100必要です"
+    }
   }
 }

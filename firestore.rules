@@ -11,6 +11,13 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
+
+    // Helper function to check if the current user is an admin
+    // Admin status is stored as a document existence check in the 'admins' collection.
+    function isAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
     
     // User documents
     match /users/{userId} {
@@ -23,6 +30,15 @@ service cloud.firestore {
         allow write: if isOwner(userId);
       }
     }
+
+    // ============================================
+    // Admin registry – only Cloud Functions / manual setup writes here.
+    // Authenticated users can check their own admin status.
+    // ============================================
+    match /admins/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false; // managed server-side only
+    }
     
     // Game documents (existing ledger games)
     match /games/{gameId} {
@@ -30,8 +46,18 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update: if isAuthenticated() && 
         (request.auth.uid == resource.data.hostUid || 
+         isAdmin() ||
          request.auth.uid in resource.data.players[].uid);
-      allow delete: if request.auth.uid == resource.data.hostUid;
+      allow delete: if request.auth.uid == resource.data.hostUid || isAdmin();
+
+      // Config version history (written by frontend after each config change)
+      match /configVersions/{versionId} {
+        allow read: if isAuthenticated() &&
+          (resource == null || request.auth.uid == get(/databases/$(database)/documents/games/$(gameId)).data.hostUid || isAdmin());
+        allow create: if isAuthenticated() &&
+          (request.auth.uid == get(/databases/$(database)/documents/games/$(gameId)).data.hostUid || isAdmin());
+        allow update, delete: if false;
+      }
       
       // Game chat sub-collection
       match /chat/{messageId} {
@@ -112,12 +138,23 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated()
         && request.resource.data.hostUid == request.auth.uid;
-      // Host can always update; any authenticated user can update if dealer mode is on
+      // Host can always update; any authenticated user can update if dealer mode is on;
+      // admins can update any session.
       allow update: if isAuthenticated()
         && (resource.data.hostUid == request.auth.uid
-            || resource.data.dealerModeEnabled == true);
+            || resource.data.dealerModeEnabled == true
+            || isAdmin());
       allow delete: if isAuthenticated()
-        && resource.data.hostUid == request.auth.uid;
+        && (resource.data.hostUid == request.auth.uid || isAdmin());
+
+      // Config version history
+      match /configVersions/{versionId} {
+        allow read: if isAuthenticated() &&
+          (resource == null || request.auth.uid == get(/databases/$(database)/documents/tournamentSessions/$(sessionId)).data.hostUid || isAdmin());
+        allow create: if isAuthenticated() &&
+          (request.auth.uid == get(/databases/$(database)/documents/tournamentSessions/$(sessionId)).data.hostUid || isAdmin());
+        allow update, delete: if false;
+      }
     }
 
     // ============================================
@@ -142,3 +179,4 @@ service cloud.firestore {
     }
   }
 }
+
