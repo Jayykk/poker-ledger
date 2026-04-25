@@ -82,6 +82,9 @@ import {
   TIMER_WARNING_THRESHOLD, TIMER_DANGER_THRESHOLD, TIMER_CRITICAL_THRESHOLD,
 } from '../utils/constants.js';
 
+const AUDIO_GAIN_WARNING = 0.5;
+const AUDIO_GAIN_LEVEL_UP = 0.35;
+
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
@@ -180,12 +183,12 @@ function playSound(type) {
 
     if (type === 'warning') {
       osc.frequency.value = 880;
-      gain.gain.value = 0.3;
+      gain.gain.value = AUDIO_GAIN_WARNING;
       osc.start();
       osc.stop(ctx.currentTime + 0.15);
     } else if (type === 'levelUp') {
       osc.frequency.value = 1200;
-      gain.gain.value = 0.2;
+      gain.gain.value = AUDIO_GAIN_LEVEL_UP;
       osc.start();
       setTimeout(() => {
         const osc2 = ctx.createOscillator();
@@ -193,7 +196,7 @@ function playSound(type) {
         osc2.connect(gain2);
         gain2.connect(ctx.destination);
         osc2.frequency.value = 1600;
-        gain2.gain.value = 0.2;
+        gain2.gain.value = AUDIO_GAIN_LEVEL_UP;
         osc2.start();
         osc2.stop(ctx.currentTime + 0.2);
       }, 150);
