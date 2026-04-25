@@ -57,29 +57,33 @@
           <section class="card">
             <h2 class="section-title">{{ $t('tournament.basicInfo') }}</h2>
             <div class="space-y-3">
-              <div>
-                <label class="field-label">{{ $t('game.title') }}</label>
-                <input
-                  v-model="form.name"
-                  type="text"
-                  class="field-input"
-                  :placeholder="$t('game.title')"
-                  :disabled="isStatusLocked(game)"
-                />
-              </div>
 
+              <!-- minBuyIn / maxBuyIn -->
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="field-label">{{ $t('admin.cashEdit.baseBuyIn') }}</label>
+                  <label class="field-label">{{ $t('admin.cashEdit.minBuyIn') }}</label>
                   <input
-                    v-model.number="form.baseBuyIn"
+                    v-model.number="form.minBuyIn"
                     type="number"
                     min="0"
                     class="field-input"
                     :disabled="isStatusLocked(game)"
                   />
                 </div>
-                <div v-if="game.type === 'online'">
+                <div>
+                  <label class="field-label">{{ $t('admin.cashEdit.maxBuyIn') }}</label>
+                  <input
+                    v-model.number="form.maxBuyIn"
+                    type="number"
+                    min="0"
+                    class="field-input"
+                    :disabled="isStatusLocked(game)"
+                  />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
                   <label class="field-label">{{ $t('lobby.maxPlayers') }}</label>
                   <input
                     v-model.number="form.maxPlayers"
@@ -92,8 +96,8 @@
                 </div>
               </div>
 
-              <!-- Online-only blinds -->
-              <div v-if="game.type === 'online'" class="grid grid-cols-2 gap-3">
+              <!-- Blinds -->
+              <div class="grid grid-cols-2 gap-3">
                 <div>
                   <label class="field-label">{{ $t('tournament.smallBlind') }}</label>
                   <input
@@ -213,7 +217,7 @@ const { saving, saveGameConfig, getConfigVersions, rollbackToVersion } = useConf
 const gameId = computed(() => route.params.gameId);
 const game = ref(null);
 const loading = ref(true);
-const form = ref({ name: '', baseBuyIn: 0, maxPlayers: 10, blinds: { small: 1, big: 2 }, notes: '' });
+const form = ref({ minBuyIn: 0, maxBuyIn: 0, maxPlayers: 10, blinds: { small: 1, big: 2 }, notes: '' });
 const versions = ref([]);
 const versionsLoaded = ref(false);
 const loadingVersions = ref(false);
@@ -222,79 +226,81 @@ const diffChanges = ref([]);
 
 const canEditItem = computed(() => game.value && canEdit(game.value));
 
-const RISKY_FIELDS = new Set(['baseBuyIn', 'blinds']);
+const RISKY_FIELDS = new Set(['meta.blinds.small', 'meta.blinds.big', 'meta.minBuyIn', 'meta.maxBuyIn']);
 
 const FIELD_LABELS = computed(() => ({
-  name: t('game.title'),
-  baseBuyIn: t('admin.cashEdit.baseBuyIn'),
-  maxPlayers: t('lobby.maxPlayers'),
-  'blinds.small': t('tournament.smallBlind'),
-  'blinds.big': t('tournament.bigBlind'),
-  notes: t('admin.cashEdit.notes'),
+  'meta.minBuyIn': t('admin.cashEdit.minBuyIn'),
+  'meta.maxBuyIn': t('admin.cashEdit.maxBuyIn'),
+  'meta.maxPlayers': t('lobby.maxPlayers'),
+  'meta.blinds.small': t('tournament.smallBlind'),
+  'meta.blinds.big': t('tournament.bigBlind'),
+  'meta.notes': t('admin.cashEdit.notes'),
 }));
 
 function buildDiffChanges(before, after) {
   const changes = [];
+  const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
 
-  const compare = (key, bVal, aVal, label, isRisky) => {
-    const bStr = JSON.stringify(bVal ?? null);
-    const aStr = JSON.stringify(aVal ?? null);
-    if (bStr !== aStr) {
-      changes.push({ field: key, label, before: bVal, after: aVal, isRisky: isRisky || false });
+  for (const key of allKeys) {
+    const bVal = before[key];
+    const aVal = after[key];
+    if (JSON.stringify(bVal ?? null) !== JSON.stringify(aVal ?? null)) {
+      changes.push({
+        field: key,
+        label: FIELD_LABELS.value[key] || key,
+        before: bVal,
+        after: aVal,
+        isRisky: RISKY_FIELDS.has(key),
+      });
     }
-  };
-
-  compare('name', before.name, after.name, t('game.title'), false);
-  compare('baseBuyIn', before.baseBuyIn, after.baseBuyIn, t('admin.cashEdit.baseBuyIn'), true);
-  compare('maxPlayers', before.maxPlayers, after.maxPlayers, t('lobby.maxPlayers'), false);
-  compare('blinds.small', before.blinds?.small, after.blinds?.small, t('tournament.smallBlind'), true);
-  compare('blinds.big', before.blinds?.big, after.blinds?.big, t('tournament.bigBlind'), true);
-  compare('notes', before.notes, after.notes, t('admin.cashEdit.notes'), false);
-
+  }
   return changes;
 }
 
 function formToUpdates() {
-  const updates = {
-    name: form.value.name,
-    baseBuyIn: form.value.baseBuyIn,
-    notes: form.value.notes || '',
+  // Use dot-notation keys so Firestore only updates the targeted nested fields
+  // and does NOT overwrite the entire meta object or meta.blinds object.
+  return {
+    'meta.minBuyIn': form.value.minBuyIn,
+    'meta.maxBuyIn': form.value.maxBuyIn,
+    'meta.maxPlayers': form.value.maxPlayers,
+    'meta.blinds.small': form.value.blinds.small,
+    'meta.blinds.big': form.value.blinds.big,
+    'meta.notes': form.value.notes || '',
   };
-  if (game.value?.type === 'online') {
-    updates.maxPlayers = form.value.maxPlayers;
-    updates.blinds = { small: form.value.blinds.small, big: form.value.blinds.big };
-  }
-  return updates;
 }
 
 function formToBefore() {
   return {
-    name: game.value?.name,
-    baseBuyIn: game.value?.baseBuyIn,
-    notes: game.value?.notes || '',
-    maxPlayers: game.value?.maxPlayers,
-    blinds: game.value?.blinds ? { ...game.value.blinds } : undefined,
+    'meta.minBuyIn': game.value?.meta?.minBuyIn,
+    'meta.maxBuyIn': game.value?.meta?.maxBuyIn,
+    'meta.maxPlayers': game.value?.meta?.maxPlayers,
+    'meta.blinds.small': game.value?.meta?.blinds?.small,
+    'meta.blinds.big': game.value?.meta?.blinds?.big,
+    'meta.notes': game.value?.meta?.notes || '',
   };
 }
 
 function validate() {
-  if (!form.value.name?.trim()) {
-    showError(t('tournament.nameRequired'));
-    return false;
-  }
-  if (form.value.baseBuyIn < 0) {
+  if (form.value.minBuyIn < 0 || form.value.maxBuyIn < 0) {
     showError(t('admin.validation.buyInNegative'));
     return false;
   }
-  if (game.value?.type === 'online') {
-    if (form.value.blinds.small < 0 || form.value.blinds.big < 0) {
-      showError(t('admin.validation.blindsNegative'));
-      return false;
-    }
-    if (form.value.blinds.big < form.value.blinds.small) {
-      showError(t('admin.validation.bigBlindLessThanSmall'));
-      return false;
-    }
+  if (form.value.minBuyIn > form.value.maxBuyIn) {
+    showError(t('admin.validation.minBuyInExceedsMax'));
+    return false;
+  }
+  if (form.value.maxPlayers < 2 || form.value.maxPlayers > 20) {
+    showError(t('admin.validation.maxPlayersRange'));
+    return false;
+  }
+  if (form.value.blinds.small < 0 || form.value.blinds.big < 0) {
+    showError(t('admin.validation.blindsNegative'));
+    return false;
+  }
+  if (form.value.blinds.big < form.value.blinds.small) {
+    showError(t('admin.validation.bigBlindLessThanSmall'));
+    return false;
   }
   return true;
 }
@@ -313,8 +319,15 @@ async function handleConfirmSave(reason) {
   const updates = formToUpdates();
   try {
     await saveGameConfig(gameId.value, updates, before, reason);
-    // Update local game reference
-    Object.assign(game.value, updates);
+    // Update local game reference so UI reflects saved values immediately
+    if (!game.value.meta) game.value.meta = {};
+    game.value.meta.minBuyIn = form.value.minBuyIn;
+    game.value.meta.maxBuyIn = form.value.maxBuyIn;
+    game.value.meta.maxPlayers = form.value.maxPlayers;
+    if (!game.value.meta.blinds) game.value.meta.blinds = {};
+    game.value.meta.blinds.small = form.value.blinds.small;
+    game.value.meta.blinds.big = form.value.blinds.big;
+    game.value.meta.notes = form.value.notes;
     success(t('common.save') + ' ✓');
     versionsLoaded.value = false;
     versions.value = [];
@@ -325,7 +338,7 @@ async function handleConfirmSave(reason) {
 
 async function handleRollback(version) {
   try {
-    await rollbackToVersion('games', gameId.value, version.id, `Rollback to ${formatTimestamp(version.timestamp)}`);
+    await rollbackToVersion('pokerGames', gameId.value, version.id, `Rollback to ${formatTimestamp(version.timestamp)}`);
     success(t('admin.versionHistory.rollbackSuccess'));
     await loadGame();
     await loadVersions();
@@ -337,15 +350,18 @@ async function handleRollback(version) {
 async function loadGame() {
   loading.value = true;
   try {
-    const snap = await getDoc(doc(db, 'games', gameId.value));
+    const snap = await getDoc(doc(db, 'pokerGames', gameId.value));
     if (snap.exists()) {
       game.value = { id: snap.id, ...snap.data() };
       form.value = {
-        name: game.value.name || '',
-        baseBuyIn: game.value.baseBuyIn || 0,
-        maxPlayers: game.value.maxPlayers || 10,
-        blinds: { small: game.value.blinds?.small || 1, big: game.value.blinds?.big || 2 },
-        notes: game.value.notes || '',
+        minBuyIn: game.value.meta?.minBuyIn ?? 0,
+        maxBuyIn: game.value.meta?.maxBuyIn ?? 0,
+        maxPlayers: game.value.meta?.maxPlayers ?? 10,
+        blinds: {
+          small: game.value.meta?.blinds?.small ?? 1,
+          big: game.value.meta?.blinds?.big ?? 2,
+        },
+        notes: game.value.meta?.notes || '',
       };
     }
   } finally {
@@ -356,7 +372,7 @@ async function loadGame() {
 async function loadVersions() {
   loadingVersions.value = true;
   try {
-    versions.value = await getConfigVersions('games', gameId.value);
+    versions.value = await getConfigVersions('pokerGames', gameId.value);
     versionsLoaded.value = true;
   } catch (e) {
     console.error('load versions error', e);

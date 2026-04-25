@@ -367,7 +367,8 @@
     "shareSettlement": "分享结算",
     "shareRanking": "分享排行",
     "shared": "已分享至 LINE",
-    "shareError": "分享失败，请在 LINE 中打开"  },
+    "shareError": "分享失败，请在 LINE 中打开"
+  },
   "tournament": {
     "presets": "锦标赛设置",
     "builtInTemplates": "内置模板",
@@ -491,7 +492,8 @@
     "settings": "设置",
     "ready": "准备就绪",
     "paused": "已暂停",
-    "expired": "时间到！"  },
+    "expired": "时间到！"
+  },
   "admin": {
     "management": {
       "title": "桌次管理",
@@ -505,7 +507,9 @@
       "title": "编辑现金桌设定",
       "baseBuyIn": "基本买入",
       "notes": "备注",
-      "notesPlaceholder": "填写备注（选填）"
+      "notesPlaceholder": "填写备注（选填）",
+      "minBuyIn": "最小买入",
+      "maxBuyIn": "最大买入"
     },
     "tournamentEdit": {
       "title": "编辑锦标赛设定"
@@ -536,7 +540,9 @@
       "buyInNegative": "买入金额不可为负数",
       "blindsNegative": "盲注不可为负数",
       "bigBlindLessThanSmall": "大盲必须大于等于小盲",
-      "startingChipsMin": "起始筹码至少需要 100"
+      "startingChipsMin": "起始筹码至少需要 100",
+      "minBuyInExceedsMax": "最小买入不可大于最大买入",
+      "maxPlayersRange": "最大玩家数必须在 2 到 20 之间"
     }
   }
 }

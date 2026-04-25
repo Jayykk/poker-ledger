@@ -52,22 +52,17 @@
               <div class="flex items-start justify-between gap-3">
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-1">
-                    <span class="text-white font-bold truncate">{{ room.name }}</span>
-                    <span
-                      class="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0"
-                      :class="room.type === 'online'
-                        ? 'bg-purple-600/40 text-purple-200'
-                        : 'bg-slate-600/40 text-slate-200'"
-                    >
-                      {{ room.type === 'online' ? $t('lobby.onlineLabel') : $t('lobby.liveLabel') }}
+                    <span class="text-white font-bold truncate">#{{ room.id.slice(0, 8) }}</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 bg-slate-600/40 text-slate-200">
+                      {{ $t('lobby.liveLabel') }}
                     </span>
                     <StatusBadge :status="room.status" />
                   </div>
                   <div class="text-xs text-gray-400">
-                    {{ $t('lobby.hostName') }}: {{ room.hostName || $t('common.unknown') }}
+                    {{ $t('lobby.hostName') }}: {{ room.meta?.createdBy?.slice(0, 10) || $t('common.unknown') }}
                   </div>
-                  <div class="text-xs text-gray-500 mt-0.5">
-                    {{ $t('lobby.roomCode') }}: {{ room.roomCode }}
+                  <div v-if="room.meta?.blinds" class="text-xs text-gray-500 mt-0.5">
+                    {{ $t('lobby.blinds') }}: {{ room.meta.blinds.small }}/{{ room.meta.blinds.big }}
                   </div>
                 </div>
                 <button
@@ -159,17 +154,21 @@ async function loadData() {
     if (!uid) return;
 
     if (isAdmin.value) {
-      // Admin: load all
+      // Admin: load all pokerGames and tournament sessions.
+      // NOTE: orderBy('meta.createdAt') on a nested field may require a manual Firestore
+      // single-field index for the pokerGames collection. If the query fails, remove the
+      // orderBy clause or create the index in the Firebase console.
       const [gSnap, sSnap] = await Promise.all([
-        getDocs(query(collection(db, 'games'), orderBy('createdAt', 'desc'))),
+        getDocs(query(collection(db, 'pokerGames'), orderBy('meta.createdAt', 'desc'))),
         getDocs(query(collection(db, 'tournamentSessions'), orderBy('createdAt', 'desc'))),
       ]);
       games.value = gSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       sessions.value = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     } else {
-      // Host: load own
+      // Host: load own pokerGames using the old schema field meta.createdBy.
+      // Single equality filter on a nested field is auto-indexed by Firestore.
       const [gSnap, sSnap] = await Promise.all([
-        getDocs(query(collection(db, 'games'), where('hostUid', '==', uid), orderBy('createdAt', 'desc'))),
+        getDocs(query(collection(db, 'pokerGames'), where('meta.createdBy', '==', uid))),
         getDocs(query(collection(db, 'tournamentSessions'), where('hostUid', '==', uid), orderBy('createdAt', 'desc'))),
       ]);
       games.value = gSnap.docs.map((d) => ({ id: d.id, ...d.data() }));

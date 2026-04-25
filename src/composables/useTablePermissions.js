@@ -8,7 +8,7 @@ import { useAuthStore } from '../store/modules/auth.js';
  *
  * Permission model:
  *  - Admin (`admins/{uid}` document exists): can edit any game or tournament session.
- *  - Host (`item.hostUid === currentUser.uid`): can edit their own items.
+ *  - Host (`item.hostUid === currentUser.uid` or `item.meta.createdBy === currentUser.uid`): can edit their own items.
  *  - Others: read-only.
  *
  * Status restrictions (non-admin):
@@ -41,7 +41,9 @@ export function useTablePermissions() {
   function canEdit(item) {
     if (!authStore.user?.uid) return false;
     if (isAdmin.value) return true;
-    return item?.hostUid === authStore.user.uid;
+    const uid = authStore.user.uid;
+    // Support both new schema (hostUid) and old pokerGames schema (meta.createdBy)
+    return item?.hostUid === uid || item?.meta?.createdBy === uid;
   }
 
   function getItemStatus(item) {

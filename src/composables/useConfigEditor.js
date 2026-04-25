@@ -28,6 +28,16 @@ export function useConfigEditor() {
   const saving = ref(false);
   const error = ref('');
 
+  // ── Utility helpers ─────────────────────────────────────────────────
+
+  /**
+   * Extract a nested value from a plain object using a dot-notation path.
+   * e.g. getNestedValue({ meta: { minBuyIn: 10 } }, 'meta.minBuyIn') → 10
+   */
+  function _getNestedValue(obj, dotPath) {
+    return dotPath.split('.').reduce((acc, key) => (acc != null ? acc[key] : undefined), obj);
+  }
+
   // ── Version history helpers ─────────────────────────────────────────
 
   async function _writeVersion(parentCollection, parentId, targetType, before, after, reason) {
@@ -62,10 +72,10 @@ export function useConfigEditor() {
   // ── Cash game config ────────────────────────────────────────────────
 
   /**
-   * Update editable fields of a cash/online game document.
+   * Update editable meta-fields of a pokerGames document using dot-notation keys.
    *
    * @param {string} gameId
-   * @param {object} updates  - Only allowed top-level fields (name, baseBuyIn, blinds, maxPlayers, notes)
+   * @param {object} updates  - Flat dot-notation updates, e.g. { 'meta.minBuyIn': 100, 'meta.blinds.small': 5 }
    * @param {object} before   - Snapshot of the same fields before edit (for version record)
    * @param {string} [reason]
    */
@@ -74,9 +84,9 @@ export function useConfigEditor() {
     saving.value = true;
     error.value = '';
     try {
-      const gameRef = doc(db, 'games', gameId);
+      const gameRef = doc(db, 'pokerGames', gameId);
       await updateDoc(gameRef, updates);
-      await _writeVersion('games', gameId, 'cash', before, updates, reason);
+      await _writeVersion('pokerGames', gameId, 'cash', before, updates, reason);
     } catch (err) {
       error.value = err.message;
       throw err;
@@ -153,10 +163,12 @@ export function useConfigEditor() {
           reason || `Rollback to version ${versionId}`
         );
       } else {
+        // For pokerGames (and legacy games), rollbackTarget uses dot-notation keys.
+        // Extract the matching current values using the same dot-notation paths.
         await updateDoc(doc(db, parentCollection, parentId), rollbackTarget);
         const currentBefore = {};
         for (const key of Object.keys(rollbackTarget)) {
-          currentBefore[key] = currentData[key];
+          currentBefore[key] = _getNestedValue(currentData, key);
         }
         await _writeVersion(
           parentCollection,
