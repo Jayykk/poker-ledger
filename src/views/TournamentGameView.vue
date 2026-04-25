@@ -419,7 +419,10 @@ onMounted(async () => {
         if (result.status === 'joined') {
           await joinGameListener(targetGameId);
         } else if (result.status === 'open') {
-          await joinAsNewPlayer(targetGameId, result.baseBuyIn || DEFAULT_BUY_IN);
+          // Tournament games are closed — participants are added by the host only.
+          // If the current user is not already a player, just attach as a listener
+          // (spectator/viewer) rather than auto-creating a new player entry.
+          await joinGameListener(targetGameId);
         } else {
           router.push('/lobby');
         }
@@ -581,7 +584,9 @@ const handleUndoBuyIn = async (tx) => {
           await updateDoc(doc(db, 'games', game.value.id), { players: updatedPlayers });
         }
 
-        // Decrement tournament session reentry counter if applicable
+        // Decrement tournament session reentry counter if applicable.
+        // Only reentries is decremented — playersRegistered tracks unique players
+        // and is unaffected by re-entry undo.
         const sessionId = game.value?.tournamentSessionId;
         if (sessionId && tx.type === 'reentry') {
           const { doc, updateDoc, getDoc } = await import('firebase/firestore');
@@ -592,7 +597,6 @@ const handleUndoBuyIn = async (tx) => {
             const st = snap.data().state || {};
             await updateDoc(sessionRef, {
               'state.reentries': Math.max(0, (st.reentries || 0) - 1),
-              'state.playersRegistered': Math.max(0, (st.playersRegistered || 0) - 1),
             });
           }
         }
