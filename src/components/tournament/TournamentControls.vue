@@ -87,6 +87,32 @@
         </div>
       </div>
 
+      <!-- Sound Volume -->
+      <div class="control-section">
+        <h4 class="section-title">{{ $t('tournament.soundVolume') }}</h4>
+        <div class="sound-grid">
+          <div
+            v-for="key in PRESET_KEYS"
+            :key="key"
+            class="sound-col"
+          >
+            <button
+              @click="setPreset(key)"
+              :class="['preset-btn', selectedPreset === key ? 'preset-btn--active' : '']"
+            >
+              {{ $t(`tournament.sound_${key}`) }}
+            </button>
+            <button
+              @click="testPreset(key)"
+              class="test-btn"
+              :title="$t('tournament.testSound')"
+            >
+              <i class="fas fa-volume-up mr-1"></i>{{ $t('tournament.testSound') }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- End Tournament -->
       <div class="control-section">
         <button
@@ -104,9 +130,12 @@
 import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useConfirm } from '../../composables/useConfirm.js';
+import { useTournamentAudio, PRESET_KEYS } from '../../composables/useTournamentAudio.js';
 
 const { t } = useI18n();
 const { confirm } = useConfirm();
+
+const { selectedPreset, setPreset, testPreset } = useTournamentAudio();
 
 const props = defineProps({
   status: { type: String, default: 'waiting' },
@@ -265,5 +294,62 @@ async function confirmEnd() {
 .num-input::-webkit-inner-spin-button,
 .num-input::-webkit-outer-spin-button {
   -webkit-appearance: none;
+}
+
+.sound-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.sound-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  align-items: stretch;
+}
+
+.preset-btn {
+  padding: 0.4rem 0.25rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  background: #334155;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.preset-btn:hover {
+  background: #475569;
+  color: white;
+}
+
+.preset-btn--active {
+  background: #1d4ed8;
+  border-color: #60a5fa;
+  color: white;
+}
+
+.test-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.25rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  background: #0f4c3a;
+  border: 1px solid #059669;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.test-btn:hover {
+  background: #065f46;
+  color: white;
 }
 </style>

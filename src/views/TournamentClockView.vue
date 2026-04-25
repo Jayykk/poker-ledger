@@ -188,6 +188,7 @@ import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
+import { useTournamentAudio } from '../composables/useTournamentAudio.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useWakeLock } from '../composables/useWakeLock.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
@@ -196,13 +197,11 @@ import {
   TIMER_WARNING_THRESHOLD, TIMER_DANGER_THRESHOLD, TIMER_CRITICAL_THRESHOLD,
 } from '../utils/constants.js';
 
-const AUDIO_GAIN_WARNING = 0.5;
-const AUDIO_GAIN_LEVEL_UP = 0.35;
-
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
 const { error: showError, success } = useNotification();
+const { playSound } = useTournamentAudio();
 
 useWakeLock();
 
@@ -322,40 +321,6 @@ function selectAllText(e) {
   const sel = window.getSelection();
   sel.removeAllRanges();
   sel.addRange(range);
-}
-
-function playSound(type) {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    if (type === 'warning') {
-      osc.frequency.value = 880;
-      gain.gain.value = AUDIO_GAIN_WARNING;
-      osc.start();
-      osc.stop(ctx.currentTime + 0.15);
-    } else if (type === 'levelUp') {
-      osc.frequency.value = 1200;
-      gain.gain.value = AUDIO_GAIN_LEVEL_UP;
-      osc.start();
-      setTimeout(() => {
-        const osc2 = ctx.createOscillator();
-        const gain2 = ctx.createGain();
-        osc2.connect(gain2);
-        gain2.connect(ctx.destination);
-        osc2.frequency.value = 1600;
-        gain2.gain.value = AUDIO_GAIN_LEVEL_UP;
-        osc2.start();
-        osc2.stop(ctx.currentTime + 0.2);
-      }, 150);
-      osc.stop(ctx.currentTime + 0.15);
-    }
-  } catch {
-    // Audio not available
-  }
 }
 
 // Request fullscreen on mount (optional)
