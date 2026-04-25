@@ -14,8 +14,6 @@ export const VOLUME_PRESETS = {
   high:   { warning: 0.9,  levelUp: 0.7  },
 };
 
-export const PRESET_KEYS = /** @type {const} */ (['low', 'medium', 'high']);
-
 // Singleton reactive state shared across all useTournamentAudio() calls
 const _stored = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY)) || 'medium';
 const selectedPreset = ref(VOLUME_PRESETS[_stored] ? _stored : 'medium');
@@ -84,7 +82,7 @@ export function useTournamentAudio() {
   return {
     selectedPreset,
     VOLUME_PRESETS,
-    PRESET_KEYS,
+    presetKeys: Object.keys(VOLUME_PRESETS),
     setPreset,
     playSound,
     testPreset,

@@ -92,7 +92,7 @@
         <h4 class="section-title">{{ $t('tournament.soundVolume') }}</h4>
         <div class="sound-grid">
           <div
-            v-for="key in PRESET_KEYS"
+            v-for="key in presetKeys"
             :key="key"
             class="sound-col"
           >
@@ -130,12 +130,12 @@
 import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useConfirm } from '../../composables/useConfirm.js';
-import { useTournamentAudio, PRESET_KEYS } from '../../composables/useTournamentAudio.js';
+import { useTournamentAudio } from '../../composables/useTournamentAudio.js';
 
 const { t } = useI18n();
 const { confirm } = useConfirm();
 
-const { selectedPreset, setPreset, testPreset } = useTournamentAudio();
+const { selectedPreset, presetKeys, setPreset, testPreset } = useTournamentAudio();
 
 const props = defineProps({
   status: { type: String, default: 'waiting' },
