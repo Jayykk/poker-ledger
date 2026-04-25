@@ -36,8 +36,8 @@ export function useConfigEditor() {
       targetType,
       before,
       after,
-      editorUid: authStore.user?.uid || 'unknown',
-      editorName: authStore.displayName || 'unknown',
+      editorUid: authStore.user?.uid || 'anonymous',
+      editorName: authStore.displayName || 'anonymous',
       timestamp: serverTimestamp(),
       reason: reason || '',
     });

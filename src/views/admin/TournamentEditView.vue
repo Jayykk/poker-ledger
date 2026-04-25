@@ -331,16 +331,23 @@ const payoutTotal = computed(() =>
 );
 
 // ── Level management ─────────────────────────────────────────────────
+// BLIND_SCALE_FACTOR: multiply previous level blinds by 1.5 when auto-suggesting next level.
+// DEFAULT_FIRST_SMALL / BIG: used when there's no previous level to base on.
+const BLIND_SCALE_FACTOR = 1.5;
+const DEFAULT_FIRST_SMALL = 25;
+const DEFAULT_FIRST_BIG = 50;
+const DEFAULT_LEVEL_DURATION = 15; // minutes
+
 function addLevel() {
   const levels = form.value.levels;
   const lastPlay = [...levels].reverse().find((l) => !l.isBreak);
   const nextLevelNum = lastPlay ? lastPlay.level + 1 : 1;
   levels.push({
     level: nextLevelNum,
-    small: lastPlay ? Math.round(lastPlay.small * 1.5) : 25,
-    big: lastPlay ? Math.round(lastPlay.big * 1.5) : 50,
+    small: lastPlay ? Math.round(lastPlay.small * BLIND_SCALE_FACTOR) : DEFAULT_FIRST_SMALL,
+    big: lastPlay ? Math.round(lastPlay.big * BLIND_SCALE_FACTOR) : DEFAULT_FIRST_BIG,
     ante: lastPlay ? lastPlay.ante : 0,
-    duration: lastPlay ? lastPlay.duration : 15,
+    duration: lastPlay ? lastPlay.duration : DEFAULT_LEVEL_DURATION,
     isBreak: false,
   });
   renumberLevels();

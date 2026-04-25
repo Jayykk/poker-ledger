@@ -30,7 +30,8 @@ export function useTablePermissions() {
     try {
       const adminDoc = await getDoc(doc(db, 'admins', authStore.user.uid));
       isAdmin.value = adminDoc.exists();
-    } catch {
+    } catch (err) {
+      console.error('[useTablePermissions] Failed to load admin status:', err);
       isAdmin.value = false;
     } finally {
       permissionsLoaded.value = true;
