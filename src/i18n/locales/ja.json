@@ -507,7 +507,9 @@
       "title": "キャッシュテーブル設定の編集",
       "baseBuyIn": "基本バイイン",
       "notes": "メモ",
-      "notesPlaceholder": "メモを入力（任意）"
+      "notesPlaceholder": "メモを入力（任意）",
+      "minBuyIn": "最小バイイン",
+      "maxBuyIn": "最大バイイン"
     },
     "tournamentEdit": {
       "title": "トーナメント設定の編集"
@@ -538,7 +540,9 @@
       "buyInNegative": "バイインは負の値にできません",
       "blindsNegative": "ブラインドは負の値にできません",
       "bigBlindLessThanSmall": "ビッグブラインドはスモールブラインド以上でなければなりません",
-      "startingChipsMin": "スターティングチップスは最低100必要です"
+      "startingChipsMin": "スターティングチップスは最低100必要です",
+      "minBuyInExceedsMax": "最小バイインは最大バイインを超えることはできません",
+      "maxPlayersRange": "最大プレイヤー数は2から20の間でなければなりません"
     }
   }
 }

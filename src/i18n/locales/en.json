@@ -509,7 +509,9 @@
       "title": "Edit Cash Table Settings",
       "baseBuyIn": "Base Buy-in",
       "notes": "Notes",
-      "notesPlaceholder": "Add notes (optional)"
+      "notesPlaceholder": "Add notes (optional)",
+      "minBuyIn": "Min Buy-in",
+      "maxBuyIn": "Max Buy-in"
     },
     "tournamentEdit": {
       "title": "Edit Tournament Settings"
@@ -540,7 +542,9 @@
       "buyInNegative": "Buy-in cannot be negative",
       "blindsNegative": "Blinds cannot be negative",
       "bigBlindLessThanSmall": "Big blind must be greater than or equal to small blind",
-      "startingChipsMin": "Starting chips must be at least 100"
+      "startingChipsMin": "Starting chips must be at least 100",
+      "minBuyInExceedsMax": "Min buy-in cannot be greater than max buy-in",
+      "maxPlayersRange": "Max players must be between 2 and 20"
     }
   }
 }

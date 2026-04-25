@@ -79,14 +79,33 @@ service cloud.firestore {
       allow create: if isAuthenticated() &&
         request.resource.data.meta.createdBy == request.auth.uid;
       
-      // Only authenticated players can update the game
-      // Detailed validation should be done in Cloud Functions
-      allow update: if isAuthenticated();
+      // Update rules:
+      //  - The room creator (meta.createdBy) or an admin can update any fields,
+      //    including the managed config fields inside `meta`.
+      //  - Any authenticated user (e.g. players) can update the document only if
+      //    they do NOT change the `meta` object — this covers in-game state updates
+      //    such as the `settling` flag, without opening the door to config tampering.
+      allow update: if isAuthenticated() &&
+        (resource.data.meta.createdBy == request.auth.uid ||
+         isAdmin() ||
+         request.resource.data.meta == resource.data.meta);
       
       // Only the creator can delete the game
       allow delete: if isAuthenticated() && 
         resource.data.meta.createdBy == request.auth.uid;
       
+      // Config version history (written by frontend after each config change)
+      match /configVersions/{versionId} {
+        allow read: if isAuthenticated() &&
+          (resource == null ||
+           request.auth.uid == get(/databases/$(database)/documents/pokerGames/$(gameId)).data.meta.createdBy ||
+           isAdmin());
+        allow create: if isAuthenticated() &&
+          (request.auth.uid == get(/databases/$(database)/documents/pokerGames/$(gameId)).data.meta.createdBy ||
+           isAdmin());
+        allow update, delete: if false;
+      }
+
       // Hand history sub-collection
       // Records of each hand played
       match /hands/{handId} {
