@@ -40,7 +40,6 @@ function formToUpdates(form) {
   return {
     'meta.minBuyIn': form.minBuyIn,
     'meta.maxBuyIn': form.maxBuyIn,
-    'meta.maxPlayers': form.maxPlayers,
     'meta.blinds.small': form.blinds.small,
     'meta.blinds.big': form.blinds.big,
     'meta.notes': form.notes || '',
@@ -52,7 +51,6 @@ function formToBefore(game) {
   return {
     'meta.minBuyIn': game?.meta?.minBuyIn,
     'meta.maxBuyIn': game?.meta?.maxBuyIn,
-    'meta.maxPlayers': game?.meta?.maxPlayers,
     'meta.blinds.small': game?.meta?.blinds?.small,
     'meta.blinds.big': game?.meta?.blinds?.big,
     'meta.notes': game?.meta?.notes || '',
@@ -63,7 +61,6 @@ function formToBefore(game) {
 function validate(form) {
   if (form.minBuyIn < 0 || form.maxBuyIn < 0) return 'buyInNegative';
   if (form.minBuyIn > form.maxBuyIn) return 'minBuyInExceedsMax';
-  if (form.maxPlayers < 2 || form.maxPlayers > 20) return 'maxPlayersRange';
   if (form.blinds.small < 0 || form.blinds.big < 0) return 'blindsNegative';
   if (form.blinds.big < form.blinds.small) return 'bigBlindLessThanSmall';
   return null; // valid
@@ -130,14 +127,9 @@ describe('CashTableEditView – validation', () => {
     expect(validate({ ...baseForm, minBuyIn: 500, maxBuyIn: 500 })).toBe(null);
   });
 
-  it('rejects maxPlayers out of range', () => {
-    expect(validate({ ...baseForm, maxPlayers: 1 })).toBe('maxPlayersRange');
-    expect(validate({ ...baseForm, maxPlayers: 21 })).toBe('maxPlayersRange');
-  });
-
-  it('accepts maxPlayers at boundaries (2 and 20)', () => {
-    expect(validate({ ...baseForm, maxPlayers: 2 })).toBe(null);
-    expect(validate({ ...baseForm, maxPlayers: 20 })).toBe(null);
+  it('does not treat maxPlayers as an editable pokerGames validation field', () => {
+    expect(validate({ ...baseForm, maxPlayers: 1 })).toBe(null);
+    expect(validate({ ...baseForm, maxPlayers: 21 })).toBe(null);
   });
 
   it('rejects negative blinds', () => {
@@ -156,7 +148,6 @@ describe('CashTableEditView – formToUpdates', () => {
     expect(Object.keys(updates)).toEqual([
       'meta.minBuyIn',
       'meta.maxBuyIn',
-      'meta.maxPlayers',
       'meta.blinds.small',
       'meta.blinds.big',
       'meta.notes',
@@ -166,6 +157,12 @@ describe('CashTableEditView – formToUpdates', () => {
     expect(updates['meta.blinds.small']).toBe(5);
     expect(updates['meta.blinds.big']).toBe(10);
     expect(updates['meta.notes']).toBe('test');
+  });
+
+  it('does NOT include meta.maxPlayers for pokerGames updates', () => {
+    const form = { minBuyIn: 100, maxBuyIn: 500, maxPlayers: 6, blinds: { small: 5, big: 10 }, notes: '' };
+    const updates = formToUpdates(form);
+    expect('meta.maxPlayers' in updates).toBe(false);
   });
 
   it('does NOT include a top-level "meta.blinds" object key (no overwrite)', () => {
@@ -193,6 +190,7 @@ describe('CashTableEditView – formToBefore', () => {
     expect(before['meta.blinds.small']).toBe(10);
     expect(before['meta.blinds.big']).toBe(20);
     expect(before['meta.notes']).toBe('old note');
+    expect('meta.maxPlayers' in before).toBe(false);
     // Only the managed fields are captured; extra blinds sub-fields are NOT in before
     expect('meta.blinds' in before).toBe(false);
   });
@@ -206,7 +204,6 @@ describe('CashTableEditView – buildDiffChanges', () => {
       'meta.blinds.small': 5,
       'meta.blinds.big': 10,
       'meta.notes': '',
-      'meta.maxPlayers': 9,
     };
     const after = {
       'meta.minBuyIn': 200,
@@ -214,7 +211,6 @@ describe('CashTableEditView – buildDiffChanges', () => {
       'meta.blinds.small': 5,
       'meta.blinds.big': 10,
       'meta.notes': 'updated',
-      'meta.maxPlayers': 9,
     };
     const changes = buildDiffChanges(before, after);
 
@@ -236,7 +232,6 @@ describe('CashTableEditView – buildDiffChanges', () => {
       'meta.blinds.small': 5,
       'meta.blinds.big': 10,
       'meta.notes': '',
-      'meta.maxPlayers': 9,
     };
     expect(buildDiffChanges(snap, { ...snap })).toHaveLength(0);
   });

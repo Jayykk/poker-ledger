@@ -21,13 +21,11 @@
     </div>
 
     <div class="max-w-2xl mx-auto px-4 py-4 space-y-5">
-      <!-- Loading -->
       <div v-if="loading" class="text-center py-12">
         <i class="fas fa-spinner fa-spin text-2xl text-amber-400"></i>
       </div>
 
       <template v-else-if="game">
-        <!-- Permission denied -->
         <div v-if="!canEditItem" class="bg-red-900/30 border border-red-700 rounded-2xl p-5 text-center">
           <i class="fas fa-lock text-3xl text-red-400 mb-3 block"></i>
           <p class="text-red-300 font-semibold">{{ $t('admin.permissionDenied') }}</p>
@@ -35,7 +33,6 @@
         </div>
 
         <template v-else>
-          <!-- Ended lock banner -->
           <div v-if="isStatusLocked(game)" class="bg-slate-700/60 border border-slate-600 rounded-2xl p-4 flex items-center gap-3">
             <i class="fas fa-archive text-gray-400 text-xl"></i>
             <div>
@@ -44,7 +41,6 @@
             </div>
           </div>
 
-          <!-- Active warning -->
           <div v-else-if="isStatusWarning(game)" class="bg-amber-600/20 border border-amber-600/50 rounded-2xl p-4 flex items-center gap-3">
             <i class="fas fa-exclamation-triangle text-amber-400 text-xl"></i>
             <div>
@@ -53,51 +49,10 @@
             </div>
           </div>
 
-          <!-- Basic Info -->
           <section class="card">
             <h2 class="section-title">{{ $t('tournament.basicInfo') }}</h2>
             <div class="space-y-3">
-
-              <!-- minBuyIn / maxBuyIn -->
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="field-label">{{ $t('admin.cashEdit.minBuyIn') }}</label>
-                  <input
-                    v-model.number="form.minBuyIn"
-                    type="number"
-                    min="0"
-                    class="field-input"
-                    :disabled="isStatusLocked(game)"
-                  />
-                </div>
-                <div>
-                  <label class="field-label">{{ $t('admin.cashEdit.maxBuyIn') }}</label>
-                  <input
-                    v-model.number="form.maxBuyIn"
-                    type="number"
-                    min="0"
-                    class="field-input"
-                    :disabled="isStatusLocked(game)"
-                  />
-                </div>
-              </div>
-
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="field-label">{{ $t('lobby.maxPlayers') }}</label>
-                  <input
-                    v-model.number="form.maxPlayers"
-                    type="number"
-                    min="2"
-                    max="20"
-                    class="field-input"
-                    :disabled="isStatusLocked(game)"
-                  />
-                </div>
-              </div>
-
-              <!-- Blinds -->
-              <div class="grid grid-cols-2 gap-3">
+              <div v-if="isPokerGame" class="grid grid-cols-2 gap-3">
                 <div>
                   <label class="field-label">{{ $t('tournament.smallBlind') }}</label>
                   <input
@@ -120,7 +75,99 @@
                 </div>
               </div>
 
-              <!-- Notes -->
+              <div v-if="isPokerGame" class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="field-label">{{ $t('admin.cashEdit.minBuyIn') }}</label>
+                  <input
+                    v-model.number="form.minBuyIn"
+                    type="number"
+                    min="0"
+                    class="field-input"
+                    :disabled="isStatusLocked(game)"
+                  />
+                </div>
+                <div>
+                  <label class="field-label">{{ $t('admin.cashEdit.maxBuyIn') }}</label>
+                  <input
+                    v-model.number="form.maxBuyIn"
+                    type="number"
+                    min="0"
+                    class="field-input"
+                    :disabled="isStatusLocked(game)"
+                  />
+                </div>
+              </div>
+
+              <div v-if="isPokerGame">
+                <label class="field-label">{{ $t('lobby.maxPlayers') }}</label>
+                <input
+                  v-model.number="form.maxPlayers"
+                  type="number"
+                  min="2"
+                  max="20"
+                  class="field-input"
+                  disabled
+                />
+              </div>
+
+              <div v-if="!isPokerGame">
+                <label class="field-label">{{ $t('game.title') }}</label>
+                <input
+                  v-model="form.name"
+                  type="text"
+                  class="field-input"
+                  :placeholder="$t('game.title')"
+                  :disabled="isStatusLocked(game)"
+                />
+              </div>
+
+              <div v-if="!isPokerGame" class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="field-label">{{ $t('admin.cashEdit.baseBuyIn') }}</label>
+                  <input
+                    v-model.number="form.baseBuyIn"
+                    type="number"
+                    min="0"
+                    class="field-input"
+                    :disabled="isStatusLocked(game)"
+                  />
+                </div>
+                <div v-if="game.type === 'online'">
+                  <label class="field-label">{{ $t('lobby.maxPlayers') }}</label>
+                  <input
+                    v-model.number="form.maxPlayers"
+                    type="number"
+                    min="2"
+                    max="20"
+                    class="field-input"
+                    :disabled="isStatusLocked(game)"
+                  />
+                </div>
+              </div>
+
+              <div v-if="!isPokerGame && game.type === 'online'" class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="field-label">{{ $t('tournament.smallBlind') }}</label>
+                  <input
+                    v-model.number="form.blinds.small"
+                    type="number"
+                    min="0"
+                    class="field-input"
+                    :disabled="isStatusLocked(game)"
+                  />
+                </div>
+                <div>
+                  <label class="field-label">{{ $t('tournament.bigBlind') }}</label>
+                  <input
+                    v-model.number="form.blinds.big"
+                    type="number"
+                    min="0"
+                    class="field-input"
+                    :disabled="isStatusLocked(game)"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label class="field-label">{{ $t('admin.cashEdit.notes') }}</label>
                 <textarea
@@ -134,7 +181,6 @@
             </div>
           </section>
 
-          <!-- Version History -->
           <section class="card">
             <div class="flex items-center justify-between mb-3">
               <h2 class="section-title mb-0">{{ $t('admin.versionHistory.title') }}</h2>
@@ -185,7 +231,6 @@
       </div>
     </div>
 
-    <!-- Diff preview modal -->
     <ConfigDiffPreview
       v-if="showDiff"
       :changes="diffChanges"
@@ -212,12 +257,22 @@ const router = useRouter();
 const { t } = useI18n();
 const { success, error: showError } = useNotification();
 const { isAdmin, permissionsLoaded, loadPermissions, canEdit, isStatusLocked, isStatusWarning } = useTablePermissions();
-const { saving, saveGameConfig, getConfigVersions, rollbackToVersion } = useConfigEditor();
+const { saveGameConfig, getConfigVersions, rollbackToVersion } = useConfigEditor();
 
 const gameId = computed(() => route.params.gameId);
+const sourceCollection = computed(() => route.query.src || 'pokerGames');
+
 const game = ref(null);
 const loading = ref(true);
-const form = ref({ minBuyIn: 0, maxBuyIn: 0, maxPlayers: 10, blinds: { small: 1, big: 2 }, notes: '' });
+const form = ref({
+  name: '',
+  baseBuyIn: 0,
+  minBuyIn: 0,
+  maxBuyIn: 0,
+  maxPlayers: 10,
+  blinds: { small: 1, big: 2 },
+  notes: '',
+});
 const versions = ref([]);
 const versionsLoaded = ref(false);
 const loadingVersions = ref(false);
@@ -225,13 +280,14 @@ const showDiff = ref(false);
 const diffChanges = ref([]);
 
 const canEditItem = computed(() => game.value && canEdit(game.value));
+const activeCollection = ref('pokerGames');
+const isPokerGame = computed(() => activeCollection.value === 'pokerGames');
 
 const RISKY_FIELDS = new Set(['meta.blinds.small', 'meta.blinds.big', 'meta.minBuyIn', 'meta.maxBuyIn']);
 
 const FIELD_LABELS = computed(() => ({
   'meta.minBuyIn': t('admin.cashEdit.minBuyIn'),
   'meta.maxBuyIn': t('admin.cashEdit.maxBuyIn'),
-  'meta.maxPlayers': t('lobby.maxPlayers'),
   'meta.blinds.small': t('tournament.smallBlind'),
   'meta.blinds.big': t('tournament.bigBlind'),
   'meta.notes': t('admin.cashEdit.notes'),
@@ -239,95 +295,161 @@ const FIELD_LABELS = computed(() => ({
 
 function buildDiffChanges(before, after) {
   const changes = [];
-  const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
 
-  for (const key of allKeys) {
-    const bVal = before[key];
-    const aVal = after[key];
+  const compare = (key, bVal, aVal, label, isRisky) => {
     if (JSON.stringify(bVal ?? null) !== JSON.stringify(aVal ?? null)) {
-      changes.push({
-        field: key,
-        label: FIELD_LABELS.value[key] || key,
-        before: bVal,
-        after: aVal,
-        isRisky: RISKY_FIELDS.has(key),
-      });
+      changes.push({ field: key, label, before: bVal, after: aVal, isRisky: isRisky || false });
     }
+  };
+
+  if (isPokerGame.value) {
+    for (const key of Object.keys(FIELD_LABELS.value)) {
+      compare(key, before[key], after[key], FIELD_LABELS.value[key], RISKY_FIELDS.has(key));
+    }
+  } else {
+    compare('name', before.name, after.name, t('game.title'), false);
+    compare('baseBuyIn', before.baseBuyIn, after.baseBuyIn, t('admin.cashEdit.baseBuyIn'), true);
+    compare('maxPlayers', before.maxPlayers, after.maxPlayers, t('lobby.maxPlayers'), false);
+    compare('blinds.small', before.blinds?.small, after.blinds?.small, t('tournament.smallBlind'), true);
+    compare('blinds.big', before.blinds?.big, after.blinds?.big, t('tournament.bigBlind'), true);
+    compare('notes', before.notes, after.notes, t('admin.cashEdit.notes'), false);
   }
+
   return changes;
 }
 
-function formToUpdates() {
-  // Use dot-notation keys so Firestore only updates the targeted nested fields
-  // and does NOT overwrite the entire meta object or meta.blinds object.
-  return {
-    'meta.minBuyIn': form.value.minBuyIn,
-    'meta.maxBuyIn': form.value.maxBuyIn,
-    'meta.maxPlayers': form.value.maxPlayers,
-    'meta.blinds.small': form.value.blinds.small,
-    'meta.blinds.big': form.value.blinds.big,
-    'meta.notes': form.value.notes || '',
+function formToFirestoreUpdates() {
+  if (isPokerGame.value) {
+    return {
+      'meta.minBuyIn': form.value.minBuyIn,
+      'meta.maxBuyIn': form.value.maxBuyIn,
+      'meta.blinds.small': form.value.blinds.small,
+      'meta.blinds.big': form.value.blinds.big,
+      'meta.notes': form.value.notes || '',
+    };
+  }
+
+  const updates = {
+    name: form.value.name,
+    baseBuyIn: form.value.baseBuyIn,
+    notes: form.value.notes || '',
   };
+
+  if (game.value?.type === 'online') {
+    updates.maxPlayers = form.value.maxPlayers;
+    updates.blinds = { small: form.value.blinds.small, big: form.value.blinds.big };
+  }
+
+  return updates;
 }
 
 function formToBefore() {
+  if (isPokerGame.value) {
+    return {
+      'meta.minBuyIn': game.value?.meta?.minBuyIn,
+      'meta.maxBuyIn': game.value?.meta?.maxBuyIn,
+      'meta.blinds.small': game.value?.meta?.blinds?.small,
+      'meta.blinds.big': game.value?.meta?.blinds?.big,
+      'meta.notes': game.value?.meta?.notes || '',
+    };
+  }
+
   return {
-    'meta.minBuyIn': game.value?.meta?.minBuyIn,
-    'meta.maxBuyIn': game.value?.meta?.maxBuyIn,
-    'meta.maxPlayers': game.value?.meta?.maxPlayers,
-    'meta.blinds.small': game.value?.meta?.blinds?.small,
-    'meta.blinds.big': game.value?.meta?.blinds?.big,
-    'meta.notes': game.value?.meta?.notes || '',
+    name: game.value?.name,
+    baseBuyIn: game.value?.baseBuyIn,
+    notes: game.value?.notes || '',
+    maxPlayers: game.value?.maxPlayers,
+    blinds: game.value?.blinds ? { ...game.value.blinds } : undefined,
+  };
+}
+
+function formToAfter() {
+  if (isPokerGame.value) {
+    return {
+      'meta.minBuyIn': form.value.minBuyIn,
+      'meta.maxBuyIn': form.value.maxBuyIn,
+      'meta.blinds.small': form.value.blinds.small,
+      'meta.blinds.big': form.value.blinds.big,
+      'meta.notes': form.value.notes || '',
+    };
+  }
+
+  return {
+    name: form.value.name,
+    baseBuyIn: form.value.baseBuyIn,
+    notes: form.value.notes || '',
+    maxPlayers: form.value.maxPlayers,
+    blinds: { small: form.value.blinds.small, big: form.value.blinds.big },
   };
 }
 
 function validate() {
-  if (form.value.minBuyIn < 0 || form.value.maxBuyIn < 0) {
-    showError(t('admin.validation.buyInNegative'));
-    return false;
+  if (isPokerGame.value) {
+    if (form.value.blinds.small < 0 || form.value.blinds.big < 0) {
+      showError(t('admin.validation.blindsNegative'));
+      return false;
+    }
+    if (form.value.blinds.big < form.value.blinds.small) {
+      showError(t('admin.validation.bigBlindLessThanSmall'));
+      return false;
+    }
+    if (form.value.minBuyIn < 0 || form.value.maxBuyIn < 0) {
+      showError(t('admin.validation.buyInNegative'));
+      return false;
+    }
+    if (form.value.minBuyIn > form.value.maxBuyIn) {
+      showError(t('admin.validation.minBuyInExceedsMax'));
+      return false;
+    }
+  } else {
+    if (!form.value.name?.trim()) {
+      showError(t('tournament.nameRequired'));
+      return false;
+    }
+    if (form.value.baseBuyIn < 0) {
+      showError(t('admin.validation.buyInNegative'));
+      return false;
+    }
+    if (game.value?.type === 'online') {
+      if (form.value.blinds.small < 0 || form.value.blinds.big < 0) {
+        showError(t('admin.validation.blindsNegative'));
+        return false;
+      }
+      if (form.value.blinds.big < form.value.blinds.small) {
+        showError(t('admin.validation.bigBlindLessThanSmall'));
+        return false;
+      }
+    }
   }
-  if (form.value.minBuyIn > form.value.maxBuyIn) {
-    showError(t('admin.validation.minBuyInExceedsMax'));
-    return false;
-  }
-  if (form.value.maxPlayers < 2 || form.value.maxPlayers > 20) {
-    showError(t('admin.validation.maxPlayersRange'));
-    return false;
-  }
-  if (form.value.blinds.small < 0 || form.value.blinds.big < 0) {
-    showError(t('admin.validation.blindsNegative'));
-    return false;
-  }
-  if (form.value.blinds.big < form.value.blinds.small) {
-    showError(t('admin.validation.bigBlindLessThanSmall'));
-    return false;
-  }
+
   return true;
 }
 
 async function handleSaveClick() {
   if (!validate()) return;
-  const before = formToBefore();
-  const after = formToUpdates();
-  diffChanges.value = buildDiffChanges(before, after);
+  diffChanges.value = buildDiffChanges(formToBefore(), formToAfter());
   showDiff.value = true;
 }
 
 async function handleConfirmSave(reason) {
   showDiff.value = false;
   const before = formToBefore();
-  const updates = formToUpdates();
+  const firestoreUpdates = formToFirestoreUpdates();
+  const after = formToAfter();
+
   try {
-    await saveGameConfig(gameId.value, updates, before, reason);
-    // Update local game reference so UI reflects saved values immediately
-    if (!game.value.meta) game.value.meta = {};
-    game.value.meta.minBuyIn = form.value.minBuyIn;
-    game.value.meta.maxBuyIn = form.value.maxBuyIn;
-    game.value.meta.maxPlayers = form.value.maxPlayers;
-    if (!game.value.meta.blinds) game.value.meta.blinds = {};
-    game.value.meta.blinds.small = form.value.blinds.small;
-    game.value.meta.blinds.big = form.value.blinds.big;
-    game.value.meta.notes = form.value.notes;
+    await saveGameConfig(activeCollection.value, gameId.value, firestoreUpdates, before, reason);
+    if (isPokerGame.value) {
+      if (!game.value.meta) game.value.meta = {};
+      if (!game.value.meta.blinds) game.value.meta.blinds = {};
+      game.value.meta.minBuyIn = form.value.minBuyIn;
+      game.value.meta.maxBuyIn = form.value.maxBuyIn;
+      game.value.meta.blinds.small = form.value.blinds.small;
+      game.value.meta.blinds.big = form.value.blinds.big;
+      game.value.meta.notes = form.value.notes;
+    } else {
+      Object.assign(game.value, after);
+    }
     success(t('common.save') + ' ✓');
     versionsLoaded.value = false;
     versions.value = [];
@@ -338,7 +460,12 @@ async function handleConfirmSave(reason) {
 
 async function handleRollback(version) {
   try {
-    await rollbackToVersion('pokerGames', gameId.value, version.id, `Rollback to ${formatTimestamp(version.timestamp)}`);
+    await rollbackToVersion(
+      activeCollection.value,
+      gameId.value,
+      version.id,
+      `Rollback to ${formatTimestamp(version.timestamp)}`
+    );
     success(t('admin.versionHistory.rollbackSuccess'));
     await loadGame();
     await loadVersions();
@@ -350,19 +477,49 @@ async function handleRollback(version) {
 async function loadGame() {
   loading.value = true;
   try {
-    const snap = await getDoc(doc(db, 'pokerGames', gameId.value));
+    let snap = await getDoc(doc(db, sourceCollection.value, gameId.value));
+    let usedCollection = sourceCollection.value;
+
+    if (!snap.exists()) {
+      const fallback = sourceCollection.value === 'pokerGames' ? 'games' : 'pokerGames';
+      snap = await getDoc(doc(db, fallback, gameId.value));
+      if (snap.exists()) {
+        usedCollection = fallback;
+      }
+    }
+
+    activeCollection.value = usedCollection;
+
     if (snap.exists()) {
       game.value = { id: snap.id, ...snap.data() };
-      form.value = {
-        minBuyIn: game.value.meta?.minBuyIn ?? 0,
-        maxBuyIn: game.value.meta?.maxBuyIn ?? 0,
-        maxPlayers: game.value.meta?.maxPlayers ?? 10,
-        blinds: {
-          small: game.value.meta?.blinds?.small ?? 1,
-          big: game.value.meta?.blinds?.big ?? 2,
-        },
-        notes: game.value.meta?.notes || '',
-      };
+
+      if (isPokerGame.value) {
+        form.value = {
+          name: game.value.meta?.name || '',
+          baseBuyIn: 0,
+          minBuyIn: game.value.meta?.minBuyIn ?? 0,
+          maxBuyIn: game.value.meta?.maxBuyIn ?? 0,
+          maxPlayers: game.value.meta?.maxPlayers ?? 10,
+          blinds: {
+            small: game.value.meta?.blinds?.small ?? 1,
+            big: game.value.meta?.blinds?.big ?? 2,
+          },
+          notes: game.value.meta?.notes || '',
+        };
+      } else {
+        form.value = {
+          name: game.value.name || '',
+          baseBuyIn: game.value.baseBuyIn || 0,
+          minBuyIn: 0,
+          maxBuyIn: 0,
+          maxPlayers: game.value.maxPlayers || 10,
+          blinds: {
+            small: game.value.blinds?.small || 1,
+            big: game.value.blinds?.big || 2,
+          },
+          notes: game.value.notes || '',
+        };
+      }
     }
   } finally {
     loading.value = false;
@@ -372,7 +529,7 @@ async function loadGame() {
 async function loadVersions() {
   loadingVersions.value = true;
   try {
-    versions.value = await getConfigVersions('pokerGames', gameId.value);
+    versions.value = await getConfigVersions(activeCollection.value, gameId.value);
     versionsLoaded.value = true;
   } catch (e) {
     console.error('load versions error', e);

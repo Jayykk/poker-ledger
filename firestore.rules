@@ -94,7 +94,8 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && 
         resource.data.meta.createdBy == request.auth.uid;
       
-      // Config version history (written by frontend after each config change)
+      // Config version history for cash table admin edits.
+      // Host (meta.createdBy) or admin can create versions; no one can alter history.
       match /configVersions/{versionId} {
         allow read: if isAuthenticated() &&
           (resource == null ||

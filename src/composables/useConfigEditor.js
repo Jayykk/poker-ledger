@@ -28,17 +28,45 @@ export function useConfigEditor() {
   const saving = ref(false);
   const error = ref('');
 
-  // ── Utility helpers ─────────────────────────────────────────────────
-
-  /**
-   * Extract a nested value from a plain object using a dot-notation path.
-   * e.g. getNestedValue({ meta: { minBuyIn: 10 } }, 'meta.minBuyIn') → 10
-   */
   function _getNestedValue(obj, dotPath) {
     return dotPath.split('.').reduce((acc, key) => (acc != null ? acc[key] : undefined), obj);
   }
 
-  // ── Version history helpers ─────────────────────────────────────────
+  function _normalizePokerGameRollback(target) {
+    if (!target || typeof target !== 'object') return {};
+
+    const normalized = {};
+    const candidate = target.meta && typeof target.meta === 'object' ? target.meta : target;
+
+    if (candidate.blinds && typeof candidate.blinds === 'object') {
+      if (Object.prototype.hasOwnProperty.call(candidate.blinds, 'small')) {
+        normalized['meta.blinds.small'] = candidate.blinds.small;
+      }
+      if (Object.prototype.hasOwnProperty.call(candidate.blinds, 'big')) {
+        normalized['meta.blinds.big'] = candidate.blinds.big;
+      }
+    }
+
+    const fieldMap = {
+      minBuyIn: 'meta.minBuyIn',
+      maxBuyIn: 'meta.maxBuyIn',
+      notes: 'meta.notes',
+    };
+
+    for (const [sourceKey, targetKey] of Object.entries(fieldMap)) {
+      if (Object.prototype.hasOwnProperty.call(candidate, sourceKey)) {
+        normalized[targetKey] = candidate[sourceKey];
+      }
+    }
+
+    for (const [key, value] of Object.entries(target)) {
+      if (key.startsWith('meta.') && key !== 'meta.maxPlayers') {
+        normalized[key] = value;
+      }
+    }
+
+    return normalized;
+  }
 
   async function _writeVersion(parentCollection, parentId, targetType, before, after, reason) {
     await addDoc(collection(db, parentCollection, parentId, 'configVersions'), {
@@ -53,12 +81,6 @@ export function useConfigEditor() {
     });
   }
 
-  /**
-   * Fetch version history for a document.
-   * @param {string} parentCollection - e.g. 'games' or 'tournamentSessions'
-   * @param {string} parentId
-   * @param {number} [maxResults=20]
-   */
   async function getConfigVersions(parentCollection, parentId, maxResults = 20) {
     const q = query(
       collection(db, parentCollection, parentId, 'configVersions'),
@@ -69,24 +91,33 @@ export function useConfigEditor() {
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }
 
-  // ── Cash game config ────────────────────────────────────────────────
-
   /**
-   * Update editable meta-fields of a pokerGames document using dot-notation keys.
-   *
-   * @param {string} gameId
-   * @param {object} updates  - Flat dot-notation updates, e.g. { 'meta.minBuyIn': 100, 'meta.blinds.small': 5 }
-   * @param {object} before   - Snapshot of the same fields before edit (for version record)
-   * @param {string} [reason]
+   * Supports both the `games` collection (flat schema) and the `pokerGames`
+   * collection (nested `meta` schema). Callers may omit the collection and
+   * default to `pokerGames` for backward compatibility.
    */
-  async function saveGameConfig(gameId, updates, before, reason) {
+  async function saveGameConfig(parentCollectionOrGameId, gameIdOrUpdates, maybeUpdates, before, reason) {
+    let parentCollection = 'pokerGames';
+    let gameId = parentCollectionOrGameId;
+    let updates = gameIdOrUpdates;
+    let snapshotBefore = maybeUpdates;
+    let changeReason = before;
+
+    if (parentCollectionOrGameId === 'games' || parentCollectionOrGameId === 'pokerGames') {
+      parentCollection = parentCollectionOrGameId;
+      gameId = gameIdOrUpdates;
+      updates = maybeUpdates;
+      snapshotBefore = before;
+      changeReason = reason;
+    }
+
     if (!gameId) throw new Error('Missing gameId');
     saving.value = true;
     error.value = '';
     try {
-      const gameRef = doc(db, 'pokerGames', gameId);
-      await updateDoc(gameRef, updates);
-      await _writeVersion('pokerGames', gameId, 'cash', before, updates, reason);
+      const gameRef = doc(db, parentCollection, gameId);
+      await updateDoc(gameRef, { ...updates, updatedAt: serverTimestamp() });
+      await _writeVersion(parentCollection, gameId, 'cash', snapshotBefore, updates, changeReason);
     } catch (err) {
       error.value = err.message;
       throw err;
@@ -95,16 +126,6 @@ export function useConfigEditor() {
     }
   }
 
-  // ── Tournament session config ───────────────────────────────────────
-
-  /**
-   * Update the `config` object of a tournament session document.
-   *
-   * @param {string} sessionId
-   * @param {object} newConfig  - Full new config object
-   * @param {object} before     - Full old config object (for version record)
-   * @param {string} [reason]
-   */
   async function saveTournamentConfig(sessionId, newConfig, before, reason) {
     if (!sessionId) throw new Error('Missing sessionId');
     saving.value = true;
@@ -121,19 +142,10 @@ export function useConfigEditor() {
     }
   }
 
-  /**
-   * Restore a previously saved config version.
-   *
-   * @param {string} parentCollection - 'games' or 'tournamentSessions'
-   * @param {string} parentId
-   * @param {string} versionId
-   * @param {string} [reason]
-   */
   async function rollbackToVersion(parentCollection, parentId, versionId, reason) {
     saving.value = true;
     error.value = '';
     try {
-      // Read version
       const versionSnap = await getDoc(
         doc(db, parentCollection, parentId, 'configVersions', versionId)
       );
@@ -142,7 +154,6 @@ export function useConfigEditor() {
       const version = versionSnap.data();
       const rollbackTarget = version.before;
 
-      // Read current state as "before" for the rollback record
       const currentSnap = await getDoc(doc(db, parentCollection, parentId));
       if (!currentSnap.exists()) throw new Error('Target document not found');
 
@@ -162,14 +173,37 @@ export function useConfigEditor() {
           rollbackTarget,
           reason || `Rollback to version ${versionId}`
         );
-      } else {
-        // For pokerGames (and legacy games), rollbackTarget uses dot-notation keys.
-        // Extract the matching current values using the same dot-notation paths.
-        await updateDoc(doc(db, parentCollection, parentId), rollbackTarget);
+      } else if (parentCollection === 'pokerGames') {
+        const normalizedRollback = _normalizePokerGameRollback(rollbackTarget);
         const currentBefore = {};
-        for (const key of Object.keys(rollbackTarget)) {
+
+        for (const key of Object.keys(normalizedRollback)) {
           currentBefore[key] = _getNestedValue(currentData, key);
         }
+
+        await updateDoc(doc(db, parentCollection, parentId), {
+          ...normalizedRollback,
+          updatedAt: serverTimestamp(),
+        });
+        await _writeVersion(
+          parentCollection,
+          parentId,
+          'cash',
+          currentBefore,
+          normalizedRollback,
+          reason || `Rollback to version ${versionId}`
+        );
+      } else {
+        const currentBefore = {};
+
+        for (const key of Object.keys(rollbackTarget)) {
+          currentBefore[key] = currentData[key];
+        }
+
+        await updateDoc(doc(db, parentCollection, parentId), {
+          ...rollbackTarget,
+          updatedAt: serverTimestamp(),
+        });
         await _writeVersion(
           parentCollection,
           parentId,

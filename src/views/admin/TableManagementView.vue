@@ -46,27 +46,32 @@
           <div class="space-y-3">
             <div
               v-for="room in filteredGames"
-              :key="room.id"
+              :key="room._key"
               class="bg-slate-800/80 border border-slate-700 rounded-2xl p-4"
             >
               <div class="flex items-start justify-between gap-3">
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-1">
-                    <span class="text-white font-bold truncate">#{{ room.id.slice(0, 8) }}</span>
-                    <span class="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 bg-slate-600/40 text-slate-200">
-                      {{ $t('lobby.liveLabel') }}
+                    <span class="text-white font-bold truncate">{{ room.displayName }}</span>
+                    <span
+                      class="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0"
+                      :class="room.displayType === 'online'
+                        ? 'bg-purple-600/40 text-purple-200'
+                        : 'bg-slate-600/40 text-slate-200'"
+                    >
+                      {{ room.displayType === 'online' ? $t('lobby.onlineLabel') : $t('lobby.liveLabel') }}
                     </span>
-                    <StatusBadge :status="room.status" />
+                    <StatusBadge :status="room.displayStatus" />
                   </div>
                   <div class="text-xs text-gray-400">
-                    {{ $t('lobby.hostName') }}: {{ room.meta?.createdBy?.slice(0, 10) || $t('common.unknown') }}
+                    {{ $t('lobby.hostName') }}: {{ room.displayHostName }}
                   </div>
-                  <div v-if="room.meta?.blinds" class="text-xs text-gray-500 mt-0.5">
-                    {{ $t('lobby.blinds') }}: {{ room.meta.blinds.small }}/{{ room.meta.blinds.big }}
+                  <div class="text-xs text-gray-500 mt-0.5">
+                    {{ $t('lobby.roomCode') }}: {{ room.displayRoomCode }}
                   </div>
                 </div>
                 <button
-                  @click="$router.push(`/admin/cash/${room.id}`)"
+                  @click="$router.push(`/admin/cash/${room.id}?src=${room._collection}`)"
                   class="shrink-0 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 rounded-lg text-xs font-semibold text-white transition"
                 >
                   <i class="fas fa-edit mr-1"></i>{{ $t('common.edit') }}
@@ -117,7 +122,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
@@ -139,8 +144,40 @@ const tabs = computed(() => [
   { key: 'tournament', label: t('admin.management.tabTournament') },
 ]);
 
+function normalizePokerGame(raw) {
+  const meta = raw.meta || {};
+  const blinds = meta.blinds || {};
+  const sb = blinds.small ?? '?';
+  const bb = blinds.big ?? '?';
+  return {
+    id: raw.id,
+    _collection: 'pokerGames',
+    _key: `pokerGames-${raw.id}`,
+    _raw: raw,
+    displayName: meta.name || `${sb}/${bb} Cash`,
+    displayHostName: raw.hostName || meta.hostName || meta.createdBy?.slice(0, 10) || t('common.unknown'),
+    displayStatus: raw.status || 'unknown',
+    displayType: 'online',
+    displayRoomCode: raw.roomCode || raw.id.slice(0, 8).toUpperCase(),
+  };
+}
+
+function normalizeGame(raw) {
+  return {
+    id: raw.id,
+    _collection: 'games',
+    _key: `games-${raw.id}`,
+    _raw: raw,
+    displayName: raw.name || t('common.unknown'),
+    displayHostName: raw.hostName || t('common.unknown'),
+    displayStatus: raw.status || 'unknown',
+    displayType: raw.type || 'live',
+    displayRoomCode: raw.roomCode || raw.id.slice(0, 8).toUpperCase(),
+  };
+}
+
 const filteredGames = computed(() =>
-  games.value.filter((g) => canEdit(g))
+  games.value.filter((g) => canEdit(g._raw))
 );
 
 const filteredSessions = computed(() =>
@@ -154,24 +191,45 @@ async function loadData() {
     if (!uid) return;
 
     if (isAdmin.value) {
-      // Admin: load all pokerGames and tournament sessions.
-      // NOTE: orderBy('meta.createdAt') on a nested field may require a manual Firestore
-      // single-field index for the pokerGames collection. If the query fails, remove the
-      // orderBy clause or create the index in the Firebase console.
-      const [gSnap, sSnap] = await Promise.all([
-        getDocs(query(collection(db, 'pokerGames'), orderBy('meta.createdAt', 'desc'))),
+      const [pgSnap, gSnap, sSnap] = await Promise.all([
+        getDocs(query(collection(db, 'pokerGames'), orderBy('meta.createdAt', 'desc'))).catch((err) => {
+          console.warn('[TableManagement] pokerGames orderBy failed, retrying without sort:', err.message);
+          return getDocs(collection(db, 'pokerGames'));
+        }),
+        getDocs(query(collection(db, 'games'), orderBy('createdAt', 'desc'))).catch((err) => {
+          console.warn('[TableManagement] games orderBy failed, retrying without sort:', err.message);
+          return getDocs(collection(db, 'games'));
+        }),
         getDocs(query(collection(db, 'tournamentSessions'), orderBy('createdAt', 'desc'))),
       ]);
-      games.value = gSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const pokerGames = pgSnap.docs.map((d) => normalizePokerGame({ id: d.id, ...d.data() }));
+      const ledgerGames = gSnap.docs.map((d) => normalizeGame({ id: d.id, ...d.data() }));
+      games.value = [...pokerGames, ...ledgerGames];
       sessions.value = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     } else {
-      // Host: load own pokerGames using the old schema field meta.createdBy.
-      // Single equality filter on a nested field is auto-indexed by Firestore.
-      const [gSnap, sSnap] = await Promise.all([
-        getDocs(query(collection(db, 'pokerGames'), where('meta.createdBy', '==', uid))),
-        getDocs(query(collection(db, 'tournamentSessions'), where('hostUid', '==', uid), orderBy('createdAt', 'desc'))),
+      const [pgSnap, gSnap, sSnap] = await Promise.all([
+        getDocs(query(collection(db, 'pokerGames'), where('meta.createdBy', '==', uid))).catch((err) => {
+          console.warn('[TableManagement] pokerGames host query failed:', err.message);
+          return { docs: [] };
+        }),
+        getDocs(query(collection(db, 'games'), where('hostUid', '==', uid), orderBy('createdAt', 'desc'))).catch(
+          (err) => {
+            console.warn('[TableManagement] games orderBy failed, retrying without sort:', err.message);
+            return getDocs(query(collection(db, 'games'), where('hostUid', '==', uid)));
+          }
+        ),
+        getDocs(
+          query(collection(db, 'tournamentSessions'), where('hostUid', '==', uid), orderBy('createdAt', 'desc'))
+        ),
       ]);
-      games.value = gSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const pokerGames = pgSnap.docs.map((d) => normalizePokerGame({ id: d.id, ...d.data() }));
+      const ledgerGames = gSnap.docs.map((d) => normalizeGame({ id: d.id, ...d.data() }));
+      pokerGames.sort((a, b) => {
+        const ta = a._raw.meta?.createdAt?.toMillis?.() ?? 0;
+        const tb = b._raw.meta?.createdAt?.toMillis?.() ?? 0;
+        return tb - ta;
+      });
+      games.value = [...pokerGames, ...ledgerGames];
       sessions.value = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     }
   } catch (e) {
@@ -185,4 +243,20 @@ onMounted(async () => {
   await loadPermissions();
   await loadData();
 });
+
+watch(
+  () => authStore.user?.uid,
+  async (uid, previousUid) => {
+    if (uid && uid !== previousUid) {
+      await loadPermissions();
+      await loadData();
+      return;
+    }
+
+    if (!uid) {
+      games.value = [];
+      sessions.value = [];
+    }
+  }
+);
 </script>
