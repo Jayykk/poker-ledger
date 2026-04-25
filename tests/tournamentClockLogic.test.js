@@ -17,6 +17,7 @@ import {
   computeChipsInPlay,
   computeAverageStack,
   computeAverageStackBB,
+  buildTournamentStats,
 } from '../src/utils/tournamentStats.js';
 
 /**
@@ -555,5 +556,175 @@ describe('formatTimeBankTime', () => {
 
   it('should clamp negative to 0', () => {
     expect(formatTimeBankTime(-10)).toBe('0');
+  });
+});
+
+// ── Tournament Re-entry Counter Tests ─────────────────────────────────────────
+//
+// These tests verify that:
+//  - playersRegistered counts unique participants and is NOT affected by re-entries
+//  - entries = playersRegistered + reentries
+//  - undoing a re-entry only decrements reentries, not playersRegistered
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Simulates the session-state model used by the tournament clock.
+ * Mirrors the counter logic in:
+ *   src/composables/useTournamentClock.js  (addReentry)
+ *   src/store/modules/game.js              (reentryPlayer)
+ *   src/views/TournamentGameView.vue       (handleUndoBuyIn reentry branch)
+ */
+function simulateTournamentState(initialPlayers = 0) {
+  const state = {
+    playersRegistered: initialPlayers,
+    playersRemaining: initialPlayers,
+    reentries: 0,
+  };
+
+  const entries = () => computeEntries(state.playersRegistered, state.reentries);
+
+  // Mirrors reentryPlayer() + addReentry() after the fix (no playersRegistered increment)
+  const reentry = () => {
+    state.reentries += 1;
+    state.playersRemaining += 1;
+    // playersRegistered is intentionally NOT incremented
+  };
+
+  // Mirrors the undo-reentry branch after the fix (no playersRegistered decrement)
+  const undoReentry = () => {
+    state.reentries = Math.max(0, state.reentries - 1);
+    // playersRegistered is intentionally NOT decremented
+  };
+
+  return { state, entries, reentry, undoReentry };
+}
+
+/**
+ * Mirrors the deduplication logic added to startGameSync in useTournamentClock.js.
+ */
+function countUniquePlayers(players) {
+  const seen = new Set();
+  const unique = players.filter(p => {
+    const key = p.uid || p.id;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const eliminated = unique.filter(p => p.eliminated).length;
+  return { playerCount: unique.length, aliveCount: unique.length - eliminated };
+}
+
+describe('Tournament counter model — re-entry does not inflate playersRegistered', () => {
+  it('initial state: entries equals playersRegistered with 0 reentries', () => {
+    const { state, entries } = simulateTournamentState(5);
+    expect(state.playersRegistered).toBe(5);
+    expect(state.reentries).toBe(0);
+    expect(entries()).toBe(5);
+  });
+
+  it('after 1 re-entry: entries increases by 1 but playersRegistered stays the same', () => {
+    const { state, entries, reentry } = simulateTournamentState(5);
+    reentry();
+    expect(state.playersRegistered).toBe(5);  // unique players unchanged
+    expect(state.reentries).toBe(1);
+    expect(entries()).toBe(6);                // 5 + 1 re-entry
+    expect(state.playersRemaining).toBe(6);   // revived player adds to remaining
+  });
+
+  it('after 3 re-entries: playersRegistered still reflects initial unique count', () => {
+    const { state, entries, reentry } = simulateTournamentState(8);
+    reentry();
+    reentry();
+    reentry();
+    expect(state.playersRegistered).toBe(8);
+    expect(state.reentries).toBe(3);
+    expect(entries()).toBe(11);
+  });
+
+  it('undo re-entry: only reentries is decremented, playersRegistered is unchanged', () => {
+    const { state, entries, reentry, undoReentry } = simulateTournamentState(5);
+    reentry();
+    expect(entries()).toBe(6);
+
+    undoReentry();
+    expect(state.reentries).toBe(0);
+    expect(state.playersRegistered).toBe(5);  // never touched by undo
+    expect(entries()).toBe(5);                 // back to initial
+  });
+
+  it('undo re-entry cannot go below 0', () => {
+    const { state, undoReentry } = simulateTournamentState(5);
+    undoReentry(); // nothing to undo
+    expect(state.reentries).toBe(0);
+    expect(state.playersRegistered).toBe(5);
+  });
+
+  it('buildTournamentStats returns correct values after a re-entry cycle', () => {
+    const { state, entries, reentry } = simulateTournamentState(5);
+    reentry();
+
+    const stats = buildTournamentStats({
+      playersRegistered: state.playersRegistered,
+      reentries: state.reentries,
+      playersRemaining: state.playersRemaining,
+      startingChips: 10000,
+      bigBlind: 200,
+    });
+
+    expect(stats.entries).toBe(6);
+    expect(stats.chipsInPlay).toBe(60000);
+    expect(stats.averageStack).toBe(10000);   // 60000 / 6
+  });
+});
+
+describe('startGameSync deduplication — unique player count', () => {
+  it('counts distinct players by uid', () => {
+    const players = [
+      { uid: 'u1', id: 'p1', eliminated: false },
+      { uid: 'u2', id: 'p2', eliminated: false },
+      { uid: 'u3', id: 'p3', eliminated: true },
+    ];
+    const { playerCount, aliveCount } = countUniquePlayers(players);
+    expect(playerCount).toBe(3);
+    expect(aliveCount).toBe(2);
+  });
+
+  it('deduplicates players that share the same uid (deep-link double-join edge case)', () => {
+    const players = [
+      { uid: 'u1', id: 'p1', eliminated: false },
+      { uid: 'u1', id: 'p2', eliminated: false }, // duplicate uid — should be ignored
+      { uid: 'u2', id: 'p3', eliminated: false },
+    ];
+    const { playerCount, aliveCount } = countUniquePlayers(players);
+    expect(playerCount).toBe(2);  // not 3
+    expect(aliveCount).toBe(2);
+  });
+
+  it('falls back to id when uid is absent', () => {
+    const players = [
+      { id: 'p1', eliminated: false },
+      { id: 'p2', eliminated: true },
+    ];
+    const { playerCount, aliveCount } = countUniquePlayers(players);
+    expect(playerCount).toBe(2);
+    expect(aliveCount).toBe(1);
+  });
+
+  it('deduplicates players that share id when uid is absent', () => {
+    const players = [
+      { id: 'p1', eliminated: false },
+      { id: 'p1', eliminated: false }, // duplicate id
+    ];
+    const { playerCount } = countUniquePlayers(players);
+    expect(playerCount).toBe(1);
+  });
+
+  it('skips entries with no uid and no id', () => {
+    const players = [
+      { uid: 'u1', id: 'p1', eliminated: false },
+      { eliminated: false }, // no key — ignored
+    ];
+    const { playerCount } = countUniquePlayers(players);
+    expect(playerCount).toBe(1);
   });
 });

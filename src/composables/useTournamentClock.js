@@ -356,8 +356,18 @@ export function useTournamentClock(options = {}) {
       if (!snap.exists() || !isHost.value || !sessionId.value) return;
       const gameData = snap.data();
       const players = gameData.players || [];
-      const playerCount = players.length;
-      const eliminatedCount = players.filter(p => p.eliminated).length;
+
+      // Deduplicate by uid (if present) then by id to guard against double-join edge cases
+      const seen = new Set();
+      const uniquePlayers = players.filter(p => {
+        const key = p.uid || p.id;
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      const playerCount = uniquePlayers.length;
+      const eliminatedCount = uniquePlayers.filter(p => p.eliminated).length;
       const aliveCount = playerCount - eliminatedCount;
 
       const currentRegistered = session.value?.state?.playersRegistered ?? 0;
@@ -492,7 +502,6 @@ export function useTournamentClock(options = {}) {
     if (!sessionId.value || !isHost.value) return;
     await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
       'state.reentries': increment(1),
-      'state.playersRegistered': increment(1),
       updatedAt: serverTimestamp(),
     });
   }

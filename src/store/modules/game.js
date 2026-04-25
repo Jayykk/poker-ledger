@@ -659,12 +659,13 @@ export const useGameStore = defineStore('game', () => {
         transaction.update(gameRef, { players: updatedPlayers });
       });
 
-      // Sync tournament session counters (playersRemaining, reentries, playersRegistered)
+      // Sync tournament session counters (playersRemaining, reentries)
+      // NOTE: playersRegistered is NOT incremented here because re-entry
+      // revives an existing player — it does not add a new unique participant.
       if (sessionRef) {
         await updateDoc(sessionRef, {
           'state.playersRemaining': increment(1),
           'state.reentries': increment(1),
-          'state.playersRegistered': increment(1),
           updatedAt: serverTimestamp(),
         });
       }
