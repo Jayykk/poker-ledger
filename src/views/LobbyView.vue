@@ -128,7 +128,16 @@
                 {{ formatDate(room.createdAt) }}
               </div>
             </div>
-            <div class="text-emerald-400">
+            <div class="text-emerald-400 flex items-center gap-2">
+                <!-- Edit button for host -->
+                <button
+                  v-if="room.hostUid === user?.uid"
+                  @click.stop="handleEditRoom(room)"
+                  class="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-600/10 transition"
+                  :title="$t('common.edit')"
+                >
+                  <i class="fas fa-pencil-alt text-sm"></i>
+                </button>
               <i class="fas fa-chevron-right"></i>
             </div>
           </div>
@@ -179,6 +188,14 @@
               ⏱
             </div>
             <span class="text-white text-sm font-semibold">{{ $t('action.timeBank') }}</span>
+          </div>
+        </BaseCard>
+        <BaseCard padding="md" clickable @click="$router.push('/admin/tables')">
+          <div class="flex flex-col items-center gap-2 text-center py-1">
+            <div class="w-10 h-10 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-lg">
+              ⚙️
+            </div>
+            <span class="text-white text-sm font-semibold">{{ $t('admin.management.title') }}</span>
           </div>
         </BaseCard>
       </div>
@@ -642,6 +659,14 @@ const handleEnterRoom = async (roomId) => {
     await joinGameListener(roomId);
     router.push(room?.type === 'tournament' ? '/tournament-game' : '/game');
   }, t('loading.loading'));
+};
+
+const handleEditRoom = (room) => {
+  if (room.type === 'tournament' && room.tournamentSessionId) {
+    router.push(`/admin/tournament/${room.tournamentSessionId}`);
+  } else {
+    router.push(`/admin/cash/${room.id}`);
+  }
 };
 
 const handleAcceptInvitation = async (invitation) => {

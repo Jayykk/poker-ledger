@@ -21,7 +21,9 @@
     "copySuccess": "複製成功",
     "copyFailed": "複製失敗",
     "max": "最多",
-    "error": "錯誤"
+    "error": "錯誤",
+    "yes": "是",
+    "no": "否"
   },
   "loading": {
     "creating": "建立中...",
@@ -493,5 +495,52 @@
     "ready": "準備就緒",
     "paused": "已暫停",
     "expired": "時間到！"
+  },
+  "admin": {
+    "management": {
+      "title": "桌次管理",
+      "adminBadge": "管理員",
+      "tabCash": "現金桌",
+      "tabTournament": "錦標賽",
+      "noGames": "沒有可管理的桌次",
+      "noTournaments": "沒有可管理的錦標賽"
+    },
+    "cashEdit": {
+      "title": "編輯現金桌設定",
+      "baseBuyIn": "基本買入",
+      "notes": "備註",
+      "notesPlaceholder": "填寫備註（選填）"
+    },
+    "tournamentEdit": {
+      "title": "編輯錦標賽設定"
+    },
+    "permissionDenied": "權限不足",
+    "permissionDeniedHint": "只有房主或管理員可以編輯此桌次",
+    "statusLocked": "已結束 — 不可修改",
+    "statusLockedHint": "此桌次已結算，設定已鎖定。管理員可回滾至歷史版本。",
+    "statusActiveWarning": "遊戲進行中",
+    "statusActiveHint": "修改設定可能影響進行中的遊戲，請謹慎操作。",
+    "versionHistory": {
+      "title": "版本紀錄",
+      "load": "載入紀錄",
+      "empty": "尚無版本紀錄",
+      "rollback": "回滾",
+      "rollbackSuccess": "已回滾至此版本"
+    },
+    "diffPreview": {
+      "title": "儲存前預覽",
+      "noChanges": "沒有偵測到變更",
+      "risky": "高風險",
+      "activeWarning": "遊戲進行中：修改高風險欄位可能影響當前遊戲結果",
+      "reason": "修改原因（選填）",
+      "reasonPlaceholder": "說明為什麼要修改這些設定...",
+      "payoutHint": "修改獎池分配會影響未來結算計算，請確認總和為 100%"
+    },
+    "validation": {
+      "buyInNegative": "買入金額不可為負數",
+      "blindsNegative": "盲注不可為負數",
+      "bigBlindLessThanSmall": "大盲必須大於等於小盲",
+      "startingChipsMin": "起始籌碼至少需要 100"
+    }
   }
 }

@@ -21,7 +21,9 @@
     "copySuccess": "Copy successful",
     "copyFailed": "Copy failed",
     "max": "Max",
-    "error": "Error"
+    "error": "Error",
+    "yes": "Yes",
+    "no": "No"
   },
   "loading": {
     "creating": "Creating...",
@@ -493,5 +495,52 @@
     "ready": "Ready",
     "paused": "Paused",
     "expired": "Time's Up!"
+  },
+  "admin": {
+    "management": {
+      "title": "Table Management",
+      "adminBadge": "Admin",
+      "tabCash": "Cash Games",
+      "tabTournament": "Tournaments",
+      "noGames": "No tables to manage",
+      "noTournaments": "No tournaments to manage"
+    },
+    "cashEdit": {
+      "title": "Edit Cash Table Settings",
+      "baseBuyIn": "Base Buy-in",
+      "notes": "Notes",
+      "notesPlaceholder": "Add notes (optional)"
+    },
+    "tournamentEdit": {
+      "title": "Edit Tournament Settings"
+    },
+    "permissionDenied": "Permission Denied",
+    "permissionDeniedHint": "Only the host or an admin can edit this table",
+    "statusLocked": "Ended — Read Only",
+    "statusLockedHint": "This game has ended. Settings are locked. Admins can rollback to a previous version.",
+    "statusActiveWarning": "Game in Progress",
+    "statusActiveHint": "Editing settings may affect the ongoing game. Proceed with caution.",
+    "versionHistory": {
+      "title": "Version History",
+      "load": "Load History",
+      "empty": "No version history yet",
+      "rollback": "Rollback",
+      "rollbackSuccess": "Rolled back to this version"
+    },
+    "diffPreview": {
+      "title": "Preview Changes",
+      "noChanges": "No changes detected",
+      "risky": "High Risk",
+      "activeWarning": "Game in progress: editing high-risk fields may affect the current game outcome",
+      "reason": "Reason for change (optional)",
+      "reasonPlaceholder": "Explain why you are making these changes...",
+      "payoutHint": "Changing payout ratios affects future settlement calculations. Make sure the total is 100%."
+    },
+    "validation": {
+      "buyInNegative": "Buy-in cannot be negative",
+      "blindsNegative": "Blinds cannot be negative",
+      "bigBlindLessThanSmall": "Big blind must be greater than or equal to small blind",
+      "startingChipsMin": "Starting chips must be at least 100"
+    }
   }
 }
