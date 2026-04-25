@@ -509,7 +509,9 @@
       "title": "編輯現金桌設定",
       "baseBuyIn": "基本買入",
       "notes": "備註",
-      "notesPlaceholder": "填寫備註（選填）"
+      "notesPlaceholder": "填寫備註（選填）",
+      "minBuyIn": "最低買入",
+      "maxBuyIn": "最高買入"
     },
     "tournamentEdit": {
       "title": "編輯錦標賽設定"

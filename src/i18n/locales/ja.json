@@ -507,7 +507,9 @@
       "title": "キャッシュテーブル設定の編集",
       "baseBuyIn": "基本バイイン",
       "notes": "メモ",
-      "notesPlaceholder": "メモを入力（任意）"
+      "notesPlaceholder": "メモを入力（任意）",
+      "minBuyIn": "最低バイイン",
+      "maxBuyIn": "最高バイイン"
     },
     "tournamentEdit": {
       "title": "トーナメント設定の編集"

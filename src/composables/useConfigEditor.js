@@ -64,19 +64,25 @@ export function useConfigEditor() {
   /**
    * Update editable fields of a cash/online game document.
    *
+   * Supports both the `games` collection (flat schema) and the `pokerGames`
+   * collection (nested `meta` schema).  Pass the correct `parentCollection`
+   * so the document and its `configVersions` sub-collection are written to
+   * the right place.
+   *
+   * @param {string} parentCollection - 'pokerGames' (default) or 'games'
    * @param {string} gameId
-   * @param {object} updates  - Only allowed top-level fields (name, baseBuyIn, blinds, maxPlayers, notes)
+   * @param {object} updates  - Fields to update (use dot-notation for nested paths, e.g. 'meta.blinds')
    * @param {object} before   - Snapshot of the same fields before edit (for version record)
    * @param {string} [reason]
    */
-  async function saveGameConfig(gameId, updates, before, reason) {
+  async function saveGameConfig(parentCollection, gameId, updates, before, reason) {
     if (!gameId) throw new Error('Missing gameId');
     saving.value = true;
     error.value = '';
     try {
-      const gameRef = doc(db, 'games', gameId);
-      await updateDoc(gameRef, updates);
-      await _writeVersion('games', gameId, 'cash', before, updates, reason);
+      const gameRef = doc(db, parentCollection, gameId);
+      await updateDoc(gameRef, { ...updates, updatedAt: serverTimestamp() });
+      await _writeVersion(parentCollection, gameId, 'cash', before, updates, reason);
     } catch (err) {
       error.value = err.message;
       throw err;
@@ -150,6 +156,43 @@ export function useConfigEditor() {
           'tournament',
           currentConfig,
           rollbackTarget,
+          reason || `Rollback to version ${versionId}`
+        );
+      } else if (parentCollection === 'pokerGames') {
+        // pokerGames stores editable settings inside `meta`.
+        // Both the initial save and this rollback store snapshots as plain objects
+        // of just the tracked meta fields: { blinds, minBuyIn, maxBuyIn, maxPlayers, notes }.
+        // `rollbackTarget` may be stored in either that format already, or wrapped in
+        // { meta: {...} } when rolled back from an older version record.
+        const currentMeta = currentData.meta || {};
+        const rollbackFields = rollbackTarget.meta || rollbackTarget;
+
+        // Extract only the fields we manage so the snapshot stays consistent
+        const beforeSnapshot = {
+          blinds: currentMeta.blinds ? { ...currentMeta.blinds } : { small: 1, big: 2 },
+          minBuyIn: currentMeta.minBuyIn ?? 0,
+          maxBuyIn: currentMeta.maxBuyIn ?? 0,
+          maxPlayers: currentMeta.maxPlayers ?? 10,
+          notes: currentMeta.notes ?? '',
+        };
+        const afterSnapshot = {
+          blinds: rollbackFields.blinds ? { ...rollbackFields.blinds } : beforeSnapshot.blinds,
+          minBuyIn: rollbackFields.minBuyIn ?? beforeSnapshot.minBuyIn,
+          maxBuyIn: rollbackFields.maxBuyIn ?? beforeSnapshot.maxBuyIn,
+          maxPlayers: rollbackFields.maxPlayers ?? beforeSnapshot.maxPlayers,
+          notes: rollbackFields.notes ?? beforeSnapshot.notes,
+        };
+
+        await updateDoc(doc(db, parentCollection, parentId), {
+          meta: { ...currentMeta, ...afterSnapshot },
+          updatedAt: serverTimestamp(),
+        });
+        await _writeVersion(
+          parentCollection,
+          parentId,
+          'cash',
+          beforeSnapshot,
+          afterSnapshot,
           reason || `Rollback to version ${versionId}`
         );
       } else {
