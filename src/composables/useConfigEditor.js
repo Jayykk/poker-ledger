@@ -167,7 +167,7 @@ export function useConfigEditor() {
     saving.value = true;
     error.value = '';
     try {
-      // Read version
+      // Fetch the config version document to restore its snapshot
       const versionSnap = await getDoc(
         doc(db, parentCollection, parentId, 'configVersions', versionId)
       );

@@ -540,7 +540,9 @@
       "buyInNegative": "买入金额不可为负数",
       "blindsNegative": "盲注不可为负数",
       "bigBlindLessThanSmall": "大盲必须大于等于小盲",
-      "startingChipsMin": "起始筹码至少需要 100"
+      "startingChipsMin": "起始筹码至少需要 100",
+      "minBuyInExceedsMax": "最低买入不可超过最高买入",
+      "maxPlayersRange": "最大玩家数需介于 2 至 20"
     }
   }
 }
