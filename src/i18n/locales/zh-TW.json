@@ -510,8 +510,8 @@
       "baseBuyIn": "基本買入",
       "notes": "備註",
       "notesPlaceholder": "填寫備註（選填）",
-      "minBuyIn": "最小買入",
-      "maxBuyIn": "最大買入"
+      "minBuyIn": "最低買入",
+      "maxBuyIn": "最高買入"
     },
     "tournamentEdit": {
       "title": "編輯錦標賽設定"
@@ -542,9 +542,7 @@
       "buyInNegative": "買入金額不可為負數",
       "blindsNegative": "盲注不可為負數",
       "bigBlindLessThanSmall": "大盲必須大於等於小盲",
-      "startingChipsMin": "起始籌碼至少需要 100",
-      "minBuyInExceedsMax": "最小買入不可大於最大買入",
-      "maxPlayersRange": "最大玩家數必須在 2 到 20 之間"
+      "startingChipsMin": "起始籌碼至少需要 100"
     }
   }
 }

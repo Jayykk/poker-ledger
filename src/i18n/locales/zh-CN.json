@@ -508,8 +508,8 @@
       "baseBuyIn": "基本买入",
       "notes": "备注",
       "notesPlaceholder": "填写备注（选填）",
-      "minBuyIn": "最小买入",
-      "maxBuyIn": "最大买入"
+      "minBuyIn": "最低买入",
+      "maxBuyIn": "最高买入"
     },
     "tournamentEdit": {
       "title": "编辑锦标赛设定"
@@ -540,9 +540,7 @@
       "buyInNegative": "买入金额不可为负数",
       "blindsNegative": "盲注不可为负数",
       "bigBlindLessThanSmall": "大盲必须大于等于小盲",
-      "startingChipsMin": "起始筹码至少需要 100",
-      "minBuyInExceedsMax": "最小买入不可大于最大买入",
-      "maxPlayersRange": "最大玩家数必须在 2 到 20 之间"
+      "startingChipsMin": "起始筹码至少需要 100"
     }
   }
 }
