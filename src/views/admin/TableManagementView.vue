@@ -122,7 +122,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
@@ -154,17 +154,15 @@ function normalizePokerGame(raw) {
   const sb = blinds.small ?? '?';
   const bb = blinds.big ?? '?';
   return {
-    // Keep original id and raw data for editing
     id: raw.id,
     _collection: 'pokerGames',
     _key: `pokerGames-${raw.id}`,
     _raw: raw,
-    // Normalized display fields
     displayName: meta.name || `${sb}/${bb} Cash`,
-    displayHostName: raw.hostName || meta.hostName || t('common.unknown'),
+    displayHostName: raw.hostName || meta.hostName || meta.createdBy?.slice(0, 10) || t('common.unknown'),
     displayStatus: raw.status || 'unknown',
     displayType: 'online',
-    displayRoomCode: raw.id.slice(0, 8).toUpperCase(),
+    displayRoomCode: raw.roomCode || raw.id.slice(0, 8).toUpperCase(),
   };
 }
 
@@ -200,7 +198,6 @@ async function loadData() {
     if (!uid) return;
 
     if (isAdmin.value) {
-      // Admin: load all from both collections
       const [pgSnap, gSnap, sSnap] = await Promise.all([
         getDocs(query(collection(db, 'pokerGames'), orderBy('meta.createdAt', 'desc'))).catch((err) => {
           console.warn('[TableManagement] pokerGames orderBy failed, retrying without sort:', err.message);
@@ -214,12 +211,9 @@ async function loadData() {
       ]);
       const pokerGames = pgSnap.docs.map((d) => normalizePokerGame({ id: d.id, ...d.data() }));
       const ledgerGames = gSnap.docs.map((d) => normalizeGame({ id: d.id, ...d.data() }));
-      // pokerGames listed first (primary source), then ledger games
       games.value = [...pokerGames, ...ledgerGames];
       sessions.value = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     } else {
-      // Host: load own items from both collections
-      // Note: pokerGames uses meta.createdBy; games uses hostUid
       const [pgSnap, gSnap, sSnap] = await Promise.all([
         getDocs(query(collection(db, 'pokerGames'), where('meta.createdBy', '==', uid))).catch((err) => {
           console.warn('[TableManagement] pokerGames host query failed:', err.message);
@@ -237,7 +231,6 @@ async function loadData() {
       ]);
       const pokerGames = pgSnap.docs.map((d) => normalizePokerGame({ id: d.id, ...d.data() }));
       const ledgerGames = gSnap.docs.map((d) => normalizeGame({ id: d.id, ...d.data() }));
-      // Sort pokerGames by createdAt desc (client-side, since we skipped orderBy to avoid index)
       pokerGames.sort((a, b) => {
         const ta = a._raw.meta?.createdAt?.toMillis?.() ?? 0;
         const tb = b._raw.meta?.createdAt?.toMillis?.() ?? 0;
@@ -257,4 +250,20 @@ onMounted(async () => {
   await loadPermissions();
   await loadData();
 });
+
+watch(
+  () => authStore.user?.uid,
+  async (uid, previousUid) => {
+    if (uid && uid !== previousUid) {
+      await loadPermissions();
+      await loadData();
+      return;
+    }
+
+    if (!uid) {
+      games.value = [];
+      sessions.value = [];
+    }
+  }
+);
 </script>

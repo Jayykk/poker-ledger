@@ -540,7 +540,9 @@
       "buyInNegative": "バイインは負の値にできません",
       "blindsNegative": "ブラインドは負の値にできません",
       "bigBlindLessThanSmall": "ビッグブラインドはスモールブラインド以上でなければなりません",
-      "startingChipsMin": "スターティングチップスは最低100必要です"
+      "startingChipsMin": "スターティングチップスは最低100必要です",
+      "minBuyInExceedsMax": "最低バイインは最高バイインを超えることはできません",
+      "maxPlayersRange": "最大プレイヤー数は2〜20の間である必要があります"
     }
   }
 }
