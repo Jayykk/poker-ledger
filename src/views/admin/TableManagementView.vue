@@ -207,7 +207,10 @@ async function loadData() {
           console.warn('[TableManagement] games orderBy failed, retrying without sort:', err.message);
           return getDocs(collection(db, 'games'));
         }),
-        getDocs(query(collection(db, 'tournamentSessions'), orderBy('createdAt', 'desc'))),
+        getDocs(query(collection(db, 'tournamentSessions'), orderBy('createdAt', 'desc'))).catch((err) => {
+          console.warn('[TableManagement] tournamentSessions orderBy failed, retrying without sort:', err.message);
+          return getDocs(collection(db, 'tournamentSessions'));
+        }),
       ]);
       const pokerGames = pgSnap.docs.map((d) => normalizePokerGame({ id: d.id, ...d.data() }));
       const ledgerGames = gSnap.docs.map((d) => normalizeGame({ id: d.id, ...d.data() }));
@@ -227,7 +230,10 @@ async function loadData() {
         ),
         getDocs(
           query(collection(db, 'tournamentSessions'), where('hostUid', '==', uid), orderBy('createdAt', 'desc'))
-        ),
+        ).catch((err) => {
+          console.warn('[TableManagement] tournamentSessions orderBy failed, retrying without sort:', err.message);
+          return getDocs(query(collection(db, 'tournamentSessions'), where('hostUid', '==', uid)));
+        }),
       ]);
       const pokerGames = pgSnap.docs.map((d) => normalizePokerGame({ id: d.id, ...d.data() }));
       const ledgerGames = gSnap.docs.map((d) => normalizeGame({ id: d.id, ...d.data() }));
