@@ -11,6 +11,13 @@
   </div>
   
   <div v-else class="pt-16 px-4 pb-24">
+    <div v-if="isSyncingHistory" class="mb-3 rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
+      <div class="flex items-center gap-2">
+        <i class="fas fa-spinner fa-spin"></i>
+        <span>{{ syncStatusMessage }}</span>
+      </div>
+    </div>
+
     <!-- Fixed header -->
     <div class="fixed top-0 inset-x-0 z-30 bg-slate-800/90 backdrop-blur px-4 py-3 border-b border-slate-700 flex justify-between items-center max-w-md mx-auto">
       <div>
@@ -228,6 +235,7 @@ import { useLiff } from '../composables/useLiff.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import { useLoading } from '../composables/useLoading.js';
+import { useUserStore } from '../store/modules/user.js';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
@@ -245,11 +253,12 @@ const { t } = useI18n();
 const router = useRouter();
 const route = useRoute();
 const { user, displayName } = useAuth();
-const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer, addPlayer, updatePlayer, removePlayer, bindSeat, settleGame, closeGame, checkGameStatus, joinAsNewPlayer, joinGameListener } = useGame();
+const userStore = useUserStore();
+const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer, addPlayer, updatePlayer, removePlayer, bindSeat, settleGame, closeGame, checkGameStatus, joinAsNewPlayer, joinGameListener, clearCurrentGame } = useGame();
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
 const { transactions, txLoading, txError, listenerReady, startListening: startTxListening, stopListening: stopTxListening, recordBuyIn, recordAction, recordDirect, undoBuyIn } = useTransactions(gameId);
 const { sendBuyInMessage, sendUndoMessage, sendSettlementMessage, shareGameInvite, isInLineClient, isInitialized: liffReady } = useLiff();
-const { success, copyWithNotification } = useNotification();
+const { success, warning, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
 
@@ -265,6 +274,8 @@ const exchangeRate = ref(DEFAULT_EXCHANGE_RATE);
 const selectedHand = ref(null);
 const autoJoinLoading = ref(false);
 const buyInProcessing = ref(new Set());
+const isSyncingHistory = ref(false);
+const syncStatusMessage = ref('');
 
 /**
  * Auto-join flow: when opened via /game/:gameId (e.g. LIFF deep link)
@@ -559,11 +570,22 @@ const handleSettle = async () => {
         buyIn: p.buyIn || 0,
         profit: calculateNet(p),
       }));
-      const settleSuccess = await settleGame(exchangeRate.value);
-      if (settleSuccess) {
+      const settleResult = await settleGame(exchangeRate.value);
+      if (settleResult?.success) {
         showSettlement.value = false;
+        isSyncingHistory.value = true;
+        syncStatusMessage.value = t('loading.syncingHistory');
+        const syncResult = await userStore.waitForHistorySync(settleResult.gameId, settleResult.syncToken, {
+          timeoutMs: 20000,
+          fallbackToGameProjection: true,
+        });
+        isSyncingHistory.value = false;
+        if (syncResult.source === 'timeout') {
+          warning(t('loading.syncingPending'));
+        }
         // Send settlement report to LINE chat (user's own name, free)
         sendSettlementMessage({ gameName, gameId: gId, rate, players });
+        clearCurrentGame();
         router.push('/report');
       }
     }, t('loading.settling'));

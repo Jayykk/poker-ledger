@@ -29,6 +29,8 @@
     "creating": "Creating...",
     "joining": "Joining...",
     "settling": "Settling...",
+    "syncingHistory": "Syncing data...",
+    "syncingPending": "Sync has been queued. Data may update shortly.",
     "closing": "Closing...",
     "saving": "Saving...",
     "loading": "Loading...",
@@ -508,10 +510,26 @@
     "cashEdit": {
       "title": "Edit Cash Table Settings",
       "baseBuyIn": "Base Buy-in",
+      "baseBuyInHint": "Chips represented by one buy-in unit",
       "notes": "Notes",
       "notesPlaceholder": "Add notes (optional)",
       "minBuyIn": "Min Buy-in",
-      "maxBuyIn": "Max Buy-in"
+      "maxBuyIn": "Max Buy-in",
+      "settlementCorrectionTitle": "Settlement Correction",
+      "settlementCorrectionHint": "Correct exchange rate and player chip values for completed tables, then sync every affected player history record.",
+      "exchangeRate": "Exchange Rate",
+      "exchangeRateHint": "Cash profit = chip profit ÷ exchange rate",
+      "buyInUnits": "Buy-in Units",
+      "chipsUnit": "chips",
+      "profitChips": "Chip Profit",
+      "profitCash": "Cash Profit",
+      "balanceStatus": "Chip Balance",
+      "syncSettlement": "Sync Settlement History",
+      "syncSettlementSuccess": "Table and player history have been updated",
+      "manualSync": "Resync This Table",
+      "manualSyncSuccess": "This table has been resynced",
+      "correctionReason": "Correction Reason",
+      "correctionReasonPlaceholder": "Example: wrong exchange rate or wrong chip entry"
     },
     "tournamentEdit": {
       "title": "Edit Tournament Settings"
@@ -544,7 +562,12 @@
       "bigBlindLessThanSmall": "Big blind must be greater than or equal to small blind",
       "startingChipsMin": "Starting chips must be at least 100",
       "minBuyInExceedsMax": "Min buy-in cannot be greater than max buy-in",
-      "maxPlayersRange": "Max players must be between 2 and 20"
+      "maxPlayersRange": "Max players must be between 2 and 20",
+      "exchangeRatePositive": "Exchange rate must be greater than 0",
+      "baseBuyInPositive": "Base buy-in must be greater than 0 for unit-based correction",
+      "playerNameRequired": "Player name cannot be empty",
+      "negativeCorrectionValues": "Buy-in units and stack cannot be negative",
+      "chipsNotBalanced": "Total buy-in chips must match total stack chips"
     }
   }
 }

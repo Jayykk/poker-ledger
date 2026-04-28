@@ -5,7 +5,7 @@
 
 import { initializeApp } from 'firebase-admin/app';
 import { onCall, HttpsError, onRequest } from 'firebase-functions/v2/https';
-import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onDocumentUpdated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { createRoom, joinSeat, leaveSeat, getRoom, deleteRoom, joinAsSpectator, leaveSpectator } from './handlers/room.js';
 import {
   startHand,
@@ -41,6 +41,12 @@ import {
   undoBuyIn as undoBuyInHandler,
   getTransactionLog as getTransactionLogHandler,
 } from './handlers/transaction.js';
+import {
+  assertCanManageCompletedGame,
+  recordProjectionError,
+  shouldSyncCompletedGame,
+  syncCompletedGameHistoryProjection,
+} from './handlers/gameHistoryProjection.js';
 
 // Initialize Firebase Admin
 initializeApp();
@@ -612,6 +618,55 @@ export const getTransactionLog = onCall(async (request) => {
   } catch (error) {
     console.error('Error getting transaction log:', error);
     throw new HttpsError('internal', error.message);
+  }
+});
+
+export const syncCompletedGameHistory = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const { gameId, syncToken } = request.data || {};
+  if (!gameId) {
+    throw new HttpsError('invalid-argument', 'Missing gameId');
+  }
+
+  try {
+    const result = await syncCompletedGameHistoryProjection(gameId, {
+      authUid: request.auth.uid,
+      assertPermission: assertCanManageCompletedGame,
+      syncToken,
+    });
+
+    return {
+      success: true,
+      result,
+    };
+  } catch (error) {
+    console.error('syncCompletedGameHistory callable failed:', gameId, error);
+    await recordProjectionError(gameId, error);
+    throw error;
+  }
+});
+
+export const onCompletedGameProjectionUpdate = onDocumentUpdated('games/{gameId}', async (event) => {
+  const beforeGame = event.data.before.exists ? event.data.before.data() : null;
+  const afterGame = event.data.after.exists ? event.data.after.data() : null;
+  const { gameId } = event.params;
+
+  if (!shouldSyncCompletedGame(beforeGame, afterGame)) {
+    return;
+  }
+
+  try {
+    await syncCompletedGameHistoryProjection(gameId, {
+      beforeGame,
+      afterGame,
+    });
+  } catch (error) {
+    console.error('onCompletedGameProjectionUpdate failed:', gameId, error);
+    await recordProjectionError(gameId, error);
+    throw error;
   }
 });
 
