@@ -144,6 +144,10 @@ const tabs = computed(() => [
   { key: 'tournament', label: t('admin.management.tabTournament') },
 ]);
 
+/**
+ * Normalize a `pokerGames` document into a common display shape.
+ * Old pokerGames have no top-level `name` / `hostName`; derive them from `meta`.
+ */
 function normalizePokerGame(raw) {
   const meta = raw.meta || {};
   const blinds = meta.blinds || {};
@@ -162,6 +166,9 @@ function normalizePokerGame(raw) {
   };
 }
 
+/**
+ * Normalize a `games` (ledger) document into the same display shape.
+ */
 function normalizeGame(raw) {
   return {
     id: raw.id,

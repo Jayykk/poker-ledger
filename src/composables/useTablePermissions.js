@@ -10,8 +10,8 @@ import { useAuthStore } from '../store/modules/auth.js';
  *  - Admin (`admins/{uid}` document exists): can edit any game or tournament session.
  *  - Host: can edit their own items.
  *    Host UID is resolved from multiple possible fields for backward compatibility:
- *      1. `item.hostUid`         - used by `games` / `tournamentSessions`
- *      2. `item.meta.createdBy`  - used by `pokerGames` (legacy schema)
+ *      1. `item.hostUid`         – used by `games` / `tournamentSessions`
+ *      2. `item.meta.createdBy`  – used by `pokerGames` (legacy schema)
  *  - Others: read-only.
  *
  * Status restrictions (non-admin):
@@ -41,6 +41,10 @@ export function useTablePermissions() {
     }
   }
 
+  /**
+   * Resolve the host UID from an item, supporting multiple legacy field locations.
+   * Checks (in order): `hostUid`, `meta.createdBy`.
+   */
   function resolveHostUid(item) {
     return item?.hostUid || item?.meta?.createdBy || null;
   }

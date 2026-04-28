@@ -85,6 +85,12 @@ export function useConfigEditor() {
     });
   }
 
+  /**
+   * Fetch version history for a document.
+   * @param {string} parentCollection - e.g. 'games' or 'tournamentSessions'
+   * @param {string} parentId
+   * @param {number} [maxResults=20]
+   */
   async function getConfigVersions(parentCollection, parentId, maxResults = 20) {
     const q = query(
       collection(db, parentCollection, parentId, 'configVersions'),
@@ -95,33 +101,30 @@ export function useConfigEditor() {
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }
 
+  // ── Cash game config ────────────────────────────────────────────────
+
   /**
+   * Update editable fields of a cash/online game document.
+   *
    * Supports both the `games` collection (flat schema) and the `pokerGames`
-   * collection (nested `meta` schema). Callers may omit the collection and
-   * default to `pokerGames` for backward compatibility.
+   * collection (nested `meta` schema). Pass the correct `parentCollection`
+   * so the document and its `configVersions` sub-collection are written to
+   * the right place.
+   *
+   * @param {string} parentCollection - 'pokerGames' or 'games'
+   * @param {string} gameId
+   * @param {object} updates  - Fields to update (use dot-notation for nested paths, e.g. 'meta.blinds.small')
+   * @param {object} before   - Snapshot of the same fields before edit (for version record)
+   * @param {string} [reason]
    */
-  async function saveGameConfig(parentCollectionOrGameId, gameIdOrUpdates, maybeUpdates, before, reason) {
-    let parentCollection = 'pokerGames';
-    let gameId = parentCollectionOrGameId;
-    let updates = gameIdOrUpdates;
-    let snapshotBefore = maybeUpdates;
-    let changeReason = before;
-
-    if (parentCollectionOrGameId === 'games' || parentCollectionOrGameId === 'pokerGames') {
-      parentCollection = parentCollectionOrGameId;
-      gameId = gameIdOrUpdates;
-      updates = maybeUpdates;
-      snapshotBefore = before;
-      changeReason = reason;
-    }
-
+  async function saveGameConfig(parentCollection, gameId, updates, before, reason) {
     if (!gameId) throw new Error('Missing gameId');
     saving.value = true;
     error.value = '';
     try {
       const gameRef = doc(db, parentCollection, gameId);
       await updateDoc(gameRef, { ...updates, updatedAt: serverTimestamp() });
-      await _writeVersion(parentCollection, gameId, 'cash', snapshotBefore, updates, changeReason);
+      await _writeVersion(parentCollection, gameId, 'cash', before, updates, reason);
     } catch (err) {
       error.value = err.message;
       throw err;
@@ -206,6 +209,16 @@ export function useConfigEditor() {
     }
   }
 
+  // ── Tournament session config ───────────────────────────────────────
+
+  /**
+   * Update the `config` object of a tournament session document.
+   *
+   * @param {string} sessionId
+   * @param {object} newConfig  - Full new config object
+   * @param {object} before     - Full old config object (for version record)
+   * @param {string} [reason]
+   */
   async function saveTournamentConfig(sessionId, newConfig, before, reason) {
     if (!sessionId) throw new Error('Missing sessionId');
     saving.value = true;
@@ -242,10 +255,19 @@ export function useConfigEditor() {
     }
   }
 
+  /**
+   * Restore a previously saved config version.
+   *
+   * @param {string} parentCollection - 'pokerGames', 'games', or 'tournamentSessions'
+   * @param {string} parentId
+   * @param {string} versionId
+   * @param {string} [reason]
+   */
   async function rollbackToVersion(parentCollection, parentId, versionId, reason) {
     saving.value = true;
     error.value = '';
     try {
+      // Fetch the config version document to restore its snapshot
       const versionSnap = await getDoc(
         doc(db, parentCollection, parentId, 'configVersions', versionId)
       );
@@ -257,6 +279,7 @@ export function useConfigEditor() {
       const currentSnap = await getDoc(doc(db, parentCollection, parentId));
       if (!currentSnap.exists()) throw new Error('Target document not found');
 
+      // Read current state as "before" for the rollback record
       const currentData = currentSnap.data();
 
       if (parentCollection === 'tournamentSessions') {
