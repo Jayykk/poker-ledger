@@ -452,7 +452,8 @@ const syncStatusMessage = ref('');
 const canEditItem = computed(() => game.value && canEdit(game.value));
 const activeCollection = ref('pokerGames');
 const isPokerGame = computed(() => activeCollection.value === 'pokerGames');
-const showSettlementEditor = computed(() => !isPokerGame.value && game.value?.status === 'completed');
+const isCashGame = computed(() => !isPokerGame.value && game.value?.type !== 'tournament');
+const showSettlementEditor = computed(() => isCashGame.value && game.value?.status === 'completed');
 const effectiveBaseBuyIn = computed(() => Number(game.value?.baseBuyIn) || 0);
 
 const RISKY_FIELDS = new Set(['meta.blinds.small', 'meta.blinds.big', 'meta.minBuyIn', 'meta.maxBuyIn']);
@@ -874,7 +875,7 @@ async function loadGame() {
           notes: game.value.notes || '',
         };
 
-        if (game.value.status === 'completed') {
+        if (game.value.status === 'completed' && isCashGame.value) {
           const rate = await resolveSettlementRate(game.value);
           hydrateCorrectionForm(game.value.players || [], rate);
         } else {
