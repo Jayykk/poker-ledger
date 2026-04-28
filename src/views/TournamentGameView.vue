@@ -14,6 +14,13 @@
 
   <!-- Main view -->
   <div v-else class="pt-16 px-4 pb-24">
+    <div v-if="isSyncingHistory" class="mb-3 rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
+      <div class="flex items-center gap-2">
+        <i class="fas fa-spinner fa-spin"></i>
+        <span>{{ syncStatusMessage }}</span>
+      </div>
+    </div>
+
     <!-- Fixed header -->
     <div class="fixed top-0 inset-x-0 z-30 bg-slate-800/90 backdrop-blur px-4 py-3 border-b border-slate-700 flex justify-between items-center max-w-md mx-auto">
       <div>
@@ -238,6 +245,7 @@ import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import { useLoading } from '../composables/useLoading.js';
+import { useUserStore } from '../store/modules/user.js';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
@@ -254,13 +262,14 @@ const { t } = useI18n();
 const router = useRouter();
 const route = useRoute();
 const { user, displayName } = useAuth();
+const userStore = useUserStore();
 const {
   game, gameId, isHost, error: gameError, addPlayer, updatePlayer, removePlayer,
   checkGameStatus, joinAsNewPlayer, joinGameListener,
-  closeGame, eliminatePlayer, reentryPlayer, settleTournament,
+  closeGame, eliminatePlayer, reentryPlayer, settleTournament, clearCurrentGame,
 } = useGame();
 const { sendBuyInMessage, sendUndoMessage, sendTournamentSettlementMessage, shareGameInvite, isInitialized: liffReady } = useLiff();
-const { success, error: showError, copyWithNotification } = useNotification();
+const { success, warning, error: showError, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
 
@@ -284,6 +293,8 @@ const newPlayerName = ref('');
 const editingPlayer = ref(null);
 const selectedHand = ref(null);
 const autoJoinLoading = ref(false);
+const isSyncingHistory = ref(false);
+const syncStatusMessage = ref('');
 
 // ── Computed ──
 
@@ -636,14 +647,25 @@ const handleSettle = async () => {
     await withLoading(async () => {
       const gameName = game.value?.name;
       const gId = game.value?.id;
-      const settlement = await settleTournament(payoutRatios.value);
-      if (settlement !== false) {
+      const settleResult = await settleTournament(payoutRatios.value);
+      if (settleResult?.success) {
         showSettlement.value = false;
+        isSyncingHistory.value = true;
+        syncStatusMessage.value = t('loading.syncingHistory');
+        const syncResult = await userStore.waitForHistorySync(settleResult.gameId, settleResult.syncToken, {
+          timeoutMs: 20000,
+          fallbackToGameProjection: true,
+        });
+        isSyncingHistory.value = false;
+        if (syncResult.source === 'timeout') {
+          warning(t('loading.syncingPending'));
+        }
         sendTournamentSettlementMessage({
           gameName,
           gameId: gId,
-          players: settlement,
+          players: settleResult.settlement,
         });
+        clearCurrentGame();
         router.push('/report');
       }
     }, t('loading.settling'));

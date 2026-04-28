@@ -74,6 +74,10 @@ export function useGame() {
     return await gameStore.settleTournament(payoutRatios);
   };
 
+  const clearCurrentGame = () => {
+    gameStore.clearCurrentGame();
+  };
+
   return {
     game,
     gameId,
@@ -98,6 +102,7 @@ export function useGame() {
     closeGame,
     eliminatePlayer,
     reentryPlayer,
-    settleTournament
+    settleTournament,
+    clearCurrentGame
   };
 }

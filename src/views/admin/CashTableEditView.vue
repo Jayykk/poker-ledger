@@ -21,6 +21,13 @@
     </div>
 
     <div class="max-w-2xl mx-auto px-4 py-4 space-y-5">
+      <div v-if="isHistorySyncing" class="rounded-2xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
+        <div class="flex items-center gap-2">
+          <i class="fas fa-spinner fa-spin"></i>
+          <span>{{ syncStatusMessage }}</span>
+        </div>
+      </div>
+
       <div v-if="loading" class="text-center py-12">
         <i class="fas fa-spinner fa-spin text-2xl text-amber-400"></i>
       </div>
@@ -181,6 +188,149 @@
             </div>
           </section>
 
+          <section v-if="showSettlementEditor" class="card">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 class="section-title mb-0">{{ $t('admin.cashEdit.settlementCorrectionTitle') }}</h2>
+                <p class="text-xs text-gray-400 mt-1">{{ $t('admin.cashEdit.settlementCorrectionHint') }}</p>
+              </div>
+
+              <div class="flex flex-wrap gap-2">
+                <button
+                  @click="handleManualSync"
+                  :disabled="isHistorySyncing || isCallableSyncing"
+                  class="px-3 py-2 rounded-lg text-sm font-semibold border border-slate-600 bg-slate-800 hover:bg-slate-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <i class="fas fa-rotate mr-2 text-sky-400"></i>{{ $t('admin.cashEdit.manualSync') }}
+                </button>
+
+                <button
+                  @click="showHandRecord = true"
+                  class="px-3 py-2 rounded-lg text-sm font-semibold border border-slate-600 bg-slate-800 hover:bg-slate-700 transition"
+                >
+                  <i class="fas fa-clone mr-2 text-amber-400"></i>{{ $t('hand.recordHand') }}
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+              <div>
+                <label class="field-label">{{ $t('admin.cashEdit.exchangeRate') }}</label>
+                <input
+                  v-model.number="correctionForm.rate"
+                  type="number"
+                  min="1"
+                  class="field-input"
+                />
+                <p class="field-hint">{{ $t('admin.cashEdit.exchangeRateHint') }}</p>
+              </div>
+
+              <div>
+                <label class="field-label">{{ $t('admin.cashEdit.baseBuyIn') }}</label>
+                <div class="field-static">{{ formatNumber(effectiveBaseBuyIn) }}</div>
+                <p class="field-hint">{{ $t('admin.cashEdit.baseBuyInHint') }}</p>
+              </div>
+            </div>
+
+            <div class="mt-3">
+              <label class="field-label">{{ $t('admin.cashEdit.correctionReason') }}</label>
+              <textarea
+                v-model="correctionReason"
+                rows="2"
+                class="field-input"
+                :placeholder="$t('admin.cashEdit.correctionReasonPlaceholder')"
+              ></textarea>
+            </div>
+
+            <div class="space-y-3 mt-4">
+              <div
+                v-for="(player, index) in correctionForm.players"
+                :key="player.uid || `${player.name}-${index}`"
+                class="rounded-xl border border-slate-700 bg-slate-900/50 p-4"
+              >
+                <div class="text-xs text-gray-500 mb-3">#{{ index + 1 }}</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="field-label">{{ $t('game.playerName') }}</label>
+                    <input v-model="player.name" type="text" class="field-input" />
+                  </div>
+
+                  <div>
+                    <label class="field-label">{{ $t('admin.cashEdit.buyInUnits') }}</label>
+                    <input
+                      v-model.number="player.buyInUnits"
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      class="field-input"
+                    />
+                    <p class="field-hint">
+                      {{ formatNumber(getPlayerBuyIn(player)) }} {{ $t('admin.cashEdit.chipsUnit') }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label class="field-label">{{ $t('game.stack') }}</label>
+                    <input
+                      v-model.number="player.stack"
+                      type="number"
+                      min="0"
+                      class="field-input"
+                    />
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="field-label">{{ $t('admin.cashEdit.profitChips') }}</label>
+                      <div class="field-static" :class="getProfitDisplayClass(player)">
+                        {{ formatSignedNumber(getPlayerProfit(player)) }}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label class="field-label">{{ $t('admin.cashEdit.profitCash') }}</label>
+                      <div class="field-static" :class="getProfitDisplayClass(player)">
+                        {{ formatSignedNumber(getPlayerProfitCash(player)) }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="correctionErrors.length > 0" class="space-y-1 mt-4">
+              <p
+                v-for="message in correctionErrors"
+                :key="message"
+                class="text-xs text-rose-400"
+              >
+                {{ message }}
+              </p>
+            </div>
+
+            <div class="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p class="text-sm font-semibold" :class="correctionTotals.isBalanced ? 'text-emerald-400' : 'text-rose-400'">
+                  {{ $t('admin.cashEdit.balanceStatus') }}: {{ correctionTotals.isBalanced ? 'OK' : 'NG' }}
+                </p>
+                <p class="text-xs text-gray-400 mt-1">
+                  {{ formatNumber(correctionTotals.totalBuyIn) }} / {{ formatNumber(correctionTotals.totalStack) }} {{ $t('admin.cashEdit.chipsUnit') }}
+                </p>
+              </div>
+
+              <button
+                @click="handleSettlementCorrection"
+                :disabled="!canSaveCorrection"
+                class="px-4 py-2 rounded-lg text-sm font-semibold transition"
+                :class="canSaveCorrection
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                  : 'bg-slate-600 text-gray-400 cursor-not-allowed'"
+              >
+                {{ $t('admin.cashEdit.syncSettlement') }}
+              </button>
+            </div>
+          </section>
+
           <section class="card">
             <div class="flex items-center justify-between mb-3">
               <h2 class="section-title mb-0">{{ $t('admin.versionHistory.title') }}</h2>
@@ -238,6 +388,14 @@
       @confirm="handleConfirmSave"
       @cancel="showDiff = false"
     />
+
+    <HandRecordSheet
+      v-model="showHandRecord"
+      :game-id="gameId"
+      :players="game?.players || []"
+      :base-buy-in="game?.baseBuyIn || 0"
+      @saved="handleHandRecordSaved"
+    />
   </div>
 </template>
 
@@ -250,14 +408,18 @@ import { db } from '../../firebase-init.js';
 import { useTablePermissions } from '../../composables/useTablePermissions.js';
 import { useConfigEditor } from '../../composables/useConfigEditor.js';
 import { useNotification } from '../../composables/useNotification.js';
+import { useUserStore } from '../../store/modules/user.js';
+import { formatNumber } from '../../utils/formatters.js';
 import ConfigDiffPreview from '../../components/admin/ConfigDiffPreview.vue';
+import HandRecordSheet from '../../components/game/HandRecordSheet.vue';
 
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
-const { success, error: showError } = useNotification();
+const { success, warning, error: showError } = useNotification();
+const userStore = useUserStore();
 const { isAdmin, permissionsLoaded, loadPermissions, canEdit, isStatusLocked, isStatusWarning } = useTablePermissions();
-const { saveGameConfig, getConfigVersions, rollbackToVersion } = useConfigEditor();
+const { saveGameConfig, saveSettlementCorrection, syncCompletedGameHistory, isSyncing: isCallableSyncing, getConfigVersions, rollbackToVersion } = useConfigEditor();
 
 const gameId = computed(() => route.params.gameId);
 const sourceCollection = computed(() => route.query.src || 'pokerGames');
@@ -278,10 +440,20 @@ const versionsLoaded = ref(false);
 const loadingVersions = ref(false);
 const showDiff = ref(false);
 const diffChanges = ref([]);
+const showHandRecord = ref(false);
+const correctionReason = ref('');
+const correctionForm = ref({
+  rate: 1,
+  players: [],
+});
+const isHistorySyncing = ref(false);
+const syncStatusMessage = ref('');
 
 const canEditItem = computed(() => game.value && canEdit(game.value));
 const activeCollection = ref('pokerGames');
 const isPokerGame = computed(() => activeCollection.value === 'pokerGames');
+const showSettlementEditor = computed(() => !isPokerGame.value && game.value?.status === 'completed');
+const effectiveBaseBuyIn = computed(() => Number(game.value?.baseBuyIn) || 0);
 
 const RISKY_FIELDS = new Set(['meta.blinds.small', 'meta.blinds.big', 'meta.minBuyIn', 'meta.maxBuyIn']);
 
@@ -292,6 +464,150 @@ const FIELD_LABELS = computed(() => ({
   'meta.blinds.big': t('tournament.bigBlind'),
   'meta.notes': t('admin.cashEdit.notes'),
 }));
+
+const correctionTotals = computed(() => {
+  const totalBuyIn = correctionForm.value.players.reduce((sum, player) => sum + getPlayerBuyIn(player), 0);
+  const totalStack = correctionForm.value.players.reduce((sum, player) => sum + roundChipAmount(player.stack), 0);
+
+  return {
+    totalBuyIn,
+    totalStack,
+    isBalanced: totalBuyIn === totalStack,
+  };
+});
+
+const correctionErrors = computed(() => {
+  const messages = [];
+
+  if (!showSettlementEditor.value) return messages;
+
+  if (effectiveBaseBuyIn.value <= 0) {
+    messages.push(t('admin.validation.baseBuyInPositive'));
+  }
+
+  if (!Number.isFinite(Number(correctionForm.value.rate)) || Number(correctionForm.value.rate) <= 0) {
+    messages.push(t('admin.validation.exchangeRatePositive'));
+  }
+
+  if (correctionForm.value.players.some((player) => !player.name?.trim())) {
+    messages.push(t('admin.validation.playerNameRequired'));
+  }
+
+  if (
+    correctionForm.value.players.some(
+      (player) => Number(player.buyInUnits) < 0 || roundChipAmount(player.stack) < 0
+    )
+  ) {
+    messages.push(t('admin.validation.negativeCorrectionValues'));
+  }
+
+  if (!correctionTotals.value.isBalanced) {
+    messages.push(t('admin.validation.chipsNotBalanced'));
+  }
+
+  return [...new Set(messages)];
+});
+
+const canSaveCorrection = computed(() => {
+  return canEditItem.value && showSettlementEditor.value && correctionErrors.value.length === 0 && !isHistorySyncing.value;
+});
+
+async function waitForProjectionSync(syncToken) {
+  isHistorySyncing.value = true;
+  syncStatusMessage.value = t('loading.syncingHistory');
+
+  const result = await userStore.waitForHistorySync(gameId.value, syncToken, {
+    timeoutMs: 20000,
+    fallbackToGameProjection: true,
+  });
+
+  isHistorySyncing.value = false;
+
+  if (result.source === 'timeout') {
+    warning(t('loading.syncingPending'));
+  }
+
+  return result;
+}
+
+function roundChipAmount(value) {
+  return Math.round(Number(value) || 0);
+}
+
+function formatSignedNumber(value) {
+  const normalized = Math.round(Number(value) || 0);
+  if (normalized > 0) return `+${formatNumber(normalized)}`;
+  if (normalized < 0) return `-${formatNumber(Math.abs(normalized))}`;
+  return '0';
+}
+
+function getProfitDisplayClass(player) {
+  const profit = getPlayerProfit(player);
+  if (profit > 0) return 'text-emerald-400';
+  if (profit < 0) return 'text-rose-400';
+  return 'text-gray-200';
+}
+
+function getPlayerBuyIn(player) {
+  return Math.round((Number(player.buyInUnits) || 0) * effectiveBaseBuyIn.value);
+}
+
+function getPlayerProfit(player) {
+  return roundChipAmount(player.stack) - getPlayerBuyIn(player);
+}
+
+function getPlayerProfitCash(player) {
+  const rate = Number(correctionForm.value.rate) || 1;
+  return Math.round(getPlayerProfit(player) / rate);
+}
+
+function hydrateCorrectionForm(players = [], rate = 1) {
+  const baseBuyIn = Number(game.value?.baseBuyIn) || 0;
+
+  correctionForm.value = {
+    rate: Number(rate) > 0 ? Number(rate) : 1,
+    players: players.map((player) => ({
+      uid: player.uid || null,
+      name: player.name || '',
+      buyInUnits: baseBuyIn > 0 ? Number(((player.buyIn || 0) / baseBuyIn).toFixed(2)) : 0,
+      stack: player.stack || 0,
+    })),
+  };
+}
+
+function buildCorrectedPlayers() {
+  return correctionForm.value.players.map((player, index) => ({
+    ...(game.value?.players?.[index] || {}),
+    name: player.name.trim(),
+    buyIn: getPlayerBuyIn(player),
+    stack: roundChipAmount(player.stack),
+  }));
+}
+
+function buildSettlementBefore() {
+  return {
+    rate: game.value?.rate,
+    players: game.value?.players ? game.value.players.map((player) => ({ ...player })) : [],
+  };
+}
+
+async function resolveSettlementRate(gameData) {
+  if (Number(gameData?.rate) > 0) return Number(gameData.rate);
+
+  const linkedPlayer = gameData?.players?.find((player) => player.uid);
+  if (!linkedPlayer?.uid) return 1;
+
+  try {
+    const userSnap = await getDoc(doc(db, 'users', linkedPlayer.uid));
+    if (!userSnap.exists()) return 1;
+
+    const matchingRecord = (userSnap.data().history || []).find((record) => record.gameId === gameId.value);
+    return Number(matchingRecord?.rate) > 0 ? Number(matchingRecord.rate) : 1;
+  } catch (error) {
+    console.warn('resolveSettlementRate failed:', error);
+    return 1;
+  }
+}
 
 function buildDiffChanges(before, after) {
   const changes = [];
@@ -458,6 +774,44 @@ async function handleConfirmSave(reason) {
   }
 }
 
+async function handleSettlementCorrection() {
+  if (!canSaveCorrection.value) return;
+
+  try {
+    const before = buildSettlementBefore();
+    const payload = {
+      rate: Number(correctionForm.value.rate),
+      players: buildCorrectedPlayers(),
+    };
+
+    const result = await saveSettlementCorrection(gameId.value, payload, before, correctionReason.value);
+    game.value = {
+      ...game.value,
+      players: result.players,
+      rate: result.rate,
+    };
+    correctionReason.value = '';
+    hydrateCorrectionForm(result.players, result.rate);
+    versionsLoaded.value = false;
+    versions.value = [];
+    await userStore.loadUserData();
+    await waitForProjectionSync(result.syncToken);
+    success(t('admin.cashEdit.syncSettlementSuccess'));
+  } catch (e) {
+    showError(e.message);
+  }
+}
+
+async function handleManualSync() {
+  try {
+    const result = await syncCompletedGameHistory(gameId.value);
+    await waitForProjectionSync(result.syncToken);
+    success(t('admin.cashEdit.manualSyncSuccess'));
+  } catch (e) {
+    showError(e.message);
+  }
+}
+
 async function handleRollback(version) {
   try {
     await rollbackToVersion(
@@ -519,11 +873,24 @@ async function loadGame() {
           },
           notes: game.value.notes || '',
         };
+
+        if (game.value.status === 'completed') {
+          const rate = await resolveSettlementRate(game.value);
+          hydrateCorrectionForm(game.value.players || [], rate);
+        } else {
+          hydrateCorrectionForm([], 1);
+        }
       }
+    } else {
+      hydrateCorrectionForm([], 1);
     }
   } finally {
     loading.value = false;
   }
+}
+
+function handleHandRecordSaved() {
+  success(t('hand.recordHand') + ' ✓');
 }
 
 async function loadVersions() {
@@ -591,5 +958,22 @@ onMounted(async () => {
 .field-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+.field-static {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid #475569;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: white;
+  font-size: 0.9rem;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+}
+.field-hint {
+  font-size: 0.75rem;
+  color: rgba(148, 163, 184, 0.85);
+  margin-top: 0.35rem;
 }
 </style>

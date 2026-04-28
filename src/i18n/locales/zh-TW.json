@@ -29,6 +29,8 @@
     "creating": "建立中...",
     "joining": "加入中...",
     "settling": "結算中...",
+    "syncingHistory": "資料同步中...",
+    "syncingPending": "同步已送出，資料可能稍後更新",
     "closing": "關閉中...",
     "saving": "儲存中...",
     "loading": "載入中...",
@@ -508,10 +510,26 @@
     "cashEdit": {
       "title": "編輯現金桌設定",
       "baseBuyIn": "基本買入",
+      "baseBuyInHint": "每 1 組對應的碼量",
       "notes": "備註",
       "notesPlaceholder": "填寫備註（選填）",
       "minBuyIn": "最小買入",
-      "maxBuyIn": "最大買入"
+      "maxBuyIn": "最大買入",
+      "settlementCorrectionTitle": "結算校正",
+      "settlementCorrectionHint": "只針對已結算桌次修正匯率與玩家碼量，並同步更新所有玩家的歷史紀錄。",
+      "exchangeRate": "匯率",
+      "exchangeRateHint": "損益金額 = 損益碼 ÷ 匯率",
+      "buyInUnits": "買入組數",
+      "chipsUnit": "碼",
+      "profitChips": "損益碼",
+      "profitCash": "損益金額",
+      "balanceStatus": "碼量平衡",
+      "syncSettlement": "校正並同步歷史",
+      "syncSettlementSuccess": "已同步更新桌次與玩家歷史資料",
+      "manualSync": "手動重新同步本桌資料",
+      "manualSyncSuccess": "已重新同步本桌資料",
+      "correctionReason": "校正原因",
+      "correctionReasonPlaceholder": "例如：匯率輸入錯誤、離桌碼量 key 錯"
     },
     "tournamentEdit": {
       "title": "編輯錦標賽設定"
@@ -544,7 +562,12 @@
       "bigBlindLessThanSmall": "大盲必須大於等於小盲",
       "startingChipsMin": "起始籌碼至少需要 100",
       "minBuyInExceedsMax": "最小買入不可大於最大買入",
-      "maxPlayersRange": "最大玩家數必須在 2 到 20 之間"
+      "maxPlayersRange": "最大玩家數必須在 2 到 20 之間",
+      "exchangeRatePositive": "匯率必須大於 0",
+      "baseBuyInPositive": "基本買入必須大於 0 才能用組數校正",
+      "playerNameRequired": "玩家名稱不可空白",
+      "negativeCorrectionValues": "買入組數與離桌碼量不可為負數",
+      "chipsNotBalanced": "總買入碼量與總離桌碼量必須相等"
     }
   }
 }

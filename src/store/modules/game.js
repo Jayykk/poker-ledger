@@ -18,8 +18,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
 import { useAuthStore } from './auth.js';
-import { useUserStore } from './user.js';
 import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';
+import { createSyncRequestToken } from '../../utils/historyProjection.js';
 
 function getEffectiveTournamentLevel(levels = [], currentLevelIndex = 0) {
   const normalizedIndex = Number.isFinite(Number(currentLevelIndex))
@@ -50,7 +50,6 @@ function isTournamentReentryClosed(sessionData = {}) {
 
 export const useGameStore = defineStore('game', () => {
   const authStore = useAuthStore();
-  const userStore = useUserStore();
   
   const game = ref(null);
   const gameId = ref(null);
@@ -407,73 +406,43 @@ export const useGameStore = defineStore('game', () => {
     
     loading.value = true;
     try {
+      const settledGameId = gameId.value;
+      const syncToken = createSyncRequestToken('settle');
+      const nowMs = Date.now();
+
       await runTransaction(db, async (t) => {
-        // Phase 1: Read all documents first
-        const gameRef = doc(db, 'games', gameId.value);
+        const gameRef = doc(db, 'games', settledGameId);
         const gameDoc = await t.get(gameRef);
-        
+
         if (!gameDoc.exists()) throw new Error('Game not found');
-        
+
         const gameData = gameDoc.data();
         const players = gameData.players;
-        
-        // Read all user documents for players with uid
-        const userReads = [];
-        for (const p of players) {
-          if (p.uid) {
-            const userRef = doc(db, 'users', p.uid);
-            userReads.push({
-              player: p,
-              userRef: userRef,
-              userDoc: await t.get(userRef)
-            });
-          }
-        }
-        
-        // Phase 2: Prepare all records
-        const userWrites = userReads.map(({ player, userRef, userDoc }) => {
-          const record = {
-            date: new Date().toISOString(),
-            createdAt: Date.now(),
-            profit: (player.stack || 0) - player.buyIn,
-            rate: exchangeRate,
-            gameName: gameData.name,
-            gameId: gameId.value,
-            type: gameData.type || 'live', // Include game type
-            // Save complete settlement data
-            settlement: players.map(p => ({
-              odId: p.uid || null,
-              name: p.name,
-              buyIn: p.buyIn,
-              stack: p.stack || 0,
-              profit: (p.stack || 0) - p.buyIn
-            }))
-          };
-          return { userRef, userDoc, record };
+
+        const settlementSnapshot = players.map((player) => ({
+          odId: player.uid || null,
+          name: player.name,
+          buyIn: Math.round(player.buyIn || 0),
+          stack: Math.round(player.stack || 0),
+          profit: Math.round((player.stack || 0) - player.buyIn),
+        }));
+
+        t.update(gameRef, {
+          status: GAME_STATUS.COMPLETED,
+          rate: Number(exchangeRate) || 1,
+          completedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          settlementSnapshot,
+          'historyProjection.requestToken': syncToken,
+          'historyProjection.requestedAt': nowMs,
         });
-        
-        // Phase 3: Execute all writes
-        for (const { userRef, userDoc, record } of userWrites) {
-          if (userDoc.exists()) {
-            t.update(userRef, { history: arrayUnion(record) });
-          } else {
-            t.set(userRef, { history: [record], createdAt: Date.now() });
-          }
-        }
-        
-        // Mark game as completed
-        t.update(gameRef, { status: GAME_STATUS.COMPLETED });
       });
-      
-      // Clean up
-      game.value = null;
-      gameId.value = null;
-      localStorage.removeItem(STORAGE_KEYS.LAST_GAME_ID);
-      
-      // Reload user history
-      await userStore.loadUserData();
-      
-      return true;
+
+      return {
+        success: true,
+        gameId: settledGameId,
+        syncToken,
+      };
     } catch (err) {
       console.error('Settle game error:', err);
       error.value = 'Failed to settle game: ' + err.message;
@@ -692,10 +661,13 @@ export const useGameStore = defineStore('game', () => {
 
     loading.value = true;
     try {
+      const settledGameId = gameId.value;
+      const syncToken = createSyncRequestToken('settle-tournament');
+      const nowMs = Date.now();
       let settlementResult = [];
 
       await runTransaction(db, async (t) => {
-        const gameRef = doc(db, 'games', gameId.value);
+        const gameRef = doc(db, 'games', settledGameId);
         const gameDoc = await t.get(gameRef);
         if (!gameDoc.exists()) throw new Error('Game not found');
 
@@ -718,15 +690,6 @@ export const useGameStore = defineStore('game', () => {
           prizeMap[r.place] = Math.round(totalBuyIns * r.percentage / 100);
         }
 
-        // Read all user documents
-        const userReads = [];
-        for (const p of players) {
-          if (p.uid) {
-            const userRef = doc(db, 'users', p.uid);
-            userReads.push({ player: p, userRef, userDoc: await t.get(userRef) });
-          }
-        }
-
         // Prepare settlement records
         const settlement = players
           .filter(p => p.placement)
@@ -741,38 +704,25 @@ export const useGameStore = defineStore('game', () => {
           }));
         settlementResult = settlement;
 
-        // Write history for each user with uid
-        for (const { player, userRef, userDoc } of userReads) {
-          const prize = prizeMap[player.placement] || 0;
-          const record = {
-            date: new Date().toISOString(),
-            createdAt: Date.now(),
-            profit: prize - (player.buyIn || 0),
-            rate: 1, // no exchange rate for tournaments
-            gameName: gameData.name,
-            gameId: gameId.value,
-            type: 'tournament',
-            placement: player.placement || null,
-            settlement,
-          };
-          if (userDoc.exists()) {
-            t.update(userRef, { history: arrayUnion(record) });
-          } else {
-            t.set(userRef, { history: [record], createdAt: Date.now() });
-          }
-        }
-
-        // Mark game as completed
-        t.update(gameRef, { status: GAME_STATUS.COMPLETED });
+        t.update(gameRef, {
+          players,
+          status: GAME_STATUS.COMPLETED,
+          rate: 1,
+          payoutRatios,
+          settlementSnapshot: settlement,
+          completedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          'historyProjection.requestToken': syncToken,
+          'historyProjection.requestedAt': nowMs,
+        });
       });
 
-      // Clean up
-      game.value = null;
-      gameId.value = null;
-      localStorage.removeItem(STORAGE_KEYS.LAST_GAME_ID);
-      await userStore.loadUserData();
-
-      return settlementResult;
+      return {
+        success: true,
+        settlement: settlementResult,
+        gameId: settledGameId,
+        syncToken,
+      };
     } catch (err) {
       console.error('Settle tournament error:', err);
       error.value = 'Failed to settle tournament: ' + err.message;
@@ -832,6 +782,12 @@ export const useGameStore = defineStore('game', () => {
     }
   };
 
+  const clearCurrentGame = () => {
+    game.value = null;
+    gameId.value = null;
+    localStorage.removeItem(STORAGE_KEYS.LAST_GAME_ID);
+  };
+
   return {
     game,
     gameId,
@@ -858,6 +814,7 @@ export const useGameStore = defineStore('game', () => {
     eliminatePlayer,
     reentryPlayer,
     settleTournament,
+    clearCurrentGame,
     loadMyRooms,
     cleanup
   };

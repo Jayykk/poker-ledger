@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   doc,
   updateDoc,
@@ -13,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase-init.js';
 import { useAuthStore } from '../store/modules/auth.js';
+import { createSyncRequestToken } from '../utils/historyProjection.js';
 
 /**
  * Composable for saving game / tournament config with version history.
@@ -25,8 +27,10 @@ import { useAuthStore } from '../store/modules/auth.js';
  */
 export function useConfigEditor() {
   const authStore = useAuthStore();
+  const functions = getFunctions();
   const saving = ref(false);
   const error = ref('');
+  const isSyncing = ref(false);
 
   function _getNestedValue(obj, dotPath) {
     return dotPath.split('.').reduce((acc, key) => (acc != null ? acc[key] : undefined), obj);
@@ -126,6 +130,82 @@ export function useConfigEditor() {
     }
   }
 
+  function _buildCashSettlement(players) {
+    return players.map((player) => ({
+      odId: player.uid || null,
+      name: player.name,
+      buyIn: player.buyIn,
+      stack: player.stack || 0,
+      profit: (player.stack || 0) - player.buyIn,
+    }));
+  }
+
+  async function saveSettlementCorrection(gameId, correction, before, reason) {
+    if (!gameId) throw new Error('Missing gameId');
+
+    const exchangeRate = Number(correction?.rate);
+    if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) {
+      throw new Error('Invalid exchange rate');
+    }
+
+    const correctedPlayers = (correction?.players || []).map((player) => ({
+      ...player,
+      name: player.name,
+      buyIn: Math.round(Number(player.buyIn) || 0),
+      stack: Math.round(Number(player.stack) || 0),
+    }));
+
+    saving.value = true;
+    error.value = '';
+    try {
+      const gameRef = doc(db, 'games', gameId);
+      const nowMs = Date.now();
+      const syncToken = createSyncRequestToken('correction');
+      const settlementSnapshot = _buildCashSettlement(correctedPlayers).map((player) => ({
+        ...player,
+        buyIn: Math.round(player.buyIn || 0),
+        stack: Math.round(player.stack || 0),
+        profit: Math.round(player.profit || 0),
+      }));
+
+      await updateDoc(gameRef, {
+        players: correctedPlayers,
+        rate: exchangeRate,
+        settlementSnapshot,
+        updatedAt: serverTimestamp(),
+        lastCorrectedAt: nowMs,
+        lastCorrectedBy: authStore.user?.uid || 'anonymous',
+        lastCorrectedByName: authStore.displayName || 'anonymous',
+        'historyProjection.requestToken': syncToken,
+        'historyProjection.requestedAt': nowMs,
+      });
+
+      await _writeVersion(
+        'games',
+        gameId,
+        'cash',
+        before,
+        {
+          rate: exchangeRate,
+          players: correctedPlayers,
+          settlementSnapshot,
+        },
+        reason
+      );
+
+      return {
+        rate: exchangeRate,
+        players: correctedPlayers,
+        syncToken,
+      };
+    } catch (err) {
+      error.value = err.message;
+      throw err;
+    } finally {
+      saving.value = false;
+    }
+  }
+
   async function saveTournamentConfig(sessionId, newConfig, before, reason) {
     if (!sessionId) throw new Error('Missing sessionId');
     saving.value = true;
@@ -139,6 +219,26 @@ export function useConfigEditor() {
       throw err;
     } finally {
       saving.value = false;
+    }
+  }
+
+  async function syncCompletedGameHistory(gameId, syncToken = createSyncRequestToken('manual-sync')) {
+    if (!gameId) throw new Error('Missing gameId');
+
+    isSyncing.value = true;
+    error.value = '';
+    try {
+      const syncFn = httpsCallable(functions, 'syncCompletedGameHistory');
+      const result = await syncFn({ gameId, syncToken });
+      return {
+        ...(result.data?.result || {}),
+        syncToken,
+      };
+    } catch (err) {
+      error.value = err.message;
+      throw err;
+    } finally {
+      isSyncing.value = false;
     }
   }
 
@@ -223,9 +323,12 @@ export function useConfigEditor() {
 
   return {
     saving,
+    isSyncing,
     error,
     getConfigVersions,
     saveGameConfig,
+    saveSettlementCorrection,
+    syncCompletedGameHistory,
     saveTournamentConfig,
     rollbackToVersion,
   };
