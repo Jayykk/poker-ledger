@@ -531,8 +531,16 @@
       "correctionReason": "校正原因",
       "correctionReasonPlaceholder": "例如：匯率輸入錯誤、離桌碼量 key 錯"
     },
+    "linkedPlayerNameHint": "此玩家已綁定帳號，名稱需回到個人資料修改",
     "tournamentEdit": {
-      "title": "編輯錦標賽設定"
+      "title": "編輯錦標賽設定",
+      "resultTitle": "編輯錦標賽桌次結果",
+      "settlementCorrectionTitle": "錦標賽結算校正",
+      "settlementCorrectionHint": "只調整本桌次的買入組數與獎金分配，系統會同步更新玩家戰績。",
+      "syncSettlement": "同步錦標賽結算結果",
+      "syncSettlementSuccess": "已同步錦標賽結算結果",
+      "balanceStatus": "獎金平衡",
+      "netProfit": "淨獎懲"
     },
     "permissionDenied": "權限不足",
     "permissionDeniedHint": "只有房主或管理員可以編輯此桌次",
@@ -567,7 +575,9 @@
       "baseBuyInPositive": "基本買入必須大於 0 才能用組數校正",
       "playerNameRequired": "玩家名稱不可空白",
       "negativeCorrectionValues": "買入組數與離桌碼量不可為負數",
-      "chipsNotBalanced": "總買入碼量與總離桌碼量必須相等"
+      "negativeTournamentCorrectionValues": "買入組數與獎金不可為負數",
+      "chipsNotBalanced": "總買入碼量與總離桌碼量必須相等",
+      "prizeNotBalanced": "總買入金額與總獎金分配必須相等"
     }
   }
 }

@@ -107,7 +107,7 @@
                   </div>
                 </div>
                 <button
-                  @click="$router.push(`/admin/tournament/${session.id}`)"
+                  @click="$router.push(getTournamentEditPath(session))"
                   class="shrink-0 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 rounded-lg text-xs font-semibold text-white transition"
                 >
                   <i class="fas fa-edit mr-1"></i>{{ $t('common.edit') }}
@@ -190,6 +190,15 @@ const filteredGames = computed(() =>
 const filteredSessions = computed(() =>
   sessions.value.filter((s) => canEdit(s))
 );
+
+function getTournamentEditPath(session) {
+  const status = session?.state?.status;
+  if (session?.gameId && (status === 'ended' || status === 'completed')) {
+    return `/admin/cash/${session.gameId}?src=games`;
+  }
+
+  return `/admin/tournament/${session.id}`;
+}
 
 async function loadData() {
   loadingData.value = true;

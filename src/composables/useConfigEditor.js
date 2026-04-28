@@ -143,6 +143,23 @@ export function useConfigEditor() {
     }));
   }
 
+  function _buildTournamentSettlement(players) {
+    return players
+      .map((player) => ({
+        odId: player.uid || null,
+        name: player.name,
+        placement: player.placement == null ? null : Math.round(Number(player.placement) || 0),
+        buyIn: Math.round(Number(player.buyIn) || 0),
+        prize: Math.round(Number(player.prize) || 0),
+        profit: Math.round((Number(player.prize) || 0) - (Number(player.buyIn) || 0)),
+      }))
+      .sort((left, right) => {
+        const leftPlacement = left.placement == null ? 999 : left.placement;
+        const rightPlacement = right.placement == null ? 999 : right.placement;
+        return leftPlacement - rightPlacement;
+      });
+  }
+
   async function saveSettlementCorrection(gameId, correction, before, reason) {
     if (!gameId) throw new Error('Missing gameId');
 
@@ -199,6 +216,67 @@ export function useConfigEditor() {
       return {
         rate: exchangeRate,
         players: correctedPlayers,
+        syncToken,
+      };
+    } catch (err) {
+      error.value = err.message;
+      throw err;
+    } finally {
+      saving.value = false;
+    }
+  }
+
+  async function saveTournamentSettlementCorrection(gameId, correction, before, reason) {
+    if (!gameId) throw new Error('Missing gameId');
+
+    const correctedPlayers = (correction?.players || []).map((player) => ({
+      ...player,
+      name: player.name,
+      buyIn: Math.round(Number(player.buyIn) || 0),
+      prize: Math.round(Number(player.prize) || 0),
+      placement: player.placement == null ? null : Math.round(Number(player.placement) || 0),
+    }));
+
+    saving.value = true;
+    error.value = '';
+    try {
+      const gameRef = doc(db, 'games', gameId);
+      const nowMs = Date.now();
+      const syncToken = createSyncRequestToken('tournament-correction');
+      const settlementSnapshot = _buildTournamentSettlement(correctedPlayers);
+      const players = correctedPlayers.map((player) => ({
+        ...player,
+        buyIn: Math.round(Number(player.buyIn) || 0),
+        placement: player.placement == null ? null : Math.round(Number(player.placement) || 0),
+      }));
+
+      await updateDoc(gameRef, {
+        players,
+        rate: 1,
+        settlementSnapshot,
+        updatedAt: serverTimestamp(),
+        lastCorrectedAt: nowMs,
+        lastCorrectedBy: authStore.user?.uid || 'anonymous',
+        lastCorrectedByName: authStore.displayName || 'anonymous',
+        'historyProjection.requestToken': syncToken,
+        'historyProjection.requestedAt': nowMs,
+      });
+
+      await _writeVersion(
+        'games',
+        gameId,
+        'tournament',
+        before,
+        {
+          players,
+          settlementSnapshot,
+        },
+        reason
+      );
+
+      return {
+        players,
+        settlementSnapshot,
         syncToken,
       };
     } catch (err) {
@@ -351,6 +429,7 @@ export function useConfigEditor() {
     getConfigVersions,
     saveGameConfig,
     saveSettlementCorrection,
+    saveTournamentSettlementCorrection,
     syncCompletedGameHistory,
     saveTournamentConfig,
     rollbackToVersion,

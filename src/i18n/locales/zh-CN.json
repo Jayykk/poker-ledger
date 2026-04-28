@@ -529,8 +529,16 @@
       "correctionReason": "校正原因",
       "correctionReasonPlaceholder": "例如：汇率输入错误、离桌码量 key 错"
     },
+    "linkedPlayerNameHint": "此玩家已绑定账号，名称需回到个人资料修改",
     "tournamentEdit": {
-      "title": "编辑锦标赛设定"
+      "title": "编辑锦标赛设定",
+      "resultTitle": "编辑锦标赛桌次结果",
+      "settlementCorrectionTitle": "锦标赛结算校正",
+      "settlementCorrectionHint": "只调整本桌次的买入组数与奖金分配，系统会同步更新玩家战绩。",
+      "syncSettlement": "同步锦标赛结算结果",
+      "syncSettlementSuccess": "已同步锦标赛结算结果",
+      "balanceStatus": "奖金平衡",
+      "netProfit": "净奖惩"
     },
     "permissionDenied": "权限不足",
     "permissionDeniedHint": "只有房主或管理员可以编辑此桌次",
@@ -565,7 +573,9 @@
       "baseBuyInPositive": "基本买入必须大于 0 才能用组数校正",
       "playerNameRequired": "玩家名称不可为空",
       "negativeCorrectionValues": "买入组数与离桌码量不可为负数",
-      "chipsNotBalanced": "总买入码量与总离桌码量必须相等"
+      "negativeTournamentCorrectionValues": "买入组数与奖金不可为负数",
+      "chipsNotBalanced": "总买入码量与总离桌码量必须相等",
+      "prizeNotBalanced": "总买入金额与总奖金分配必须相等"
     }
   }
 }
