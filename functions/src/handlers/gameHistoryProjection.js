@@ -4,10 +4,22 @@ import { HttpsError } from 'firebase-functions/v2/https';
 const HISTORY_SUBCOLLECTION = 'history_sub';
 const PROJECTION_VERSION = 1;
 
+/**
+ * Round an input value to the nearest integer.
+ *
+ * @param {*} value Raw numeric-like value.
+ * @return {number} Rounded integer value.
+ */
 function roundNumber(value) {
   return Math.round(Number(value) || 0);
 }
 
+/**
+ * Convert a Firestore timestamp-like value into epoch milliseconds.
+ *
+ * @param {*} value Timestamp, ISO string, or number.
+ * @return {number} Millisecond timestamp.
+ */
 function toMillis(value) {
   if (!value) return 0;
   if (typeof value === 'number') return roundNumber(value);
@@ -21,6 +33,12 @@ function toMillis(value) {
   return 0;
 }
 
+/**
+ * Recursively sort object keys so JSON hashing stays stable.
+ *
+ * @param {*} value Input value to normalize.
+ * @return {*} Sorted clone of the input value.
+ */
 function deepSort(value) {
   if (Array.isArray(value)) {
     return value.map(deepSort);
@@ -37,10 +55,22 @@ function deepSort(value) {
   return value;
 }
 
+/**
+ * Build a stable JSON hash string from nested data.
+ *
+ * @param {*} value Source value.
+ * @return {string} Stable JSON string.
+ */
 function stableHash(value) {
   return JSON.stringify(deepSort(value));
 }
 
+/**
+ * Normalize player rows before projection math.
+ *
+ * @param {Array<object>} players Raw game players.
+ * @return {Array<object>} Normalized player rows.
+ */
 function normalizePlayers(players) {
   return (players || []).map((player) => ({
     id: player.id || null,
@@ -53,6 +83,12 @@ function normalizePlayers(players) {
   }));
 }
 
+/**
+ * Normalize a stored settlement row.
+ *
+ * @param {object} row Raw settlement row.
+ * @return {object} Normalized settlement row.
+ */
 function normalizeSettlementRow(row) {
   return {
     odId: row.odId || row.uid || null,
@@ -65,6 +101,12 @@ function normalizeSettlementRow(row) {
   };
 }
 
+/**
+ * Build settlement rows for a completed cash game.
+ *
+ * @param {object} game Source game document.
+ * @return {Array<object>} Cash settlement rows.
+ */
 function buildCashSettlement(game) {
   return normalizePlayers(game.players).map((player) => ({
     odId: player.uid,
@@ -75,6 +117,12 @@ function buildCashSettlement(game) {
   }));
 }
 
+/**
+ * Build settlement rows for a completed tournament game.
+ *
+ * @param {object} game Source game document.
+ * @return {Array<object>} Tournament settlement rows.
+ */
 function buildTournamentSettlement(game) {
   if (Array.isArray(game.settlementSnapshot) && game.settlementSnapshot.length > 0) {
     return game.settlementSnapshot.map(normalizeSettlementRow);
@@ -86,7 +134,7 @@ function buildTournamentSettlement(game) {
   if (!payoutRatios.length) {
     throw new HttpsError(
       'failed-precondition',
-      'Completed tournament game is missing payoutRatios or settlementSnapshot'
+      'Completed tournament game is missing payoutRatios or settlementSnapshot',
     );
   }
 
@@ -115,6 +163,12 @@ function buildTournamentSettlement(game) {
     });
 }
 
+/**
+ * Resolve the settlement snapshot for any completed game type.
+ *
+ * @param {object} game Source game document.
+ * @return {Array<object>} Normalized settlement rows.
+ */
 function buildSettlementSnapshot(game) {
   if (Array.isArray(game.settlementSnapshot) && game.settlementSnapshot.length > 0) {
     return game.settlementSnapshot.map(normalizeSettlementRow);
@@ -127,6 +181,12 @@ function buildSettlementSnapshot(game) {
   return buildCashSettlement(game);
 }
 
+/**
+ * Build the subset of game data used to detect projection changes.
+ *
+ * @param {object} game Source game document.
+ * @return {object} Hashable projection source data.
+ */
 function buildProjectionSource(game) {
   return {
     status: game.status || null,
@@ -145,11 +205,24 @@ function buildProjectionSource(game) {
   };
 }
 
+/**
+ * Extract the user ids that should receive a projection for a game.
+ *
+ * @param {object} game Source game document.
+ * @return {Array<string>} Unique projected user ids.
+ */
 function extractProjectedUserIds(game) {
   const settlement = buildSettlementSnapshot(game);
   return [...new Set(settlement.map((row) => row.odId).filter(Boolean))];
 }
 
+/**
+ * Build per-user history_sub documents for a completed game.
+ *
+ * @param {string} gameId Game document id.
+ * @param {object} game Source game document.
+ * @return {Array<object>} Projection writes grouped by user id.
+ */
 function buildUserProjectionDocs(gameId, game) {
   const settlement = buildSettlementSnapshot(game);
   const rate = Number(game.rate) || 1;
@@ -180,12 +253,19 @@ function buildUserProjectionDocs(gameId, game) {
         sourceCollection: 'games',
         sourceVersion: PROJECTION_VERSION,
         sourceGameUpdatedAt: toMillis(game.updatedAt) || roundNumber(completedAt),
-            syncToken,
+        syncToken,
         projectionUpdatedAt: FieldValue.serverTimestamp(),
       },
     }));
 }
 
+/**
+ * Decide whether a game update requires projection sync.
+ *
+ * @param {?object} beforeGame Previous game snapshot.
+ * @param {?object} afterGame Updated game snapshot.
+ * @return {boolean} True when projections should be rebuilt.
+ */
 export function shouldSyncCompletedGame(beforeGame, afterGame) {
   if (!afterGame) return false;
   if (afterGame.status !== 'completed') return false;
@@ -196,6 +276,13 @@ export function shouldSyncCompletedGame(beforeGame, afterGame) {
   return beforeHash !== afterHash;
 }
 
+/**
+ * Persist the last projection sync error onto the game document.
+ *
+ * @param {string} gameId Game document id.
+ * @param {Error} error Sync failure.
+ * @return {Promise<void>} Write completion promise.
+ */
 export async function recordProjectionError(gameId, error) {
   const db = getFirestore();
   await db.collection('games').doc(gameId).set(
@@ -206,10 +293,17 @@ export async function recordProjectionError(gameId, error) {
         version: PROJECTION_VERSION,
       },
     },
-    { merge: true }
+    { merge: true },
   );
 }
 
+/**
+ * Ensure the caller can manage completed game history sync.
+ *
+ * @param {string} uid Authenticated user id.
+ * @param {object} game Source game document.
+ * @return {Promise<boolean>} True when sync is allowed.
+ */
 export async function assertCanManageCompletedGame(uid, game) {
   if (!uid) {
     throw new HttpsError('unauthenticated', 'Authentication required');
@@ -226,6 +320,13 @@ export async function assertCanManageCompletedGame(uid, game) {
   throw new HttpsError('permission-denied', 'Only host or admin can sync completed game history');
 }
 
+/**
+ * Rebuild history_sub projections for a completed game.
+ *
+ * @param {string} gameId Game document id.
+ * @param {object} [options={}] Sync options and preloaded snapshots.
+ * @return {Promise<object>} Projection sync summary.
+ */
 export async function syncCompletedGameHistoryProjection(gameId, options = {}) {
   const db = getFirestore();
   const gameRef = db.collection('games').doc(gameId);
@@ -297,7 +398,7 @@ export async function syncCompletedGameHistoryProjection(gameId, options = {}) {
         lastError: FieldValue.delete(),
       },
     },
-    { merge: true }
+    { merge: true },
   );
 
   await batch.commit();
