@@ -6,7 +6,7 @@
         <button @click="handleBack" class="text-gray-400 hover:text-white">
           <i class="fas fa-arrow-left text-lg"></i>
         </button>
-        <h1 class="text-lg font-bold flex-1">{{ $t('admin.cashEdit.title') }}</h1>
+        <h1 class="text-lg font-bold flex-1">{{ pageTitle }}</h1>
         <button
           @click="handleSaveClick"
           :disabled="!canEditItem || isStatusLocked(game)"
@@ -191,8 +191,8 @@
           <section v-if="showSettlementEditor" class="card">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h2 class="section-title mb-0">{{ $t('admin.cashEdit.settlementCorrectionTitle') }}</h2>
-                <p class="text-xs text-gray-400 mt-1">{{ $t('admin.cashEdit.settlementCorrectionHint') }}</p>
+                <h2 class="section-title mb-0">{{ settlementEditorTitle }}</h2>
+                <p class="text-xs text-gray-400 mt-1">{{ settlementEditorHint }}</p>
               </div>
 
               <div class="flex flex-wrap gap-2">
@@ -214,7 +214,7 @@
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-              <div>
+              <div v-if="showCashSettlementEditor">
                 <label class="field-label">{{ $t('admin.cashEdit.exchangeRate') }}</label>
                 <input
                   v-model.number="correctionForm.rate"
@@ -252,7 +252,9 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label class="field-label">{{ $t('game.playerName') }}</label>
-                    <input v-model="player.name" type="text" class="field-input" />
+                    <input v-if="isNameEditable(player)" v-model="player.name" type="text" class="field-input" />
+                    <div v-else class="field-static">{{ player.name }}</div>
+                    <p v-if="!isNameEditable(player)" class="field-hint">{{ $t('admin.linkedPlayerNameHint') }}</p>
                   </div>
 
                   <div>
@@ -269,7 +271,7 @@
                     </p>
                   </div>
 
-                  <div>
+                  <div v-if="showCashSettlementEditor">
                     <label class="field-label">{{ $t('game.stack') }}</label>
                     <input
                       v-model.number="player.stack"
@@ -279,18 +281,40 @@
                     />
                   </div>
 
+                  <div v-else>
+                    <label class="field-label">{{ $t('tournament.placement') }}</label>
+                    <div class="field-static">{{ formatPlacement(player.placement) }}</div>
+                  </div>
+
                   <div class="grid grid-cols-2 gap-3">
                     <div>
-                      <label class="field-label">{{ $t('admin.cashEdit.profitChips') }}</label>
+                      <label class="field-label">{{ primaryResultLabel }}</label>
+                      <input
+                        v-if="showTournamentSettlementEditor"
+                        v-model.number="player.prize"
+                        type="number"
+                        min="0"
+                        class="field-input"
+                      />
                       <div class="field-static" :class="getProfitDisplayClass(player)">
-                        {{ formatSignedNumber(getPlayerProfit(player)) }}
+                        <template v-if="showCashSettlementEditor">
+                          {{ formatSignedNumber(getPlayerProfit(player)) }}
+                        </template>
+                        <template v-else>
+                          {{ formatSignedNumber(getPlayerPrize(player)) }}
+                        </template>
                       </div>
                     </div>
 
                     <div>
-                      <label class="field-label">{{ $t('admin.cashEdit.profitCash') }}</label>
+                      <label class="field-label">{{ secondaryResultLabel }}</label>
                       <div class="field-static" :class="getProfitDisplayClass(player)">
-                        {{ formatSignedNumber(getPlayerProfitCash(player)) }}
+                        <template v-if="showCashSettlementEditor">
+                          {{ formatSignedNumber(getPlayerProfitCash(player)) }}
+                        </template>
+                        <template v-else>
+                          {{ formatSignedNumber(getTournamentProfit(player)) }}
+                        </template>
                       </div>
                     </div>
                   </div>
@@ -311,10 +335,15 @@
             <div class="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p class="text-sm font-semibold" :class="correctionTotals.isBalanced ? 'text-emerald-400' : 'text-rose-400'">
-                  {{ $t('admin.cashEdit.balanceStatus') }}: {{ correctionTotals.isBalanced ? 'OK' : 'NG' }}
+                  {{ balanceStatusLabel }}: {{ correctionTotals.isBalanced ? 'OK' : 'NG' }}
                 </p>
                 <p class="text-xs text-gray-400 mt-1">
-                  {{ formatNumber(correctionTotals.totalBuyIn) }} / {{ formatNumber(correctionTotals.totalStack) }} {{ $t('admin.cashEdit.chipsUnit') }}
+                  <template v-if="showCashSettlementEditor">
+                    {{ formatNumber(correctionTotals.totalBuyIn) }} / {{ formatNumber(correctionTotals.totalStack) }} {{ $t('admin.cashEdit.chipsUnit') }}
+                  </template>
+                  <template v-else>
+                    {{ formatNumber(correctionTotals.totalBuyIn) }} / {{ formatNumber(correctionTotals.totalPrize) }}
+                  </template>
                 </p>
               </div>
 
@@ -326,7 +355,7 @@
                   ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
                   : 'bg-slate-600 text-gray-400 cursor-not-allowed'"
               >
-                {{ $t('admin.cashEdit.syncSettlement') }}
+                {{ settlementActionLabel }}
               </button>
             </div>
           </section>
@@ -419,7 +448,15 @@ const { t } = useI18n();
 const { success, warning, error: showError } = useNotification();
 const userStore = useUserStore();
 const { isAdmin, permissionsLoaded, loadPermissions, canEdit, isStatusLocked, isStatusWarning } = useTablePermissions();
-const { saveGameConfig, saveSettlementCorrection, syncCompletedGameHistory, isSyncing: isCallableSyncing, getConfigVersions, rollbackToVersion } = useConfigEditor();
+const {
+  saveGameConfig,
+  saveSettlementCorrection,
+  saveTournamentSettlementCorrection,
+  syncCompletedGameHistory,
+  isSyncing: isCallableSyncing,
+  getConfigVersions,
+  rollbackToVersion,
+} = useConfigEditor();
 
 const gameId = computed(() => route.params.gameId);
 const sourceCollection = computed(() => route.query.src || 'pokerGames');
@@ -452,9 +489,36 @@ const syncStatusMessage = ref('');
 const canEditItem = computed(() => game.value && canEdit(game.value));
 const activeCollection = ref('pokerGames');
 const isPokerGame = computed(() => activeCollection.value === 'pokerGames');
+const isTournamentGame = computed(() => !isPokerGame.value && game.value?.type === 'tournament');
 const isCashGame = computed(() => !isPokerGame.value && game.value?.type !== 'tournament');
-const showSettlementEditor = computed(() => isCashGame.value && game.value?.status === 'completed');
+const showCashSettlementEditor = computed(() => isCashGame.value && game.value?.status === 'completed');
+const showTournamentSettlementEditor = computed(() => isTournamentGame.value && game.value?.status === 'completed');
+const showSettlementEditor = computed(() => showCashSettlementEditor.value || showTournamentSettlementEditor.value);
 const effectiveBaseBuyIn = computed(() => Number(game.value?.baseBuyIn) || 0);
+const pageTitle = computed(() => showTournamentSettlementEditor.value
+  ? t('admin.tournamentEdit.resultTitle')
+  : t('admin.cashEdit.title'));
+const settlementEditorTitle = computed(() => showTournamentSettlementEditor.value
+  ? t('admin.tournamentEdit.settlementCorrectionTitle')
+  : t('admin.cashEdit.settlementCorrectionTitle'));
+const settlementEditorHint = computed(() => showTournamentSettlementEditor.value
+  ? t('admin.tournamentEdit.settlementCorrectionHint')
+  : t('admin.cashEdit.settlementCorrectionHint'));
+const settlementActionLabel = computed(() => showTournamentSettlementEditor.value
+  ? t('admin.tournamentEdit.syncSettlement')
+  : t('admin.cashEdit.syncSettlement'));
+const settlementSuccessMessage = computed(() => showTournamentSettlementEditor.value
+  ? t('admin.tournamentEdit.syncSettlementSuccess')
+  : t('admin.cashEdit.syncSettlementSuccess'));
+const balanceStatusLabel = computed(() => showTournamentSettlementEditor.value
+  ? t('admin.tournamentEdit.balanceStatus')
+  : t('admin.cashEdit.balanceStatus'));
+const primaryResultLabel = computed(() => showTournamentSettlementEditor.value
+  ? t('tournament.prize')
+  : t('admin.cashEdit.profitChips'));
+const secondaryResultLabel = computed(() => showTournamentSettlementEditor.value
+  ? t('admin.tournamentEdit.netProfit')
+  : t('admin.cashEdit.profitCash'));
 
 const RISKY_FIELDS = new Set(['meta.blinds.small', 'meta.blinds.big', 'meta.minBuyIn', 'meta.maxBuyIn']);
 
@@ -469,11 +533,15 @@ const FIELD_LABELS = computed(() => ({
 const correctionTotals = computed(() => {
   const totalBuyIn = correctionForm.value.players.reduce((sum, player) => sum + getPlayerBuyIn(player), 0);
   const totalStack = correctionForm.value.players.reduce((sum, player) => sum + roundChipAmount(player.stack), 0);
+  const totalPrize = correctionForm.value.players.reduce((sum, player) => sum + getPlayerPrize(player), 0);
 
   return {
     totalBuyIn,
     totalStack,
-    isBalanced: totalBuyIn === totalStack,
+    totalPrize,
+    isBalanced: showTournamentSettlementEditor.value
+      ? totalBuyIn === totalPrize
+      : totalBuyIn === totalStack,
   };
 });
 
@@ -486,7 +554,7 @@ const correctionErrors = computed(() => {
     messages.push(t('admin.validation.baseBuyInPositive'));
   }
 
-  if (!Number.isFinite(Number(correctionForm.value.rate)) || Number(correctionForm.value.rate) <= 0) {
+  if (showCashSettlementEditor.value && (!Number.isFinite(Number(correctionForm.value.rate)) || Number(correctionForm.value.rate) <= 0)) {
     messages.push(t('admin.validation.exchangeRatePositive'));
   }
 
@@ -496,14 +564,22 @@ const correctionErrors = computed(() => {
 
   if (
     correctionForm.value.players.some(
-      (player) => Number(player.buyInUnits) < 0 || roundChipAmount(player.stack) < 0
+      (player) => Number(player.buyInUnits) < 0 || (showCashSettlementEditor.value
+        ? roundChipAmount(player.stack) < 0
+        : getPlayerPrize(player) < 0)
     )
   ) {
-    messages.push(t('admin.validation.negativeCorrectionValues'));
+    messages.push(showTournamentSettlementEditor.value
+      ? t('admin.validation.negativeTournamentCorrectionValues')
+      : t('admin.validation.negativeCorrectionValues'));
   }
 
-  if (!correctionTotals.value.isBalanced) {
+  if (showCashSettlementEditor.value && !correctionTotals.value.isBalanced) {
     messages.push(t('admin.validation.chipsNotBalanced'));
+  }
+
+  if (showTournamentSettlementEditor.value && correctionTotals.value.totalBuyIn !== correctionTotals.value.totalPrize) {
+    messages.push(t('admin.validation.prizeNotBalanced'));
   }
 
   return [...new Set(messages)];
@@ -543,10 +619,14 @@ function formatSignedNumber(value) {
 }
 
 function getProfitDisplayClass(player) {
-  const profit = getPlayerProfit(player);
+  const profit = showTournamentSettlementEditor.value ? getTournamentProfit(player) : getPlayerProfit(player);
   if (profit > 0) return 'text-emerald-400';
   if (profit < 0) return 'text-rose-400';
   return 'text-gray-200';
+}
+
+function isNameEditable(player) {
+  return !player.uid;
 }
 
 function getPlayerBuyIn(player) {
@@ -560,6 +640,34 @@ function getPlayerProfit(player) {
 function getPlayerProfitCash(player) {
   const rate = Number(correctionForm.value.rate) || 1;
   return Math.round(getPlayerProfit(player) / rate);
+}
+
+function getPlayerPrize(player) {
+  return Math.round(Number(player.prize) || 0);
+}
+
+function getTournamentProfit(player) {
+  return getPlayerPrize(player) - getPlayerBuyIn(player);
+}
+
+function formatPlacement(value) {
+  return value ? `#${value}` : '-';
+}
+
+function getTournamentSettlementRowKey(entry, index) {
+  if (entry?.playerId || entry?.id) {
+    return `player:${entry.playerId || entry.id}`;
+  }
+
+  if (entry?.odId || entry?.uid) {
+    return `uid:${entry.odId || entry.uid}`;
+  }
+
+  if (entry?.placement != null) {
+    return `placement:${entry.placement}`;
+  }
+
+  return `fallback:${entry?.name || ''}:${index}`;
 }
 
 function hydrateCorrectionForm(players = [], rate = 1) {
@@ -576,6 +684,28 @@ function hydrateCorrectionForm(players = [], rate = 1) {
   };
 }
 
+function hydrateTournamentCorrectionForm(players = [], settlementRows = []) {
+  const baseBuyIn = Number(game.value?.baseBuyIn) || 0;
+  const rowMap = new Map(
+    settlementRows.map((row, index) => [getTournamentSettlementRowKey(row, index), row])
+  );
+
+  correctionForm.value = {
+    rate: 1,
+    players: players.map((player, index) => {
+      const row = rowMap.get(getTournamentSettlementRowKey(player, index)) || {};
+      return {
+        id: player.id || null,
+        uid: player.uid || null,
+        name: player.name || '',
+        buyInUnits: baseBuyIn > 0 ? Number(((player.buyIn || 0) / baseBuyIn).toFixed(2)) : 0,
+        placement: row.placement ?? player.placement ?? null,
+        prize: row.prize || 0,
+      };
+    }),
+  };
+}
+
 function buildCorrectedPlayers() {
   return correctionForm.value.players.map((player, index) => ({
     ...(game.value?.players?.[index] || {}),
@@ -585,10 +715,23 @@ function buildCorrectedPlayers() {
   }));
 }
 
+function buildCorrectedTournamentPlayers() {
+  return correctionForm.value.players.map((player, index) => ({
+    ...(game.value?.players?.[index] || {}),
+    name: player.name.trim(),
+    buyIn: getPlayerBuyIn(player),
+    placement: player.placement ?? game.value?.players?.[index]?.placement ?? null,
+    prize: getPlayerPrize(player),
+  }));
+}
+
 function buildSettlementBefore() {
   return {
     rate: game.value?.rate,
     players: game.value?.players ? game.value.players.map((player) => ({ ...player })) : [],
+    settlementSnapshot: Array.isArray(game.value?.settlementSnapshot)
+      ? game.value.settlementSnapshot.map((row) => ({ ...row }))
+      : [],
   };
 }
 
@@ -780,24 +923,33 @@ async function handleSettlementCorrection() {
 
   try {
     const before = buildSettlementBefore();
-    const payload = {
-      rate: Number(correctionForm.value.rate),
-      players: buildCorrectedPlayers(),
-    };
+    const payload = showTournamentSettlementEditor.value
+      ? { players: buildCorrectedTournamentPlayers() }
+      : {
+        rate: Number(correctionForm.value.rate),
+        players: buildCorrectedPlayers(),
+      };
 
-    const result = await saveSettlementCorrection(gameId.value, payload, before, correctionReason.value);
+    const result = showTournamentSettlementEditor.value
+      ? await saveTournamentSettlementCorrection(gameId.value, payload, before, correctionReason.value)
+      : await saveSettlementCorrection(gameId.value, payload, before, correctionReason.value);
     game.value = {
       ...game.value,
       players: result.players,
-      rate: result.rate,
+      rate: result.rate ?? game.value.rate,
+      settlementSnapshot: result.settlementSnapshot || game.value.settlementSnapshot,
     };
     correctionReason.value = '';
-    hydrateCorrectionForm(result.players, result.rate);
+    if (showTournamentSettlementEditor.value) {
+      hydrateTournamentCorrectionForm(result.players, result.settlementSnapshot || []);
+    } else {
+      hydrateCorrectionForm(result.players, result.rate);
+    }
     versionsLoaded.value = false;
     versions.value = [];
     await userStore.loadUserData();
     await waitForProjectionSync(result.syncToken);
-    success(t('admin.cashEdit.syncSettlementSuccess'));
+    success(settlementSuccessMessage.value);
   } catch (e) {
     showError(e.message);
   }
@@ -878,6 +1030,8 @@ async function loadGame() {
         if (game.value.status === 'completed' && isCashGame.value) {
           const rate = await resolveSettlementRate(game.value);
           hydrateCorrectionForm(game.value.players || [], rate);
+        } else if (game.value.status === 'completed' && isTournamentGame.value) {
+          hydrateTournamentCorrectionForm(game.value.players || [], game.value.settlementSnapshot || []);
         } else {
           hydrateCorrectionForm([], 1);
         }

@@ -529,8 +529,16 @@
       "correctionReason": "補正理由",
       "correctionReasonPlaceholder": "例: レート入力ミス、チップ入力ミス"
     },
+    "linkedPlayerNameHint": "このプレイヤーはアカウント連携済みです。名前はプロフィールから変更してください。",
     "tournamentEdit": {
-      "title": "トーナメント設定の編集"
+      "title": "トーナメント設定の編集",
+      "resultTitle": "トーナメント卓結果の編集",
+      "settlementCorrectionTitle": "トーナメント精算修正",
+      "settlementCorrectionHint": "この卓のバイイン口数と賞金配分のみを調整します。プレイヤー戦績は自動同期されます。",
+      "syncSettlement": "トーナメント精算を同期",
+      "syncSettlementSuccess": "トーナメント精算を同期しました",
+      "balanceStatus": "賞金バランス",
+      "netProfit": "純増減"
     },
     "permissionDenied": "権限がありません",
     "permissionDeniedHint": "ホストまたは管理者のみがこのテーブルを編集できます",
@@ -565,7 +573,9 @@
       "baseBuyInPositive": "口数補正には基本バイインが 0 より大きい必要があります",
       "playerNameRequired": "プレイヤー名は必須です",
       "negativeCorrectionValues": "バイイン口数とスタックはマイナスにできません",
-      "chipsNotBalanced": "合計バイインチップと合計スタックは一致する必要があります"
+      "negativeTournamentCorrectionValues": "バイイン口数と賞金はマイナスにできません",
+      "chipsNotBalanced": "合計バイインチップと合計スタックは一致する必要があります",
+      "prizeNotBalanced": "合計バイイン金額と合計賞金配分は一致する必要があります"
     }
   }
 }

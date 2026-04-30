@@ -695,6 +695,7 @@ export const useGameStore = defineStore('game', () => {
           .filter(p => p.placement)
           .sort((a, b) => a.placement - b.placement)
           .map(p => ({
+            playerId: p.id || null,
             odId: p.uid || null,
             name: p.name,
             placement: p.placement,

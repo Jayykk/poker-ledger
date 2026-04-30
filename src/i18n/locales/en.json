@@ -531,8 +531,16 @@
       "correctionReason": "Correction Reason",
       "correctionReasonPlaceholder": "Example: wrong exchange rate or wrong chip entry"
     },
+    "linkedPlayerNameHint": "This player is linked to an account. Rename them from their profile instead.",
     "tournamentEdit": {
-      "title": "Edit Tournament Settings"
+      "title": "Edit Tournament Settings",
+      "resultTitle": "Edit Tournament Table Results",
+      "settlementCorrectionTitle": "Tournament Settlement Correction",
+      "settlementCorrectionHint": "Adjust only this table's buy-in units and prize allocation. Player records will be synced automatically.",
+      "syncSettlement": "Sync Tournament Settlement",
+      "syncSettlementSuccess": "Tournament settlement has been synced",
+      "balanceStatus": "Prize Balance",
+      "netProfit": "Net Result"
     },
     "permissionDenied": "Permission Denied",
     "permissionDeniedHint": "Only the host or an admin can edit this table",
@@ -567,7 +575,9 @@
       "baseBuyInPositive": "Base buy-in must be greater than 0 for unit-based correction",
       "playerNameRequired": "Player name cannot be empty",
       "negativeCorrectionValues": "Buy-in units and stack cannot be negative",
-      "chipsNotBalanced": "Total buy-in chips must match total stack chips"
+      "negativeTournamentCorrectionValues": "Buy-in units and prize cannot be negative",
+      "chipsNotBalanced": "Total buy-in chips must match total stack chips",
+      "prizeNotBalanced": "Total buy-in amount must match total prize allocation"
     }
   }
 }
