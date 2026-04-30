@@ -192,8 +192,11 @@ const filteredSessions = computed(() =>
 );
 
 function getTournamentEditPath(session) {
-  const status = session?.state?.status;
-  if (session?.gameId && (status === 'ended' || status === 'completed')) {
+  const linkedGame = session?.gameId
+    ? games.value.find((game) => game._collection === 'games' && game.id === session.gameId)
+    : null;
+
+  if (linkedGame?._raw?.status === 'completed') {
     return `/admin/cash/${session.gameId}?src=games`;
   }
 

@@ -654,6 +654,22 @@ function formatPlacement(value) {
   return value ? `#${value}` : '-';
 }
 
+function getTournamentSettlementRowKey(entry, index) {
+  if (entry?.playerId || entry?.id) {
+    return `player:${entry.playerId || entry.id}`;
+  }
+
+  if (entry?.odId || entry?.uid) {
+    return `uid:${entry.odId || entry.uid}`;
+  }
+
+  if (entry?.placement != null) {
+    return `placement:${entry.placement}`;
+  }
+
+  return `fallback:${entry?.name || ''}:${index}`;
+}
+
 function hydrateCorrectionForm(players = [], rate = 1) {
   const baseBuyIn = Number(game.value?.baseBuyIn) || 0;
 
@@ -671,14 +687,15 @@ function hydrateCorrectionForm(players = [], rate = 1) {
 function hydrateTournamentCorrectionForm(players = [], settlementRows = []) {
   const baseBuyIn = Number(game.value?.baseBuyIn) || 0;
   const rowMap = new Map(
-    settlementRows.map((row) => [row.odId || row.name, row])
+    settlementRows.map((row, index) => [getTournamentSettlementRowKey(row, index), row])
   );
 
   correctionForm.value = {
     rate: 1,
-    players: players.map((player) => {
-      const row = rowMap.get(player.uid || player.name) || {};
+    players: players.map((player, index) => {
+      const row = rowMap.get(getTournamentSettlementRowKey(player, index)) || {};
       return {
+        id: player.id || null,
         uid: player.uid || null,
         name: player.name || '',
         buyInUnits: baseBuyIn > 0 ? Number(((player.buyIn || 0) / baseBuyIn).toFixed(2)) : 0,

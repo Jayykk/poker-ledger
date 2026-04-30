@@ -146,6 +146,7 @@ export function useConfigEditor() {
   function _buildTournamentSettlement(players) {
     return players
       .map((player) => ({
+        playerId: player.id || null,
         odId: player.uid || null,
         name: player.name,
         placement: player.placement == null ? null : Math.round(Number(player.placement) || 0),

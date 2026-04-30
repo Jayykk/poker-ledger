@@ -662,7 +662,7 @@ const handleEnterRoom = async (roomId) => {
 };
 
 const handleEditRoom = (room) => {
-  if (room.type === 'tournament' && (room.status === 'ended' || room.status === 'completed')) {
+  if (room.type === 'tournament' && room.status === 'completed') {
     router.push(`/admin/cash/${room.id}?src=games`);
   } else if (room.type === 'tournament' && room.tournamentSessionId) {
     router.push(`/admin/tournament/${room.tournamentSessionId}`);
