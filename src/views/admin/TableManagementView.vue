@@ -183,11 +183,15 @@ function normalizeGame(raw) {
   };
 }
 
-const COMPLETED_STATUSES = new Set(['completed', 'cancelled', 'ended', 'closed']);
+const COMPLETED_STATUSES = new Set(['completed', 'cancelled', 'ended']);
 
 const filteredGames = computed(() =>
   games.value.filter(
-    (g) => canEdit(g._raw) && g._raw.type !== 'tournament' && COMPLETED_STATUSES.has(g._raw.status)
+    (g) =>
+      g._collection === 'games' &&
+      canEdit(g._raw) &&
+      g._raw.type !== 'tournament' &&
+      COMPLETED_STATUSES.has(g._raw.status)
   )
 );
 
