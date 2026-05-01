@@ -183,7 +183,7 @@ function normalizeGame(raw) {
   };
 }
 
-const COMPLETED_STATUSES = new Set(['completed', 'cancelled', 'ended']);
+const COMPLETED_STATUSES = new Set(['completed', 'cancelled', 'ended', 'closed']);
 
 const filteredGames = computed(() =>
   games.value.filter(
