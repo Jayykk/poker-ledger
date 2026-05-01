@@ -566,6 +566,7 @@ const handleShareToLine = async () => {
     game.value.name,
     game.value.id,
     game.value.hostName || displayName.value,
+    true,
   );
   if (shared) {
     success(t('game.shareSuccess'));
@@ -639,6 +640,14 @@ const handleHandRecordSaved = () => {
 };
 
 const handleSettle = async () => {
+  // Guard: payoutRatios are loaded from the tournament session asynchronously.
+  // If the session hasn't loaded yet, payoutRatios would be empty and write
+  // payoutRatios:[] to Firestore, causing the history projection Cloud Function to fail.
+  if (payoutRatios.value.length === 0) {
+    showError(t('tournament.payoutRatiosNotLoaded'));
+    return;
+  }
+
   const shouldSettle = await confirm({
     message: t('tournament.confirmSettle'),
     type: 'warning',

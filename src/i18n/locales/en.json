@@ -477,6 +477,7 @@
     "netProfit": "Net Profit",
     "settleTournament": "Settle Tournament",
     "confirmSettle": "Settle this tournament?",
+    "payoutRatiosNotLoaded": "Prize ratios are not loaded yet. Please wait a moment and try again.",
     "addPlayer": "Add Player",
     "playerName": "Player Name",
     "prize": "Prize"
@@ -528,6 +529,8 @@
       "syncSettlementSuccess": "Table and player history have been updated",
       "manualSync": "Resync This Table",
       "manualSyncSuccess": "This table has been resynced",
+      "syncError": "History Sync Failed",
+      "syncErrorHint": "Click \"Resync This Table\" above to re-trigger the sync",
       "correctionReason": "Correction Reason",
       "correctionReasonPlaceholder": "Example: wrong exchange rate or wrong chip entry"
     },

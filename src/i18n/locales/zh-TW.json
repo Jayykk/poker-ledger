@@ -477,6 +477,7 @@
     "netProfit": "淨利",
     "settleTournament": "結算錦標賽",
     "confirmSettle": "確定要結算此錦標賽嗎？",
+    "payoutRatiosNotLoaded": "獎金分配尚未載入，請稍候再試",
     "addPlayer": "新增玩家",
     "playerName": "玩家名稱",
     "prize": "獎金"
@@ -528,6 +529,8 @@
       "syncSettlementSuccess": "已同步更新桌次與玩家歷史資料",
       "manualSync": "手動重新同步本桌資料",
       "manualSyncSuccess": "已重新同步本桌資料",
+      "syncError": "歷史資料同步失敗",
+      "syncErrorHint": "請點擊上方「手動重新同步」按鈕重新觸發同步",
       "correctionReason": "校正原因",
       "correctionReasonPlaceholder": "例如：匯率輸入錯誤、離桌碼量 key 錯"
     },

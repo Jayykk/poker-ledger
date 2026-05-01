@@ -594,6 +594,10 @@ export const useGameStore = defineStore('game', () => {
       const maxReentries = cfg.maxReentries ?? 0;
       const gameRef = doc(db, 'games', gameId.value);
 
+      // Track the exact alive count from inside the transaction so we can write
+      // an absolute value to the session (avoids increment() race vs startGameSync).
+      let aliveAfterReentry = 0;
+
       // Use a Firestore transaction to atomically read the latest data,
       // validate reentry count, and update both elimination state and buyIn.
       await runTransaction(db, async (transaction) => {
@@ -625,15 +629,19 @@ export const useGameStore = defineStore('game', () => {
           return p;
         });
 
+        aliveAfterReentry = updatedPlayers.filter(p => !p.eliminated).length;
         transaction.update(gameRef, { players: updatedPlayers });
       });
 
-      // Sync tournament session counters (playersRemaining, reentries)
-      // NOTE: playersRegistered is NOT incremented here because re-entry
-      // revives an existing player — it does not add a new unique participant.
+      // Sync tournament session counters.
+      // Use an absolute value for playersRemaining (not increment) to avoid a race
+      // condition where startGameSync fires between the game transaction and this write
+      // and sets playersRemaining to the new count, then increment(1) overshoots by 1.
+      // NOTE: playersRegistered is NOT incremented — re-entry revives an existing player,
+      // it does not add a new unique participant.
       if (sessionRef) {
         await updateDoc(sessionRef, {
-          'state.playersRemaining': increment(1),
+          'state.playersRemaining': aliveAfterReentry,
           'state.reentries': increment(1),
           updatedAt: serverTimestamp(),
         });
@@ -690,19 +698,19 @@ export const useGameStore = defineStore('game', () => {
           prizeMap[r.place] = Math.round(totalBuyIns * r.percentage / 100);
         }
 
-        // Prepare settlement records
+        // Prepare settlement records — include ALL players so even eliminated
+        // participants (no prize) get a history record in their report.
         const settlement = players
-          .filter(p => p.placement)
-          .sort((a, b) => a.placement - b.placement)
           .map(p => ({
             playerId: p.id || null,
             odId: p.uid || null,
             name: p.name,
-            placement: p.placement,
+            placement: p.placement || null,
             buyIn: p.buyIn || 0,
             prize: prizeMap[p.placement] || 0,
             profit: (prizeMap[p.placement] || 0) - (p.buyIn || 0),
-          }));
+          }))
+          .sort((a, b) => (a.placement || 999) - (b.placement || 999));
         settlementResult = settlement;
 
         t.update(gameRef, {
