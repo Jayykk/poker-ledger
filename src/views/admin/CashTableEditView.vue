@@ -189,6 +189,19 @@
           </section>
 
           <section v-if="showSettlementEditor" class="card">
+            <!-- Sync error banner -->
+            <div
+              v-if="game?.historyProjection?.lastError"
+              class="mb-4 px-4 py-3 rounded-xl bg-rose-900/40 border border-rose-600/50 flex items-start gap-3"
+            >
+              <i class="fas fa-triangle-exclamation text-rose-400 mt-0.5 shrink-0"></i>
+              <div class="flex-1 min-w-0">
+                <div class="text-rose-300 font-semibold text-sm">{{ $t('admin.cashEdit.syncError') }}</div>
+                <div class="text-rose-400/80 text-xs mt-0.5 break-all">{{ game.historyProjection.lastError }}</div>
+                <div class="text-gray-400 text-xs mt-1">{{ $t('admin.cashEdit.syncErrorHint') }}</div>
+              </div>
+            </div>
+
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 class="section-title mb-0">{{ settlementEditorTitle }}</h2>

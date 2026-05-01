@@ -148,8 +148,6 @@ function buildTournamentSettlement(game) {
   });
 
   return players
-    .filter((player) => player.placement)
-    .sort((a, b) => (a.placement || 999) - (b.placement || 999))
     .map((player) => {
       const prize = roundNumber(prizeMap[player.placement] || 0);
       return {
@@ -160,7 +158,8 @@ function buildTournamentSettlement(game) {
         prize,
         profit: roundNumber(prize - player.buyIn),
       };
-    });
+    })
+    .sort((a, b) => (a.placement || 999) - (b.placement || 999));
 }
 
 /**
@@ -194,7 +193,9 @@ function buildProjectionSource(game) {
     name: game.name || '',
     rate: Number(game.rate) || 1,
     createdAt: toMillis(game.createdAt),
-    updatedAt: toMillis(game.updatedAt),
+    // updatedAt intentionally omitted: every saveGameConfig call bumps updatedAt, which
+    // would cause a spurious re-sync even when no settlement-relevant data changed.
+    // lastCorrectedAt is kept because settlement corrections set it explicitly.
     completedAt: toMillis(game.completedAt),
     lastCorrectedAt: toMillis(game.lastCorrectedAt),
     players: normalizePlayers(game.players),

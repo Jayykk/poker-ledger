@@ -183,12 +183,16 @@ function normalizeGame(raw) {
   };
 }
 
+const COMPLETED_STATUSES = new Set(['completed', 'cancelled', 'ended']);
+
 const filteredGames = computed(() =>
-  games.value.filter((g) => canEdit(g._raw))
+  games.value.filter(
+    (g) => canEdit(g._raw) && g._raw.type !== 'tournament' && COMPLETED_STATUSES.has(g._raw.status)
+  )
 );
 
 const filteredSessions = computed(() =>
-  sessions.value.filter((s) => canEdit(s))
+  sessions.value.filter((s) => canEdit(s) && s.state?.status === 'ended')
 );
 
 function getTournamentEditPath(session) {

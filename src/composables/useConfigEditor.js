@@ -245,6 +245,20 @@ export function useConfigEditor() {
       const nowMs = Date.now();
       const syncToken = createSyncRequestToken('tournament-correction');
       const settlementSnapshot = _buildTournamentSettlement(correctedPlayers);
+
+      // Derive payoutRatios from the corrected prizes so the game document stays
+      // consistent and the Cloud Function fallback path can also compute correctly.
+      const totalBuyIn = correctedPlayers.reduce((s, p) => s + Math.round(Number(p.buyIn) || 0), 0);
+      const payoutRatios = totalBuyIn > 0
+        ? correctedPlayers
+            .filter((p) => p.placement != null && Math.round(Number(p.prize) || 0) > 0)
+            .sort((a, b) => (a.placement || 999) - (b.placement || 999))
+            .map((p) => ({
+              place: Math.round(Number(p.placement)),
+              percentage: Math.round((Math.round(Number(p.prize) || 0) / totalBuyIn) * 10000) / 100,
+            }))
+        : [];
+
       const players = correctedPlayers.map((player) => ({
         ...player,
         buyIn: Math.round(Number(player.buyIn) || 0),
@@ -255,6 +269,7 @@ export function useConfigEditor() {
         players,
         rate: 1,
         settlementSnapshot,
+        payoutRatios,
         updatedAt: serverTimestamp(),
         lastCorrectedAt: nowMs,
         lastCorrectedBy: authStore.user?.uid || 'anonymous',
@@ -271,6 +286,7 @@ export function useConfigEditor() {
         {
           players,
           settlementSnapshot,
+          payoutRatios,
         },
         reason
       );
@@ -278,6 +294,7 @@ export function useConfigEditor() {
       return {
         players,
         settlementSnapshot,
+        payoutRatios,
         syncToken,
       };
     } catch (err) {

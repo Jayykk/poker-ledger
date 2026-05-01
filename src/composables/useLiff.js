@@ -756,10 +756,11 @@ const sendDailyRankingMessage = async ({ dateLabel, startDateStr, endDateStr, to
 /**
  * Share a game invite via LINE share target picker
  */
-const shareGameInvite = async (gameName, gameId, hostName) => {
+const shareGameInvite = async (gameName, gameId, hostName, isTournament = false) => {
   if (!isInitialized.value) return false;
   try {
-    const liffUrl = `https://liff.line.me/${LIFF_ID}/game/${gameId}`;
+    const liffPath = isTournament ? `tournament-game/${gameId}` : `game/${gameId}`;
+    const liffUrl = `https://liff.line.me/${LIFF_ID}/${liffPath}`;
     const result = await liff.shareTargetPicker([
       {
         type: 'text',
