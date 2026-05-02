@@ -430,10 +430,9 @@ onMounted(async () => {
         if (result.status === 'joined') {
           await joinGameListener(targetGameId);
         } else if (result.status === 'open') {
-          // Tournament games are closed — participants are added by the host only.
-          // If the current user is not already a player, just attach as a listener
-          // (spectator/viewer) rather than auto-creating a new player entry.
-          await joinGameListener(targetGameId);
+          // Auto-join as a new player when arriving via share link.
+          const baseBuyIn = result.baseBuyIn || DEFAULT_BUY_IN;
+          await joinAsNewPlayer(targetGameId, baseBuyIn);
         } else {
           router.push('/lobby');
         }
