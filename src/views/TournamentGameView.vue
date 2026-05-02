@@ -430,7 +430,7 @@ onMounted(async () => {
         if (result.status === 'joined') {
           await joinGameListener(targetGameId);
         } else if (result.status === 'open') {
-          // Auto-join as a new player when arriving via share link.
+          // Not yet in game — auto-join as a new player (e.g. via LINE share link).
           const baseBuyIn = result.baseBuyIn || DEFAULT_BUY_IN;
           await joinAsNewPlayer(targetGameId, baseBuyIn);
         } else {
