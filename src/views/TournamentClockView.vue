@@ -1,5 +1,5 @@
 <template>
-  <div class="tournament-clock-view" :class="{ 'is-break': isBreak, 'time-critical': timerColorClass === 'timer-critical' && status === 'running' }">
+  <div class="tournament-clock-view" :class="{ 'is-break': isBreak, 'time-critical': timerColorClass === 'timer-critical' && status === 'running', 'countdown-final': countdownFinal }">
     <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center h-screen bg-slate-900">
       <LoadingSpinner />
@@ -184,7 +184,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
@@ -222,6 +222,11 @@ const {
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
   updatePlayers, endTournament, toggleDealerMode, cleanup,
 } = useTournamentClock();
+
+// 5-second countdown flash
+const countdownFinal = computed(() =>
+  localTimeLeft.value <= 5 && localTimeLeft.value > 0 && status.value === 'running' && !isBreak.value
+);
 
 // Timer color class
 const timerColorClass = ref('');
@@ -363,6 +368,21 @@ onUnmounted(() => {
 @keyframes borderPulse {
   0%, 100% { box-shadow: inset 0 0 30px rgba(239, 68, 68, 0); }
   50% { box-shadow: inset 0 0 30px rgba(239, 68, 68, 0.3); }
+}
+
+.tournament-clock-view.countdown-final::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(245, 158, 11, 0.18);
+  animation: countdownFlash 1s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes countdownFlash {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
 }
 
 .clock-container {

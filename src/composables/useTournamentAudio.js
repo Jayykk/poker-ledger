@@ -9,9 +9,9 @@ import { ref } from 'vue';
 const STORAGE_KEY = 'tournament_audio_preset';
 
 export const VOLUME_PRESETS = {
-  low:    { warning: 0.3,  levelUp: 0.2  },
-  medium: { warning: 0.6,  levelUp: 0.45 },
-  high:   { warning: 0.9,  levelUp: 0.7  },
+  low:    { warning: 0.45, levelUp: 0.3  },
+  medium: { warning: 0.9,  levelUp: 0.68 },
+  high:   { warning: 1.0,  levelUp: 1.0  },
 };
 
 // Singleton reactive state shared across all useTournamentAudio() calls
@@ -36,36 +36,48 @@ export function useTournamentAudio() {
     const preset = VOLUME_PRESETS[presetKey || selectedPreset.value] || VOLUME_PRESETS.medium;
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      if (type === 'warning') {
-        osc.frequency.value = 880;
-        gain.gain.value = preset.warning;
-        osc.start();
-        osc.stop(ctx.currentTime + 0.15);
-      } else if (type === 'levelUp') {
-        osc.frequency.value = 1200;
-        gain.gain.value = preset.levelUp;
-        osc.start();
-        setTimeout(() => {
-          try {
-            const osc2 = ctx.createOscillator();
-            const gain2 = ctx.createGain();
-            osc2.connect(gain2);
-            gain2.connect(ctx.destination);
-            osc2.frequency.value = 1600;
-            gain2.gain.value = preset.levelUp;
-            osc2.start();
-            osc2.stop(ctx.currentTime + 0.2);
-          } catch {
-            // Audio not available
+      // Resume in case the context was auto-suspended by the browser's autoplay policy
+      ctx.resume().then(() => {
+        try {
+          if (type === 'warning') {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 880;
+            gain.gain.value = preset.warning;
+            osc.start();
+            osc.stop(ctx.currentTime + 0.15);
+          } else if (type === 'levelUp') {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 1200;
+            gain.gain.value = preset.levelUp;
+            osc.start();
+            osc.stop(ctx.currentTime + 0.15);
+            setTimeout(() => {
+              try {
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.frequency.value = 1600;
+                gain2.gain.value = preset.levelUp;
+                osc2.start();
+                osc2.stop(ctx.currentTime + 0.2);
+              } catch {
+                // Audio not available
+              }
+            }, 150);
           }
-        }, 150);
-        osc.stop(ctx.currentTime + 0.15);
-      }
+        } catch {
+          // Audio not available
+        }
+      }).catch(() => {
+        // AudioContext resume blocked
+      });
     } catch {
       // Audio not available
     }
