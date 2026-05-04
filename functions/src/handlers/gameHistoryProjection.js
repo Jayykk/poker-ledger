@@ -356,7 +356,11 @@ export async function syncCompletedGameHistoryProjection(gameId, options = {}) {
 
   const writes = buildUserProjectionDocs(gameId, game);
   const nextUserIds = writes.map((item) => item.uid);
-  const previousUserIds = options.beforeGame
+  // Only attempt to extract stale user IDs from beforeGame when it was already
+  // 'completed'.  If the transition is active→completed (initial settlement) the
+  // beforeGame has no settlementSnapshot and no payoutRatios, so calling
+  // extractProjectedUserIds on it would throw for tournament games.
+  const previousUserIds = options.beforeGame && options.beforeGame.status === 'completed'
     ? extractProjectedUserIds(options.beforeGame)
     : Array.isArray(game.historyProjection?.syncedUserIds)
       ? game.historyProjection.syncedUserIds
