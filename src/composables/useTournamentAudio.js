@@ -30,14 +30,68 @@ function _getCtx() {
 
 /**
  * Call this once on the first user gesture (click/touchstart) to unlock
- * the AudioContext. Especially needed for DealerClockView where the viewer
- * may never tap any button before the timer fires.
+ * the AudioContext. Plays a silent buffer — the most reliable technique
+ * for iOS Safari / LINE WebView which requires the audio graph to actually
+ * be driven synchronously during the gesture.
  */
 export function unlockAudio() {
   try {
-    _getCtx().resume().catch(() => {});
+    const ctx = _getCtx();
+    // Fire resume synchronously inside the user gesture
+    ctx.resume().catch(() => {});
+    // Play a 1-sample silent buffer — this is the iOS golden-standard unlock trick.
+    // Without actually scheduling audio nodes synchronously, iOS WKWebView
+    // keeps the context silenced even after resume() resolves.
+    const buf = ctx.createBuffer(1, 1, ctx.sampleRate);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
   } catch {
     // AudioContext not available
+  }
+}
+
+/**
+ * Internal: create and start oscillator nodes synchronously.
+ * Nodes are created BEFORE resume() resolves so that on iOS/LINE WebView
+ * they are queued during the gesture — they will output audio as soon as
+ * the context transitions to 'running'.
+ */
+function _playSync(ctx, type, preset) {
+  if (type === 'warning') {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.value = preset.warning;
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  } else if (type === 'levelUp') {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 1200;
+    gain.gain.value = preset.levelUp;
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+    setTimeout(() => {
+      try {
+        const ctx2 = _getCtx();
+        const osc2 = ctx2.createOscillator();
+        const gain2 = ctx2.createGain();
+        osc2.connect(gain2);
+        gain2.connect(ctx2.destination);
+        osc2.frequency.value = 1600;
+        gain2.gain.value = preset.levelUp;
+        osc2.start();
+        osc2.stop(ctx2.currentTime + 0.2);
+      } catch {
+        // Audio not available
+      }
+    }, 150);
   }
 }
 
@@ -59,48 +113,18 @@ export function useTournamentAudio() {
     const preset = VOLUME_PRESETS[presetKey || selectedPreset.value] || VOLUME_PRESETS.medium;
     try {
       const ctx = _getCtx();
-      // Resume in case the context was auto-suspended by the browser's autoplay policy
-      ctx.resume().then(() => {
-        try {
-          if (type === 'warning') {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.frequency.value = 880;
-            gain.gain.value = preset.warning;
-            osc.start();
-            osc.stop(ctx.currentTime + 0.15);
-          } else if (type === 'levelUp') {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.frequency.value = 1200;
-            gain.gain.value = preset.levelUp;
-            osc.start();
-            osc.stop(ctx.currentTime + 0.15);
-            setTimeout(() => {
-              try {
-                const osc2 = ctx.createOscillator();
-                const gain2 = ctx.createGain();
-                osc2.connect(gain2);
-                gain2.connect(ctx.destination);
-                osc2.frequency.value = 1600;
-                gain2.gain.value = preset.levelUp;
-                osc2.start();
-                osc2.stop(ctx.currentTime + 0.2);
-              } catch {
-                // Audio not available
-              }
-            }, 150);
-          }
-        } catch {
-          // Audio not available
-        }
-      }).catch(() => {
-        // AudioContext resume blocked
-      });
+      if (ctx.state === 'running') {
+        // Context already unlocked — play synchronously right now.
+        _playSync(ctx, type, preset);
+      } else {
+        // Context is suspended (no prior user gesture yet).
+        // Call resume() and ALSO schedule nodes synchronously so they
+        // are queued during the current user gesture on iOS/LINE WebView.
+        // Nodes started on a suspended context begin output the moment
+        // the context transitions to 'running'.
+        ctx.resume().catch(() => {});
+        _playSync(ctx, type, preset);
+      }
     } catch {
       // Audio not available
     }
@@ -108,9 +132,11 @@ export function useTournamentAudio() {
 
   /**
    * Play a sample warning sound using a specific preset (for test buttons).
+   * Also unlocks the AudioContext so subsequent watch-triggered sounds work.
    * @param {string} presetKey
    */
   function testPreset(presetKey) {
+    unlockAudio();
     playSound('warning', presetKey);
   }
 
