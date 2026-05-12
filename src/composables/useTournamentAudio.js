@@ -63,6 +63,7 @@ export function unlockAudio() {
  * the context transitions to 'running'.
  */
 function _playSync(ctx, type, preset) {
+  const t = ctx.currentTime;
   if (type === 'warning') {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -70,32 +71,27 @@ function _playSync(ctx, type, preset) {
     gain.connect(ctx.destination);
     osc.frequency.value = 880;
     gain.gain.value = preset.warning;
-    osc.start();
-    osc.stop(ctx.currentTime + 0.15);
+    osc.start(t);
+    osc.stop(t + 0.15);
   } else if (type === 'levelUp') {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = 1200;
-    gain.gain.value = preset.levelUp;
-    osc.start();
-    osc.stop(ctx.currentTime + 0.15);
-    setTimeout(() => {
-      try {
-        const ctx2 = _getCtx();
-        const osc2 = ctx2.createOscillator();
-        const gain2 = ctx2.createGain();
-        osc2.connect(gain2);
-        gain2.connect(ctx2.destination);
-        osc2.frequency.value = 1600;
-        gain2.gain.value = preset.levelUp;
-        osc2.start();
-        osc2.stop(ctx2.currentTime + 0.2);
-      } catch {
-        // Audio not available
-      }
-    }, 150);
+    // Web Audio native scheduling (no setTimeout) for precise and throttle-proof playback
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.frequency.value = 1200;
+    gain1.gain.value = preset.levelUp;
+    osc1.start(t);
+    osc1.stop(t + 0.15);
+
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.frequency.value = 1600;
+    gain2.gain.value = preset.levelUp;
+    osc2.start(t + 0.2); // Start 50ms after first beep ends
+    osc2.stop(t + 0.4);
   }
 }
 
@@ -142,6 +138,10 @@ export function useTournamentAudio() {
   function testPreset(presetKey) {
     unlockAudio();
     playSound('warning', presetKey);
+    // 連續播 levelUp 讓這兩個聲音都能讓使用者清楚聽到測試
+    setTimeout(() => {
+      playSound('levelUp', presetKey);
+    }, 400);
   }
 
   return {
