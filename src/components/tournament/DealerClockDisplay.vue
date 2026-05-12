@@ -1,5 +1,5 @@
 <template>
-  <div class="dealer-clock-display" :class="{ 'is-break': isBreak, 'time-critical': timerColorClass === 'timer-critical' && status === 'running' }">
+  <div class="dealer-clock-display" :class="{ 'is-break': isBreak, 'time-critical': timerColorClass === 'timer-critical' && status === 'running', 'countdown-final': countdownFinal }">
     <div class="clock-container">
       <div class="clock-shell">
         <header class="clock-header panel-surface">
@@ -181,6 +181,7 @@ defineProps({
   timeToBreak: { type: String, default: '' },
   formattedTime: { type: String, default: '00:00' },
   timerColorClass: { type: String, default: '' },
+  countdownFinal: { type: Boolean, default: false },
   status: { type: String, default: 'waiting' },
   nextPlayLevelEntry: { type: Object, default: null },
   prizePool: { type: Number, default: 0 },
@@ -242,6 +243,21 @@ function formatNumber(value) {
 
 .dealer-clock-display.time-critical {
   animation: borderPulse 1s ease-in-out infinite;
+}
+
+.dealer-clock-display.countdown-final::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(245, 158, 11, 0.18);
+  animation: countdownFlash 1s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes countdownFlash {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
 }
 
 @keyframes borderPulse {
