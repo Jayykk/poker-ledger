@@ -28,6 +28,52 @@ function _getCtx() {
   return _audioCtx;
 }
 
+// ── Audio keep-alive heartbeat ────────────────────────────────────────────────
+// iOS/LINE WebView auto-suspends AudioContext after a few seconds with no
+// user interaction. A dealer viewer just watches without touching the screen,
+// so we must schedule silent no-op audio pulses to keep the context alive.
+let _heartbeatInterval = null;
+
+function _playHeartbeat() {
+  if (!_audioCtx || _audioCtx.state === 'closed') return;
+  if (_audioCtx.state === 'suspended') {
+    // Attempt to resume. On iOS, this may only work if the context was
+    // previously unlocked via unlockAudio(). If it fails, ignore.
+    _audioCtx.resume().catch(() => {});
+  }
+  // Schedule a 1-frame silent buffer — this drives the audio clock and
+  // prevents iOS from evicting the context from the active audio session.
+  try {
+    const buf = _audioCtx.createBuffer(1, 1, _audioCtx.sampleRate);
+    const src = _audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(_audioCtx.destination);
+    src.start(0);
+  } catch {
+    // Context not usable yet — will retry on next heartbeat
+  }
+}
+
+/**
+ * Start a silent heartbeat to keep the AudioContext active on iOS/LINE WebView.
+ * Must be called after unlockAudio() (i.e. after the first user gesture).
+ * Call stopAudioHeartbeat() when the component unmounts.
+ */
+export function startAudioHeartbeat() {
+  if (_heartbeatInterval) return; // already running
+  _heartbeatInterval = setInterval(_playHeartbeat, 3000);
+}
+
+/**
+ * Stop the keep-alive heartbeat.
+ */
+export function stopAudioHeartbeat() {
+  if (_heartbeatInterval) {
+    clearInterval(_heartbeatInterval);
+    _heartbeatInterval = null;
+  }
+}
+
 /**
  * Call this once on the first user gesture (click/touchstart) to unlock
  * the AudioContext. Plays a silent buffer — the most reliable technique
