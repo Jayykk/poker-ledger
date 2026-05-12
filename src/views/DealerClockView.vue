@@ -74,7 +74,7 @@ import { useI18n } from 'vue-i18n';
 import { signInAnonymously } from 'firebase/auth';
 import { auth } from '../firebase-init.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
-import { useTournamentAudio } from '../composables/useTournamentAudio.js';
+import { useTournamentAudio, unlockAudio } from '../composables/useTournamentAudio.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useWakeLock } from '../composables/useWakeLock.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
@@ -178,7 +178,18 @@ function requestFullscreen() {
   if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
 }
 
+// Unlock AudioContext on first user interaction (dealer viewers never tap
+// a control button, so we must listen on the document level).
+function _handleFirstInteraction() {
+  unlockAudio();
+  document.removeEventListener('click', _handleFirstInteraction, true);
+  document.removeEventListener('touchstart', _handleFirstInteraction, true);
+}
+
 onMounted(async () => {
+  document.addEventListener('click', _handleFirstInteraction, true);
+  document.addEventListener('touchstart', _handleFirstInteraction, { capture: true, passive: true });
+
   const sessionId = route.params.sessionId;
   if (!sessionId) return;
 

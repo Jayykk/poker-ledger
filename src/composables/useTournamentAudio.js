@@ -18,6 +18,29 @@ export const VOLUME_PRESETS = {
 const _stored = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY)) || 'medium';
 const selectedPreset = ref(VOLUME_PRESETS[_stored] ? _stored : 'medium');
 
+// Singleton AudioContext — reused across all playSound calls to avoid
+// re-creation in suspended state on each invocation.
+let _audioCtx = null;
+function _getCtx() {
+  if (!_audioCtx || _audioCtx.state === 'closed') {
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return _audioCtx;
+}
+
+/**
+ * Call this once on the first user gesture (click/touchstart) to unlock
+ * the AudioContext. Especially needed for DealerClockView where the viewer
+ * may never tap any button before the timer fires.
+ */
+export function unlockAudio() {
+  try {
+    _getCtx().resume().catch(() => {});
+  } catch {
+    // AudioContext not available
+  }
+}
+
 export function useTournamentAudio() {
   function setPreset(key) {
     if (!VOLUME_PRESETS[key]) return;
@@ -35,7 +58,7 @@ export function useTournamentAudio() {
   function playSound(type, presetKey) {
     const preset = VOLUME_PRESETS[presetKey || selectedPreset.value] || VOLUME_PRESETS.medium;
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = _getCtx();
       // Resume in case the context was auto-suspended by the browser's autoplay policy
       ctx.resume().then(() => {
         try {
