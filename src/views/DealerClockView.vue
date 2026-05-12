@@ -35,6 +35,7 @@
         :time-to-break="timeToBreak"
         :formatted-time="formattedTime"
         :timer-color-class="timerColorClass"
+        :countdown-final="countdownFinal"
         :status="status"
         :next-play-level-entry="nextPlayLevelEntry"
         :prize-pool="prizePool"
@@ -117,6 +118,11 @@ const headerSubtitleText = computed(() => {
 
   return [buyInText, reentryText].filter(Boolean).join(' | ');
 });
+
+// 5-second countdown flash (mirrors TournamentClockView)
+const countdownFinal = computed(() =>
+  localTimeLeft.value <= 5 && localTimeLeft.value > 0 && status.value === 'running' && !isBreak.value
+);
 
 // Timer color class
 const timerColorClass = ref('');
