@@ -28,6 +28,8 @@ function _getCtx() {
   return _audioCtx;
 }
 
+let _isUnlocked = false;
+
 /**
  * Call this once on the first user gesture (click/touchstart) to unlock
  * the AudioContext. Plays a silent buffer — the most reliable technique
@@ -35,6 +37,7 @@ function _getCtx() {
  * be driven synchronously during the gesture.
  */
 export function unlockAudio() {
+  if (_isUnlocked) return; // 避免重複解鎖破壞原本活著的 context
   try {
     const ctx = _getCtx();
     // Fire resume synchronously inside the user gesture
@@ -47,6 +50,7 @@ export function unlockAudio() {
     src.buffer = buf;
     src.connect(ctx.destination);
     src.start(0);
+    _isUnlocked = true;
   } catch {
     // AudioContext not available
   }
