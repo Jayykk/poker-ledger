@@ -74,7 +74,7 @@ import { useI18n } from 'vue-i18n';
 import { signInAnonymously } from 'firebase/auth';
 import { auth } from '../firebase-init.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
-import { useTournamentAudio, unlockAudio } from '../composables/useTournamentAudio.js';
+import { useTournamentAudio, unlockAudio, startAudioHeartbeat, stopAudioHeartbeat } from '../composables/useTournamentAudio.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useWakeLock } from '../composables/useWakeLock.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
@@ -182,6 +182,7 @@ function requestFullscreen() {
 // a control button, so we must listen on the document level).
 function _handleFirstInteraction() {
   unlockAudio();
+  startAudioHeartbeat();
   document.removeEventListener('click', _handleFirstInteraction, true);
   document.removeEventListener('touchstart', _handleFirstInteraction, true);
 }
@@ -209,6 +210,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  stopAudioHeartbeat();
   document.removeEventListener('click', _handleFirstInteraction, true);
   document.removeEventListener('touchstart', _handleFirstInteraction, true);
   cleanup();

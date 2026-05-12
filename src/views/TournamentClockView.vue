@@ -188,7 +188,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
-import { useTournamentAudio } from '../composables/useTournamentAudio.js';
+import { useTournamentAudio, unlockAudio, startAudioHeartbeat, stopAudioHeartbeat } from '../composables/useTournamentAudio.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useWakeLock } from '../composables/useWakeLock.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
@@ -222,6 +222,14 @@ const {
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
   updatePlayers, endTournament, toggleDealerMode, cleanup,
 } = useTournamentClock();
+
+// Unlock audio on first interaction to prevent iOS blocking
+function _handleFirstInteraction() {
+  unlockAudio();
+  startAudioHeartbeat();
+  document.removeEventListener('click', _handleFirstInteraction, true);
+  document.removeEventListener('touchstart', _handleFirstInteraction, true);
+}
 
 // 5-second countdown flash
 const countdownFinal = computed(() =>
@@ -335,6 +343,9 @@ function requestFullscreen() {
 }
 
 onMounted(() => {
+  document.addEventListener('click', _handleFirstInteraction, true);
+  document.addEventListener('touchstart', _handleFirstInteraction, { capture: true, passive: true });
+
   const id = route.params.sessionId;
   if (id) {
     joinSession(id);
@@ -342,6 +353,9 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  stopAudioHeartbeat();
+  document.removeEventListener('click', _handleFirstInteraction, true);
+  document.removeEventListener('touchstart', _handleFirstInteraction, true);
   cleanup();
 });
 </script>

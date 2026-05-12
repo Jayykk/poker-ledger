@@ -56,6 +56,38 @@ export function unlockAudio() {
   }
 }
 
+// ── Audio keep-alive heartbeat ────────────────────────────────────────────────
+// iOS/LINE WebView auto-suspends AudioContext after a few seconds with no
+// user interaction. A viewer just watches without touching the screen,
+// so we must schedule silent no-op audio pulses to keep the context alive.
+let _heartbeatInterval = null;
+
+function _playHeartbeat() {
+  if (!_audioCtx || _audioCtx.state === 'closed') return;
+  if (_audioCtx.state === 'suspended') {
+    _audioCtx.resume().catch(() => {});
+  }
+  try {
+    const buf = _audioCtx.createBuffer(1, 1, _audioCtx.sampleRate);
+    const src = _audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(_audioCtx.destination);
+    src.start(0);
+  } catch {}
+}
+
+export function startAudioHeartbeat() {
+  if (_heartbeatInterval) return;
+  _heartbeatInterval = setInterval(_playHeartbeat, 3000);
+}
+
+export function stopAudioHeartbeat() {
+  if (_heartbeatInterval) {
+    clearInterval(_heartbeatInterval);
+    _heartbeatInterval = null;
+  }
+}
+
 /**
  * Internal: create and start oscillator nodes synchronously.
  * Nodes are created BEFORE resume() resolves so that on iOS/LINE WebView
