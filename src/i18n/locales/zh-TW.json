@@ -373,6 +373,25 @@
     "shared": "已分享至 LINE",
     "shareError": "分享失敗，請在 LINE 中開啟"
   },
+  "cashPreset": {
+    "presets": "現金桌設定",
+    "myPresets": "我的設定",
+    "newPreset": "新增設定",
+    "noPresets": "尚無自訂設定",
+    "createPreset": "新增現金桌設定",
+    "editPreset": "編輯現金桌設定",
+    "name": "設定名稱",
+    "namePlaceholder": "例：例行 1k 桌",
+    "untitled": "未命名",
+    "buyIn": "買入籌碼",
+    "buyInHint": "預設買入的籌碼數量",
+    "rate": "結算匯率",
+    "rateHint": "1 籌碼 : 多少元（結算時用）",
+    "usePreset": "使用設定",
+    "custom": "自訂",
+    "confirmDelete": "確定要刪除「{name}」嗎？",
+    "invalidInput": "請輸入有效的設定內容"
+  },
   "tournament": {
     "presets": "錦標賽設定",
     "builtInTemplates": "公版模板",

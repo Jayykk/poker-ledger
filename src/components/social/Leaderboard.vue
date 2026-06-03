@@ -145,7 +145,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { collection, getDocs, query, collectionGroup } from 'firebase/firestore';
+import { collection, getDocs, query, collectionGroup, doc } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
 import { useAuth } from '../../composables/useAuth.js';
 import BaseCard from '../common/BaseCard.vue';
@@ -192,9 +192,9 @@ const leaderboard = computed(() => {
   // Filter data by selected period
   const filteredData = leaderboardData.value.map(entry => {
     const periodHistory = entry.history.filter(h => {
-      // Ensure h.createdAt is a valid timestamp
-      const timestamp = typeof h.createdAt === 'number' ? h.createdAt : Date.parse(h.createdAt);
-      return !isNaN(timestamp) && timestamp >= cutoffTime;
+      // createdAt is already normalized to millis by loadLeaderboard
+      const timestamp = typeof h.createdAt === 'number' ? h.createdAt : 0;
+      return timestamp > 0 && timestamp >= cutoffTime;
     });
     
     if (periodHistory.length === 0) return null;
@@ -247,33 +247,91 @@ const getRankClass = (index) => {
   return 'bg-slate-600 text-gray-300';
 };
 
+// Convert a Firestore Timestamp / number / ISO string to a millisecond number
+const toMillis = (value) => {
+  if (!value) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.seconds === 'number') return value.seconds * 1000;
+  return 0;
+};
+
 const loadLeaderboard = async () => {
   try {
     // Fetch all users from Firestore
     const usersRef = collection(db, 'users');
     const snapshot = await getDocs(usersRef);
-    
-    const userData = [];
+
+    const candidates = [];
+
     snapshot.forEach((doc) => {
       const data = doc.data();
       // Exclude anonymous users
-      if (data.isAnonymous) {
-        return;
-      }
-      if (data.history && data.history.length > 0) {
-        // Priority: name > displayName > exclude (don't show email)
-        const name = data.name || data.displayName || null;
-        if (name) {
-          userData.push({
-            uid: doc.id,
-            name: name,
-            history: data.history
-          });
-        }
-      }
+      if (data.isAnonymous) return;
+
+      // Priority: name > displayName
+      const name = data.name || data.displayName || null;
+      if (!name) return;
+
+      candidates.push({
+        uid: doc.id,
+        name,
+        legacyHistory: Array.isArray(data.history) ? data.history : [],
+      });
     });
-    
-    leaderboardData.value = userData;
+
+    // For every candidate, also fetch history_sub (projected per-game records).
+    // Merge legacy + projected, deduped by gameId. This mirrors the merge logic
+    // used by the user store (src/store/modules/user.js).
+    const merged = await Promise.all(
+      candidates.map(async (entry) => {
+        let projected = [];
+        try {
+          const historySubRef = collection(db, 'users', entry.uid, 'history_sub');
+          const historySubSnapshot = await getDocs(historySubRef);
+          projected = historySubSnapshot.docs.map((d) => ({
+            ...d.data(),
+            gameId: d.id,
+          }));
+        } catch (err) {
+          console.error(`Error loading history_sub for user ${entry.uid}:`, err);
+        }
+
+        const byGameId = new Map();
+
+        // Legacy first; projected overwrites if same gameId (projection is canonical)
+        entry.legacyHistory.forEach((record, index) => {
+          const key = record.gameId || `legacy-${index}`;
+          byGameId.set(key, {
+            ...record,
+            createdAt: toMillis(record.createdAt) || toMillis(record.completedAt) || toMillis(record.date),
+          });
+        });
+
+        projected.forEach((record, index) => {
+          const key = record.gameId || `projected-${index}`;
+          byGameId.set(key, {
+            ...record,
+            createdAt: toMillis(record.createdAt) || toMillis(record.completedAt) || toMillis(record.date),
+          });
+        });
+
+        const history = Array.from(byGameId.values());
+        if (history.length === 0) return null;
+
+        return {
+          uid: entry.uid,
+          name: entry.name,
+          history,
+        };
+      })
+    );
+
+    leaderboardData.value = merged.filter((entry) => entry !== null);
   } catch (err) {
     console.error('Load leaderboard error:', err);
   }

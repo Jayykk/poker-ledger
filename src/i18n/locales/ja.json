@@ -371,6 +371,25 @@
     "shared": "LINEに共有しました",
     "shareError": "共有に失敗しました。LINEで開いてください。"
   },
+  "cashPreset": {
+    "presets": "キャッシュテーブルプリセット",
+    "myPresets": "マイプリセット",
+    "newPreset": "新規プリセット",
+    "noPresets": "カスタムプリセットはまだありません",
+    "createPreset": "キャッシュプリセットを作成",
+    "editPreset": "キャッシュプリセットを編集",
+    "name": "プリセット名",
+    "namePlaceholder": "例：週次 1k テーブル",
+    "untitled": "無題",
+    "buyIn": "バイインチップ",
+    "buyInHint": "バイイン時のデフォルトチップ量",
+    "rate": "清算レート",
+    "rateHint": "1 チップ ： 何円（清算時に使用）",
+    "usePreset": "プリセットを使用",
+    "custom": "カスタム",
+    "confirmDelete": "「{name}」を削除しますか？",
+    "invalidInput": "有効な値を入力してください"
+  },
   "tournament": {
     "presets": "トーナメント設定",
     "builtInTemplates": "組み込みテンプレート",

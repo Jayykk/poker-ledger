@@ -373,6 +373,25 @@
     "shared": "Shared to LINE",
     "shareError": "Share failed. Please open in LINE."
   },
+  "cashPreset": {
+    "presets": "Cash Table Presets",
+    "myPresets": "My Presets",
+    "newPreset": "New Preset",
+    "noPresets": "No custom presets yet",
+    "createPreset": "New Cash Preset",
+    "editPreset": "Edit Cash Preset",
+    "name": "Preset name",
+    "namePlaceholder": "e.g. Weekly 1k table",
+    "untitled": "Untitled",
+    "buyIn": "Buy-in chips",
+    "buyInHint": "Default chip stack on buy-in",
+    "rate": "Settlement rate",
+    "rateHint": "1 chip : how much currency (used at settlement)",
+    "usePreset": "Use preset",
+    "custom": "Custom",
+    "confirmDelete": "Delete \"{name}\"?",
+    "invalidInput": "Please enter valid values"
+  },
   "tournament": {
     "presets": "Tournament Setup",
     "builtInTemplates": "Built-in Templates",

@@ -91,6 +91,8 @@ import DailyReportView from './views/DailyReportView.vue';
 import TournamentClockView from './views/TournamentClockView.vue';
 import TournamentSetupView from './views/TournamentSetupView.vue';
 import TournamentPresetsView from './views/TournamentPresetsView.vue';
+import CashPresetsView from './views/CashPresetsView.vue';
+import CashPresetSetupView from './views/CashPresetSetupView.vue';
 import TimeBankView from './views/TimeBankView.vue';
 import DealerClockView from './views/DealerClockView.vue';
 import DealerClockDemoView from './views/DealerClockDemoView.vue';
@@ -140,6 +142,9 @@ import TournamentEditView from './views/admin/TournamentEditView.vue';
       { path: '/tournament-presets', name: 'TournamentPresets', component: TournamentPresetsView, meta: { requiresAuth: true } },
       { path: '/tournament-setup', name: 'TournamentSetup', component: TournamentSetupView, meta: { requiresAuth: true } },
       { path: '/tournament-setup/:presetId', name: 'TournamentSetupEdit', component: TournamentSetupView, meta: { requiresAuth: true } },
+      { path: '/cash-presets', name: 'CashPresets', component: CashPresetsView, meta: { requiresAuth: true } },
+      { path: '/cash-preset-setup', name: 'CashPresetSetup', component: CashPresetSetupView, meta: { requiresAuth: true } },
+      { path: '/cash-preset-setup/:presetId', name: 'CashPresetSetupEdit', component: CashPresetSetupView, meta: { requiresAuth: true } },
       { path: '/tournament-clock/:sessionId', name: 'TournamentClock', component: TournamentClockView, meta: { requiresAuth: true } },
       { path: '/time-bank/:sessionId', name: 'TimeBank', component: TimeBankView, meta: { requiresAuth: true } },
       { path: '/tournament-game', name: 'TournamentGame', component: TournamentGameView, meta: { requiresAuth: true } },

@@ -117,27 +117,6 @@
       @join-online="handleJoinOnline"
     />
 
-    <!-- Live Track Buy-in Modal -->
-    <BaseModal v-model="showCreateLiveModal" :title="$t('game.buyIn')">
-      <div class="flex gap-2 mb-4 items-center">
-        <BaseButton @click="decrementLiveBuyIn" size="sm">-100</BaseButton>
-        <label class="flex-1">
-          <BaseInput
-            v-model.number="liveBuyIn"
-            type="number"
-            :min="MIN_BUY_IN"
-            :step="CHIP_STEP"
-            class="w-full"
-          />
-        </label>
-        <BaseButton @click="incrementLiveBuyIn" size="sm">+100</BaseButton>
-        <span class="text-white text-sm">{{ $t('game.chips') }}</span>
-      </div>
-      <BaseButton @click="handleConfirmCreateLive" variant="primary" fullWidth>
-        {{ $t('common.confirm') }}
-      </BaseButton>
-    </BaseModal>
-
     <!-- Join Room Modal -->
     <BaseModal v-model="showJoinRoomModal" :title="$t('action.joinOnline')">
       <BaseInput
@@ -191,7 +170,7 @@ import ActionModal from './components/common/ActionModal.vue';
 import BaseModal from './components/common/BaseModal.vue';
 import BaseInput from './components/common/BaseInput.vue';
 import BaseButton from './components/common/BaseButton.vue';
-import { STORAGE_KEYS, THEMES, DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from './utils/constants.js';
+import { STORAGE_KEYS, THEMES } from './utils/constants.js';
 
 const router = useRouter();
 const route = useRoute();
@@ -214,8 +193,6 @@ const inviteProcessedInMount = ref(false);
 const showActionModal = ref(false);
 const showJoinRoomModal = ref(false);
 const joinRoomCode = ref('');
-const showCreateLiveModal = ref(false);
-const liveBuyIn = ref(DEFAULT_BUY_IN);
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const isInGame = computed(() => gameStore.isInGame);
@@ -261,36 +238,10 @@ const handleConfirm = (result) => {
   notificationStore.resolveConfirm(result);
 };
 
-const handleCreateLive = async () => {
-  // Live Track: select buy-in first, then create the room.
-  liveBuyIn.value = DEFAULT_BUY_IN;
-  showCreateLiveModal.value = true;
-};
-
-const incrementLiveBuyIn = () => {
-  liveBuyIn.value = (liveBuyIn.value || 0) + CHIP_STEP;
-};
-
-const decrementLiveBuyIn = () => {
-  if (liveBuyIn.value > MIN_BUY_IN) {
-    liveBuyIn.value = Math.max(MIN_BUY_IN, liveBuyIn.value - CHIP_STEP);
-  }
-};
-
-const handleConfirmCreateLive = async () => {
-  const amount = Number(liveBuyIn.value);
-  if (!Number.isFinite(amount) || amount < MIN_BUY_IN) {
-    showError('Please enter a valid buy-in amount');
-    return;
-  }
-
-  showCreateLiveModal.value = false;
-  // Create a new Live game every time
-  const gameName = 'Live Game ' + new Date().toLocaleDateString();
-  const gameId = await gameStore.createGame(gameName, amount, 'live');
-  if (gameId) {
-    router.push('/game');
-  }
+const handleCreateLive = () => {
+  // Navigate to lobby and auto-open the unified create-game modal at step 1
+  // (game type selection: cash or tournament), same as the lobby’s 「開新局」 button.
+  router.push({ path: '/lobby', query: { create: '1' } });
 };
 
 const handleCreateOnline = () => {
