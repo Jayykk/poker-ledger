@@ -117,6 +117,15 @@ export const useGameStore = defineStore('game', () => {
         gameData.tournamentSessionId = options.tournamentSessionId || null;
         gameData.baseBuyIn = parseInt(buyInAmount);
       }
+
+      // Optional cash settlement rate set at creation time (from cash preset).
+      // Skipped for online (already hardcoded to 1 elsewhere) and tournament.
+      if (type === GAME_TYPE.LIVE) {
+        const rateNum = Number(options.rate);
+        if (Number.isFinite(rateNum) && rateNum > 0) {
+          gameData.rate = rateNum;
+        }
+      }
       
       const docRef = await addDoc(collection(db, 'games'), gameData);
       

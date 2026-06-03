@@ -363,6 +363,13 @@ watch(() => showAddPlayer.value, (isOpen) => {
   }
 });
 
+// Pre-fill exchangeRate from game.rate (set at creation via cash preset) when settlement modal opens
+watch(() => showSettlement.value, (isOpen) => {
+  if (isOpen && game.value?.rate) {
+    exchangeRate.value = game.value.rate;
+  }
+});
+
 const sortedPlayers = computed(() => {
   if (!game.value) return [];
   return [...game.value.players].sort((a, b) => calculateNet(b) - calculateNet(a));

@@ -191,6 +191,14 @@ service cloud.firestore {
     }
 
     // ============================================
+    // User Cash Table Presets (buy-in + settlement rate)
+    // ============================================
+    match /users/{userId}/cashPresets/{presetId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
+    }
+
+    // ============================================
     // Time Bank Sessions
     // ============================================
     match /timeBankSessions/{sessionId} {

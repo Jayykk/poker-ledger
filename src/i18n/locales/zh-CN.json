@@ -371,6 +371,25 @@
     "shared": "已分享至 LINE",
     "shareError": "分享失败，请在 LINE 中打开"
   },
+  "cashPreset": {
+    "presets": "现金桌预设",
+    "myPresets": "我的预设",
+    "newPreset": "新增预设",
+    "noPresets": "暂无自定义预设",
+    "createPreset": "新增现金桌预设",
+    "editPreset": "编辑现金桌预设",
+    "name": "预设名称",
+    "namePlaceholder": "例：例行 1k 桌",
+    "untitled": "未命名",
+    "buyIn": "买入筹码",
+    "buyInHint": "默认买入的筹码数量",
+    "rate": "结算汇率",
+    "rateHint": "1 筹码 : 多少元（结算时使用）",
+    "usePreset": "使用预设",
+    "custom": "自定义",
+    "confirmDelete": "确定要删除「{name}」吗？",
+    "invalidInput": "请输入有效的预设内容"
+  },
   "tournament": {
     "presets": "锦标赛设置",
     "builtInTemplates": "内置模板",

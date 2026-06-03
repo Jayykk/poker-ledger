@@ -182,6 +182,14 @@
             <span class="text-white text-sm font-semibold">{{ $t('action.tournamentSetup') }}</span>
           </div>
         </BaseCard>
+        <BaseCard padding="md" clickable @click="$router.push('/cash-presets')">
+          <div class="flex flex-col items-center gap-2 text-center py-1">
+            <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
+              💵
+            </div>
+            <span class="text-white text-sm font-semibold">{{ $t('cashPreset.presets') }}</span>
+          </div>
+        </BaseCard>
         <BaseCard padding="md" clickable @click="$router.push('/time-bank/new')">
           <div class="flex flex-col items-center gap-2 text-center py-1">
             <div class="w-10 h-10 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg">
@@ -330,8 +338,40 @@
           </div>
         </div>
 
-        <!-- Cash game: chip stepper -->
-        <div v-if="selectedGameType !== 'tournament'" class="flex gap-2 mb-4 items-center">
+        <!-- Cash game: preset picker -->
+        <div v-if="selectedGameType !== 'tournament'" class="mb-4">
+          <div class="text-xs text-gray-400 mb-2">{{ $t('cashPreset.usePreset') }}</div>
+          <div class="flex gap-2 overflow-x-auto pb-1">
+            <button
+              v-for="p in cashPresets"
+              :key="p.id"
+              type="button"
+              @click="selectCashPreset(p)"
+              class="flex-shrink-0 px-3 py-2 rounded-lg border text-left text-sm transition-all"
+              :class="selectedCashPresetId === p.id
+                ? 'border-emerald-500 bg-emerald-500/10 text-white'
+                : 'border-slate-600 bg-slate-700/50 text-gray-300 hover:bg-slate-600/50'"
+            >
+              <div class="font-semibold">{{ p.name || $t('cashPreset.untitled') }}</div>
+              <div class="text-xs text-gray-400">
+                {{ formatNumber(p.buyIn || 0) }} {{ $t('game.chips') }} · 1:{{ p.rate || 1 }}
+              </div>
+            </button>
+            <button
+              type="button"
+              @click="selectCashPreset(null)"
+              class="flex-shrink-0 px-3 py-2 rounded-lg border text-sm transition-all"
+              :class="!selectedCashPresetId
+                ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300'
+                : 'border-slate-600 bg-slate-700/50 text-gray-300 hover:bg-slate-600/50'"
+            >
+              {{ $t('cashPreset.custom') }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Cash game: chip stepper (only when custom) -->
+        <div v-if="selectedGameType !== 'tournament' && !selectedCashPresetId" class="flex gap-2 mb-4 items-center">
           <BaseButton @click="decrementCreateBuyIn" size="sm">-100</BaseButton>
           <label class="flex-1">
             <BaseInput
@@ -344,6 +384,31 @@
           </label>
           <BaseButton @click="incrementCreateBuyIn" size="sm">+100</BaseButton>
           <span class="text-white text-sm">{{ $t('game.chips') }}</span>
+        </div>
+
+        <!-- Cash game: settlement rate (only when custom) -->
+        <div v-if="selectedGameType !== 'tournament' && !selectedCashPresetId" class="flex gap-2 mb-4 items-center">
+          <span class="text-gray-400 text-sm w-24">{{ $t('cashPreset.rate') }}</span>
+          <span class="text-white text-sm">1 :</span>
+          <BaseInput
+            v-model.number="createRate"
+            type="number"
+            min="0.001"
+            step="0.1"
+            class="flex-1"
+          />
+        </div>
+
+        <!-- Cash game: selected preset summary (when using a preset) -->
+        <div v-if="selectedGameType !== 'tournament' && selectedCashPresetId" class="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+          <div class="flex justify-between items-center text-sm">
+            <span class="text-gray-300">{{ $t('cashPreset.buyIn') }}</span>
+            <span class="text-white font-mono font-bold">{{ formatNumber(createBuyIn) }} {{ $t('game.chips') }}</span>
+          </div>
+          <div class="flex justify-between items-center text-sm mt-1">
+            <span class="text-gray-300">{{ $t('cashPreset.rate') }}</span>
+            <span class="text-white font-mono font-bold">1 : {{ createRate }}</span>
+          </div>
         </div>
         <!-- Tournament: read-only buy-in display -->
         <div v-else class="mb-4 p-3 bg-slate-700/50 rounded-lg flex justify-between items-center">
@@ -412,7 +477,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
 import { useGame } from '../composables/useGame.js';
@@ -430,9 +495,11 @@ import { formatNumber, formatShortDate } from '../utils/formatters.js';
 import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP, GAME_TYPE } from '../utils/constants.js';
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
+import { useCashPresets } from '../composables/useCashPresets.js';
 
 const { t } = useI18n();
 const router = useRouter();
+const route = useRoute();
 const { isGuest, user } = useAuth();
 const { createGame, checkGameStatus, joinByBinding, joinAsNewPlayer, joinGameListener } = useGame();
 const gameStore = useGameStore();
@@ -460,6 +527,9 @@ const gameName = ref('Poker Game');
 const gameCode = ref('');
 const buyIn = ref(DEFAULT_BUY_IN);
 const createBuyIn = ref(DEFAULT_BUY_IN);
+const createRate = ref(1);
+const selectedCashPresetId = ref(null);
+const cashPresets = ref([]);
 const unboundPlayers = ref([]);
 
 // Tournament create flow
@@ -469,6 +539,7 @@ const selectedTemplate = ref(null);
 const userPresets = ref([]);
 
 const { createSession: createTournamentSession, listenPresets } = useTournamentClock();
+const { listenPresets: listenCashPresets } = useCashPresets();
 
 // Merge built-in templates with user presets for the picker
 const allTemplateOptions = computed(() => {
@@ -482,12 +553,23 @@ const showBuiltInTemplates = ref(false);
 
 // Load user presets when modal opens
 let unsubPresets = null;
+let unsubCashPresets = null;
 
 const selectGameType = (type) => {
   selectedGameType.value = type;
   if (type === 'cash') {
     createStep.value = 2; // Skip template step, go straight to name+buyin
   }
+};
+
+const selectCashPreset = (preset) => {
+  if (!preset) {
+    selectedCashPresetId.value = null;
+    return;
+  }
+  selectedCashPresetId.value = preset.id;
+  createBuyIn.value = Number(preset.buyIn) || DEFAULT_BUY_IN;
+  createRate.value = Number(preset.rate) || 1;
 };
 
 // Reset create modal state when it closes
@@ -498,6 +580,8 @@ watch(showCreateModal, (val) => {
     selectedTemplate.value = null;
     gameName.value = 'Poker Game';
     createBuyIn.value = DEFAULT_BUY_IN;
+    createRate.value = 1;
+    selectedCashPresetId.value = null;
     showBuiltInTemplates.value = false;
   } else {
     // Load user presets when modal opens
@@ -507,6 +591,15 @@ watch(showCreateModal, (val) => {
         // Auto-expand built-in if no custom presets
         if (presets.length === 0) {
           showBuiltInTemplates.value = true;
+        }
+      });
+    }
+    if (!unsubCashPresets) {
+      unsubCashPresets = listenCashPresets((presets) => {
+        cashPresets.value = presets;
+        // Default to first preset if available, otherwise stay on custom
+        if (presets.length > 0 && !selectedCashPresetId.value) {
+          selectCashPreset(presets[0]);
         }
       });
     }
@@ -585,6 +678,12 @@ const handleCreateGame = async () => {
         payoutRatios: tmpl.payoutRatios,
       });
       options.tournamentSessionId = tournamentSessionId;
+    } else {
+      // Cash game: pass settlement rate so it's recorded at creation time.
+      const rateNum = Number(createRate.value);
+      if (Number.isFinite(rateNum) && rateNum > 0) {
+        options.rate = rateNum;
+      }
     }
 
     const gameId = await createGame(gameName.value, createBuyIn.value, type, options);
@@ -695,9 +794,22 @@ const handleRejectInvitation = async (invitation) => {
 onMounted(async () => {
   // Load rooms first
   await gameStore.loadMyRooms();
-  
+
   // Load invitations and mark existing ones as seen
   loadInvitations();
+
+  // Auto-open the create-game modal when navigated with ?create=1|cash|tournament
+  // (used by App.vue's bottom 「+」 · 「現場記帳」 to share this UI)
+  const createParam = route.query.create;
+  if (createParam) {
+    // If a specific type is given, pre-select it; otherwise start at step 1
+    if (createParam === 'cash' || createParam === 'tournament') {
+      selectGameType(createParam);
+    }
+    showCreateModal.value = true;
+    // Strip the query so refresh / back doesn't reopen it
+    router.replace({ path: '/lobby' });
+  }
   
   // Wait a bit for the first snapshot to arrive, then mark all as seen
   setTimeout(() => {
@@ -730,6 +842,10 @@ onUnmounted(() => {
   if (unsubPresets) {
     unsubPresets();
     unsubPresets = null;
+  }
+  if (unsubCashPresets) {
+    unsubCashPresets();
+    unsubCashPresets = null;
   }
 });
 </script>
