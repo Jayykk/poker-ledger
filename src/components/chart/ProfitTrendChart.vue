@@ -152,11 +152,12 @@ const chartOptions = {
 
 const renderChart = async () => {
   await nextTick();
+  // Clone data to prevent Chart.js from mutating reactive objects
+  const data = JSON.parse(JSON.stringify(chartData.value));
   if (chartInstance.value && chartInstance.value.canvas) {
-    // Stable update: no destroy/recreate flicker on rapid period switching
-    updateChart(chartData.value);
+    updateChart(data);
   } else {
-    createLineChart(canvasId.value, chartData.value, chartOptions);
+    createLineChart(canvasId.value, data, chartOptions);
   }
   isLoading.value = false;
 };
@@ -168,14 +169,12 @@ const handlePeriodChange = (period) => {
   selectedPeriod.value = period;
 };
 
-// Watch chartData directly — fires whenever period or underlying history changes.
-watch(
-  () => chartData.value,
-  () => {
-    renderChart();
-  },
-  { deep: true, flush: 'post' }
-);
+// Watch the actual trigger (selectedPeriod) instead of the computed object.
+// Deep-watching a computed that returns new objects causes infinite loops
+// because Chart.js mutates the data it receives.
+watch(selectedPeriod, () => {
+  renderChart();
+}, { flush: 'post' });
 
 onMounted(() => {
   renderChart();

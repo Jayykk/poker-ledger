@@ -294,26 +294,22 @@ const renderRecentChart = async () => {
     destroyChart();
     return;
   }
+  // Clone data to prevent Chart.js from mutating reactive objects
+  const data = JSON.parse(JSON.stringify(recentChartData.value));
   if (chartInstance.value && chartInstance.value.canvas) {
-    // Existing chart: just update data — avoids destroy/recreate flicker.
-    updateChart(recentChartData.value);
+    updateChart(data);
   } else {
-    createLineChart(recentChartId.value, recentChartData.value, chartOptions);
+    createLineChart(recentChartId.value, data, chartOptions);
   }
 };
 
-// Watch for changes in records / filter / count to re-render the chart.
-// recentChartData is computed from these so we can watch it directly and
-// always render with the latest data (no debounce → no race condition).
-watch(
-  () => recentChartData.value,
-  () => {
-    if (activeTab.value === 'recent') {
-      renderRecentChart();
-    }
-  },
-  { deep: true }
-);
+// Watch the actual trigger sources (not the computed object itself which
+// would cause infinite loops when Chart.js mutates the passed data).
+watch([selectedGameCount, gameTypeFilter], () => {
+  if (activeTab.value === 'recent') {
+    renderRecentChart();
+  }
+});
 
 // Re-render when switching back to recent tab (canvas may have been hidden)
 watch(activeTab, (newTab) => {
