@@ -58,7 +58,7 @@ import { formatNumber } from '../../utils/formatters.js';
 import { TIME_PERIODS, CHART_COLORS } from '../../utils/constants.js';
 
 const { t } = useI18n();
-const { createLineChart, updateChart, destroyChart, chartInstance } = useChart();
+const { createLineChart } = useChart();
 const userStore = useUserStore();
 
 const canvasId = ref(`profit-chart-${Math.random().toString(36).substr(2, 9)}`);
@@ -150,15 +150,11 @@ const chartOptions = {
   }
 };
 
-const renderChart = async () => {
-  await nextTick();
-  // Clone data to prevent Chart.js from mutating reactive objects
+const renderChart = () => {
+  // Always destroy+recreate synchronously (createLineChart calls safeDestroy
+  // internally). Clone data to isolate from Chart.js internal mutations.
   const data = JSON.parse(JSON.stringify(chartData.value));
-  if (chartInstance.value && chartInstance.value.canvas) {
-    updateChart(data);
-  } else {
-    createLineChart(canvasId.value, data, chartOptions);
-  }
+  createLineChart(canvasId.value, data, chartOptions);
   isLoading.value = false;
 };
 
@@ -169,14 +165,12 @@ const handlePeriodChange = (period) => {
   selectedPeriod.value = period;
 };
 
-// Watch the actual trigger (selectedPeriod) instead of the computed object.
-// Deep-watching a computed that returns new objects causes infinite loops
-// because Chart.js mutates the data it receives.
+// Watch selectedPeriod — use nextTick so DOM is settled before accessing canvas.
 watch(selectedPeriod, () => {
-  renderChart();
-}, { flush: 'post' });
+  nextTick(renderChart);
+});
 
 onMounted(() => {
-  renderChart();
+  nextTick(renderChart);
 });
 </script>
