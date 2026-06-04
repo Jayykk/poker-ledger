@@ -420,7 +420,7 @@
           <BaseButton @click="createStep = selectedGameType === 'tournament' ? 2 : 1" variant="ghost" class="flex-1">
             {{ $t('common.back') }}
           </BaseButton>
-          <BaseButton @click="handleCreateGame" variant="primary" class="flex-1">
+          <BaseButton @click="handleCreateGame" variant="primary" class="flex-1" :disabled="isCreating">
             {{ $t('common.confirm') }}
           </BaseButton>
         </div>
@@ -531,6 +531,7 @@ const createRate = ref(1);
 const selectedCashPresetId = ref(null);
 const cashPresets = ref([]);
 const unboundPlayers = ref([]);
+const isCreating = ref(false);
 
 // Tournament create flow
 const createStep = ref(1);
@@ -583,6 +584,7 @@ watch(showCreateModal, (val) => {
     createRate.value = 1;
     selectedCashPresetId.value = null;
     showBuiltInTemplates.value = false;
+    isCreating.value = false;
   } else {
     // Load user presets when modal opens
     if (!unsubPresets) {
@@ -658,6 +660,8 @@ const decrementCreateBuyIn = () => {
 };
 
 const handleCreateGame = async () => {
+  if (isCreating.value) return;
+  isCreating.value = true;
   await withLoading(async () => {
     let type = GAME_TYPE.LIVE;
     let options = {};
@@ -700,6 +704,7 @@ const handleCreateGame = async () => {
       router.push(type === GAME_TYPE.TOURNAMENT ? '/tournament-game' : '/game');
     }
   }, t('loading.creating'));
+  isCreating.value = false;
 };
 
 const handleCheckGame = async () => {

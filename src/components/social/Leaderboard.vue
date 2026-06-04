@@ -178,16 +178,21 @@ const sortOptions = [
 ];
 
 const leaderboard = computed(() => {
-  // Filter by selected period
-  const now = Date.now();
-  const periodDays = {
-    'thisMonth': 30,
-    'thisQuarter': 90,
-    'thisYear': 365
-  };
-  
-  const daysToFilter = periodDays[selectedPeriod.value] || 30;
-  const cutoffTime = now - (daysToFilter * 24 * 60 * 60 * 1000);
+  // Filter by selected period using actual calendar boundaries
+  const now = new Date();
+  let cutoffTime;
+
+  if (selectedPeriod.value === 'thisMonth') {
+    // First day of current month at 00:00:00
+    cutoffTime = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  } else if (selectedPeriod.value === 'thisQuarter') {
+    // First day of current quarter at 00:00:00
+    const quarterMonth = Math.floor(now.getMonth() / 3) * 3;
+    cutoffTime = new Date(now.getFullYear(), quarterMonth, 1).getTime();
+  } else {
+    // thisYear: first day of current year at 00:00:00
+    cutoffTime = new Date(now.getFullYear(), 0, 1).getTime();
+  }
   
   // Filter data by selected period
   const filteredData = leaderboardData.value.map(entry => {
