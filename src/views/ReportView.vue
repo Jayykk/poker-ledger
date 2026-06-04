@@ -166,7 +166,7 @@ const { t } = useI18n();
 const route = useRoute();
 const userStore = useUserStore();
 const { success } = useNotification();
-const { createLineChart, updateChart, destroyChart, chartInstance } = useChart();
+const { createLineChart, destroyChart } = useChart();
 
 const activeTab = ref('recent');
 const selectedGameCount = ref(10);
@@ -287,40 +287,35 @@ const chartOptions = {
   }
 };
 
-const renderRecentChart = async () => {
-  // Wait for DOM updates so the canvas exists & is sized correctly when visible.
-  await nextTick();
+const renderRecentChart = () => {
   if (recentRecords.value.length === 0) {
     destroyChart();
     return;
   }
-  // Clone data to prevent Chart.js from mutating reactive objects
+  // Always destroy+recreate synchronously. createLineChart internally calls
+  // safeDestroy first, so there's no visible gap (same JS frame).
+  // Clone data so Chart.js mutations don't touch Vue reactive objects.
   const data = JSON.parse(JSON.stringify(recentChartData.value));
-  if (chartInstance.value && chartInstance.value.canvas) {
-    updateChart(data);
-  } else {
-    createLineChart(recentChartId.value, data, chartOptions);
-  }
+  createLineChart(recentChartId.value, data, chartOptions);
 };
 
-// Watch the actual trigger sources (not the computed object itself which
-// would cause infinite loops when Chart.js mutates the passed data).
+// Watch the actual trigger sources.
 watch([selectedGameCount, gameTypeFilter], () => {
   if (activeTab.value === 'recent') {
-    renderRecentChart();
+    nextTick(renderRecentChart);
   }
 });
 
 // Re-render when switching back to recent tab (canvas may have been hidden)
 watch(activeTab, (newTab) => {
   if (newTab === 'recent') {
-    renderRecentChart();
+    nextTick(renderRecentChart);
   }
 });
 
 onMounted(() => {
   if (activeTab.value === 'recent') {
-    renderRecentChart();
+    nextTick(renderRecentChart);
   }
 
   // Deep-link: auto-open settlement detail when gameId is in the route
