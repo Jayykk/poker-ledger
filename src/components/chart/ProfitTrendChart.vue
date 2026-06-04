@@ -49,7 +49,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useChart } from '../../composables/useChart.js';
 import { useUserStore } from '../../store/modules/user.js';
@@ -58,7 +58,7 @@ import { formatNumber } from '../../utils/formatters.js';
 import { TIME_PERIODS, CHART_COLORS } from '../../utils/constants.js';
 
 const { t } = useI18n();
-const { createLineChart, debounce } = useChart();
+const { createLineChart, updateChart, destroyChart, chartInstance } = useChart();
 const userStore = useUserStore();
 
 const canvasId = ref(`profit-chart-${Math.random().toString(36).substr(2, 9)}`);
@@ -91,14 +91,17 @@ const chartData = computed(() => {
     };
   }
 
+  // history is newest-first; reverse to oldest-first so the cumulative line
+  // moves chronologically from left (oldest) to right (newest).
+  const chronological = [...history].reverse();
   let accumulated = 0;
-  const data = history.map(h => {
+  const data = chronological.map(h => {
     accumulated += h.profit / (h.rate || 1);
     return Math.round(accumulated);
   });
 
   return {
-    labels: history.map((_, i) => i + 1),
+    labels: chronological.map((_, i) => i + 1),
     datasets: [{
       label: 'Cumulative Profit',
       data,
@@ -110,71 +113,69 @@ const chartData = computed(() => {
   };
 });
 
-const renderChart = () => {
-  createLineChart(canvasId.value, chartData.value, {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: false
-        },
-        tooltip: {
-          callbacks: {
-            label: (context) => {
-              return `Profit: ${context.parsed.y >= 0 ? '+' : ''}${formatNumber(context.parsed.y)}`;
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          display: true,
-          grid: {
-            display: false
-          },
-          ticks: {
-            color: '#94a3b8'
-          }
-        },
-        y: {
-          grid: {
-            color: '#334155'
-          },
-          ticks: {
-            color: '#94a3b8',
-            callback: (value) => formatNumber(value)
-          }
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false
+    },
+    tooltip: {
+      callbacks: {
+        label: (context) => {
+          return `Profit: ${context.parsed.y >= 0 ? '+' : ''}${formatNumber(context.parsed.y)}`;
         }
       }
-  });
-  
+    }
+  },
+  scales: {
+    x: {
+      display: true,
+      grid: {
+        display: false
+      },
+      ticks: {
+        color: '#94a3b8'
+      }
+    },
+    y: {
+      grid: {
+        color: '#334155'
+      },
+      ticks: {
+        color: '#94a3b8',
+        callback: (value) => formatNumber(value)
+      }
+    }
+  }
+};
+
+const renderChart = async () => {
+  await nextTick();
+  if (chartInstance.value && chartInstance.value.canvas) {
+    // Stable update: no destroy/recreate flicker on rapid period switching
+    updateChart(chartData.value);
+  } else {
+    createLineChart(canvasId.value, chartData.value, chartOptions);
+  }
   isLoading.value = false;
 };
-// Debounced render function to prevent rapid re-renders
-const debouncedRenderChart = debounce(() => {
-  renderChart();
-}, 300);
 
 // Handle period change with loading state
 const handlePeriodChange = (period) => {
-  // Don't do anything if it's the same period
-  if (selectedPeriod.value === period) {
-    return;
-  }
-  
-  // Don't allow change if already loading
-  if (isLoading.value) {
-    return;
-  }
-  
+  if (selectedPeriod.value === period) return;
   isLoading.value = true;
   selectedPeriod.value = period;
 };
 
-// Watch selectedPeriod and trigger debounced render
-watch(selectedPeriod, () => {
-  debouncedRenderChart();
-}, { flush: 'post' });
+// Watch chartData directly — fires whenever period or underlying history changes.
+watch(
+  () => chartData.value,
+  () => {
+    renderChart();
+  },
+  { deep: true, flush: 'post' }
+);
 
 onMounted(() => {
   renderChart();

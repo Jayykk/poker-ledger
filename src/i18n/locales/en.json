@@ -235,9 +235,11 @@
     "pending": "Pending",
     "accepted": "Accepted",
     "leaderboard": "Leaderboard",
+    "thisWeek": "This Week",
     "thisMonth": "This Month",
     "thisQuarter": "This Quarter",
     "thisYear": "This Year",
+    "allTime": "All Time",
     "noFriends": "No friends yet",
     "inviteToRoom": "Invite to Room",
     "selectRoom": "Select Room",
@@ -254,7 +256,13 @@
     "royalFlush": "Royal Flush",
     "straightFlush": "Straight Flush",
     "fourOfAKind": "Four of a Kind",
-    "fullHouse": "Full House"
+    "fullHouse": "Full House",
+    "you": "(You)",
+    "gamesCount": "{n} game(s)",
+    "winRateLabel": "win rate",
+    "profitLabel": "profit",
+    "minGames": "Min games",
+    "noLeaderboardData": "No data available"
   },
   "chat": {
     "title": "Chat",
