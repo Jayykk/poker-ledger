@@ -233,9 +233,11 @@
     "pending": "保留中",
     "accepted": "承認済み",
     "leaderboard": "ランキング",
+    "thisWeek": "今週",
     "thisMonth": "今月",
     "thisQuarter": "今四半期",
     "thisYear": "今年",
+    "allTime": "全期間",
     "noFriends": "友達がいません",
     "inviteToRoom": "ルームに招待",
     "selectRoom": "ルームを選択",
@@ -252,7 +254,13 @@
     "royalFlush": "ロイヤルフラッシュ",
     "straightFlush": "ストレートフラッシュ",
     "fourOfAKind": "フォーカード",
-    "fullHouse": "フルハウス"
+    "fullHouse": "フルハウス",
+    "you": "(あなた)",
+    "gamesCount": "{n} ゲーム",
+    "winRateLabel": "勝率",
+    "profitLabel": "収益",
+    "minGames": "最小ゲーム数",
+    "noLeaderboardData": "データがありません"
   },
   "chat": {
     "title": "チャット",

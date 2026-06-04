@@ -147,7 +147,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted } from 'vue';
+import { computed, ref, watch, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useUserStore } from '../store/modules/user.js';
@@ -166,7 +166,7 @@ const { t } = useI18n();
 const route = useRoute();
 const userStore = useUserStore();
 const { success } = useNotification();
-const { createLineChart, destroyChart, debounce } = useChart();
+const { createLineChart, updateChart, destroyChart, chartInstance } = useChart();
 
 const activeTab = ref('recent');
 const selectedGameCount = ref(10);
@@ -228,15 +228,17 @@ const recentChartData = computed(() => {
     };
   }
 
-  // Calculate cumulative profit
+  // Calculate cumulative profit (oldest first so x-axis is chronological).
+  // recentRecords is sorted newest-first for the list, so we reverse for the chart.
   let accumulated = 0;
-  const data = recentRecords.value.map(record => {
+  const chronological = [...recentRecords.value].reverse();
+  const data = chronological.map(record => {
     accumulated += record.profitCash;
-    return accumulated;
+    return Math.round(accumulated);
   });
 
   return {
-    labels: recentRecords.value.map((_, i) => i + 1),
+    labels: chronological.map((_, i) => i + 1),
     datasets: [{
       label: 'Cumulative Profit',
       data,
@@ -285,27 +287,38 @@ const chartOptions = {
   }
 };
 
-const renderRecentChart = () => {
-  if (recentRecords.value.length > 0) {
-    createLineChart(recentChartId.value, recentChartData.value, chartOptions);
-  } else {
+const renderRecentChart = async () => {
+  // Wait for DOM updates so the canvas exists & is sized correctly when visible.
+  await nextTick();
+  if (recentRecords.value.length === 0) {
     destroyChart();
+    return;
+  }
+  if (chartInstance.value && chartInstance.value.canvas) {
+    // Existing chart: just update data — avoids destroy/recreate flicker.
+    updateChart(recentChartData.value);
+  } else {
+    createLineChart(recentChartId.value, recentChartData.value, chartOptions);
   }
 };
 
-const debouncedRenderRecentChart = debounce(() => {
-  renderRecentChart();
-}, 300);
+// Watch for changes in records / filter / count to re-render the chart.
+// recentChartData is computed from these so we can watch it directly and
+// always render with the latest data (no debounce → no race condition).
+watch(
+  () => recentChartData.value,
+  () => {
+    if (activeTab.value === 'recent') {
+      renderRecentChart();
+    }
+  },
+  { deep: true }
+);
 
-// Watch for changes in selectedGameCount or filter to re-render chart
-watch([selectedGameCount, gameTypeFilter], () => {
-  debouncedRenderRecentChart();
-});
-
-// Watch for active tab changes
+// Re-render when switching back to recent tab (canvas may have been hidden)
 watch(activeTab, (newTab) => {
   if (newTab === 'recent') {
-    debouncedRenderRecentChart();
+    renderRecentChart();
   }
 });
 

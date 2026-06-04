@@ -235,9 +235,11 @@
     "pending": "待確認",
     "accepted": "已接受",
     "leaderboard": "排行榜",
+    "thisWeek": "本週",
     "thisMonth": "本月",
     "thisQuarter": "本季",
     "thisYear": "全年",
+    "allTime": "全部",
     "noFriends": "尚無好友",
     "inviteToRoom": "邀請進房",
     "selectRoom": "選擇房間",
@@ -254,7 +256,13 @@
     "royalFlush": "皇家同花順",
     "straightFlush": "同花順",
     "fourOfAKind": "鐵支",
-    "fullHouse": "葫蘆"
+    "fullHouse": "葲蘆",
+    "you": "(你)",
+    "gamesCount": "{n} 場",
+    "winRateLabel": "勝率",
+    "profitLabel": "盈虧",
+    "minGames": "最少場次",
+    "noLeaderboardData": "目前無資料"
   },
   "chat": {
     "title": "聊天室",
