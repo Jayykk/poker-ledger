@@ -91,6 +91,7 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../../composables/useAuth.js';
 import { formatNumber } from '../../utils/formatters.js';
@@ -107,8 +108,21 @@ const props = defineProps({
 
 defineEmits(['undo']);
 
+// Collect targetIds that have been modified — undo is disabled for these players
+const modifiedTargetIds = computed(() => {
+  const ids = new Set();
+  for (const tx of props.transactions) {
+    if (tx.type === 'modify' && tx.status === 'active' && tx.targetId) {
+      ids.add(tx.targetId);
+    }
+  }
+  return ids;
+});
+
 const canUndo = (tx) => {
   if (!user.value) return false;
+  // If this player's buy-in has been manually modified, disallow undo
+  if (tx.targetId && modifiedTargetIds.value.has(tx.targetId)) return false;
   return tx.actionUid === user.value.uid || props.hostUid === user.value.uid;
 };
 

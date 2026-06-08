@@ -428,8 +428,10 @@ const handleSavePlayer = async () => {
   await withLoading(async () => {
     const originalPlayer = game.value?.players?.find((p) => p.id === editingPlayer.value.id);
     const buyInChanged = originalPlayer && originalPlayer.buyIn !== editingPlayer.value.buyIn;
-    await updatePlayer(editingPlayer.value);
     if (buyInChanged) {
+      // Only update non-buyIn fields via updatePlayer; let recordAction handle buyIn atomically
+      const { buyIn: _ignored, ...playerWithoutBuyIn } = editingPlayer.value;
+      await updatePlayer(playerWithoutBuyIn);
       await recordAction(
         editingPlayer.value.id,
         editingPlayer.value.uid || null,
@@ -437,6 +439,8 @@ const handleSavePlayer = async () => {
         'modify',
         editingPlayer.value.buyIn - originalPlayer.buyIn,
       );
+    } else {
+      await updatePlayer(editingPlayer.value);
     }
     showEditPlayer.value = false;
     editingPlayer.value = null;
