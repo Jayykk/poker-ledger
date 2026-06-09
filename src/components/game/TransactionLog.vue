@@ -108,21 +108,27 @@ const props = defineProps({
 
 defineEmits(['undo']);
 
-// Collect targetIds that have been modified — undo is disabled for these players
-const modifiedTargetIds = computed(() => {
-  const ids = new Set();
+// Map targetId → latest modify timestamp; transactions before this cannot be undone
+const lastModifyTimestamp = computed(() => {
+  const map = new Map();
   for (const tx of props.transactions) {
-    if (tx.type === 'modify' && tx.status === 'active' && tx.targetId) {
-      ids.add(tx.targetId);
+    if (tx.type === 'modify' && tx.status === 'active' && tx.targetId && tx.timestamp) {
+      const ts = typeof tx.timestamp === 'number' ? tx.timestamp : new Date(tx.timestamp).getTime();
+      const prev = map.get(tx.targetId) || 0;
+      if (ts > prev) map.set(tx.targetId, ts);
     }
   }
-  return ids;
+  return map;
 });
 
 const canUndo = (tx) => {
   if (!user.value) return false;
-  // If this player's buy-in has been manually modified, disallow undo
-  if (tx.targetId && modifiedTargetIds.value.has(tx.targetId)) return false;
+  // If this player has been modified, only allow undo for transactions AFTER the last modify
+  if (tx.targetId && lastModifyTimestamp.value.has(tx.targetId)) {
+    const modifyTs = lastModifyTimestamp.value.get(tx.targetId);
+    const txTs = tx.timestamp ? (typeof tx.timestamp === 'number' ? tx.timestamp : new Date(tx.timestamp).getTime()) : 0;
+    if (txTs <= modifyTs) return false;
+  }
   return tx.actionUid === user.value.uid || props.hostUid === user.value.uid;
 };
 
