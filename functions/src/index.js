@@ -35,6 +35,7 @@ import {
 import {
   handleRoomAutoCloseHttp,
 } from './handlers/roomTasks.js';
+import { requireSignedTask } from './utils/taskAuth.js';
 import { lineLogin as lineLoginHandler } from './handlers/lineAuth.js';
 import {
   recordBuyIn as recordBuyInHandler,
@@ -498,7 +499,7 @@ export const leavePokerSpectator = onCall(async (request) => {
  */
 export const handleTurnTimeout = onRequest(
   { cors: true, region: 'us-central1' },
-  handleTurnTimeoutHttp,
+  requireSignedTask(handleTurnTimeoutHttp),
 );
 
 /**
@@ -507,7 +508,7 @@ export const handleTurnTimeout = onRequest(
  */
 export const handleShowdownResolve = onRequest(
   { cors: true, region: 'us-central1' },
-  handleShowdownResolveHttp,
+  requireSignedTask(handleShowdownResolveHttp),
 );
 
 /**
@@ -516,7 +517,7 @@ export const handleShowdownResolve = onRequest(
  */
 export const handleWinByFoldTimeout = onRequest(
   { cors: true, region: 'us-central1' },
-  handleWinByFoldTimeoutHttp,
+  requireSignedTask(handleWinByFoldTimeoutHttp),
 );
 
 /**
@@ -524,7 +525,7 @@ export const handleWinByFoldTimeout = onRequest(
  */
 export const handleStartNextHand = onRequest(
   { cors: true, region: 'us-central1' },
-  handleStartNextHandHttp,
+  requireSignedTask(handleStartNextHandHttp),
 );
 
 /**
@@ -532,7 +533,7 @@ export const handleStartNextHand = onRequest(
  */
 export const handleRoomAutoClose = onRequest(
   { cors: true, region: 'us-central1' },
-  handleRoomAutoCloseHttp,
+  requireSignedTask(handleRoomAutoCloseHttp),
 );
 
 // ============================================

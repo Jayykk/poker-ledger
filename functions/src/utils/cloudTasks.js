@@ -4,6 +4,8 @@
  */
 
 import { CloudTasksClient } from '@google-cloud/tasks';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { signTaskBody, TASK_SIGNATURE_HEADER } from './taskAuth.js';
 
 const PROJECT_ID = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
 const LOCATION = process.env.CLOUD_TASKS_LOCATION || 'us-central1';
@@ -86,14 +88,19 @@ export async function createPokerHttpTask({
     const client = getTasksClient();
     const parent = client.queuePath(PROJECT_ID, LOCATION, queueName);
 
+    const bodyString = JSON.stringify(payload);
+    const headers = { 'Content-Type': 'application/json' };
+    const signature = signTaskBody(bodyString);
+    if (signature) {
+      headers[TASK_SIGNATURE_HEADER] = signature;
+    }
+
     const task = {
       httpRequest: {
         httpMethod: 'POST',
         url: `https://${LOCATION}-${PROJECT_ID}.cloudfunctions.net/${endpoint}`,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: Buffer.from(JSON.stringify(payload)).toString('base64'),
+        headers,
+        body: Buffer.from(bodyString).toString('base64'),
       },
       scheduleTime: {
         seconds: Math.floor(Date.now() / 1000) + delaySeconds,
@@ -105,7 +112,31 @@ export async function createPokerHttpTask({
     return response.name;
   } catch (error) {
     console.error('Error creating poker task:', error);
-    // Don't throw - task creation failure shouldn't break the game
+    // Don't throw — task creation failure shouldn't break the game, but a
+    // silently missing timer leaves the game stuck. Dead-letter the failure
+    // so it can be alerted on / replayed.
+    await recordTaskFailure({ endpoint, payload, error });
     return null;
+  }
+}
+
+/**
+ * Dead-letter record for failed task creation. Written best-effort — if even
+ * this write fails we only log, to never break the calling game flow.
+ * @param {Object} params
+ * @param {string} params.endpoint - Target endpoint name
+ * @param {Object} params.payload - Task payload that failed to schedule
+ * @param {Error} params.error - Creation error
+ */
+async function recordTaskFailure({ endpoint, payload, error }) {
+  try {
+    await getFirestore().collection('taskFailures').add({
+      endpoint,
+      payload,
+      error: String(error?.message || error),
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  } catch (writeError) {
+    console.error('Failed to dead-letter task failure:', writeError);
   }
 }
