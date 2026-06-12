@@ -32,6 +32,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # Engine tests import functions/src modules (resolve from functions/node_modules)
+      - name: Install functions dependencies
+        run: npm ci
+        working-directory: functions
+
       - name: Run tests
         run: npm test
 
