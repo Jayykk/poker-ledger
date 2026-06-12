@@ -12,8 +12,7 @@ import {
   dealTurnOrRiver,
   processAction,
 } from '../engines/texasHoldem.js';
-import { validateGameStart } from '../utils/validators.js';
-import { validatePlayerAction as validateAction } from '../engines/actionValidator.js';
+import { validateGameStart, validatePlayerAction as validateAction } from '../engines/actionValidator.js';
 import {
   isLastManStanding,
   isRoundComplete,
@@ -179,11 +178,8 @@ export async function startHand(gameId) {
     let game = gameDoc.data();
 
     try {
-      // Validate can start
-      const validation = validateGameStart(game);
-      if (!validation.valid) {
-        throw new Error(validation.error);
-      }
+      // Validate can start (throws a structured game error if not)
+      validateGameStart(game);
 
       // Initialize new hand
       game = initializeHand(game);

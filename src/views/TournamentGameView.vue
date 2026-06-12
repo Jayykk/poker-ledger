@@ -236,8 +236,9 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import { storeToRefs } from 'pinia';
 import { useAuth } from '../composables/useAuth.js';
-import { useGame } from '../composables/useGame.js';
+import { useGameStore } from '../store/modules/game.js';
 import { useHand } from '../composables/useHand.js';
 import { useTransactions } from '../composables/useTransactions.js';
 import { useLiff } from '../composables/useLiff.js';
@@ -263,11 +264,13 @@ const router = useRouter();
 const route = useRoute();
 const { user, displayName } = useAuth();
 const userStore = useUserStore();
+const gameStore = useGameStore();
+const { game, gameId, isHost, error: gameError } = storeToRefs(gameStore);
 const {
-  game, gameId, isHost, error: gameError, addPlayer, updatePlayer, removePlayer,
+  addPlayer, updatePlayer, removePlayer,
   checkGameStatus, joinAsNewPlayer, joinGameListener,
   closeGame, eliminatePlayer, reentryPlayer, settleTournament, clearCurrentGame,
-} = useGame();
+} = gameStore;
 const { sendBuyInMessage, sendUndoMessage, sendTournamentSettlementMessage, shareGameInvite, isInitialized: liffReady } = useLiff();
 const { success, warning, error: showError, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
