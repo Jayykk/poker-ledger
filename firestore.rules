@@ -1,106 +1,176 @@
 rules_version = '2';
+
+// ============================================================================
+// Access model ("capability" / link-based):
+// Document IDs are unguessable Firestore auto-IDs. Possessing an ID (via a
+// share link) grants access to that document — this is intentional and what
+// makes link-based joining work (LINE deep links, dealer clock URLs, etc.).
+//
+// What we DO restrict is `list` (collection queries): without these limits any
+// signed-in user could enumerate every game / settlement in the database with
+// an unfiltered query. `get` (single doc by ID) stays open to keep link-based
+// flows working.
+// ============================================================================
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check authentication
+
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    // Helper function to check if user owns the document
+
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    // Helper function to check if the current user is an admin
-    // Admin status is stored as a document existence check in the 'admins' collection.
+    // Admin status = document existence in the 'admins' collection.
     function isAdmin() {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
-    
-    // User documents
+
+    // ============================================
+    // Users
+    // ============================================
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      // Friend search and the leaderboard list all user profiles.
+      allow get, list: if isAuthenticated();
       allow write: if isOwner(userId);
 
+      // Per-game history projection, written by Cloud Functions only.
       match /history_sub/{gameId} {
         allow read: if isOwner(userId);
         allow write: if false;
       }
-      
-      // User's friends sub-collection
+
       match /friends/{friendId} {
         allow read: if isOwner(userId);
-        allow write: if isOwner(userId);
+        // Accepting a friend request mirrors an entry into the *requester's*
+        // friends list, so the accepter must be able to create a doc that
+        // references themselves.
+        allow create: if isOwner(userId) ||
+          (isAuthenticated() && request.resource.data.uid == request.auth.uid);
+        allow update, delete: if isOwner(userId);
+      }
+
+      // Game invitations are written into the invitee's mailbox by the inviter.
+      match /invitations/{invitationId} {
+        allow read, update, delete: if isOwner(userId);
+        allow create: if isAuthenticated();
+      }
+
+      match /tournamentPresets/{presetId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /cashPresets/{presetId} {
+        allow read, write: if isOwner(userId);
       }
     }
 
     // ============================================
-    // Admin registry – only Cloud Functions / manual setup writes here.
-    // Authenticated users can check their own admin status.
+    // Admin registry — managed server-side only.
     // ============================================
     match /admins/{userId} {
       allow read: if isOwner(userId);
-      allow write: if false; // managed server-side only
+      allow write: if false;
     }
-    
-    // Game documents (existing ledger games)
+
+    // ============================================
+    // Friend requests (mailbox)
+    // ============================================
+    match /friendRequests/{requestId} {
+      allow create: if isAuthenticated() &&
+        request.resource.data.fromUid == request.auth.uid;
+      // Recipients read their own requests (query must filter toUid).
+      allow read: if isAuthenticated() && resource.data.toUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================
+    // Ledger games (cash / tournament bookkeeping)
+    // ============================================
     match /games/{gameId} {
-      allow read: if isAuthenticated();
+      // Single-doc reads stay open: link-based joining must read the game
+      // before the user becomes a participant.
+      allow get: if isAuthenticated();
+      // Queries: the lobby lists active games; table management lists own
+      // games; admins list everything. Settled games (with full financial
+      // history) cannot be enumerated by strangers.
+      allow list: if isAuthenticated() &&
+        (resource.data.status == 'active' ||
+         resource.data.hostUid == request.auth.uid ||
+         isAdmin());
       allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && 
-        (request.auth.uid == resource.data.hostUid || 
-         isAdmin() ||
-         request.auth.uid in resource.data.players[].uid);
-      allow delete: if request.auth.uid == resource.data.hostUid || isAdmin();
+      // Joining via link adds yourself to the players array, and seated
+      // players update stacks/buy-ins — both happen before/without being the
+      // host, so updates follow the capability model (having the ID = invited).
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated() &&
+        (resource.data.hostUid == request.auth.uid || isAdmin());
 
       // Config version history (written by frontend after each config change)
       match /configVersions/{versionId} {
         allow read: if isAuthenticated() &&
-          (resource == null || request.auth.uid == get(/databases/$(database)/documents/games/$(gameId)).data.hostUid || isAdmin());
+          (resource == null ||
+           request.auth.uid == get(/databases/$(database)/documents/games/$(gameId)).data.hostUid ||
+           isAdmin());
         allow create: if isAuthenticated() &&
-          (request.auth.uid == get(/databases/$(database)/documents/games/$(gameId)).data.hostUid || isAdmin());
+          (request.auth.uid == get(/databases/$(database)/documents/games/$(gameId)).data.hostUid ||
+           isAdmin());
         allow update, delete: if false;
       }
-      
-      // Game chat sub-collection
+
+      // Game chat
       match /chat/{messageId} {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated();
       }
+
+      // Manual hand records (created/managed from the frontend)
+      match /hands/{handId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if isAuthenticated();
+      }
     }
-    
-    // ============================================
-    // 德州撲克遊戲規則 (Texas Hold'em Poker Rules)
-    // ============================================
-    
-    // Poker game rooms
-    match /pokerGames/{gameId} {
-      // Anyone authenticated can read game state
+
+    // Collection-group reads for hand records: the leaderboard's special-hands
+    // statistics query `collectionGroup('hands')` across games and pokerGames.
+    match /{path=**}/hands/{handId} {
       allow read: if isAuthenticated();
-      
-      // Anyone authenticated can create a game
+    }
+
+    // ============================================
+    // Texas Hold'em poker rooms (Cloud Functions managed)
+    // ============================================
+    match /pokerGames/{gameId} {
+      // Single-doc reads stay open for link-based joining and spectators.
+      allow get: if isAuthenticated();
+      // Queries: lobby lists joinable rooms; table management lists own rooms;
+      // admins list everything. Finished games cannot be enumerated.
+      allow list: if isAuthenticated() &&
+        (resource.data.status in ['waiting', 'playing'] ||
+         resource.data.meta.createdBy == request.auth.uid ||
+         isAdmin());
+
       allow create: if isAuthenticated() &&
         request.resource.data.meta.createdBy == request.auth.uid;
-      
+
       // Update rules:
       //  - The room creator (meta.createdBy) or an admin can update any fields,
       //    including the managed config fields inside `meta`.
       //  - Any authenticated user (e.g. players) can update the document only if
-      //    they do NOT change the `meta` object — this covers in-game state updates
-      //    such as the `settling` flag, without opening the door to config tampering.
+      //    they do NOT change the `meta` object — this covers in-game state
+      //    updates such as the `settling` flag, without opening the door to
+      //    config tampering.
       allow update: if isAuthenticated() &&
         (resource.data.meta.createdBy == request.auth.uid ||
          isAdmin() ||
          request.resource.data.meta == resource.data.meta);
-      
-      // Only the creator can delete the game
-      allow delete: if isAuthenticated() && 
-        resource.data.meta.createdBy == request.auth.uid;
-      
+
+      allow delete: if isAuthenticated() &&
+        (resource.data.meta.createdBy == request.auth.uid || isAdmin());
+
       // Config version history for cash table admin edits.
-      // Host (meta.createdBy) or admin can create versions; no one can alter history.
       match /configVersions/{versionId} {
         allow read: if isAuthenticated() &&
           (resource == null ||
@@ -112,59 +182,55 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
-      // Hand history sub-collection
-      // Records of each hand played
+      // Hand history — written by Cloud Functions only.
       match /hands/{handId} {
-        // Anyone in the game can read hand history
         allow read: if isAuthenticated();
-        
-        // Only Cloud Functions can write hand history
-        // This ensures game integrity
         allow write: if false;
       }
-      
-      // Private hole cards sub-collection
-      // Each player's private cards
+
+      // Game event log (actions, shown cards, …) — Cloud Functions only.
+      match /events/{eventId} {
+        allow read: if isAuthenticated();
+        allow write: if false;
+      }
+
+      // Private hole cards — only the player can read; only Cloud Functions
+      // write. This is the anti-cheat boundary.
       match /private/{userId} {
-        // Only the player can read their own hole cards
         allow read: if isOwner(userId);
-        
-        // Only Cloud Functions can write hole cards
-        // This prevents cheating
         allow write: if false;
       }
     }
-    
+
     // ============================================
-    // Transaction Audit Trail (Buy-in records)
+    // Transaction audit trail (buy-in records)
     // ============================================
+    // NOTE: reads stay open (capability model — the log is queried by gameId,
+    // and rules cannot require "some equality filter on gameId" for queries).
+    // The real fix is moving these under games/{gameId}/transactions so the
+    // parent doc gates access; tracked in TODO.md (P0, mid-term).
     match /transactions/{txId} {
-      // Authenticated users can read transactions for games they're in
       allow read: if isAuthenticated();
-      
-      // Allow authenticated users to create transactions
-      // Also allow Cloud Functions via admin SDK (bypasses rules)
       allow create: if isAuthenticated();
-      
-      // Only allow updates to mark transactions as undone
+      // Only allow flipping an active record to undone.
       allow update: if isAuthenticated()
         && request.resource.data.status == 'undone'
         && resource.data.status == 'active';
     }
-    
-    // ============================================
-    // Additional collections can be added here
-    // ============================================
 
     // ============================================
-    // Tournament Sessions (clock state)
+    // Tournament sessions (clock state)
     // ============================================
     match /tournamentSessions/{sessionId} {
-      allow read: if isAuthenticated();
+      // Dealer clock / time bank views are opened from shared URLs (often with
+      // anonymous auth), so single-doc reads stay open.
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated() &&
+        (resource.data.hostUid == request.auth.uid || isAdmin());
       allow create: if isAuthenticated()
         && request.resource.data.hostUid == request.auth.uid;
-      // Host can always update; any authenticated user can update if dealer mode is on;
-      // admins can update any session.
+      // Host can always update; any authenticated user can update if dealer
+      // mode is on; admins can update any session.
       allow update: if isAuthenticated()
         && (resource.data.hostUid == request.auth.uid
             || resource.data.dealerModeEnabled == true
@@ -175,34 +241,24 @@ service cloud.firestore {
       // Config version history
       match /configVersions/{versionId} {
         allow read: if isAuthenticated() &&
-          (resource == null || request.auth.uid == get(/databases/$(database)/documents/tournamentSessions/$(sessionId)).data.hostUid || isAdmin());
+          (resource == null ||
+           request.auth.uid == get(/databases/$(database)/documents/tournamentSessions/$(sessionId)).data.hostUid ||
+           isAdmin());
         allow create: if isAuthenticated() &&
-          (request.auth.uid == get(/databases/$(database)/documents/tournamentSessions/$(sessionId)).data.hostUid || isAdmin());
+          (request.auth.uid == get(/databases/$(database)/documents/tournamentSessions/$(sessionId)).data.hostUid ||
+           isAdmin());
         allow update, delete: if false;
       }
     }
 
     // ============================================
-    // User Tournament Presets (custom structures)
-    // ============================================
-    match /users/{userId}/tournamentPresets/{presetId} {
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId);
-    }
-
-    // ============================================
-    // User Cash Table Presets (buy-in + settlement rate)
-    // ============================================
-    match /users/{userId}/cashPresets/{presetId} {
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId);
-    }
-
-    // ============================================
-    // Time Bank Sessions
+    // Time bank sessions
     // ============================================
     match /timeBankSessions/{sessionId} {
-      allow read: if isAuthenticated();
+      // Shared via URL — single-doc reads stay open.
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated() &&
+        (resource.data.hostUid == request.auth.uid || isAdmin());
       allow create: if isAuthenticated()
         && request.resource.data.hostUid == request.auth.uid;
       allow update: if isAuthenticated()
@@ -212,4 +268,3 @@ service cloud.firestore {
     }
   }
 }
-

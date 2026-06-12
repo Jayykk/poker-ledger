@@ -5,6 +5,28 @@
 
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
+const MAX_MESSAGE_LENGTH = 500;
+
+/**
+ * Sanitize a chat message:
+ * - strip control characters (C0/C1) except newline and tab, including
+ *   zero-width/bidi-control characters that enable spoofing
+ * - collapse 3+ consecutive newlines
+ * - trim and cap length
+ * Emoji and all printable Unicode (CJK etc.) are preserved; messages are
+ * rendered as text on the client, never as HTML.
+ * @param {string} message - Raw message
+ * @return {string} Sanitized message
+ */
+export function sanitizeChatMessage(message) {
+  return message
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .substring(0, MAX_MESSAGE_LENGTH);
+}
+
 /**
  * Send a chat message in a poker game
  * @param {string} gameId - Game ID
@@ -22,8 +44,7 @@ export async function sendMessage(gameId, userId, message, userInfo) {
     throw new Error('Invalid message');
   }
 
-  // Sanitize and limit message length
-  const sanitizedMessage = message.trim().substring(0, 500);
+  const sanitizedMessage = sanitizeChatMessage(message);
 
   if (sanitizedMessage.length === 0) {
     throw new Error('Message cannot be empty');

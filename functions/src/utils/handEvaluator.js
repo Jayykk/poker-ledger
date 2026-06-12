@@ -34,13 +34,18 @@ export const HAND_NAMES = {
 };
 
 /**
- * Convert card format from our notation to pokersolver format
- * Both use the same format (e.g., 'As', 'Kh'), so just pass through
- * @param {string} card - Card in our format
- * @return {string} Card in pokersolver format
+ * Convert card format from our notation to pokersolver format.
+ * Our deck (utils/deck.js) writes tens as '10h', but pokersolver parses the
+ * value from the FIRST character only and requires 'Th' — without this
+ * conversion every hand containing a ten is misread (e.g. a royal flush
+ * evaluates as high card).
+ * @param {string} card - Card in our format (e.g., 'As', '10h')
+ * @return {string} Card in pokersolver format (e.g., 'As', 'Th')
  */
 function convertCardFormat(card) {
-  // pokersolver and our format are the same, just return as-is
+  if (typeof card === 'string' && card.startsWith('10')) {
+    return `T${card.slice(2)}`;
+  }
   return card;
 }
 

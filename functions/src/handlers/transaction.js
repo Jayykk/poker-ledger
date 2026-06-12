@@ -3,6 +3,7 @@
  * Records buy-ins with "who did it for whom" audit trail
  */
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { coerceNumber } from '../utils/numbers.js';
 
 /**
  * Record a buy-in (or add-on) transaction, or an action log entry.
@@ -26,7 +27,7 @@ export async function recordBuyIn({ gameId, targetId, targetUid, targetName, amo
   if (!targetName) throw new Error('Missing targetName');
 
   // 2. 排除 NaN 炸彈：如果沒傳 amount 或無法轉成數字，強制轉為 0
-  const safeAmount = Number(amount) || 0;
+  const safeAmount = coerceNumber(amount);
 
   // 針對純金流操作，還是要阻擋負數或 0
   if (['buy_in', 'add_on'].includes(type) && safeAmount <= 0) {
@@ -125,20 +126,29 @@ export async function undoBuyIn(txId, callerUid, callerName) {
   return { undoTxId: undoRef.id };
 }
 
+const TRANSACTION_LOG_DEFAULT_LIMIT = 200;
+
 /**
- * Get transaction log for a game.
+ * Get transaction log for a game (newest first, bounded).
  *
  * @param {string} gameId
+ * @param {number} [maxResults] Cap on returned records (default 200)
  * @return {Array} transactions sorted by timestamp desc
  */
-export async function getTransactionLog(gameId) {
+export async function getTransactionLog(gameId, maxResults = TRANSACTION_LOG_DEFAULT_LIMIT) {
   const db = getFirestore();
   if (!gameId) throw new Error('Missing gameId');
+
+  const cappedLimit = Math.min(
+    Math.max(1, coerceNumber(maxResults, TRANSACTION_LOG_DEFAULT_LIMIT)),
+    TRANSACTION_LOG_DEFAULT_LIMIT,
+  );
 
   const snap = await db
     .collection('transactions')
     .where('gameId', '==', gameId)
     .orderBy('timestamp', 'desc')
+    .limit(cappedLimit)
     .get();
 
   return snap.docs.map((d) => ({ txId: d.id, ...d.data() }));

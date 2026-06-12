@@ -14,8 +14,36 @@ on:
       - '.github/workflows/firebase-deploy.yml'
 
 jobs:
+  # 部署前先跑測試與 lint — 任一失敗就不部署
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Engine tests import functions/src modules (resolve from functions/node_modules)
+      - name: Install functions dependencies
+        run: npm ci
+        working-directory: functions
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Lint functions
+        run: npm run lint
+        working-directory: functions
+
   deploy-functions:
     runs-on: ubuntu-latest
+    needs: test
     # 【關鍵修改 1】加入權限設定，允許與 Google 換證
     permissions:
       contents: read
@@ -48,12 +76,25 @@ jobs:
       # 【關鍵修改 3】安裝 Firebase 工具並部署
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
-      
+
+      # 將 GitHub Secrets 寫入 functions/.env，部署時隨 Functions 上傳。
+      # POKER_TASKS_SECRET 用於 Cloud Tasks HMAC 簽章驗證；未設定該
+      # GitHub Secret 時不寫入，Functions 會跳過驗證（向後相容）。
+      - name: Write functions runtime env
+        run: |
+          touch functions/.env
+          if [ -n "$POKER_TASKS_SECRET" ]; then
+            echo "POKER_TASKS_SECRET=$POKER_TASKS_SECRET" >> functions/.env
+          fi
+        env:
+          POKER_TASKS_SECRET: ${{ secrets.POKER_TASKS_SECRET }}
+
       - name: Deploy to Firebase Functions
         run: firebase deploy --only functions --force --project poker-ledger-a0e06
 
   deploy-hosting:
     runs-on: ubuntu-latest
+    needs: test
     # 【關鍵修改 1】這裡也要加權限
     permissions:
       contents: read

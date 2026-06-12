@@ -7,7 +7,11 @@
  */
 export const formatNumber = (n) => {
   if (n === null || n === undefined) return '0';
-  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  // Group only the integer part — grouping the whole string puts commas
+  // inside decimals (1234.5678 → "1,234.5,678")
+  const [int, frac] = n.toString().split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return frac !== undefined ? `${grouped}.${frac}` : grouped;
 };
 
 /**
@@ -17,7 +21,9 @@ export const formatNumber = (n) => {
  * @returns {string} Formatted cash value
  */
 export const formatCash = (chips, rate = 1) => {
-  const val = chips / rate;
+  // Guard against rate 0/invalid (division by zero → "Infinity"/"NaN")
+  const safeRate = Number(rate) > 0 ? Number(rate) : 1;
+  const val = chips / safeRate;
   return Number.isInteger(val) ? val.toString() : val.toFixed(1);
 };
 

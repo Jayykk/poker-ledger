@@ -17,8 +17,7 @@ import { advanceRound, handleLastManStanding } from './game.js';
 import { createTurnExpiresAt } from './turnTimer.js';
 import { createPokerTask, createPokerHttpTask, createRoomAutoCloseTask } from '../utils/cloudTasks.js';
 import { writeHandHistoryEntry } from '../utils/handHistories.js';
-
-const ROOM_IDLE_TIMEOUT_SECONDS = 60 * 60; // 60 minutes
+import { ROOM_IDLE_TIMEOUT_SECONDS } from '../utils/config.js';
 
 /**
  * Create a new poker game room

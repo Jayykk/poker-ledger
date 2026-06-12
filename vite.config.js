@@ -34,5 +34,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    // Rules tests need the Firestore emulator — run via `npm run test:rules`
+    exclude: ['**/node_modules/**', 'tests/rules/**'],
   }
 });

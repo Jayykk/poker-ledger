@@ -1,449 +1,209 @@
-# 線上連線德州撲克遊戲功能開發清單
+# Poker Ledger — 開發待辦清單
 
-## 📋 開發階段與待辦事項（原有功能 — 已完成）
+> 詳細的歷史實作紀錄請見 `docs/`：`IMPLEMENTATION_SUMMARY.md`、`POKER_IMPLEMENTATION.md`、
+> `POKER_FEATURES_IMPLEMENTATION.md`、`GAME_STATE_MACHINE_IMPLEMENTATION.md`、`POKER_UI_REDESIGN.md`
 
-### Phase 1: 基礎架構 (Foundation) ✅
-- [x] 分析現有程式碼架構
-- [x] 設定 Firebase Cloud Functions 環境
-- [x] 建立 Firestore 遊戲數據結構
-- [x] 實作德撲核心遊戲引擎 (發牌、比牌邏輯)
-- [x] 建立 Cloud Functions API endpoints
-- [x] 實作玩家操作驗證機制
+---
 
-### Phase 2: 核心遊戲功能 (Core Game) ✅
-- [x] 建立/加入遊戲房間
-- [x] 座位系統 (入座/離座)
-- [x] 完整下注流程 (Fold/Check/Call/Raise/All-in)
-- [x] 發牌與開牌動畫
-- [x] 回合管理 (Preflop → Flop → Turn → River)
-- [x] 勝負判定與籌碼分配
-- [x] 與現有記帳系統整合
+## ✅ 已完成功能總覽
 
-### Phase 3: UI/UX 優化 (User Experience) ✅
-- [x] 手機優先的響應式遊戲介面
-- [x] 智慧下注滑桿 + 快捷金額按鈕
-- [x] 操作確認機制 (防誤觸)
-- [x] 樂觀更新 (Optimistic Update)
-- [x] 牌面翻轉動畫
-- [x] 籌碼移動動畫
-- [x] 音效系統
-- [x] 玩家計時器與超時處理
+### 記帳核心（Cash Ledger）
+- [x] 建立/加入牌局、座位管理、buy-in / rebuy / stack 追蹤
+- [x] 結算系統（匯率換算、損益計算）、CSV 匯出、報表複製
+- [x] 每日報表（日期區間彙總 + 玩家排名）
+- [x] 現金桌預設（Cash Presets）+ 統一開局流程（PR #157-159）
+- [x] 交易歷程（transactions collection）：誰幫誰買入、撤銷、稽核軌跡
+- [x] 撤銷保護：追蹤交易最後修改時間，buy-in 被修改後禁止 undo（961eb85, 406f6fa）
 
-### Phase 4: 社交功能 (Social Features) ✅
-- [x] 遊戲內聊天
-- [x] 快捷表情
-- [x] 旁觀模式
-- [x] 好友邀請
+### 線上德州撲克（Live Texas Hold'em）
+- [x] Phase 1-4 全部完成：Cloud Functions 遊戲引擎、發牌/比牌、完整下注流程、
+      回合管理、勝負判定、動畫、音效、計時器、聊天、旁觀、好友邀請
+- [x] 防殭屍任務機制（turnId / autoCloseToken 驗證）
+- [x] Run It Twice、亮牌（showPokerCards）、邊池計算
 
-### Phase 5: 進階功能 (Advanced - Future)
-- [ ] 錦標賽模式
+### 錦標賽系統（Tournament）
+- [x] 錦標賽時鐘（全螢幕盲注計時、自動升盲、休息時段、音效警示）
+- [x] Dealer Clock 模式（匿名登入、URL 分享、5 秒倒數閃爍）
+- [x] 鬧鐘音量強化：Web Audio API 原生排程、可蓋過 Spotify、iOS/LINE WebView 相容（bd647d2 等）
+- [x] Time Bank（快捷預設、Firestore 同步）
+- [x] 錦標賽預設（盲注結構、配置儲存）
+- [x] Re-entry 管理（買入次數上限、undo、場次計數同步）
+- [x] 螢幕常亮（Wake Lock，含 iOS fallback）
+- [x] 錦標賽結算（含 active→completed 轉換修正，47d3127）
+
+### 管理後台（Admin）
+- [x] 桌況管理 `/admin/tables`（現金/錦標賽分頁、completed 過濾含 closed 狀態）
+- [x] 現金桌編輯 `/admin/cash/:gameId`（含 ConfigDiffPreview 差異預覽）
+- [x] 錦標賽編輯 `/admin/tournament/:sessionId`（含結算編輯）
+
+### LINE 整合
+- [x] Phase 1：LIFF 登入 + Firebase Custom Token（`line_{userId}` 映射）
+- [x] Phase 2：代操作買入 + 交易歷程 UI
+- [x] Phase 3：`liff.sendMessages()` 買入/撤銷/結算通知（免費方案，不用 Bot push）
+- [x] Phase 4：LIFF UX 適配、shareTargetPicker 邀請、deep link 快速加入、
+      錦標賽分享連結自動加入（cfc6da4）
+
+### 基礎設施
+- [x] 報表圖表穩定化（destroy+recreate、防無限 re-render，aff33e6 / 068fd72）
+- [x] 排行榜期間過濾改用日曆邊界（9a422b3）
+- [x] Cache-busting 檔名 + no-cache meta tags（b53a5b3）
+- [x] GitHub Actions 自動部署（GitHub Pages + Firebase Functions/Hosting，WIF 認證）
+
+---
+
+## 🚧 未完成（既有規劃）
+
+### 線上德撲 Phase 5（進階，未排程）
+- [ ] 錦標賽模式（線上發牌版）
 - [ ] Sit & Go
 - [ ] 俱樂部系統
-- [ ] 排行榜
+- [ ] 排行榜（線上德撲專屬）
 - [ ] 成就系統
 
----
-
-## 🟢 LINE 整合開發清單（並存擴充）
-
-> 設計理念：參考 LightSplit 模式 — LINE 群組即入口，LIFF 頁面做操作，
-> 訊息自動回到聊天室。**現有功能全部保留**，LINE 作為新的入口層與通知層。
-
----
-
-### LINE Phase 1: 身分綁定 ✅
-
-#### 1-1. LINE Login Channel & LIFF App 設定
-- [x] 在 [LINE Developers Console](https://developers.line.biz/) 建立 Provider
-- [x] 建立 LINE Login Channel（Channel ID: `2009641241`）
-- [x] 建立 LIFF App（Size: `Full`，LIFF ID: `2009641241-Bsu3bf90`）
-- [x] 記錄 `LIFF ID` 並填入 `.env` 的 `VITE_LIFF_ID`
-
-#### 1-2. 前端 LIFF SDK 整合
-- [x] `npm install @line/liff`
-- [x] 建立 `src/composables/useLiff.js` — LIFF 生命週期管理
-- [x] 修改 `src/main.js` — App 啟動時執行 `liff.init()`（非阻塞）
-- [x] 修改 `src/views/LoginView.vue` — 新增「LINE 登入」按鈕
-  - LINE 內自動觸發 LIFF 登入流程
-  - 瀏覽器環境保留原有的 email / guest 登入
-
-#### 1-3. 後端 Custom Token 核發
-- [x] 新增 `functions/src/handlers/lineAuth.js`
-  - 驗證 LINE access token → 取得 profile → `admin.auth().createCustomToken()`
-- [x] 在 `functions/src/index.js` 註冊 `lineLogin` endpoint
-
-#### 1-4. 前端 Firebase Auth 串接
-- [x] 修改 `src/store/modules/auth.js` — 新增 `loginWithLine()` action
-- [x] 修改 `src/composables/useAuth.js` — 暴露 `loginWithLine`
-- [x] 處理 LINE↔Firebase 帳號映射（`line_{userId}` 為 uid）
-
-#### 1-5. Firestore Rules 更新
-- [x] 更新 `firestore.rules` — 新增 `transactions` collection 規則
-
-#### 1-6. 驗證 & 測試
-- [ ] 在 LINE App 內開啟 LIFF → 自動登入 → 進入 Lobby
-- [ ] 在外部瀏覽器開啟 → 保持原有 email/guest 登入
+### LINE Phase 1 驗證（待人工測試）
+- [ ] LINE App 內開啟 LIFF → 自動登入 → 進入 Lobby
+- [ ] 外部瀏覽器保持原有 email/guest 登入
 - [ ] 頭像、暱稱正確顯示為 LINE profile
 
----
-
-### LINE Phase 2: 記帳核心 — 代操作 + 交易歷程 ✅
-
-> 現有記帳流程：開局 → 加人 → 編輯 buyIn/stack → 結算 → 報表
-> 擴充重點：誰幫誰買入的紀錄、撤銷功能、歷程顯示
-
-#### 2-1. Firestore `transactions` Collection
-- [x] 設計 collection schema（gameId, targetUid/Name, actionUid/Name, amount, type, status 等）
-- [x] 新增 Firestore indexes（`firestore.indexes.json`）
-
-#### 2-2. 後端 Transaction Cloud Functions
-- [x] 新增 `functions/src/handlers/transaction.js`
-  - `recordBuyIn` / `undoBuyIn` / `getTransactionLog`
-  - batch writes 確保原子性
-- [x] 在 `functions/src/index.js` 註冊 `recordBuyInTx`, `undoBuyInTx`, `getTransactionLog`
-
-#### 2-3. 前端記帳 UI 擴充
-- [x] 新增 `src/composables/useTransactions.js` — onSnapshot 即時監聽
-- [x] 修改 `src/views/GameView.vue` — 幫人買入按鈕 + 操作歷程區塊
-- [x] 新增 `src/components/game/TransactionLog.vue` — 時間軸式交易歷程
-- [x] 新增 `src/components/game/BuyInModal.vue` — 選玩家 + 金額確認
+### LINE Phase 5（可選 / 未來）
+- [ ] LINE Bot 指令（Webhook + Rich Menu：開局 / 我的紀錄 / 幫助）
+- [ ] 舊帳號遷移 / LINE 綁定（Profile 頁綁定按鈕、`users/{uid}.lineUserId`）
+- [ ] 群組統計與排行（`liff.getContext().groupId` 彙總、月/季/總排名、週報推送）
+- [ ] LIFF 啟動參數解析：`liff.getContext()` 取得來源群組 ID
 
 ---
 
-### LINE Phase 3: LINE 聊天室訊息（liff.sendMessages — 免費方案）✅
+## 🔧 優化待辦（2026-06-12 全專案 Review 產出）
 
-> **策略調整**：僅使用 `liff.sendMessages()`（免費、用戶主動觸發），
-> 不使用 Messaging API push（會超過免費額度 200 則/月）。
-> 結算由點「結算」的人以自己名義發送到聊天室。
+### P0 — 安全性
 
-#### 3-1 ~ 3-2. ~~LINE Messaging API~~ (已跳過 — 超過免費額度)
-- [x] ~~已跳過~~ — 不使用 Bot push，全部改由前端 `liff.sendMessages()` 處理
+- [x] ~~收緊 Firestore rules 的 list 權限~~ ✅ 2026-06-12：
+  - `get` 維持開放（連結即授權，deep link / Dealer Clock 分享不受影響）；
+    `list` 收緊為 active/joinable、自己主持的、或 admin —— 歷史牌局不可被枚舉
+  - 同時補齊程式碼實際使用但 rules 缺漏的 collection：`games/{id}/hands`（手動手牌記錄）、
+    `friendRequests`、`users/{uid}/invitations`、好友互加 mirror 寫入、
+    `pokerGames/{id}/events`、hands 的 collection-group 讀取（排行榜需要）
+  - 測試：`tests/rules/firestoreRules.test.js`（emulator，CI 執行）
+  - ⚠️ **部署注意**：CI 不會自動部署 rules，需手動 `firebase deploy --only firestore:rules,firestore:indexes`；
+    部署前建議先確認 production 現行 rules 與 repo 版本的差異（repo 舊版含無效語法
+    `players[].uid`，疑似從未成功部署過，線上實際 rules 可能更寬鬆）
+- [ ] **transactions 參與者限定讀取（中期）**：要做到「只有該局參與者可讀」需資料結構配合
+  （搬成 `games/{gameId}/transactions` 子集合，或在交易文件 denormalize 參與者 uid 清單）；
+  rules 無法強制 list query 必帶 gameId 過濾，子集合遷移是唯一正解
+- [x] ~~Cloud Tasks HTTP endpoint 增加請求驗證~~ ✅ 2026-06-12：HMAC-SHA256 簽章
+  （`utils/taskAuth.js`），5 個 task endpoint 全數驗證；**需設定 `POKER_TASKS_SECRET`
+  環境變數後才生效**（未設定時跳過驗證並警告，向後相容）
+- [x] ~~聊天訊息輸入強化~~ ✅ 2026-06-12：過濾控制字元/零寬/雙向控制字元
 
-#### 3-3. `liff.sendMessages()` — 聊天室內發送（前端觸發）
-- [x] 在 `src/composables/useLiff.js` 新增 helpers
-  - `sendBuyInMessage()` — 買入通知
-  - `sendUndoMessage()` — 撤銷通知
-  - `sendSettlementMessage()` — 結算報表
-  - `shareGameInvite()` — shareTargetPicker 邀請卡片
-- [x] 修改買入流程 — 買入成功後觸發 `liff.sendMessages()`
-- [x] 修改結算流程 — 結算完成後由點結算的人發送報表到聊天室
+### P1 — 清理死碼與重複
 
-#### 3-4 ~ 3-5. ~~結算推播 & Flex Message~~ (已跳過)
-- [x] ~~已跳過~~ — 免費方案下不做 Bot push，結算改由前端 `liff.sendMessages()` 處理
+- [x] ~~刪除根目錄 legacy 檔案~~ ✅ 2026-06-12：7 個檔案全數移除
+- [x] ~~刪除未使用的 `src/views/game/PokerTable.vue`~~ ✅ 2026-06-12
+- [x] ~~移除 deprecated validators~~ ✅ 2026-06-12：`startHand` 改用 actionValidator 版本
+- [x] ~~移除 `useGame.js` 薄包裝層~~ ✅ 2026-06-12：3 個 view 改用 `useGameStore` + `storeToRefs`
+- [x] ~~實作筆記移到 `docs/`~~ ✅ 2026-06-12
 
----
+### P1 — 測試與 CI
 
-### LINE Phase 4: LIFF UX 優化 & 群組互動 ✅
+- [x] ~~CI 加入測試步驟~~ ✅ 2026-06-12：新增 `ci.yml`（PR/branch push 跑 test+build+
+  functions lint+rules emulator 測試）；兩個 deploy workflow 部署前先過 test+lint
+- [ ] **前端 ESLint 設定**（functions 有且 CI 已跑；frontend 仍無 ESLint 設定，需另行導入
+  eslint-plugin-vue 並消化初次掃描結果）
+- [x] ~~補 Cloud Functions 測試~~ ✅ 2026-06-12：`tests/functions/` 106 個引擎測試
+  （potCalculator/actionValidator/gameStateMachine/deck/handEvaluator），
+  並由此**揪出攤牌 10 點牌格式誤判的重大 bug**（已修）
+- [ ] **補 composables 單元測試**（useTournamentClock、useTimeBank、useTransactions 等
+  依賴 firebase 的核心邏輯，需 mock firebase-init）；純工具函式已覆蓋
+  （formatters/exportReport/tournamentStats/historyProjection，116 個測試）
+- [x] ~~Firestore emulator rules 測試~~ ✅ 2026-06-12：`tests/rules/` + `npm run test:rules`，
+  CI 內以 emulator 執行；`tests/events.test.js` placeholder 仍待補實作
 
-#### 4-1. LIFF 環境適配
-- [x] 修改 `src/App.vue` — 偵測 LIFF 環境
-  - LINE 內：隱藏底部 nav bar、返回鈕改為 `liff.closeWindow()`
-  - 外部瀏覽器：保持現有 UI 不變
-- [x] 確認 LIFF `Full` 模式下的 Safe Area（`liff-mode` CSS class + `env(safe-area-inset-*)` ）
-- [x] 處理 LIFF 的 redirect flow（`sessionStorage` 暫存目標路徑，登入後自動 redirect）
+### P2 — 程式碼品質
 
-#### 4-2. 牌局分享 — LINE 群組入口（像 LightSplit 的記帳連結）
-- [x] 局長開局後自動觸發 `shareTargetPicker()`（LobbyView `handleCreateGame`）
-- [x] GameView 新增「LINE 分享」按鈕（`shareGameInvite` → `shareTargetPicker`）
-  - 分享純文字訊息含 LIFF URL action → 點擊直接開啟該局
-- [x] 非 LINE 環境 fallback：原有的「複製 ID」按鈕仍保留
+- [x] ~~拆分 `functions/handlers/game.js`（1815 行）~~ ✅ 2026-06-12：拆成
+  gameFlow.js（953）/ gameActions.js（473）/ gameControl.js（435），game.js 成 37 行 façade
+- [x] ~~拆分 `CashTableEditView.vue` / `DealerClockDisplay.vue`~~ ✅ 2026-06-12：
+  CashTableEditView 1147→618 行（抽出 BasicInfoForm / SettlementCorrectionEditor /
+  VersionHistoryPanel）；DealerClockDisplay 1084→280 行（抽出 Header / StatsPanel /
+  CenterPanel / PayoutsPanel）
+- [ ] **拆分其餘大檔案 → 併入 P4**：`PokerTable.vue`（879）、`PokerGame.vue`（832）、
+  `LobbyView.vue`（796）、`poker.js` store 屬於 P4 線上德撲狀態層重構範圍（見 4-4），
+  現在機械拆分會跟 P4 重工；`useLiff.js`（749）、`game.js` store（767）視需要另行處理
+- [ ] **統一後端錯誤處理（續）**：`Game not found` 與 `validateGameStart` 已改
+  `createGameError`；其餘 `new Error()`（room.js / chat.js / transaction.js 與部分
+  game 流程錯誤）仍待全面換成錯誤碼
+- [x] ~~清理 console.log~~ ✅ 2026-06-12：新增 `src/utils/logger.js`（debug 僅 DEV 輸出），
+  console.log 全數替換（實際僅 10 處；當初估的 116 含 warn/error，那些保留）
+- [x] ~~統一數值轉換~~ ✅ 2026-06-12：`functions/src/utils/numbers.js`
+  （coerceNumber/roundNumber/toMillis）
 
-#### 4-3. 快速加入流程
-- [x] GameView `onMounted` 解析 `route.params.gameId`
-  - 已在此局 → `joinGameListener` 開始監聽
-  - 尚未加入 → `joinAsNewPlayer` 自動加入（使用 displayName + baseBuyIn）
-  - 牌局不存在/已結束 → redirect 回 `/lobby`
+### P2 — 維運與資料
 
-#### 4-4. Router 調整
-- [x] 修改 `src/main.js` router 設定
-  - 新增路由：`/game/:gameId` — 支援 LIFF deep link 直接進入牌局
-- [x] `router.beforeEach` — 暫存 gameId deep link 到 `sessionStorage`
-- [x] `App.vue` `onMounted` + auth watcher — 登入後自動 redirect 到暫存路徑
-- [ ] LIFF 啟動參數解析：`liff.getContext()` 取得來源群組 ID（可選，Phase 5）
+- [ ] **執行 `scripts/migrate_entries_to_events.js` 遷移**（先 `--dry-run` 驗證，
+  確認後再 `--delete-old`；需要 production service account 憑證，須由維護者手動執行）
+- [x] ~~硬編碼逾時改為可設定~~ ✅ 2026-06-12：`functions/src/utils/config.js`，
+  全部可用環境變數覆寫（見 `functions/.env.example`），並消除 4 處重複定義
+- [x] ~~清理未使用索引~~ ✅ 2026-06-12：移除 `transactions(gameId,status,targetUid)`；
+  另補 `hands.createdAt` 的 COLLECTION_GROUP fieldOverride（排行榜/牌型查詢需要）
+- [x] ~~Cloud Tasks dead-letter~~ ✅ 2026-06-12：task 建立失敗寫入 `taskFailures` collection
 
----
+### P3 — 升級與長期（不含線上德撲，見 P4）
 
-### LINE Phase 5: 進階功能（可選 / 未來）
+- [x] ~~升級 Firebase JS SDK v9 → v12~~ ✅ 2026-06-12：12.14.0，全測試通過
+- [x] ~~無上限查詢加分頁/上限~~ ✅ 2026-06-12：`getTransactionLog` 上限 200、
+  排行榜與牌型詳情的 `collectionGroup('hands')` 改為最近 1000 筆
+  （`gameHistoryProjection` 經查只讀單一文件，無此問題）
+- [ ] **E2E 測試**（Playwright）：覆蓋開局→買入→結算的關鍵路徑（需可登入的
+  測試環境或 Auth emulator，本機/CI 基礎建設待建）
+- [x] ~~評估 `pokersolver`~~ ✅ 2026-06-12 結論：**保留**。2.1.4 自 2019 年未更新，
+  但零依賴、純計算、無安全面；已用 17 個測試釘住行為（並修掉 10 點牌格式 bug）。
+  若未來要換，候選為自寫 evaluator 或 vendor 進專案
 
-#### 5-1. LINE Bot 指令（Rich Menu / 文字指令）
-- [ ] 設定 Webhook URL → Cloud Function `lineWebhook`
-- [ ] 實作基本指令：
-  - `開局` → 回覆 LIFF 開局連結
-  - `我的紀錄` → 回覆最近 5 局損益摘要
-  - `幫助` → 回覆指令說明
-- [ ] 設計 Rich Menu（底部選單）：開局 / 加入 / 紀錄 / 設定
+### P4 — 線上德撲大重構（UX 全面重新設計）
 
-#### 5-2. 舊帳號遷移 / LINE 綁定
-- [ ] 已有 email 帳號的玩家 → 登入後可綁定 LINE
-  - Profile 頁新增「綁定 LINE 帳號」按鈕
-  - 綁定後 `users/{uid}` 寫入 `lineUserId`
-  - 未來可用 LINE 登入同一帳號
-- [ ] 遷移腳本：將現有 `users` 的 history 與新 LINE UID 對接
+> 背景：線上德撲後端引擎（發牌/比牌/邊池/狀態機）品質紮實，但**操作流程不順**導致棄用。
+> 重構原則：後端引擎保留，**砍掉重練的是流程與前端狀態層**——目標是把
+> 「開桌到打完第一手」做到跟記帳功能一樣順。
 
-#### 5-3. 群組統計 & 排行
-- [ ] 記錄群組 ID（`liff.getContext().groupId`）
-  - 同一群組的牌局可以彙總統計
-- [ ] 群組排行榜 — 月/季/總 損益排名
-- [ ] Bot 定期推送群組週報摘要
+#### 4-1. 現況問題盤點（動工前先做，避免重構錯方向）
+- [ ] UX Audit：兩支手機實測完整流程，記錄每一步的點擊數、等待秒數、卡住的點
+      （建房 → 入座 → 買入 → 開局 → 每手操作 → 結算）
+- [ ] 列出放棄當時的具體痛點清單（哪一步「奇怪」：入座流程？輪到誰不明顯？按了沒反應？）
+- [ ] 量測 Cloud Functions 延遲：每個玩家操作都走 callable（`pokerPlayerAction`），
+      冷啟動 + 來回延遲是「按了沒反應」的最大嫌疑
 
----
+#### 4-2. 入口流程重設計 — 對齊記帳的順暢度
+- [ ] **一鍵開桌**：建房即自動入座（房主），砍掉 建房→找房→選座→買入 的多步驟
+- [ ] **連結即入桌**：點分享連結 → 自動以預設買入入座（與記帳 deep link 同模式），
+      只有籌碼不足/滿座才跳互動
+- [ ] **自動開局**：≥2 人入座即自動倒數開局，每手結束自動續局
+      （現有 `startPokerHand` 手動觸發 + `handleStartNextHand` 任務鏈重新梳理）
+- [ ] 統一入口：併入統一大廳（與現金桌/錦標賽同一個建局流程，重用 cash presets 模式）
 
-## 📁 檔案結構
+#### 4-3. 操作體驗 — 消滅「按了沒反應」
+- [ ] **樂觀更新全覆蓋**：操作立即在 UI 反映為「待確認」狀態，後端確認落定、失敗回滾
+      （目前部分有做，需要系統化到所有操作）
+- [ ] **預先操作（act-ahead）**：未輪到時可預選 Fold / Check-Fold / Call Any，輪到自動送出
+- [ ] **延遲優化**：`pokerPlayerAction` 等高頻 callable 設 `minInstances: 1` 消冷啟動；
+      前端先跑 `actionValidator` 同款驗證（共用驗證邏輯包）即時擋非法操作，不等後端報錯
+- [ ] **輪到誰一目了然**：當前行動者高亮 + 倒數圈 + 震動/音效提示（重用錦標賽音效系統）
+- [ ] **斷線重連**：重新整理/切 app 回來無縫回桌恢復狀態（snapshot 驅動 + 本地動畫狀態重建）
 
-```
-poker-ledger/
-├── functions/                      # Cloud Functions
-│   ├── package.json               # Functions 依賴配置
-│   ├── .eslintrc.cjs             # ESLint 配置
-│   └── src/
-│       ├── index.js              # Functions 入口
-│       ├── engines/
-│       │   └── texasHoldem.js    # 德撲遊戲引擎
-│       ├── handlers/
-│       │   ├── room.js           # 房間管理
-│       │   ├── game.js           # 遊戲操作
-│       │   └── player.js         # 玩家操作
-│       └── utils/
-│           ├── deck.js           # 牌組工具
-│           ├── handEvaluator.js  # 牌型判斷
-│           └── validators.js     # 操作驗證
-├── src/
-│   ├── components/
-│   │   └── game/                 # 遊戲組件
-│   │       ├── PokerTable.vue    # 主遊戲桌面
-│   │       ├── PlayerSeat.vue    # 玩家座位
-│   │       ├── CommunityCards.vue # 公共牌
-│   │       ├── HoleCards.vue     # 手牌
-│   │       ├── BetControls.vue   # 下注控制
-│   │       ├── BetSlider.vue     # 下注滑桿
-│   │       ├── PotDisplay.vue    # 底池顯示
-│   │       ├── ActionButtons.vue # 操作按鈕
-│   │       ├── PlayerTimer.vue   # 計時器
-│   │       └── GameChat.vue      # 遊戲聊天 (已存在)
-│   ├── views/
-│   │   ├── GameLobby.vue         # 遊戲大廳
-│   │   └── PokerGame.vue         # 遊戲頁面
-│   ├── store/modules/
-│   │   └── poker.js              # 德撲遊戲狀態管理
-│   ├── composables/
-│   │   ├── usePokerGame.js       # 遊戲邏輯 composable
-│   │   ├── useGameActions.js     # 遊戲操作 composable
-│   │   └── useGameAnimation.js   # 動畫控制 composable
-│   └── utils/
-│       ├── pokerUtils.js         # 前端撲克工具函數
-│       └── pokerHandEvaluator.js # 牌型評估 (已存在)
-├── firebase.json                  # Firebase 配置
-├── firestore.rules                # Firestore 安全規則
-├── TODO.md                        # 本文件
-└── README.md                      # 專案說明 (已更新)
-```
+#### 4-4. 前端狀態層重構（配合 4-3 的地基）
+- [ ] `poker.js` store + `PokerGame.vue`（832 行）+ `PokerTable.vue`（879 行）狀態流重整：
+      UI 純由 Firestore snapshot 單向驅動，操作只發指令不直接改狀態
+- [ ] **動畫與狀態解耦**：動畫佇列消化狀態變化（快速連續更新不跳格、不閃爍），
+      整併 `useGameAnimation` / `useGameAnimations` / `useShowdownAnimation`
+- [ ] 先執行 `migrate_entries_to_events.js`，事件統一走 events 子集合（動畫佇列的資料來源）
 
----
-
-## 🔥 Firestore 數據結構
-
-### 遊戲房間集合 `/pokerGames/{gameId}`
-
-```javascript
-{
-  meta: {
-    type: "texas_holdem",
-    mode: "cash",              // cash | tournament | sit_n_go
-    blinds: { 
-      small: 10, 
-      big: 20 
-    },
-    minBuyIn: 1000,
-    maxBuyIn: 5000,
-    maxPlayers: 6,
-    createdBy: "userId",
-    createdAt: Timestamp
-  },
-  status: "waiting",           // waiting | playing | paused | finished
-  table: {
-    pot: 0,
-    sidePots: [],
-    communityCards: [],
-    currentRound: "waiting",   // waiting | preflop | flop | turn | river | showdown
-    dealerSeat: 0,
-    currentTurn: null,
-    turnStartedAt: Timestamp,
-    turnTimeout: 30,           // seconds
-    minRaise: 20,
-    lastRaise: 0
-  },
-  seats: {
-    0: { 
-      odId: "userId",
-      odName: "Player Name",
-      odAvatar: "url",
-      chips: 1000,
-      status: "active",        // active | folded | all_in | sitting_out
-      currentBet: 0,
-      isDealer: false,
-      isSmallBlind: false,
-      isBigBlind: false
-    },
-    1: null,                   // 空座位
-    // ... seats 2-5
-  },
-  handNumber: 0
-}
-```
-
-### 手牌記錄子集合 `/pokerGames/{gameId}/hands/{handId}`
-
-```javascript
-{
-  handNumber: 1,
-  players: {
-    "userId": {
-      startChips: 1000,
-      endChips: 1200,
-      position: 0,
-      status: "won"           // won | lost | folded
-    }
-  },
-  actions: [
-    {
-      odId: "userId",
-      seat: 0,
-      action: "raise",        // fold | check | call | raise | all_in
-      amount: 100,
-      round: "preflop",
-      timestamp: Timestamp
-    }
-  ],
-  communityCards: ["As", "Kh", "Qd", "Jc", "Ts"],
-  result: {
-    winners: [
-      {
-        odId: "userId",
-        odName: "Player Name",
-        amount: 1000,
-        hand: "Full House"
-      }
-    ],
-    pot: 1000
-  },
-  createdAt: Timestamp
-}
-```
-
-### 私密手牌 `/pokerGames/{gameId}/private/{odId}`
-
-```javascript
-{
-  holeCards: ["Ah", "Kd"]
-}
-```
+#### 4-5. 驗收標準（重構完成的定義）
+- [ ] 兩支手機從點連結到打完一手 ≤ 90 秒、全程無「按了沒反應」超過 1 秒的點
+- [ ] 任一方中途重整頁面，10 秒內無縫回桌
+- [ ] 非法操作（籌碼不足、未輪到）在前端即時擋下，不出現後端錯誤 toast
+- [ ] 邀請一位沒用過的朋友實測，不需口頭解說能完成入座與第一手操作
 
 ---
 
-## ☁️ Cloud Functions 端點
-
-### 房間管理
-- `createPokerRoom(config)` - 建立德州撲克房間
-- `joinPokerRoom(gameId, seatNumber)` - 加入房間並選擇座位
-- `leavePokerRoom(gameId)` - 離開房間
-- `sitDown(gameId, seatNumber, buyIn)` - 入座並買入籌碼
-- `standUp(gameId)` - 離座
-
-### 遊戲流程
-- `startPokerHand(gameId)` - 開始新的一手牌
-- `dealCards(gameId)` - 發牌
-- `playerAction(gameId, action, amount)` - 處理玩家操作
-- `advanceRound(gameId)` - 推進到下一輪
-- `showdown(gameId)` - 攤牌比大小
-- `distributeWinnings(gameId)` - 分配獎池
-
-### 計時器
-- `handlePlayerTimeout(gameId, playerId)` - 處理玩家超時
-
----
-
-## 🎨 主要組件說明
-
-### PokerTable.vue
-橢圓形德州撲克桌面，顯示：
-- 6 個玩家座位（動態排列）
-- 公共牌區域
-- 底池顯示
-- 發牌者/盲注指示器
-- 響應式設計適配各種螢幕
-
-### BetControls.vue
-智慧下注控制介面：
-- 觸控友好的滑桿
-- 快捷按鈕：Fold, Check/Call, Min, 1/2 Pot, Pot, All-in
-- 金額微調按鈕 (+BB, -BB)
-- 防誤觸確認對話框
-- 即時顯示有效操作
-
-### PlayerSeat.vue
-玩家座位組件：
-- 顯示玩家資訊（頭像、名稱、籌碼）
-- 手牌位置（僅自己可見完整牌面）
-- 當前下注金額
-- 狀態指示器（發牌者、盲注、當前回合）
-- 行動計時器
-
----
-
-## 🔒 安全規則重點
-
-```javascript
-// 確保只有 Cloud Functions 可以修改遊戲狀態
-// 玩家只能讀取遊戲資訊和自己的私密資料
-// 防止作弊和資料竄改
-
-match /pokerGames/{gameId}/private/{userId} {
-  allow read: if request.auth.uid == userId;
-  allow write: if false; // 只有 Cloud Functions 可寫入
-}
-```
-
----
-
-## 📝 開發注意事項
-
-1. **公平性保證**：所有遊戲邏輯必須在 Cloud Functions 執行
-2. **防作弊**：手牌資訊嚴格保護，只有玩家本人可見
-3. **效能優化**：使用 Firestore 即時監聽，減少不必要的查詢
-4. **錯誤處理**：完整的錯誤訊息和異常處理
-5. **國際化**：支援多語言（繁中、簡中、英文、日文）
-6. **響應式設計**：優先支援手機操作
-7. **程式碼品質**：遵循現有專案規範，完整註解
-
----
-
-## 🚀 部署步驟
-
-### 1. 設定 Firebase Functions
-```bash
-firebase init functions
-cd functions
-npm install
-```
-
-### 2. 部署 Functions
-```bash
-firebase deploy --only functions
-```
-
-### 3. 更新 Firestore Rules
-```bash
-firebase deploy --only firestore:rules
-```
-
-### 4. 測試遊戲
-- 建立測試房間
-- 多帳號加入測試
-- 驗證遊戲流程
-- 檢查安全規則
-
----
-
-**最後更新**: 2024-12-16  
-**負責人**: Jayykk  
+**最後更新**: 2026-06-12
+**負責人**: Jayykk
 **專案版本**: 10.0.0

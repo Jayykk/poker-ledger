@@ -4,8 +4,7 @@
 
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { createPokerHttpTask } from '../utils/cloudTasks.js';
-
-const IDLE_TIMEOUT_SECONDS = 60 * 60; // 60 minutes
+import { ROOM_IDLE_TIMEOUT_SECONDS as IDLE_TIMEOUT_SECONDS } from '../utils/config.js';
 const RESCHEDULE_CHECK_SECONDS = 10 * 60; // if playing, re-check periodically
 const MAX_PLAYING_RESCHEDULES = 3;
 

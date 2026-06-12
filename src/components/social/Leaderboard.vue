@@ -183,7 +183,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { collection, getDocs, query, collectionGroup, doc } from 'firebase/firestore';
+import { collection, getDocs, query, collectionGroup, doc, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
 import { useAuth } from '../../composables/useAuth.js';
 import BaseCard from '../common/BaseCard.vue';
@@ -423,8 +423,14 @@ const loadSpecialHands = async () => {
       [HAND_TYPES.FULL_HOUSE]: 'fullHouse'
     };
     
-    // Query all hand records from all games
-    const handsQuery = query(collectionGroup(db, 'hands'));
+    // Query recent hand records from all games. Bounded: an unbounded
+    // collection-group scan grows with every game ever played; the special
+    // hands tally covers the most recent 1000 hands.
+    const handsQuery = query(
+      collectionGroup(db, 'hands'),
+      orderBy('createdAt', 'desc'),
+      limit(1000)
+    );
     const handsSnapshot = await getDocs(handsQuery);
     
     handsSnapshot.forEach((doc) => {

@@ -5,6 +5,7 @@
 
 import { watch, ref } from 'vue';
 import { usePokerGame } from './usePokerGame.js';
+import { logger } from "../utils/logger.js";
 
 export function useGameAnimations() {
   const { currentGame, communityCards } = usePokerGame();
@@ -19,7 +20,7 @@ export function useGameAnimations() {
     (newStage, oldStage) => {
       if (!newStage || newStage === oldStage) return;
 
-      console.log(`Stage transition: ${oldStage} -> ${newStage}`);
+      logger.debug(`Stage transition: ${oldStage} -> ${newStage}`);
 
       switch (newStage) {
         case 'preflop':
@@ -55,7 +56,7 @@ export function useGameAnimations() {
 
   // Animation trigger functions
   function triggerDealAnimation() {
-    console.log('🎴 Dealing cards animation');
+    logger.debug('🎴 Dealing cards animation');
     // Play deal sound
     playSound('deal');
     isRevealingCards.value = true;
@@ -65,22 +66,22 @@ export function useGameAnimations() {
   }
 
   function triggerFlopAnimation() {
-    console.log('🃏 Flop animation - 3 cards');
+    logger.debug('🃏 Flop animation - 3 cards');
     playSound('flop');
   }
 
   function triggerTurnAnimation() {
-    console.log('🃏 Turn animation - 4th card');
+    logger.debug('🃏 Turn animation - 4th card');
     playSound('card');
   }
 
   function triggerRiverAnimation() {
-    console.log('🃏 River animation - 5th card');
+    logger.debug('🃏 River animation - 5th card');
     playSound('card');
   }
 
   function triggerShowdownAnimation() {
-    console.log('🏆 Showdown animation');
+    logger.debug('🏆 Showdown animation');
     isShowdownActive.value = true;
     playSound('showdown');
     
@@ -92,7 +93,7 @@ export function useGameAnimations() {
 
   function playSound(soundName) {
     // Implement sound playing (can be enhanced with actual audio files)
-    console.log(`🔊 Playing sound: ${soundName}`);
+    logger.debug(`🔊 Playing sound: ${soundName}`);
     // TODO: Add actual audio playback
     // const audio = new Audio(`/sounds/${soundName}.mp3`);
     // audio.play().catch(() => {});
