@@ -44,10 +44,16 @@ A modern, progressive web application for tracking and synchronizing poker game 
 
 ### Advanced Game Features
 - ⏱️ **Blind Timer** - Customizable blind level timer with break periods
-- 🔊 **Sound Notifications** - Audio alerts for blind level changes and timer warnings
+- 🔊 **Sound Notifications** - Web Audio API alerts (audible over background music, iOS/LINE WebView compatible)
 - 💱 **Multi-currency Support** - Track in TWD, USD, CNY, or JPY
 - 📜 **Rebuy History** - Complete tracking of all rebuys during a session
 - 📝 **Hand Records** - View, create, and manage individual hand histories
+- 🎚️ **Cash Table Presets** - Save and reuse cash game configurations with a unified create-game flow
+
+### Admin Tools
+- 🗂️ **Table Management** - Browse and manage all cash games and tournament sessions (`/admin/tables`)
+- ✏️ **Cash Table Edit** - Edit live cash game state, buy-ins, and history with diff preview (`/admin/cash/:gameId`)
+- 🏆 **Tournament Edit** - Edit tournament sessions and settlement results (`/admin/tournament/:sessionId`)
 
 ### LINE Integration
 - 📱 **LINE Login** - Sign in with LINE account via LIFF SDK
@@ -87,13 +93,29 @@ A modern, progressive web application for tracking and synchronizing poker game 
 - **Internationalization**: vue-i18n
 - **Database**: Firebase Firestore
 - **Authentication**: Firebase Auth (Email/Password, Anonymous, LINE Login)
-- **Backend**: Firebase Cloud Functions (Node.js)
+- **Backend**: Firebase Cloud Functions v2 (Node.js 22, firebase-admin 12)
+- **Task Scheduling**: Google Cloud Tasks (turn timeouts, auto-close, showdown delays)
+- **Hand Evaluation**: pokersolver
 - **LINE Integration**: LIFF SDK v2
 - **Charts**: Chart.js 4
 - **Styling**: Tailwind CSS 3
 - **Icons**: Font Awesome 6
 - **Screen Wake Lock**: nosleep.js
 - **Testing**: Vitest + @vue/test-utils
+
+## 📁 Project Structure
+
+```
+poker-ledger/
+├── src/                    # Vue 3 frontend (views, components, composables, Pinia stores, i18n)
+├── functions/src/          # Cloud Functions v2 (handlers, game engines, Cloud Tasks utils)
+├── tests/                  # Vitest test suites
+├── scripts/                # One-off maintenance/migration scripts
+├── public/                 # PWA assets (manifest, service worker, icons)
+├── firestore.rules         # Firestore security rules (authoritative)
+├── firestore.indexes.json  # Composite index definitions
+└── firebase.json           # Hosting / Functions / emulator config
+```
 
 ## 📦 Installation
 
@@ -212,40 +234,20 @@ npm run build
 
 ## 🔒 Firebase Security Rules
 
-Recommended Firestore security rules:
+The authoritative Firestore security rules live in [`firestore.rules`](firestore.rules) and are deployed via `firebase deploy --only firestore:rules` (also covered by CI). Key principles:
 
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // User documents
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId;
-      
-      match /friends/{friendId} {
-        allow read: if request.auth.uid == userId;
-        allow write: if request.auth.uid == userId;
-      }
-    }
-    
-    // Game documents
-    match /games/{gameId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && 
-        (request.auth.uid == resource.data.hostUid || 
-         request.auth.uid in resource.data.players[].uid);
-      allow delete: if request.auth.uid == resource.data.hostUid;
-      
-      match /chat/{messageId} {
-        allow read: if request.auth != null;
-        allow create: if request.auth != null;
-      }
-    }
-  }
-}
+- **Hole cards** (`pokerGames/{gameId}/private/{userId}`) are readable only by the owner and writable only by Cloud Functions
+- **Game meta/config** cannot be modified by players (only by Cloud Functions or admins)
+- All collections require authentication; deploy rule changes together with `firestore.indexes.json`
+
+## 🧪 Testing
+
+```bash
+npm test          # run all tests once (Vitest)
+npm run test:watch
 ```
+
+Current suites under `tests/` cover tournament clock math, tournament templates, constants, i18n key completeness across all 4 locales, route integration, cash table edit permissions, and elimination flow integration. (Cloud Functions and Vue components are not yet covered — see TODO.md.)
 
 ## 📖 User Guide
 
@@ -303,5 +305,5 @@ For issues, questions, or suggestions, please open an issue on GitHub.
 ---
 
 **Version**: 10.0.0  
-**Last Updated**: April 2026  
+**Last Updated**: June 2026  
 **Author**: Jayykk

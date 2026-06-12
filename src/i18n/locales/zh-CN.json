@@ -21,7 +21,9 @@
     "copySuccess": "复制成功",
     "copyFailed": "复制失败",
     "max": "最多",
-    "error": "错误"
+    "error": "错误",
+    "yes": "是",
+    "no": "否"
   },
   "loading": {
     "creating": "创建中...",
@@ -504,7 +506,8 @@
     "confirmSettle": "确定要结算此锦标赛吗？",
     "addPlayer": "新增玩家",
     "playerName": "玩家名称",
-    "prize": "奖金"
+    "prize": "奖金",
+    "payoutRatiosNotLoaded": "奖金分配尚未加载，请稍候再试"
   },
   "timeBank": {
     "title": "Time Bank",
@@ -554,7 +557,9 @@
       "manualSync": "手动重新同步本桌资料",
       "manualSyncSuccess": "已重新同步本桌资料",
       "correctionReason": "校正原因",
-      "correctionReasonPlaceholder": "例如：汇率输入错误、离桌码量 key 错"
+      "correctionReasonPlaceholder": "例如：汇率输入错误、离桌码量 key 错",
+      "syncError": "历史数据同步失败",
+      "syncErrorHint": "请点击上方「手动重新同步」按钮重新触发同步"
     },
     "linkedPlayerNameHint": "此玩家已绑定账号，名称需回到个人资料修改",
     "tournamentEdit": {

@@ -21,7 +21,9 @@
     "copySuccess": "コピー成功",
     "copyFailed": "コピー失敗",
     "max": "最大",
-    "error": "エラー"
+    "error": "エラー",
+    "yes": "はい",
+    "no": "いいえ"
   },
   "loading": {
     "creating": "作成中...",
@@ -504,7 +506,8 @@
     "confirmSettle": "このトーナメントを精算しますか？",
     "addPlayer": "プレイヤー追加",
     "playerName": "プレイヤー名",
-    "prize": "賞金"
+    "prize": "賞金",
+    "payoutRatiosNotLoaded": "賞金配分がまだ読み込まれていません。しばらくしてからもう一度お試しください"
   },
   "timeBank": {
     "title": "Time Bank",
@@ -554,7 +557,9 @@
       "manualSync": "このテーブルを再同期",
       "manualSyncSuccess": "このテーブルを再同期しました",
       "correctionReason": "補正理由",
-      "correctionReasonPlaceholder": "例: レート入力ミス、チップ入力ミス"
+      "correctionReasonPlaceholder": "例: レート入力ミス、チップ入力ミス",
+      "syncError": "履歴データの同期に失敗しました",
+      "syncErrorHint": "上の「手動再同期」ボタンをクリックして同期を再実行してください"
     },
     "linkedPlayerNameHint": "このプレイヤーはアカウント連携済みです。名前はプロフィールから変更してください。",
     "tournamentEdit": {
