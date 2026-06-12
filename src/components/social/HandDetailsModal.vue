@@ -142,14 +142,16 @@ const loadHandDetails = async () => {
   hands.value = [];
   
   try {
-    // Query all hands from all games
+    // Query recent hands from all games (bounded — an unbounded collection
+    // group scan grows with every game ever played).
     // Note: Firestore collectionGroup queries don't support compound where clauses on player data
     // since players are in an array. For optimization with large datasets, consider:
     // 1. Creating a separate collection for special hands indexed by userId
     // 2. Implementing server-side filtering via Cloud Functions
     const handsQuery = query(
       collectionGroup(db, 'hands'),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(1000)
     );
     
     const handsSnapshot = await getDocs(handsQuery);

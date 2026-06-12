@@ -126,20 +126,29 @@ export async function undoBuyIn(txId, callerUid, callerName) {
   return { undoTxId: undoRef.id };
 }
 
+const TRANSACTION_LOG_DEFAULT_LIMIT = 200;
+
 /**
- * Get transaction log for a game.
+ * Get transaction log for a game (newest first, bounded).
  *
  * @param {string} gameId
+ * @param {number} [maxResults] Cap on returned records (default 200)
  * @return {Array} transactions sorted by timestamp desc
  */
-export async function getTransactionLog(gameId) {
+export async function getTransactionLog(gameId, maxResults = TRANSACTION_LOG_DEFAULT_LIMIT) {
   const db = getFirestore();
   if (!gameId) throw new Error('Missing gameId');
+
+  const cappedLimit = Math.min(
+    Math.max(1, coerceNumber(maxResults, TRANSACTION_LOG_DEFAULT_LIMIT)),
+    TRANSACTION_LOG_DEFAULT_LIMIT,
+  );
 
   const snap = await db
     .collection('transactions')
     .where('gameId', '==', gameId)
     .orderBy('timestamp', 'desc')
+    .limit(cappedLimit)
     .get();
 
   return snap.docs.map((d) => ({ txId: d.id, ...d.data() }));

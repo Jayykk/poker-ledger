@@ -243,11 +243,12 @@ The authoritative Firestore security rules live in [`firestore.rules`](firestore
 ## 🧪 Testing
 
 ```bash
-npm test          # run all tests once (Vitest)
+npm test            # run all unit/integration tests (Vitest)
 npm run test:watch
+npm run test:rules  # Firestore security-rules tests (needs the Firestore emulator + Java)
 ```
 
-Current suites under `tests/` cover tournament clock math, tournament templates, constants, i18n key completeness across all 4 locales, route integration, cash table edit permissions, and elimination flow integration. (Cloud Functions and Vue components are not yet covered — see TODO.md.)
+Suites under `tests/` cover the Cloud Functions game engines (pot calculator, action validator, game state machine, deck, hand evaluator), frontend utilities (formatters, export report, tournament stats), tournament clock math, tournament templates, i18n key completeness across all 4 locales, route/flow integration, and Firestore security rules (`tests/rules/`, run inside the emulator — CI executes these on every PR). Vue components and firebase-bound composables are not yet covered — see TODO.md.
 
 ## 📖 User Guide
 
