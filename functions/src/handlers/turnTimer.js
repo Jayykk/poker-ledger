@@ -16,9 +16,9 @@ import { createPokerTask } from '../utils/cloudTasks.js';
 import { createPokerHttpTask } from '../utils/cloudTasks.js';
 import { handleLastManStanding, advanceRound } from './game.js';
 import { getHandIdFromGame } from '../utils/handHistories.js';
+import { DEFAULT_TURN_TIMEOUT } from '../utils/config.js';
 
 // Constants
-const DEFAULT_TURN_TIMEOUT = 30; // seconds
 const SHOWDOWN_ADMIRE_DELAY_SECONDS = 5;
 
 /**

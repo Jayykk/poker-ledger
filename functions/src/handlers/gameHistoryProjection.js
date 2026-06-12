@@ -1,37 +1,9 @@
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
+import { roundNumber, toMillis } from '../utils/numbers.js';
 
 const HISTORY_SUBCOLLECTION = 'history_sub';
 const PROJECTION_VERSION = 1;
-
-/**
- * Round an input value to the nearest integer.
- *
- * @param {*} value Raw numeric-like value.
- * @return {number} Rounded integer value.
- */
-function roundNumber(value) {
-  return Math.round(Number(value) || 0);
-}
-
-/**
- * Convert a Firestore timestamp-like value into epoch milliseconds.
- *
- * @param {*} value Timestamp, ISO string, or number.
- * @return {number} Millisecond timestamp.
- */
-function toMillis(value) {
-  if (!value) return 0;
-  if (typeof value === 'number') return roundNumber(value);
-  if (typeof value === 'string') {
-    const parsed = Date.parse(value);
-    return Number.isNaN(parsed) ? 0 : roundNumber(parsed);
-  }
-  if (typeof value.toMillis === 'function') {
-    return roundNumber(value.toMillis());
-  }
-  return 0;
-}
 
 /**
  * Recursively sort object keys so JSON hashing stays stable.

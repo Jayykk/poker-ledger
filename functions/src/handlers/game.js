@@ -29,15 +29,16 @@ import { createPokerHttpTask } from '../utils/cloudTasks.js';
 import { createRoomAutoCloseTask } from '../utils/cloudTasks.js';
 import { getHandIdFromGame, writeHandHistoryEntry } from '../utils/handHistories.js';
 
+import {
+  DEFAULT_TURN_TIMEOUT,
+  SHOWDOWN_RESOLVE_DELAY_SECONDS,
+  SHOWDOWN_ADMIRE_TIME_MS,
+  WIN_BY_FOLD_TIMEOUT_SECONDS,
+  ROOM_IDLE_TIMEOUT_SECONDS,
+} from '../utils/config.js';
+
 // Constants
 const DEFAULT_BUY_IN = 1000;
-const DEFAULT_TURN_TIMEOUT = 30;
-// UX: Pause at showdown so players can see runout + hand comparison.
-// Cloud Tasks scheduleTime is second-granular; use 5s to avoid feeling instant.
-const SHOWDOWN_RESOLVE_DELAY_SECONDS = 5;
-const SHOWDOWN_ADMIRE_TIME_MS = 5000;
-const WIN_BY_FOLD_TIMEOUT_SECONDS = 5;
-const ROOM_IDLE_TIMEOUT_SECONDS = 60 * 60;
 
 /**
  * Compute a delay that covers the runout animation plus a base "admire" window.

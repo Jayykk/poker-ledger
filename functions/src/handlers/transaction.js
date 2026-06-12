@@ -3,6 +3,7 @@
  * Records buy-ins with "who did it for whom" audit trail
  */
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { coerceNumber } from '../utils/numbers.js';
 
 /**
  * Record a buy-in (or add-on) transaction, or an action log entry.
@@ -26,7 +27,7 @@ export async function recordBuyIn({ gameId, targetId, targetUid, targetName, amo
   if (!targetName) throw new Error('Missing targetName');
 
   // 2. 排除 NaN 炸彈：如果沒傳 amount 或無法轉成數字，強制轉為 0
-  const safeAmount = Number(amount) || 0;
+  const safeAmount = coerceNumber(amount);
 
   // 針對純金流操作，還是要阻擋負數或 0
   if (['buy_in', 'add_on'].includes(type) && safeAmount <= 0) {

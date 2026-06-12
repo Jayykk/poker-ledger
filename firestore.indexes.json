@@ -9,15 +9,6 @@
       ]
     },
     {
-      "collectionGroup": "transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "gameId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "targetUid", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "games",
       "queryScope": "COLLECTION",
       "fields": [
