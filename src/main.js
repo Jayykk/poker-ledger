@@ -100,6 +100,7 @@ import TournamentGameView from './views/TournamentGameView.vue';
 import TableManagementView from './views/admin/TableManagementView.vue';
 import CashTableEditView from './views/admin/CashTableEditView.vue';
 import TournamentEditView from './views/admin/TournamentEditView.vue';
+import { logger } from "./utils/logger.js";
 
 // ── Async bootstrap ─────────────────────────────────────────────────
 // Must be async so we can await LIFF token processing BEFORE Vue Router
@@ -112,7 +113,7 @@ import TournamentEditView from './views/admin/TournamentEditView.vue';
   // We must let LIFF SDK process them BEFORE creating the router,
   // otherwise Vue Router sees "#/access_token=..." as a route path.
   if (/[#&]access_token=/.test(window.location.hash)) {
-    console.log('[LIFF] Auth tokens detected in hash, processing...');
+    logger.debug('[LIFF] Auth tokens detected in hash, processing...');
     try {
       await initLiff();
     } catch (e) {

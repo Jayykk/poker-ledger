@@ -60,10 +60,11 @@ describe('formatNumber', () => {
     expect(formatNumber(1234.56)).toBe('1,234.56');
   });
 
-  it('SUSPECTED BUG: inserts commas inside the decimal part when it has more than 3 digits', () => {
-    // The regex \B(?=(\d{3})+(?!\d)) is not anchored to the integer part,
-    // so a 4+ digit fraction also gets grouped: 1234.5678 -> "1,234.5,678".
-    expect(formatNumber(1234.5678)).toBe('1,234.5,678');
+  it('groups only the integer part, never the decimals (regression)', () => {
+    // The grouping regex used to run over the whole string, producing
+    // "1,234.5,678" for 4+ digit fractions.
+    expect(formatNumber(1234.5678)).toBe('1,234.5678');
+    expect(formatNumber(0.123456)).toBe('0.123456');
   });
 
   it('passes non-finite values through as strings', () => {
@@ -101,11 +102,11 @@ describe('formatCash', () => {
     expect(formatCash(null, 10)).toBe('0');
   });
 
-  it('SUSPECTED BUG: rate of 0 is not guarded and yields "Infinity" / "NaN"', () => {
-    // chips / 0 is Infinity (or NaN for 0/0); the function does not guard
-    // against a zero exchange rate.
-    expect(formatCash(100, 0)).toBe('Infinity');
-    expect(formatCash(0, 0)).toBe('NaN');
+  it('falls back to rate 1 when the rate is 0 or invalid (regression)', () => {
+    // chips / 0 used to yield "Infinity" (or "NaN" for 0/0).
+    expect(formatCash(100, 0)).toBe('100');
+    expect(formatCash(0, 0)).toBe('0');
+    expect(formatCash(100, -5)).toBe('100');
   });
 
   it('returns "NaN" for undefined chips', () => {

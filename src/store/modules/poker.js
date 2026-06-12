@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuthStore } from './auth.js';
+import { logger } from '../../utils/logger.js';
 
 export const usePokerStore = defineStore('poker', {
   state: () => ({
@@ -314,7 +315,7 @@ export const usePokerStore = defineStore('poker', {
           // Handle STALE_ACTION error specifically
           if (errorCode === 'STALE_ACTION') {
             // This action was stale, the UI should already reflect the new state
-            console.log('Stale action detected, ignoring');
+            logger.debug('Stale action detected, ignoring');
             return;
           }
           

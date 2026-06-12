@@ -151,6 +151,7 @@
 </template>
 
 <script setup>
+import { logger } from './utils/logger.js';
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -296,7 +297,7 @@ const processPendingInvite = async () => {
 const dbg = (msg) => {
   const ts = new Date().toLocaleTimeString('en', { hour12: false, fractionalSecondDigits: 1 });
   debugLogs.value.push(`[${ts}] ${msg}`);
-  console.log(`[DBG] ${msg}`);
+  logger.debug(`[DBG] ${msg}`);
 };
 
 // Promise with timeout helper

@@ -65,8 +65,8 @@ export const generateTextReport = (game, rate = 10, options = {}) => {
   if (!game) return '';
   const { includeTransfers = true } = options;
   
-  const gap = game.players.reduce((sum, p) => sum + (p.stack || 0), 0) - 
-              game.players.reduce((sum, p) => sum + p.buyIn, 0);
+  const gap = game.players.reduce((sum, p) => sum + (p.stack || 0), 0) -
+              game.players.reduce((sum, p) => sum + (p.buyIn || 0), 0);
   
   let text = `🎲 局: ${game.name}\n`;
   text += `📅 ${formatDate(new Date())}\n`;

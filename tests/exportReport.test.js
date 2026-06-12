@@ -174,18 +174,16 @@ describe('generateTextReport', () => {
     expect(text).not.toContain('轉帳建議');
   });
 
-  it('SUSPECTED BUG: a player with no buyIn makes the gap NaN', () => {
-    // The gap reduce uses (p.stack || 0) for stacks but raw p.buyIn for
-    // buy-ins, so an undefined buyIn poisons the sum: gap becomes NaN,
-    // NaN !== 0 is true, and the report prints "誤差: NaN".
-    // calculateNet() defaults missing buyIn to 0, so the per-player line
-    // is still numeric — only the gap line breaks.
+  it('treats a missing buyIn as 0 in the gap calculation (regression)', () => {
+    // The gap reduce used (p.stack || 0) for stacks but raw p.buyIn, so an
+    // undefined buyIn poisoned the sum and the report printed "誤差: NaN".
     const game = makeGame([
       { name: 'Alice', stack: 1000, buyIn: 1000 },
       { name: 'NoBuyIn', stack: 0 }, // buyIn missing
     ]);
     const text = generateTextReport(game, 10);
-    expect(text).toContain('⚠️ 誤差: NaN');
+    expect(text).not.toContain('NaN');
+    expect(text).not.toContain('誤差'); // stacks (1000) === buy-ins (1000) → no gap line
   });
 });
 
