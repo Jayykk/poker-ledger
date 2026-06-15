@@ -18,6 +18,21 @@ function envNumber(name, fallback) {
   return value > 0 ? value : fallback;
 }
 
+/**
+ * Read a non-negative integer from the environment with a fallback.
+ * Unlike {@link envNumber}, 0 is a valid configured value — needed for counts
+ * like minInstances where 0 explicitly disables (and saves cost).
+ * @param {string} name Environment variable name
+ * @param {number} fallback Default value
+ * @return {number} Configured value (>= 0)
+ */
+function envCount(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  const value = coerceNumber(raw, fallback);
+  return value >= 0 ? Math.floor(value) : fallback;
+}
+
 // Seconds a player has to act before auto fold/check.
 export const DEFAULT_TURN_TIMEOUT = envNumber('TURN_TIMEOUT_SECONDS', 30);
 
@@ -33,3 +48,10 @@ export const WIN_BY_FOLD_TIMEOUT_SECONDS = envNumber('WIN_BY_FOLD_TIMEOUT_SECOND
 
 // Idle time before a room is auto-closed.
 export const ROOM_IDLE_TIMEOUT_SECONDS = envNumber('ROOM_IDLE_TIMEOUT_SECONDS', 60 * 60);
+
+// Warm instances kept ready for the hottest player-facing callables
+// (pokerPlayerAction, startPokerHand) to eliminate cold-start latency — the
+// main cause of "pressed the button, nothing happened". Each warm instance
+// bills for idle CPU/memory, so set to 0 to disable when cost matters more
+// than first-action snappiness. Ignored by the local emulator.
+export const POKER_ACTION_MIN_INSTANCES = envCount('POKER_ACTION_MIN_INSTANCES', 1);

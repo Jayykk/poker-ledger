@@ -36,6 +36,7 @@ import {
   handleRoomAutoCloseHttp,
 } from './handlers/roomTasks.js';
 import { requireSignedTask } from './utils/taskAuth.js';
+import { POKER_ACTION_MIN_INSTANCES } from './utils/config.js';
 import { lineLogin as lineLoginHandler } from './handlers/lineAuth.js';
 import {
   recordBuyIn as recordBuyInHandler,
@@ -52,6 +53,10 @@ import {
 // Initialize Firebase Admin
 initializeApp();
 
+// Runtime options for the hottest, latency-sensitive poker callables. Keeping a
+// warm instance ready removes the cold-start stall on the first action/hand.
+const HOT_CALLABLE_OPTS = { minInstances: POKER_ACTION_MIN_INSTANCES };
+
 /**
  * Create a new poker game room
  */
@@ -63,7 +68,11 @@ export const createPokerRoom = onCall(async (request) => {
   try {
     const { config } = request.data;
     const userId = request.auth.uid;
-    const room = await createRoom(config, userId);
+    const userInfo = {
+      name: request.auth.token.name || 'Player',
+      avatar: request.auth.token.picture || '',
+    };
+    const room = await createRoom(config, userId, userInfo);
     return { success: true, room };
   } catch (error) {
     console.error('Error creating room:', error);
@@ -159,8 +168,10 @@ export const getPokerRoom = onCall(async (request) => {
 
 /**
  * Start a new poker hand
+ * Kept warm (minInstances) so the very first hand of a session starts without
+ * a cold-start stall.
  */
-export const startPokerHand = onCall(async (request) => {
+export const startPokerHand = onCall(HOT_CALLABLE_OPTS, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
@@ -183,8 +194,10 @@ export const startPokerHand = onCall(async (request) => {
 
 /**
  * Process player action (fold, check, call, raise, all-in)
+ * The highest-frequency callable in a live game — kept warm (minInstances) so
+ * every action lands without cold-start latency.
  */
-export const pokerPlayerAction = onCall(async (request) => {
+export const pokerPlayerAction = onCall(HOT_CALLABLE_OPTS, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');
   }

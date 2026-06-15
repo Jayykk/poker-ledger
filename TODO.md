@@ -173,19 +173,39 @@
       冷啟動 + 來回延遲是「按了沒反應」的最大嫌疑
 
 #### 4-2. 入口流程重設計 — 對齊記帳的順暢度
-- [ ] **一鍵開桌**：建房即自動入座（房主），砍掉 建房→找房→選座→買入 的多步驟
-- [ ] **連結即入桌**：點分享連結 → 自動以預設買入入座（與記帳 deep link 同模式），
-      只有籌碼不足/滿座才跳互動
-- [ ] **自動開局**：≥2 人入座即自動倒數開局，每手結束自動續局
-      （現有 `startPokerHand` 手動觸發 + `handleStartNextHand` 任務鏈重新梳理）
-- [ ] 統一入口：併入統一大廳（與現金桌/錦標賽同一個建局流程，重用 cash presets 模式）
+- [x] ~~**一鍵開桌**：建房即自動入座（房主），砍掉 建房→找房→選座→買入 的多步驟~~ ✅ 2026-06-15：
+  - 後端 `createRoom(config, userId, userInfo)` 在 `config.buyIn` 有效時直接把房主入座 seat 0
+    （`functions/src/utils/seatFactory.js` 純函式 `buildSeatData` / `resolveBuyIn`，與 `joinSeat` 共用座位結構）；
+    `createPokerRoom` callable 補傳 `userInfo`；未帶 buyIn 時維持舊行為（空桌），向後相容
+  - 前端 `GameLobby.vue` 建房 modal 新增「Your Buy-in」欄位，建房即入座（一個 confirm 取代 建房→導頁→選座→買入 modal）
+  - 測試：`tests/functions/seatFactory.test.js`（座位結構 + 買入夾限）
+- [x] ~~**連結即入桌**：點分享連結 → 自動以預設買入入座（與記帳 deep link 同模式），
+      只有籌碼不足/滿座才跳互動~~ ✅ 2026-06-15：
+  - `PokerGame.vue` 進房後若使用者尚未入座，`resolveAutoSeat()` 以房間 maxBuyIn 自動入座；
+    已入座（含房主）/滿座/不可加入時退回手動；`?spectate` 可只旁觀
+- [x] ~~**自動開局**：≥2 人入座即自動倒數開局，每手結束自動續局~~ ✅ 2026-06-15：
+  - 後端 `isAutoNext` 在開局時已設 true、手與手之間自動續局原本就會跑；缺的只是「第一手」——
+    `shouldAutoStartFirstHand()` 在房主端、waiting、handNumber 0、≥2 人入座時自動倒數開第一手
+    （與手間續局共用同一個倒數 watcher；✕ 可取消，第一手取消為本地抑制）
+- [x] ~~統一入口：併入統一大廳（與現金桌/錦標賽同一個建局流程，重用 cash presets 模式）~~ ✅ 2026-06-15：
+  - `LobbyView.vue` 建局 modal Step 1 新增「🌐 線上德州撲克」選項，沿用現金桌的買入/cash preset 步驟
+    （`buildOnlineRoomConfig()` 把買入同時當房主籌碼與買入區間），確認後建 `pokerGames` 房並直接進牌桌
+  - i18n `lobby.onlineGame` / `onlineGameDesc` 補齊 4 語系；測試：`tests/pokerEntry.test.js`
+  - 註：線上房尚未併入「我的房間」清單（pokerGames 與 games 不同 collection，資料層整併另計）
 
 #### 4-3. 操作體驗 — 消滅「按了沒反應」
 - [ ] **樂觀更新全覆蓋**：操作立即在 UI 反映為「待確認」狀態，後端確認落定、失敗回滾
       （目前部分有做，需要系統化到所有操作）
 - [ ] **預先操作（act-ahead）**：未輪到時可預選 Fold / Check-Fold / Call Any，輪到自動送出
-- [ ] **延遲優化**：`pokerPlayerAction` 等高頻 callable 設 `minInstances: 1` 消冷啟動；
-      前端先跑 `actionValidator` 同款驗證（共用驗證邏輯包）即時擋非法操作，不等後端報錯
+- [x] ~~**延遲優化**：`pokerPlayerAction` 等高頻 callable 設 `minInstances` 消冷啟動；
+      前端先跑 `actionValidator` 同款驗證（共用驗證邏輯包）即時擋非法操作，不等後端報錯~~ ✅ 2026-06-15：
+  - `actionValidator.js` 抽出純函式 `checkPlayerAction()`（回傳 verdict，不丟例外），
+    `validatePlayerAction()` 改為它的丟例外包裝層；前端透過 Vite alias `@engine` 直接 import 同一份，
+    在 `useGameActions.performOptimisticAction()` 送出前先驗證，非法操作即時擋下、不打 callable
+    （後端仍為最終權威；驗證若遇非預期狀態則 fail-open 交給後端）
+  - `pokerPlayerAction` / `startPokerHand` 套用 `minInstances`（可由 `POKER_ACTION_MIN_INSTANCES`
+    環境變數覆寫，預設 1，設 0 可省成本；見 `functions/.env.example`）
+  - 測試：`tests/functions/actionValidator.test.js` 補 `checkPlayerAction` verdict 合約 + 與丟例外版本一致性
 - [ ] **輪到誰一目了然**：當前行動者高亮 + 倒數圈 + 震動/音效提示（重用錦標賽音效系統）
 - [ ] **斷線重連**：重新整理/切 app 回來無縫回桌恢復狀態（snapshot 驅動 + 本地動畫狀態重建）
 
@@ -194,6 +214,7 @@
       UI 純由 Firestore snapshot 單向驅動，操作只發指令不直接改狀態
 - [ ] **動畫與狀態解耦**：動畫佇列消化狀態變化（快速連續更新不跳格、不閃爍），
       整併 `useGameAnimation` / `useGameAnimations` / `useShowdownAnimation`
+      （2026-06-15：已刪除從未被引用的 dead code `useShowdownAnimation.js`，整併待後續）
 - [ ] 先執行 `migrate_entries_to_events.js`，事件統一走 events 子集合（動畫佇列的資料來源）
 
 #### 4-5. 驗收標準（重構完成的定義）
@@ -204,6 +225,6 @@
 
 ---
 
-**最後更新**: 2026-06-12
+**最後更新**: 2026-06-15
 **負責人**: Jayykk
 **專案版本**: 10.0.0

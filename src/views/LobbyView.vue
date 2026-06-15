@@ -240,6 +240,19 @@
             <p class="text-gray-400 text-xs">{{ $t('lobby.tournamentGameDesc') }}</p>
           </div>
         </div>
+        <div
+          @click="selectGameType('online')"
+          class="flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-all active:scale-98"
+          :class="selectedGameType === 'online' ? 'border-purple-500 bg-purple-500/10' : 'border-slate-600 bg-slate-700/50 hover:bg-slate-600/50'"
+        >
+          <div class="w-10 h-10 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-lg">
+            🌐
+          </div>
+          <div>
+            <h4 class="text-white font-bold">{{ $t('lobby.onlineGame') }}</h4>
+            <p class="text-gray-400 text-xs">{{ $t('lobby.onlineGameDesc') }}</p>
+          </div>
+        </div>
         <BaseButton @click="createStep = 2" variant="primary" fullWidth :disabled="!selectedGameType">
           {{ $t('common.next') }}
         </BaseButton>
@@ -386,8 +399,8 @@
           <span class="text-white text-sm">{{ $t('game.chips') }}</span>
         </div>
 
-        <!-- Cash game: settlement rate (only when custom) -->
-        <div v-if="selectedGameType !== 'tournament' && !selectedCashPresetId" class="flex gap-2 mb-4 items-center">
+        <!-- Cash game: settlement rate (only when custom; online poker has no rate) -->
+        <div v-if="selectedGameType === 'cash' && !selectedCashPresetId" class="flex gap-2 mb-4 items-center">
           <span class="text-gray-400 text-sm w-24">{{ $t('cashPreset.rate') }}</span>
           <span class="text-white text-sm">1 :</span>
           <BaseInput
@@ -405,7 +418,7 @@
             <span class="text-gray-300">{{ $t('cashPreset.buyIn') }}</span>
             <span class="text-white font-mono font-bold">{{ formatNumber(createBuyIn) }} {{ $t('game.chips') }}</span>
           </div>
-          <div class="flex justify-between items-center text-sm mt-1">
+          <div v-if="selectedGameType === 'cash'" class="flex justify-between items-center text-sm mt-1">
             <span class="text-gray-300">{{ $t('cashPreset.rate') }}</span>
             <span class="text-white font-mono font-bold">1 : {{ createRate }}</span>
           </div>
@@ -484,6 +497,7 @@ import { useInvitation } from '../composables/useInvitation.js';
 import { usePushNotification } from '../composables/usePushNotification.js';
 import { useLoading } from '../composables/useLoading.js';
 import { useGameStore } from '../store/modules/game.js';
+import { usePokerStore } from '../store/modules/poker.js';
 import { useUserStore } from '../store/modules/user.js';
 import { useNotification } from '../composables/useNotification.js';
 import BaseCard from '../components/common/BaseCard.vue';
@@ -495,12 +509,14 @@ import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP, GAME_TYPE } from '../utils/const
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useCashPresets } from '../composables/useCashPresets.js';
+import { buildOnlineRoomConfig } from '../utils/pokerEntry.js';
 
 const { t } = useI18n();
 const router = useRouter();
 const route = useRoute();
 const { isGuest, user } = useAuth();
 const gameStore = useGameStore();
+const pokerStore = usePokerStore();
 const { createGame, checkGameStatus, joinByBinding, joinAsNewPlayer, joinGameListener } = gameStore;
 const userStore = useUserStore();
 const { success, error: showError } = useNotification();
@@ -557,7 +573,7 @@ let unsubCashPresets = null;
 
 const selectGameType = (type) => {
   selectedGameType.value = type;
-  if (type === 'cash') {
+  if (type === 'cash' || type === 'online') {
     createStep.value = 2; // Skip template step, go straight to name+buyin
   }
 };
@@ -662,6 +678,21 @@ const handleCreateGame = async () => {
   if (isCreating.value) return;
   isCreating.value = true;
   await withLoading(async () => {
+    // Online Texas Hold'em: create a pokerGames room (host auto-seated via the
+    // buy-in in the config) and jump straight to the live table.
+    if (selectedGameType.value === 'online') {
+      const createOnlineRoom = pokerStore.createGame;
+      const room = await createOnlineRoom(
+        buildOnlineRoomConfig({ buyIn: createBuyIn.value }),
+      );
+      if (room?.id) {
+        showCreateModal.value = false;
+        success(t('lobby.gameCreated'));
+        router.push({ name: 'PokerGame', params: { gameId: room.id } });
+      }
+      return;
+    }
+
     let type = GAME_TYPE.LIVE;
     let options = {};
     let tournamentSessionId = null;

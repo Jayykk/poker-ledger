@@ -6,9 +6,14 @@
 
 import { ref } from 'vue';
 import { usePokerStore } from '../store/modules/poker.js';
+import { useAuthStore } from '../store/modules/auth.js';
 import { useNotification } from './useNotification.js';
 import { useGameAnimations } from './useGameAnimations.js';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+// Shared with the backend (functions/src/engines) so client + server agree on
+// what is legal — lets us reject illegal moves instantly, before any callable.
+import { checkPlayerAction } from '@engine/actionValidator.js';
+import { logger } from '../utils/logger.js';
 
 // Error message mapping
 const ERROR_MESSAGES = {
@@ -54,9 +59,10 @@ function getErrorMessage(code) {
 
 export function useGameActions() {
   const pokerStore = usePokerStore();
+  const authStore = useAuthStore();
   const { success, error: showError } = useNotification();
   const { playSound } = useGameAnimations();
-  
+
   // Track if buttons are disabled (for optimistic UI)
   const actionsDisabled = ref(false);
 
@@ -68,6 +74,27 @@ export function useGameActions() {
    * @param {string} successMessage - Success message to show
    */
   const performOptimisticAction = (action, amount, soundName, successMessage) => {
+    // 0. Client-side pre-validation against the SAME rules the backend enforces.
+    //    Blocks illegal moves (not your turn, can't check, raise too small,
+    //    insufficient chips) instantly — no callable round-trip, no error toast
+    //    bouncing back from the server. The backend stays the source of truth;
+    //    if the check ever throws on an unexpected state shape we fail open and
+    //    let the server decide.
+    const game = pokerStore.currentGame;
+    const userId = authStore.user?.uid;
+    if (game && userId) {
+      let verdict = { valid: true };
+      try {
+        verdict = checkPlayerAction(game, userId, action, amount || 0);
+      } catch (err) {
+        logger.debug('Client action pre-check failed, deferring to server:', err);
+      }
+      if (!verdict.valid) {
+        showError(getErrorMessage(verdict.code));
+        return;
+      }
+    }
+
     // 1. Instant visual feedback
     playSound(soundName);
 
