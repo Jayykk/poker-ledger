@@ -192,6 +192,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { usePokerGame } from '../composables/usePokerGame.js';
 import { usePokerStore } from '../store/modules/poker.js';
 import { useAuthStore } from '../store/modules/auth.js';
+import { shouldAutoStartFirstHand, resolveAutoSeat } from '../utils/pokerEntry.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import PokerTable from '../components/game/PokerTable.vue';
@@ -214,6 +215,7 @@ const {
   loading,
   error,
   joinGame,
+  joinSeat,
   leaveSeat,
   mySeat,
 } = usePokerGame();
@@ -244,11 +246,42 @@ const isPendingLeave = ref(false);
 // Runout animation state (hide auto-start overlay during dramatic squeeze)
 const isRunoutPlaying = ref(false);
 
-// Auto-start countdown state
+// Auto-start countdown state (shared by first-hand and between-hands auto-start)
 const autoStartCountdown = ref(0);
 const showAutoStartCountdown = ref(false);
 const autoStartInterval = ref(null);
 const isStarting = ref(false); // Prevent double-submit
+const firstHandAutoStartCancelled = ref(false); // host dismissed the first-hand countdown
+
+const clearAutoStartCountdown = () => {
+  if (autoStartInterval.value) {
+    clearInterval(autoStartInterval.value);
+    autoStartInterval.value = null;
+  }
+  showAutoStartCountdown.value = false;
+};
+
+const triggerStartHand = () => {
+  if (isStarting.value) return;
+  isStarting.value = true;
+  const { startHand } = usePokerGame();
+  startHand()
+    .catch((err) => console.error('Failed to auto-start hand:', err))
+    .finally(() => { isStarting.value = false; });
+};
+
+const beginAutoStartCountdown = () => {
+  clearAutoStartCountdown();
+  autoStartCountdown.value = autoStartDelay.value;
+  showAutoStartCountdown.value = true;
+  autoStartInterval.value = setInterval(() => {
+    autoStartCountdown.value--;
+    if (autoStartCountdown.value <= 0) {
+      clearAutoStartCountdown();
+      triggerStartHand();
+    }
+  }, 1000);
+};
 
 const toggleMenu = () => {
   menuOpen.value = !menuOpen.value;
@@ -287,57 +320,64 @@ watch(() => currentGame.value?.table?.stage, (stage) => {
   }
 });
 
-// Watch for showdown_complete to start auto-next countdown
+// Auto-start countdown — covers BOTH the first hand of a brand-new room and
+// continuation between hands. These two cases are mutually exclusive (handNumber
+// 0 + waiting vs. showdown_complete on a played hand), so they share one
+// countdown:
+//   • First hand: the host auto-deals once 2+ players are seated.
+//   • Between hands: backend `isAutoNext` + showdown_complete drives the next hand.
 watch(() => [
   currentGame.value?.table?.stage,
+  currentGame.value?.handNumber,
   isAutoNext.value,
   currentGame.value?.status,
   isCreator.value,
   hasEnoughPlayers.value,
   isRunoutPlaying.value,
-], ([stage, autoNext, status, creator, enough, runoutPlaying]) => {
-  // Clear any existing countdown
-  if (autoStartInterval.value) {
-    clearInterval(autoStartInterval.value);
-    autoStartInterval.value = null;
+], () => {
+  clearAutoStartCountdown();
+  if (isStarting.value || isRunoutPlaying.value) return;
+
+  const game = currentGame.value;
+  const userId = authStore.user?.uid;
+
+  // First hand of a new room.
+  if (!firstHandAutoStartCancelled.value && shouldAutoStartFirstHand(game, userId)) {
+    beginAutoStartCountdown();
+    return;
   }
-  showAutoStartCountdown.value = false;
 
-  // Start countdown if:
-  // 1. Stage is showdown_complete
-  // 2. Auto-next is enabled
-  // 3. Game is not paused
-  // 4. User is the creator
-  // 5. Has enough players
-  // 6. Not already starting a hand
-  if (stage === 'showdown_complete' && autoNext && status !== 'paused' && creator && enough && !isStarting.value && !runoutPlaying) {
-    autoStartCountdown.value = autoStartDelay.value;
-    showAutoStartCountdown.value = true;
-
-    autoStartInterval.value = setInterval(() => {
-      autoStartCountdown.value--;
-      
-      if (autoStartCountdown.value <= 0) {
-        clearInterval(autoStartInterval.value);
-        autoStartInterval.value = null;
-        showAutoStartCountdown.value = false;
-        
-        // Start next hand
-        if (!isStarting.value) {
-          isStarting.value = true;
-          const { startHand } = usePokerGame();
-          startHand()
-            .catch((error) => {
-              console.error('Failed to auto-start next hand:', error);
-            })
-            .finally(() => {
-              isStarting.value = false;
-            });
-        }
-      }
-    }, 1000);
+  // Between hands.
+  if (game?.table?.stage === 'showdown_complete' && isAutoNext.value &&
+      game?.status !== 'paused' && isCreator.value && hasEnoughPlayers.value) {
+    beginAutoStartCountdown();
   }
 });
+
+// Link-to-seat: someone who opens a share link and isn't seated yet is
+// auto-seated with the room's buy-in ("open link → sit down"). Falls back to the
+// manual / spectate path only when already seated, the table is full, or the
+// game isn't joinable. Pass ?spectate to skip and just watch.
+const hasAttemptedAutoSeat = ref(false);
+watch(() => [currentGame.value, authStore.user?.uid], () => {
+  if (hasAttemptedAutoSeat.value) return;
+  if (route.query.spectate) {
+    hasAttemptedAutoSeat.value = true;
+    return;
+  }
+
+  const game = currentGame.value;
+  const userId = authStore.user?.uid;
+  if (!game || !userId) return; // wait until the snapshot + auth are both ready
+
+  const buyIn = resolveAutoSeat(game, userId);
+  hasAttemptedAutoSeat.value = true; // attempt at most once per mount
+  if (buyIn === null) return; // already seated / full / not joinable
+
+  joinSeat(gameId.value, undefined, buyIn).catch((err) => {
+    console.error('Auto-seat failed; manual seat selection available:', err);
+  });
+}, { immediate: true });
 
 onMounted(async () => {
   const id = route.params.gameId;
@@ -491,9 +531,20 @@ const handleStopAfterHand = async () => {
 };
 
 const handleStopAutoStart = async () => {
+  // Always dismiss the visible countdown immediately.
+  clearAutoStartCountdown();
+
+  const game = currentGame.value;
+  const isFirstHand = (game?.handNumber ?? 0) === 0 && game?.status === 'waiting';
+  if (isFirstHand) {
+    // No backend isAutoNext yet — suppress locally until the host starts manually.
+    firstHandAutoStartCancelled.value = true;
+    success('Auto-start cancelled');
+    return;
+  }
+
   try {
     await pokerStore.stopNextHand(gameId.value);
-    // The watcher will automatically clear the countdown when isAutoNext becomes false
     success('Auto-start cancelled');
   } catch (error) {
     console.error('Failed to cancel auto-start:', error);

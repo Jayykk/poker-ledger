@@ -75,6 +75,17 @@
         </div>
 
         <div class="form-group">
+          <label>Your Buy-in</label>
+          <input
+            v-model.number="newRoom.buyIn"
+            type="number"
+            :min="newRoom.minBuyIn"
+            :max="newRoom.maxBuyIn"
+          />
+          <small class="field-hint">You'll be seated automatically when the room is created.</small>
+        </div>
+
+        <div class="form-group">
           <label>Turn Timeout (seconds)</label>
           <input v-model.number="newRoom.turnTimeout" type="number" min="10" max="120" />
         </div>
@@ -107,6 +118,7 @@ const newRoom = ref({
   bigBlind: 20,
   minBuyIn: 1000,
   maxBuyIn: 5000,
+  buyIn: 5000, // host's own buy-in — seats them on create (one-click open)
   maxPlayers: 10,
   turnTimeout: 30,
   mode: 'cash',
@@ -326,6 +338,13 @@ const handleCreateRoom = async () => {
   border-radius: 6px;
   color: white;
   font-size: 16px;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
 }
 
 .modal-actions {

@@ -101,6 +101,8 @@
     "cashGameDesc": "一般现金游戏记帐",
     "tournamentGame": "锦标赛",
     "tournamentGameDesc": "带盲注结构的锦标赛模式",
+    "onlineGame": "线上德州扑克",
+    "onlineGameDesc": "线上自动发牌牌桌，分享链接即入座",
     "chooseTemplate": "选择赛制模板",
     "gameCreated": "房间已创建",
     "tools": "工具",

@@ -101,6 +101,8 @@
     "cashGameDesc": "一般現金遊戲記帳",
     "tournamentGame": "錦標賽",
     "tournamentGameDesc": "帶盲注結構的錦標賽模式",
+    "onlineGame": "線上德州撲克",
+    "onlineGameDesc": "線上自動發牌牌桌，分享連結即入座",
     "chooseTemplate": "選擇賽制模板",
     "gameCreated": "房間已建立",
     "tools": "工具",

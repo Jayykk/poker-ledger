@@ -5,6 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  checkPlayerAction,
   validatePlayerAction,
   validateGameStart,
 } from '../../functions/src/engines/actionValidator.js';
@@ -248,5 +249,51 @@ describe('validateGameStart', () => {
     const game = makeGame({ status: 'playing', seats: { 2: null } });
     const err = getError(() => validateGameStart(game));
     expect(err.code).toBe(GameErrorCodes.NOT_ENOUGH_PLAYERS);
+  });
+});
+
+describe('checkPlayerAction — shared non-throwing verdict (client + server)', () => {
+  it('returns { valid: true } for a legal action', () => {
+    expect(checkPlayerAction(makeGame(), 'p1', 'check')).toEqual({ valid: true });
+  });
+
+  it('returns an invalid verdict with a code instead of throwing', () => {
+    const verdict = checkPlayerAction(makeGame(), 'p2', 'fold');
+    expect(verdict.valid).toBe(false);
+    expect(verdict.code).toBe(GameErrorCodes.NOT_YOUR_TURN);
+  });
+
+  it('carries details on the verdict (callAmount when a check is blocked)', () => {
+    const game = makeGame({ table: { currentBet: 50 } });
+    const verdict = checkPlayerAction(game, 'p1', 'check');
+    expect(verdict.valid).toBe(false);
+    expect(verdict.code).toBe(GameErrorCodes.CANNOT_CHECK);
+    expect(verdict.details.callAmount).toBe(50);
+  });
+
+  it('flags an undersized raise without throwing', () => {
+    const game = makeGame({ table: { currentBet: 100, minRaise: 100 } });
+    const verdict = checkPlayerAction(game, 'p1', 'raise', 150);
+    expect(verdict.valid).toBe(false);
+    expect(verdict.code).toBe(GameErrorCodes.INVALID_RAISE_AMOUNT);
+  });
+
+  it('stays in lockstep with the throwing wrapper', () => {
+    // Every invalid verdict the pure checker reports must be exactly what
+    // validatePlayerAction throws — otherwise the client and server would
+    // disagree on what is legal.
+    const cases = [
+      ['p2', 'fold', 0, makeGame()],
+      ['p1', 'check', 0, makeGame({ table: { currentBet: 50 } })],
+      ['p1', 'call', 0, makeGame()],
+      ['p1', 'raise', 5, makeGame({ table: { currentBet: 100, minRaise: 100 } })],
+      ['p1', 'bet', 50, makeGame()],
+    ];
+    for (const [pid, action, amount, game] of cases) {
+      const verdict = checkPlayerAction(game, pid, action, amount);
+      const err = getError(() => validatePlayerAction(game, pid, action, amount));
+      expect(verdict.valid).toBe(false);
+      expect(err.code).toBe(verdict.code);
+    }
   });
 });

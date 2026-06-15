@@ -101,6 +101,8 @@
     "cashGameDesc": "通常のキャッシュゲーム記録",
     "tournamentGame": "トーナメント",
     "tournamentGameDesc": "ブラインド構成付きトーナメントモード",
+    "onlineGame": "オンラインポーカー",
+    "onlineGameDesc": "オンライン自動配牌テーブル、リンク共有で着席",
     "chooseTemplate": "テンプレートを選択",
     "gameCreated": "ルームが作成されました",
     "tools": "ツール",

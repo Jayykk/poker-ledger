@@ -8,7 +8,11 @@ export default defineConfig({
   base: '/poker-ledger/',
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // Shared poker engine logic that is authoritative on the backend but also
+      // imported by the client for instant, pre-flight action validation.
+      // Keep anything reached through here free of firebase-admin / Node deps.
+      '@engine': fileURLToPath(new URL('./functions/src/engines', import.meta.url))
     }
   },
   build: {

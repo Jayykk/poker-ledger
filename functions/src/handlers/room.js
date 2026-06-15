@@ -18,14 +18,16 @@ import { createTurnExpiresAt } from './turnTimer.js';
 import { createPokerTask, createPokerHttpTask, createRoomAutoCloseTask } from '../utils/cloudTasks.js';
 import { writeHandHistoryEntry } from '../utils/handHistories.js';
 import { ROOM_IDLE_TIMEOUT_SECONDS } from '../utils/config.js';
+import { buildSeatData, resolveBuyIn } from '../utils/seatFactory.js';
 
 /**
  * Create a new poker game room
  * @param {Object} config - Room configuration
  * @param {string} userId - Creator user ID
+ * @param {Object} userInfo - Creator info { name, avatar } (for auto-seating)
  * @return {Promise<Object>} Created room data
  */
-export async function createRoom(config, userId) {
+export async function createRoom(config, userId, userInfo = {}) {
   const db = getFirestore();
 
   const autoCloseToken = uuidv4();
@@ -72,6 +74,14 @@ export async function createRoom(config, userId) {
   // Initialize empty seats
   for (let i = 0; i < roomData.meta.maxPlayers; i++) {
     roomData.seats[i] = null;
+  }
+
+  // One-click open: if the creator provided a buy-in, seat them immediately at
+  // seat 0 so "create a table" lands them already seated — no separate
+  // sit-down step. Omitting buyIn keeps the legacy behaviour (empty table).
+  const hostBuyIn = resolveBuyIn(config.buyIn, roomData.meta.minBuyIn, roomData.meta.maxBuyIn);
+  if (hostBuyIn !== null) {
+    roomData.seats[0] = buildSeatData(userId, userInfo, hostBuyIn);
   }
 
   const roomRef = await db.collection('pokerGames').add(roomData);
@@ -144,18 +154,7 @@ export async function joinSeat(gameId, userId, userInfo, seatNumber, buyIn) {
     }
 
     // Add player to seat
-    const seatData = {
-      odId: userId,
-      odName: userInfo.name || 'Player',
-      odAvatar: userInfo.avatar || '',
-      chips: buyIn,
-      initialBuyIn: buyIn, // Track initial buy-in for settlement
-      status: 'active',
-      currentBet: 0,
-      isDealer: false,
-      isSmallBlind: false,
-      isBigBlind: false,
-    };
+    const seatData = buildSeatData(userId, userInfo, buyIn);
 
     transaction.update(gameRef, {
       [`seats.${seatNumber}`]: seatData,

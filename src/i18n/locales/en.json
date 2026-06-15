@@ -101,6 +101,8 @@
     "cashGameDesc": "Standard cash game tracking",
     "tournamentGame": "Tournament",
     "tournamentGameDesc": "Tournament mode with blind structure",
+    "onlineGame": "Online Poker",
+    "onlineGameDesc": "Live Texas Hold'em — auto-dealt, share a link to seat players",
     "chooseTemplate": "Choose tournament template",
     "gameCreated": "Room created",
     "tools": "Tools",
