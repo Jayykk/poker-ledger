@@ -104,6 +104,41 @@ export function buildPokerInviteUrl(gameId, origin = '', basePath = '/') {
  * @param {string} input - Pasted link or id
  * @return {?string} The extracted id, or null when nothing usable was given.
  */
+/**
+ * Resolve an "act-ahead" pre-selection into the concrete action to submit when
+ * the turn reaches the player. Pre-actions let a player commit a decision before
+ * it's their turn; the moment it is, we auto-submit the resolved action.
+ *
+ *   'fold'       → always fold
+ *   'check_fold' → check if nothing to call, otherwise fold
+ *   'call_any'   → call if facing a bet, otherwise check
+ *
+ * @param {Object} game - Current game state
+ * @param {string} userId - The player's uid
+ * @param {?string} preAction - 'fold' | 'check_fold' | 'call_any' | null
+ * @return {?('fold'|'check'|'call')} The action to submit, or null if none.
+ */
+export function resolvePreAction(game, userId, preAction) {
+  if (!game || !userId || !preAction) return null;
+  const seat = Object.values(game.seats || {}).find((s) => s && s.odId === userId);
+  if (!seat) return null;
+
+  const currentBet = game.table?.currentBet || 0;
+  const myRoundBet = seat.roundBet ?? seat.currentBet ?? 0;
+  const toCall = Math.max(0, currentBet - myRoundBet);
+
+  switch (preAction) {
+  case 'fold':
+    return 'fold';
+  case 'check_fold':
+    return toCall > 0 ? 'fold' : 'check';
+  case 'call_any':
+    return toCall > 0 ? 'call' : 'check';
+  default:
+    return null;
+  }
+}
+
 export function parsePokerGameId(input) {
   if (!input || typeof input !== 'string') return null;
   const trimmed = input.trim();

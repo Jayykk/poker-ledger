@@ -79,6 +79,8 @@
         :my-chips="myChips"
         :is-my-turn="isMyTurn"
         :actions-disabled="actionsDisabled"
+        :can-pre-act="canPreAct"
+        v-model:pre-action="preAction"
         @fold="handleFold"
         @check="handleCheck"
         @call="handleCall"
@@ -116,6 +118,7 @@ import { computed, ref, provide, watch, onUnmounted, nextTick } from 'vue';
 import { usePokerGame } from '../../composables/usePokerGame.js';
 import { useGameActions } from '../../composables/useGameActions.js';
 import { useGameAnimations } from '../../composables/useGameAnimations.js';
+import { resolvePreAction } from '../../utils/pokerEntry.js';
 import { useAuthStore } from '../../store/modules/auth.js';
 import { useNotification } from '../../composables/useNotification.js';
 import CommunityCards from './CommunityCards.vue';
@@ -697,6 +700,33 @@ const canStartHand = computed(() => {
     .filter((s) => s !== null).length >= 2;
   return isCreator && isWaiting && hasPlayers;
 });
+
+// Act-ahead: a seated, active player can pre-select an action while waiting.
+const canPreAct = computed(() => {
+  if (currentGame.value?.status !== 'playing') return false;
+  if (mySeatNumber.value === null) return false;
+  const seat = seats.value[mySeatNumber.value];
+  if (!seat) return false;
+  return seat.status === 'active' || seat.status === 'playing';
+});
+
+// The player's pending pre-action ('' when none). Cleared after it fires or on
+// a new hand.
+const preAction = ref('');
+
+// Auto-submit the pre-action the instant the turn reaches me.
+watch(isMyTurn, (mine) => {
+  if (!mine || !preAction.value) return;
+  const action = resolvePreAction(currentGame.value, authStore.user?.uid, preAction.value);
+  preAction.value = '';
+  if (action === 'fold') handleFold();
+  else if (action === 'check') handleCheck();
+  else if (action === 'call') handleCall();
+});
+
+// Drop a stale pre-action when a new hand starts or I'm no longer eligible.
+watch(() => currentGame.value?.handNumber, () => { preAction.value = ''; });
+watch(canPreAct, (ok) => { if (!ok) preAction.value = ''; });
 
 // Methods
 const isCurrentTurn = (seatNum) => {

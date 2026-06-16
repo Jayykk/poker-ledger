@@ -9,6 +9,7 @@ import {
   buildOnlineRoomConfig,
   buildPokerInviteUrl,
   parsePokerGameId,
+  resolvePreAction,
 } from '../src/utils/pokerEntry.js';
 
 /** Minimal pokerGames-shaped state. */
@@ -172,5 +173,38 @@ describe('parsePokerGameId', () => {
     expect(parsePokerGameId('   ')).toBeNull();
     expect(parsePokerGameId(null)).toBeNull();
     expect(parsePokerGameId(undefined)).toBeNull();
+  });
+});
+
+describe('resolvePreAction', () => {
+  const facingBet = {
+    table: { currentBet: 100 },
+    seats: { 0: { odId: 'p1', roundBet: 0, chips: 1000 } },
+  };
+  const noBet = {
+    table: { currentBet: 20 },
+    seats: { 0: { odId: 'p1', roundBet: 20, chips: 1000 } }, // already matched
+  };
+
+  it('fold always folds', () => {
+    expect(resolvePreAction(facingBet, 'p1', 'fold')).toBe('fold');
+    expect(resolvePreAction(noBet, 'p1', 'fold')).toBe('fold');
+  });
+
+  it('check_fold folds when facing a bet, checks otherwise', () => {
+    expect(resolvePreAction(facingBet, 'p1', 'check_fold')).toBe('fold');
+    expect(resolvePreAction(noBet, 'p1', 'check_fold')).toBe('check');
+  });
+
+  it('call_any calls when facing a bet, checks otherwise', () => {
+    expect(resolvePreAction(facingBet, 'p1', 'call_any')).toBe('call');
+    expect(resolvePreAction(noBet, 'p1', 'call_any')).toBe('check');
+  });
+
+  it('returns null for missing inputs / unknown pre-action / no seat', () => {
+    expect(resolvePreAction(facingBet, 'p1', null)).toBeNull();
+    expect(resolvePreAction(null, 'p1', 'fold')).toBeNull();
+    expect(resolvePreAction(facingBet, 'p1', 'bogus')).toBeNull();
+    expect(resolvePreAction(facingBet, 'ghost', 'fold')).toBeNull();
   });
 });
