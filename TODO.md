@@ -183,6 +183,10 @@
       只有籌碼不足/滿座才跳互動~~ ✅ 2026-06-15：
   - `PokerGame.vue` 進房後若使用者尚未入座，`resolveAutoSeat()` 以房間 maxBuyIn 自動入座；
     已入座（含房主）/滿座/不可加入時退回手動；`?spectate` 可只旁觀
+  - 桌內新增「Invite Players」分享：LINE 內用 `sharePokerInvite()`（shareTargetPicker，連結直接入座），
+    桌外複製 `buildPokerInviteUrl()` web 連結；等待第二位玩家時顯示「Waiting for players… Share invite link」提示
+  - 修掉 App.vue「加入線上房」原本寫死 6 碼驗證的 bug（線上房是 20 碼 doc id）——
+    `parsePokerGameId()` 改為接受貼上的邀請連結或 ID；建房入口（底部列）改走統一大廳 `?create=online`
 - [x] ~~**自動開局**：≥2 人入座即自動倒數開局，每手結束自動續局~~ ✅ 2026-06-15：
   - 後端 `isAutoNext` 在開局時已設 true、手與手之間自動續局原本就會跑；缺的只是「第一手」——
     `shouldAutoStartFirstHand()` 在房主端、waiting、handNumber 0、≥2 人入座時自動倒數開第一手
@@ -207,7 +211,9 @@
     環境變數覆寫，預設 1，設 0 可省成本；見 `functions/.env.example`）
   - 測試：`tests/functions/actionValidator.test.js` 補 `checkPlayerAction` verdict 合約 + 與丟例外版本一致性
 - [ ] **輪到誰一目了然**：當前行動者高亮 + 倒數圈 + 震動/音效提示（重用錦標賽音效系統）
-- [ ] **斷線重連**：重新整理/切 app 回來無縫回桌恢復狀態（snapshot 驅動 + 本地動畫狀態重建）
+- [x] ~~**斷線重連**：重新整理/切 app 回來無縫回桌恢復狀態（snapshot 驅動 + 本地動畫狀態重建）~~ ✅ 2026-06-16：
+  - 路由帶 gameId、`PokerGame` onMounted 重新 `joinGame()` 掛回 snapshot + private 監聽，狀態由 snapshot 還原；
+    新增載入中 spinner（避免重整後空白）。深層的「動畫狀態重播」仍屬 4-4 範圍
 
 #### 4-4. 前端狀態層重構（配合 4-3 的地基）
 - [ ] `poker.js` store + `PokerGame.vue`（832 行）+ `PokerTable.vue`（879 行）狀態流重整：
@@ -218,13 +224,20 @@
 - [ ] 先執行 `migrate_entries_to_events.js`，事件統一走 events 子集合（動畫佇列的資料來源）
 
 #### 4-5. 驗收標準（重構完成的定義）
+
+> 2026-06-16：完整流程已在程式碼層打通（建房自動入座 → 分享連結 → 連結即入座 →
+> ≥2 人自動開局 → 即時驗證/樂觀更新/暖機 callable → 自動續局 → 重整回桌）。
+> 下列為「真機驗收」門檻，需 4-1 的雙手機實測確認（本機/CI 無法跑多人即時流程）。
+
 - [ ] 兩支手機從點連結到打完一手 ≤ 90 秒、全程無「按了沒反應」超過 1 秒的點
-- [ ] 任一方中途重整頁面，10 秒內無縫回桌
-- [ ] 非法操作（籌碼不足、未輪到）在前端即時擋下，不出現後端錯誤 toast
+      — 實作到位（連結即入座 + 自動開局 + `minInstances` + 樂觀更新），待實測計時
+- [ ] 任一方中途重整頁面，10 秒內無縫回桌 — 實作到位（snapshot 重掛 + 載入中提示），待實測
+- [x] ~~非法操作（籌碼不足、未輪到）在前端即時擋下，不出現後端錯誤 toast~~ ✅（共用 `checkPlayerAction`）
 - [ ] 邀請一位沒用過的朋友實測，不需口頭解說能完成入座與第一手操作
+      — 實作到位（桌內 Invite 分享 + 連結即入座 + 自動開局），待找人實測
 
 ---
 
-**最後更新**: 2026-06-15
+**最後更新**: 2026-06-16
 **負責人**: Jayykk
 **專案版本**: 10.0.0

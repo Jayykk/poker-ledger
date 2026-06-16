@@ -81,3 +81,38 @@ export function buildOnlineRoomConfig({ buyIn, smallBlind = 10, bigBlind = 20 } 
     turnTimeout: 30,
   };
 }
+
+/**
+ * Build the shareable web URL for a poker table (copy-link fallback outside
+ * LINE). Mirrors the hash-route the app uses: `<origin><base>#/poker-game/<id>`.
+ *
+ * @param {string} gameId - pokerGames doc id
+ * @param {string} [origin] - e.g. window.location.origin
+ * @param {string} [basePath] - e.g. import.meta.env.BASE_URL ('/poker-ledger/')
+ * @return {string} Full shareable URL
+ */
+export function buildPokerInviteUrl(gameId, origin = '', basePath = '/') {
+  const base = basePath.endsWith('/') ? basePath : `${basePath}/`;
+  return `${origin}${base}#/poker-game/${gameId}`;
+}
+
+/**
+ * Extract a pokerGames id from whatever a user pastes — a full invite link
+ * (LIFF or web) or a bare id. Online rooms use 20-char Firestore ids, not the
+ * 6-digit room codes the cash ledger uses, so callers must not assume a length.
+ *
+ * @param {string} input - Pasted link or id
+ * @return {?string} The extracted id, or null when nothing usable was given.
+ */
+export function parsePokerGameId(input) {
+  if (!input || typeof input !== 'string') return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  const marker = 'poker-game/';
+  const idx = trimmed.indexOf(marker);
+  const raw = idx >= 0 ? trimmed.slice(idx + marker.length) : trimmed;
+  // Stop at the first delimiter so trailing query/hash/path segments drop off.
+  const id = raw.split(/[/?#&\s]/)[0].trim();
+  return id || null;
+}

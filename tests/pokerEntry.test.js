@@ -7,6 +7,8 @@ import {
   shouldAutoStartFirstHand,
   resolveAutoSeat,
   buildOnlineRoomConfig,
+  buildPokerInviteUrl,
+  parsePokerGameId,
 } from '../src/utils/pokerEntry.js';
 
 /** Minimal pokerGames-shaped state. */
@@ -131,5 +133,44 @@ describe('buildOnlineRoomConfig', () => {
     const cfg = buildOnlineRoomConfig({ buyIn: 1500, smallBlind: 25, bigBlind: 50 });
     expect(cfg.smallBlind).toBe(25);
     expect(cfg.bigBlind).toBe(50);
+  });
+});
+
+describe('buildPokerInviteUrl', () => {
+  it('builds a hash route under the app base', () => {
+    expect(buildPokerInviteUrl('abc', 'https://x.com', '/poker-ledger/'))
+      .toBe('https://x.com/poker-ledger/#/poker-game/abc');
+  });
+
+  it('normalizes a base path missing its trailing slash', () => {
+    expect(buildPokerInviteUrl('abc', 'https://x.com', '/poker-ledger'))
+      .toBe('https://x.com/poker-ledger/#/poker-game/abc');
+  });
+
+  it('works with defaults (relative)', () => {
+    expect(buildPokerInviteUrl('abc')).toBe('/#/poker-game/abc');
+  });
+});
+
+describe('parsePokerGameId', () => {
+  it('extracts the id from a LIFF invite link', () => {
+    expect(parsePokerGameId('https://liff.line.me/123-xyz/poker-game/AbC123xyz?k=1'))
+      .toBe('AbC123xyz');
+  });
+
+  it('extracts the id from a web hash link', () => {
+    expect(parsePokerGameId('https://host/poker-ledger/#/poker-game/AbC123xyz'))
+      .toBe('AbC123xyz');
+  });
+
+  it('returns a bare id untouched', () => {
+    expect(parsePokerGameId('  AbC123xyz  ')).toBe('AbC123xyz');
+  });
+
+  it('returns null for empty / non-string input', () => {
+    expect(parsePokerGameId('')).toBeNull();
+    expect(parsePokerGameId('   ')).toBeNull();
+    expect(parsePokerGameId(null)).toBeNull();
+    expect(parsePokerGameId(undefined)).toBeNull();
   });
 });

@@ -775,6 +775,27 @@ const shareGameInvite = async (gameName, gameId, hostName, isTournament = false)
 };
 
 /**
+ * Share an online poker table invite via the LINE share target picker.
+ * The link opens straight into the table where the joiner is auto-seated.
+ */
+const sharePokerInvite = async (gameId, hostName) => {
+  if (!isInitialized.value) return false;
+  try {
+    const liffUrl = `https://liff.line.me/${LIFF_ID}/poker-game/${gameId}`;
+    const result = await liff.shareTargetPicker([
+      {
+        type: 'text',
+        text: `🃏 ${hostName || '朋友'} 開了一桌線上德州撲克！\n👉 點連結直接入座：${liffUrl}`,
+      },
+    ]);
+    return result !== undefined;
+  } catch (err) {
+    console.error('[LIFF] sharePokerInvite failed:', err);
+    return false;
+  }
+};
+
+/**
  * Close LIFF window (only works inside LINE client)
  */
 const closeLiff = () => {
@@ -811,6 +832,7 @@ export function useLiff() {
     sendDailySettlementMessage,
     sendDailyRankingMessage,
     shareGameInvite,
+    sharePokerInvite,
     closeLiff,
     toggleLineNotify,
   };

@@ -30,9 +30,13 @@
         <!-- Dropdown Menu (anchored to Top Bar) -->
         <Transition name="slide-down">
           <div v-if="menuOpen" class="dropdown-menu" role="menu" aria-label="Table actions">
-            <button 
+            <button @click="handleShareInvite" class="menu-item" role="menuitem">
+              <span class="menu-icon">🔗</span>
+              <span>Invite Players</span>
+            </button>
+            <button
               v-if="mySeat && (currentGame.status === 'playing' || currentGame.status === 'waiting')"
-              @click="handleLeaveSeat" 
+              @click="handleLeaveSeat"
               class="menu-item"
               :class="{ 'menu-item-pending': isPendingLeave }"
               role="menuitem"
@@ -143,6 +147,12 @@
       <!-- Bottom Bar (15vh) - Action Buttons (rendered inside PokerTable) -->
     </div>
 
+    <!-- Loading / reconnect state (e.g. after a page refresh) -->
+    <div v-else class="loading-screen">
+      <div class="spinner"></div>
+      <p>Loading table…</p>
+    </div>
+
     <!-- AFK Pause Overlay -->
     <Transition name="fade">
       <div v-if="isPaused" class="pause-overlay">
@@ -169,6 +179,16 @@
       </div>
     </Transition>
 
+    <!-- Waiting-for-players invite prompt (host nudge before 2nd player joins) -->
+    <Transition name="slide-up">
+      <div v-if="showInvitePrompt" class="invite-prompt">
+        <span class="invite-text">Waiting for players…</span>
+        <button type="button" class="invite-share-btn" @click="handleShareInvite">
+          🔗 Share invite link
+        </button>
+      </div>
+    </Transition>
+
     <!-- Auto-Start Countdown Overlay -->
     <Transition name="fade">
       <GameOverlay v-if="showAutoStartCountdown && !isRunoutPlaying">
@@ -192,9 +212,11 @@ import { useRoute, useRouter } from 'vue-router';
 import { usePokerGame } from '../composables/usePokerGame.js';
 import { usePokerStore } from '../store/modules/poker.js';
 import { useAuthStore } from '../store/modules/auth.js';
-import { shouldAutoStartFirstHand, resolveAutoSeat } from '../utils/pokerEntry.js';
+import { shouldAutoStartFirstHand, resolveAutoSeat, buildPokerInviteUrl } from '../utils/pokerEntry.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
+import { useLiff } from '../composables/useLiff.js';
+import { copyToClipboard } from '../utils/formatters.js';
 import PokerTable from '../components/game/PokerTable.vue';
 import GameOverlay from '../components/game/GameOverlay.vue';
 import BaseModal from '../components/common/BaseModal.vue';
@@ -205,6 +227,7 @@ const pokerStore = usePokerStore();
 const authStore = useAuthStore();
 const { success } = useNotification();
 const { confirm } = useConfirm();
+const { isInLineClient, sharePokerInvite } = useLiff();
 
 // Import error notification
 const { error: showError } = useNotification();
@@ -231,6 +254,11 @@ const hasEnoughPlayers = computed(() => {
   const seats = currentGame.value?.seats || {};
   return Object.values(seats).filter(s => s !== null).length >= 2;
 });
+
+// Nudge the host to invite while seated and still waiting for a 2nd player.
+const showInvitePrompt = computed(() =>
+  currentGame.value?.status === 'waiting' && !!mySeat.value && !hasEnoughPlayers.value,
+);
 
 // Pause state
 const isPaused = computed(() => currentGame.value?.status === 'paused');
@@ -507,6 +535,29 @@ const handleStartGame = async () => {
     }
   } finally {
     isStarting.value = false;
+  }
+};
+
+const handleShareInvite = async () => {
+  closeMenu();
+  const hostName = mySeat.value?.odName || authStore.user?.displayName || '朋友';
+
+  // Inside LINE: native share sheet, link opens straight into the table.
+  if (isInLineClient.value) {
+    const shared = await sharePokerInvite(gameId.value, hostName);
+    if (shared) {
+      success('Invite sent');
+      return;
+    }
+  }
+
+  // Anywhere else (or if the LINE share was dismissed): copy the web link.
+  const url = buildPokerInviteUrl(gameId.value, window.location.origin, import.meta.env.BASE_URL);
+  const copied = await copyToClipboard(url);
+  if (copied) {
+    success('Invite link copied — send it to your friends');
+  } else {
+    showError('Could not copy the link');
   }
 };
 
@@ -921,6 +972,48 @@ const goBack = () => {
 .slide-up-leave-to {
   opacity: 0;
   transform: translateX(-50%) translateY(20px);
+}
+
+/* Waiting-for-players invite prompt */
+.invite-prompt {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  border-radius: 9999px;
+  padding: 10px 14px 10px 20px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  z-index: 998;
+  max-width: calc(100vw - 32px);
+}
+
+.invite-text {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.invite-share-btn {
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border: none;
+  border-radius: 9999px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.invite-share-btn:hover {
+  transform: scale(1.03);
+  box-shadow: 0 4px 14px rgba(76, 175, 80, 0.45);
 }
 
 /* Auto-Start Countdown Overlay */
