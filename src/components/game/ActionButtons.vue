@@ -295,7 +295,9 @@ const confirmRaise = () => {
 .main-buttons {
   display: flex;
   gap: 10px;
-  align-items: center;
+  /* Stretch so CALL (icon + label + amount) doesn't end up taller than the
+     two-line RAISE/FOLD buttons — all buttons match the tallest one. */
+  align-items: stretch;
   width: 100%;
   max-width: 600px;
   justify-content: center;
