@@ -5,10 +5,12 @@
 
 import { watch, ref } from 'vue';
 import { usePokerGame } from './usePokerGame.js';
+import { usePokerSound } from './usePokerSound.js';
 import { logger } from "../utils/logger.js";
 
 export function useGameAnimations() {
   const { currentGame, communityCards } = usePokerGame();
+  const { playPokerSound } = usePokerSound();
   
   const isRevealingCards = ref(false);
   const isShowdownActive = ref(false);
@@ -92,11 +94,8 @@ export function useGameAnimations() {
   }
 
   function playSound(soundName) {
-    // Implement sound playing (can be enhanced with actual audio files)
     logger.debug(`🔊 Playing sound: ${soundName}`);
-    // TODO: Add actual audio playback
-    // const audio = new Audio(`/sounds/${soundName}.mp3`);
-    // audio.play().catch(() => {});
+    playPokerSound(soundName);
   }
 
   return {

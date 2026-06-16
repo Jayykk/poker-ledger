@@ -34,6 +34,10 @@
               <span class="menu-icon">🔗</span>
               <span>Invite Players</span>
             </button>
+            <button @click="handleToggleSound" class="menu-item" role="menuitem">
+              <span class="menu-icon">{{ soundMuted ? '🔇' : '🔊' }}</span>
+              <span>{{ soundMuted ? 'Sound Off' : 'Sound On' }}</span>
+            </button>
             <button
               v-if="mySeat && (currentGame.status === 'playing' || currentGame.status === 'waiting')"
               @click="handleLeaveSeat"
@@ -216,6 +220,7 @@ import { shouldAutoStartFirstHand, resolveAutoSeat, buildPokerInviteUrl } from '
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import { useLiff } from '../composables/useLiff.js';
+import { usePokerSound } from '../composables/usePokerSound.js';
 import { copyToClipboard } from '../utils/formatters.js';
 import PokerTable from '../components/game/PokerTable.vue';
 import GameOverlay from '../components/game/GameOverlay.vue';
@@ -228,6 +233,7 @@ const authStore = useAuthStore();
 const { success } = useNotification();
 const { confirm } = useConfirm();
 const { isInLineClient, sharePokerInvite } = useLiff();
+const { notifyMyTurn, toggleMuted, muted: soundMuted, unlock: unlockSound } = usePokerSound();
 
 // Import error notification
 const { error: showError } = useNotification();
@@ -241,6 +247,7 @@ const {
   joinSeat,
   leaveSeat,
   mySeat,
+  isMyTurn,
 } = usePokerGame();
 
 const isCreator = computed(() => {
@@ -312,6 +319,7 @@ const beginAutoStartCountdown = () => {
 };
 
 const toggleMenu = () => {
+  unlockSound(); // tap = user gesture; unlock iOS audio so turn cues can play
   menuOpen.value = !menuOpen.value;
 };
 
@@ -406,6 +414,20 @@ watch(() => [currentGame.value, authStore.user?.uid], () => {
     console.error('Auto-seat failed; manual seat selection available:', err);
   });
 }, { immediate: true });
+
+// "It's your turn" cue — sound + haptic the moment the turn passes to me.
+watch(isMyTurn, (mine, wasMine) => {
+  if (mine && !wasMine && currentGame.value?.status === 'playing') {
+    notifyMyTurn();
+  }
+});
+
+const handleToggleSound = () => {
+  unlockSound(); // this tap is a user gesture — good moment to unlock iOS audio
+  toggleMuted();
+  success(soundMuted.value ? 'Sound off' : 'Sound on');
+  closeMenu();
+};
 
 onMounted(async () => {
   const id = route.params.gameId;
