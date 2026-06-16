@@ -126,9 +126,9 @@
   CashTableEditView 1147→618 行（抽出 BasicInfoForm / SettlementCorrectionEditor /
   VersionHistoryPanel）；DealerClockDisplay 1084→280 行（抽出 Header / StatsPanel /
   CenterPanel / PayoutsPanel）
-- [ ] **拆分其餘大檔案 → 併入 P4**：`PokerTable.vue`（879）、`PokerGame.vue`（832）、
-  `LobbyView.vue`（796）、`poker.js` store 屬於 P4 線上德撲狀態層重構範圍（見 4-4），
-  現在機械拆分會跟 P4 重工；`useLiff.js`（749）、`game.js` store（767）視需要另行處理
+- [ ] **拆分其餘大檔案**（`PokerTable.vue` / `PokerGame.vue` / `LobbyView.vue` / `useLiff.js` / `game.js` store）：
+  P4 功能已完成（見 4-4），機械式拆分純屬可讀性、且無法在本機多人實測下驗證回歸，
+  判斷留待「有真機測試窗口」時再做，不盲拆。
 - [ ] **統一後端錯誤處理（續）**：`Game not found` 與 `validateGameStart` 已改
   `createGameError`；其餘 `new Error()`（room.js / chat.js / transaction.js 與部分
   game 流程錯誤）仍待全面換成錯誤碼
@@ -166,11 +166,11 @@
 > 「開桌到打完第一手」做到跟記帳功能一樣順。
 
 #### 4-1. 現況問題盤點（動工前先做，避免重構錯方向）
-- [ ] UX Audit：兩支手機實測完整流程，記錄每一步的點擊數、等待秒數、卡住的點
-      （建房 → 入座 → 買入 → 開局 → 每手操作 → 結算）
-- [ ] 列出放棄當時的具體痛點清單（哪一步「奇怪」：入座流程？輪到誰不明顯？按了沒反應？）
-- [ ] 量測 Cloud Functions 延遲：每個玩家操作都走 callable（`pokerPlayerAction`），
-      冷啟動 + 來回延遲是「按了沒反應」的最大嫌疑
+- [x] ~~程式碼層架構盤點~~ ✅ 2026-06-15：完整盤點前後端線上德撲架構，定位痛點根因：
+  建房不自動入座、連結不自動入座、第一手要手動、無桌內分享、加入用錯 6 碼驗證、`playSound` 是 no-op、
+  callable 無 `minInstances` 冷啟動、前端無共用驗證。以上皆已於 4-2/4-3/4-4 修掉。
+- [ ] **兩支手機實測 UX Audit**（需實機，無法在本機/CI 進行）：記錄每步點擊數、等待秒數、卡住點，
+      量測 `pokerPlayerAction` 實際延遲（暖機後）。建議在 4-5 驗收時一併完成。
 
 #### 4-2. 入口流程重設計 — 對齊記帳的順暢度
 - [x] ~~**一鍵開桌**：建房即自動入座（房主），砍掉 建房→找房→選座→買入 的多步驟~~ ✅ 2026-06-15：
@@ -198,9 +198,12 @@
   - 註：線上房尚未併入「我的房間」清單（pokerGames 與 games 不同 collection，資料層整併另計）
 
 #### 4-3. 操作體驗 — 消滅「按了沒反應」
-- [ ] **樂觀更新全覆蓋**：操作立即在 UI 反映為「待確認」狀態，後端確認落定、失敗回滾
-      （目前部分有做，需要系統化到所有操作）
-- [ ] **預先操作（act-ahead）**：未輪到時可預選 Fold / Check-Fold / Call Any，輪到自動送出
+- [x] ~~**樂觀更新全覆蓋**：操作立即在 UI 反映為「待確認」狀態，後端確認落定、失敗回滾~~ ✅ 2026-06-16：
+  - 主要動作（fold/check/call/raise/all-in）走 `performOptimisticAction`：即時音效 + 鎖按鈕 + 背景送出 + 失敗回捲；
+    all-in 另把籌碼即時移入底池避免「先卡後跳」；座位入座補上成功/失敗 toast。snapshot 永遠為最終真相
+- [x] ~~**預先操作（act-ahead）**：未輪到時可預選 Fold / Check-Fold / Call Any，輪到自動送出~~ ✅ 2026-06-16：
+  - 純函式 `resolvePreAction()` 依面對的下注把預選對應到實際動作（check-fold 只在面對下注時棄牌、call-any 無注時改過牌）；
+    `ActionButtons` 在非自己回合顯示預選列，`PokerTable` 持有選擇、輪到即自動送出、新一手/失格時清除。已測
 - [x] ~~**延遲優化**：`pokerPlayerAction` 等高頻 callable 設 `minInstances` 消冷啟動；
       前端先跑 `actionValidator` 同款驗證（共用驗證邏輯包）即時擋非法操作，不等後端報錯~~ ✅ 2026-06-15：
   - `actionValidator.js` 抽出純函式 `checkPlayerAction()`（回傳 verdict，不丟例外），
@@ -210,18 +213,33 @@
   - `pokerPlayerAction` / `startPokerHand` 套用 `minInstances`（可由 `POKER_ACTION_MIN_INSTANCES`
     環境變數覆寫，預設 1，設 0 可省成本；見 `functions/.env.example`）
   - 測試：`tests/functions/actionValidator.test.js` 補 `checkPlayerAction` verdict 合約 + 與丟例外版本一致性
-- [ ] **輪到誰一目了然**：當前行動者高亮 + 倒數圈 + 震動/音效提示（重用錦標賽音效系統）
+- [x] ~~**輪到誰一目了然**：當前行動者高亮 + 倒數圈 + 震動/音效提示（重用錦標賽音效系統）~~ ✅ 2026-06-16：
+  - 高亮（金色脈動邊框）+ 倒數圈（`TurnTimer`）原本就有；補上「輪到你」音效 + 震動：
+    新 `usePokerSound`（Web Audio，與錦標賽共用同一 AudioContext，原本 `playSound` 是 no-op／完全沒聲音），
+    `notifyMyTurn()` 在回合輪到時播放雙嗶 + `navigator.vibrate`；牌桌選單可開關音效（localStorage 記憶）
 - [x] ~~**斷線重連**：重新整理/切 app 回來無縫回桌恢復狀態（snapshot 驅動 + 本地動畫狀態重建）~~ ✅ 2026-06-16：
   - 路由帶 gameId、`PokerGame` onMounted 重新 `joinGame()` 掛回 snapshot + private 監聽，狀態由 snapshot 還原；
     新增載入中 spinner（避免重整後空白）。深層的「動畫狀態重播」仍屬 4-4 範圍
 
 #### 4-4. 前端狀態層重構（配合 4-3 的地基）
-- [ ] `poker.js` store + `PokerGame.vue`（832 行）+ `PokerTable.vue`（879 行）狀態流重整：
-      UI 純由 Firestore snapshot 單向驅動，操作只發指令不直接改狀態
-- [ ] **動畫與狀態解耦**：動畫佇列消化狀態變化（快速連續更新不跳格、不閃爍），
-      整併 `useGameAnimation` / `useGameAnimations` / `useShowdownAnimation`
-      （2026-06-15：已刪除從未被引用的 dead code `useShowdownAnimation.js`，整併待後續）
-- [ ] 先執行 `migrate_entries_to_events.js`，事件統一走 events 子集合（動畫佇列的資料來源）
+- [x] ~~`poker.js` store + `PokerGame.vue` + `PokerTable.vue` 狀態流重整：
+      UI 純由 Firestore snapshot 單向驅動，操作只發指令不直接改狀態~~ ✅ 2026-06-16（確認 + 收斂）：
+  - `store/modules/poker.js` 早已是單一真相：`onSnapshot` → `currentGame`，所有 UI 由其衍生；
+    操作只發 callable。唯一的本地寫入是 all-in 的樂觀橋接（移籌碼進底池避免跳動），下一個 snapshot 即覆蓋、
+    snapshot 永遠權威——屬刻意的樂觀 overlay（4-3），予以保留。
+  - 大檔案機械式拆分（PokerTable/PokerGame/LobbyView）風險高且無法在本機多人實測下驗證回歸，
+    判斷為「功能完成後、有真機測試窗口時再做」的低風險窗口工作，不在本批盲拆。
+- [x] ~~**動畫與狀態解耦**：動畫佇列消化狀態變化（快速連續更新不跳格、不閃爍），
+      整併 `useGameAnimation` / `useGameAnimations` / `useShowdownAnimation`~~ ✅ 2026-06-16：
+  - 新增純函式序列佇列 `createAnimationQueue()`（序列消化、可清空、單步失敗不卡死，已測）；
+    `useGameAnimations` 改用它統一播放牌面提示音，並對「一次跳多張」（all-in runout 0→5）穩健：
+    依新增張數補齊 flop/turn/river 提示音（舊的精確 count 轉移會整段漏掉）。
+  - 整併：`useShowdownAnimation.js`（dead code）已刪；音效統一由 `usePokerSound` owns，`useGameAnimations` 為唯一觸發點，
+    `useGameAnimation`（純發牌翻牌時序 helper，CommunityCards 使用）保留其單一職責
+- [ ] **先執行 `migrate_entries_to_events.js`**（維護者手動步驟，需 production service account；本機/CI 無憑證無法執行）：
+  - 現況：**即時對局**的事件後端已即時寫入 `events` 子集合（`functions/src/lib/events.js`，動作/亮牌/旁觀），
+    動畫佇列的資料來源已就緒；此遷移只針對**歷史舊資料**（把舊 `hands[].actions` 等陣列搬進 events），不影響新流程
+  - 待維護者執行：先 `--dry-run` 驗證，確認後 `--delete-old`
 
 #### 4-5. 驗收標準（重構完成的定義）
 

@@ -100,6 +100,10 @@
           class="buy-in-input"
           @keyup.enter="handleBuyInConfirm"
         />
+        <p v-if="currentGame?.meta" class="buy-in-hint">
+          Blinds {{ currentGame.meta.blinds?.small }}/{{ currentGame.meta.blinds?.big }}
+          · Buy-in {{ currentGame.meta.minBuyIn }}–{{ currentGame.meta.maxBuyIn }}
+        </p>
         <div class="modal-actions">
           <button @click="handleBuyInConfirm" class="btn-confirm">
             Join
@@ -131,7 +135,7 @@ import ChipAnimation from './ChipAnimation.vue';
 const emit = defineEmits(['animation-start', 'animation-end']);
 
 const authStore = useAuthStore();
-const { error: showError } = useNotification();
+const { success, error: showError } = useNotification();
 
 // Initialize game animations
 const { isRevealingCards, isShowdownActive } = useGameAnimations();
@@ -743,7 +747,8 @@ const isMySeat = (seatNum) => {
 
 const showBuyInModal = (seatNumber) => {
   selectedSeatNumber.value = seatNumber;
-  buyInAmount.value = String(DEFAULT_BUY_IN); // Reset to default
+  // Default to the room's max buy-in (full stack) so the common case is one tap.
+  buyInAmount.value = String(currentGame.value?.meta?.maxBuyIn || DEFAULT_BUY_IN);
   showBuyInModalDialog.value = true;
 };
 
@@ -761,8 +766,10 @@ const handleBuyInConfirm = async () => {
 const handleJoinSeat = async (seatNumber, buyIn) => {
   try {
     await joinSeat(currentGame.value.id, seatNumber, buyIn);
+    success('You took a seat');
   } catch (error) {
     console.error('Failed to join seat:', error);
+    showError('Could not take that seat');
   }
 };
 
@@ -989,6 +996,12 @@ const handleAutoAction = (action) => {
 .buy-in-input:focus {
   outline: none;
   border-color: #4CAF50;
+}
+
+.buy-in-hint {
+  margin: -8px 0 16px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .modal-actions {
