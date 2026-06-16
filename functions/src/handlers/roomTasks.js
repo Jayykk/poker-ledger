@@ -2,13 +2,12 @@
  * Room-related Cloud Task HTTP handlers
  */
 
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
 import { createPokerHttpTask } from '../utils/cloudTasks.js';
 import { ROOM_IDLE_TIMEOUT_SECONDS as IDLE_TIMEOUT_SECONDS } from '../utils/config.js';
+import { evaluateRoomClose, settleAndCloseRoom } from './roomLifecycle.js';
 const RESCHEDULE_CHECK_SECONDS = 10 * 60; // if playing, re-check periodically
 const MAX_PLAYING_RESCHEDULES = 3;
-
-const DEFAULT_BUY_IN = 1000;
 
 /**
  * Parse JSON body from request.
@@ -96,118 +95,9 @@ export async function handleRoomAutoCloseHttp(req, res) {
         };
       }
 
-      // ===== READ PHASE (for settlement/history) =====
-      const seatsObj = game.seats || {};
-      const seatedPlayers = Object.values(seatsObj).filter((seat) => seat !== null);
-      const isAlreadySettled = game.status === 'completed';
-
-      // Pre-read user docs BEFORE any writes.
-      const userRefs = seatedPlayers.map((player) => (
-        db.collection('users').doc(player.odId)
-      ));
-      const userDocs = isAlreadySettled ? [] : await Promise.all(
-        userRefs.map((ref) => transaction.get(ref)),
-      );
-
-      // ===== COMPUTE PHASE =====
-      const settlement = seatedPlayers.map((p) => {
-        const initialBuyIn = p.initialBuyIn || game.meta?.minBuyIn || DEFAULT_BUY_IN;
-        const chips = Number(p.chips) || 0;
-        return {
-          odId: p.odId,
-          name: p.odName,
-          buyIn: initialBuyIn,
-          stack: chips,
-          profit: chips - initialBuyIn,
-        };
-      });
-
-      // user history record format aligned with settlePokerGame
-      const baseRecord = {
-        date: new Date().toISOString(),
-        createdAt: Date.now(),
-        rate: 1,
-        gameName: `Poker Game #${String(gameId).slice(0, 8)}`,
-        gameType: 'online_poker',
-        settlement,
-        autoClosed: true,
-        closedReason: 'idle_timeout',
-      };
-
-      const perUserRecords = settlement.reduce((acc, s) => {
-        acc[s.odId] = {
-          ...baseRecord,
-          profit: s.profit,
-        };
-        return acc;
-      }, {});
-
-      // ===== WRITE PHASE =====
-      // 1) Archive a room-level history snapshot
-      const historyRef = gameRef.collection('history').doc();
-      transaction.set(historyRef, {
-        type: 'room_close',
-        reason: 'idle_timeout',
-        gameId,
-        statusAtClose: game.status,
-        meta: {
-          mode: game.meta?.mode || null,
-          blinds: game.meta?.blinds || null,
-          createdAt: game.meta?.createdAt || null,
-          lastActivityAt: game.meta?.lastActivityAt || null,
-          createdBy: game.meta?.createdBy || null,
-        },
-        seatedCount: seatedPlayers.length,
-        settlement,
-        table: {
-          pot: game.table?.pot || 0,
-          currentRound: game.table?.currentRound || null,
-          stage: game.table?.stage || null,
-        },
-        archivedAt: FieldValue.serverTimestamp(),
-      });
-
-      // 2) Auto-settle users (only if not already settled)
-      if (!isAlreadySettled) {
-        userDocs.forEach((docSnap, index) => {
-          const ref = userRefs[index];
-          const userId = ref.id;
-          const record = perUserRecords[userId];
-          if (!record) return;
-
-          if (docSnap.exists) {
-            transaction.update(ref, {
-              history: FieldValue.arrayUnion(record),
-            });
-          } else {
-            transaction.set(ref, {
-              history: [record],
-              createdAt: Date.now(),
-            }, { merge: true });
-          }
-        });
-      }
-
-      // Avoid closing mid-hand; re-check later.
-      if (game.status === 'playing') {
-        if (playingChecks >= MAX_PLAYING_RESCHEDULES) {
-          transaction.update(gameRef, {
-            'status': 'closed',
-            'meta.closedAt': FieldValue.serverTimestamp(),
-            'meta.closedReason': 'idle_timeout',
-          });
-
-          return {
-            closed: true,
-            forcedCloseWhilePlaying: true,
-            idleSeconds,
-            playingChecks,
-            archivedHistory: true,
-            archivedHistoryId: historyRef.id,
-            autoSettled: !isAlreadySettled,
-          };
-        }
-
+      // Avoid closing mid-hand; re-check later (no writes on reschedule, so we
+      // never settle a room more than once).
+      if (game.status === 'playing' && playingChecks < MAX_PLAYING_RESCHEDULES) {
         return {
           reschedule: true,
           delaySeconds: RESCHEDULE_CHECK_SECONDS,
@@ -218,18 +108,19 @@ export async function handleRoomAutoCloseHttp(req, res) {
         };
       }
 
-      transaction.update(gameRef, {
-        'status': 'closed',
-        'meta.closedAt': FieldValue.serverTimestamp(),
-        'meta.closedReason': 'idle_timeout',
+      // Settle + archive + close (shared with the periodic sweep).
+      const closeResult = await settleAndCloseRoom({
+        transaction, db, gameRef, game, gameId, reason: 'idle_timeout',
       });
 
       return {
         closed: true,
+        forcedCloseWhilePlaying: game.status === 'playing',
         idleSeconds,
+        playingChecks,
         archivedHistory: true,
-        archivedHistoryId: historyRef.id,
-        autoSettled: !isAlreadySettled,
+        archivedHistoryId: closeResult.archivedHistoryId,
+        autoSettled: closeResult.autoSettled,
       };
     });
 
@@ -274,4 +165,68 @@ export async function handleRoomAutoCloseHttp(req, res) {
       error: error?.message ?? String(error),
     });
   }
+}
+
+/**
+ * Periodic sweep: the safety net behind the per-room Cloud Tasks.
+ *
+ * The per-room auto-close task can be lost (queue/region/signature changes, an
+ * emulator restart, a deploy gap), leaving a room idle forever — exactly the
+ * "orphan room" symptom. This sweep does not depend on any pre-scheduled task:
+ * it scans open rooms on a fixed cron and closes whatever is genuinely idle
+ * (including single-occupant "squatting" tables). It is also what reclaims
+ * legacy rooms that predate the task pipeline.
+ *
+ * Each room is processed in its own transaction so one failure can't abort the
+ * rest of the batch.
+ *
+ * @param {Object} [opts]
+ * @param {number} [opts.nowMs] - Override "now" (for tests)
+ * @param {number} [opts.idleTimeoutSeconds] - Idle threshold override (for tests)
+ * @return {Promise<{scanned:number, closed:number, errors:number}>}
+ */
+export async function sweepIdleRooms(opts = {}) {
+  const db = getFirestore();
+  const nowMs = Number.isFinite(opts.nowMs) ? opts.nowMs : Date.now();
+
+  const snapshot = await db
+    .collection('pokerGames')
+    .where('status', 'in', ['waiting', 'playing'])
+    .get();
+
+  let closed = 0;
+  let errors = 0;
+
+  for (const docSnap of snapshot.docs) {
+    const gameId = docSnap.id;
+    const gameRef = docSnap.ref;
+    try {
+      const result = await db.runTransaction(async (transaction) => {
+        const fresh = await transaction.get(gameRef);
+        if (!fresh.exists) return { skipped: 'gone' };
+        const game = fresh.data();
+
+        const verdict = evaluateRoomClose(game, nowMs, {
+          idleTimeoutSeconds: opts.idleTimeoutSeconds,
+        });
+        if (!verdict.close) return { skipped: 'not_idle', idleSeconds: verdict.idleSeconds };
+
+        return settleAndCloseRoom({
+          transaction, db, gameRef, game, gameId, reason: verdict.reason,
+        });
+      });
+
+      if (result?.closed) {
+        closed += 1;
+        console.log(`Sweep closed room ${gameId} (${result.seatedCount} seated)`);
+      }
+    } catch (error) {
+      errors += 1;
+      console.error(`Sweep failed for room ${gameId}:`, error?.message || error);
+    }
+  }
+
+  const summary = { scanned: snapshot.size, closed, errors };
+  console.log('Room sweep complete:', summary);
+  return summary;
 }

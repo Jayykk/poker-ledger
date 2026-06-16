@@ -63,18 +63,9 @@ export async function handleTurnTimeoutHttp(req, res) {
 
       const actionRound = game.table.currentRound;
 
-      // Track consecutive auto-actions (timeouts). Manual player actions reset this counter.
+      // Track consecutive auto-actions (telemetry only; surfaced in the result).
       const consecutiveAutoActions = (game.table.consecutiveAutoActions || 0) + 1;
       game.table.consecutiveAutoActions = consecutiveAutoActions;
-
-      // AFK protection (no auto-pause): if every player has timed out consecutively,
-      // disable auto-next so the next hand requires a manual start.
-      const playerCount = Object.values(game.seats)
-        .filter((s) => s && s.status !== 'folded' && s.status !== 'sitting_out').length;
-      if (playerCount > 0 && consecutiveAutoActions >= playerCount) {
-        game.table.isAutoNext = false;
-        game.table.autoNextDisabledReason = 'afk_protection';
-      }
 
       // Auto action on timeout:
       // - If there's a bet to call, fold
@@ -86,6 +77,26 @@ export async function handleTurnTimeoutHttp(req, res) {
       const timeoutAction = toCall <= 0 ? 'check' : 'fold';
 
       game = processAction(game, currentPlayerId, timeoutAction, 0);
+
+      // Per-player AFK strikes. A single timeout just folds the hand and the game
+      // auto-continues (no manual restart needed). TWO consecutive timeouts flag
+      // the player for removal from the table (`afkOut`): they are cashed out and
+      // their seat is freed the moment the current hand resolves (see
+      // purgeAfkOutSeats, called from startHand / handleLastManStanding). We do
+      // NOT touch their status here — keeping them `folded` preserves their dead
+      // money in the side-pot math for the rest of this hand. A manual action
+      // resets the streak (see gameActions.handlePlayerAction).
+      const struckEntry = Object.entries(game.seats)
+        .find(([, s]) => s && s.odId === currentPlayerId);
+      if (struckEntry) {
+        const [struckNum, struckSeat] = struckEntry;
+        const afkStrikes = (struckSeat.afkStrikes || 0) + 1;
+        game.seats[struckNum] = {
+          ...struckSeat,
+          afkStrikes,
+          ...(afkStrikes >= 2 ? { afkOut: true } : {}),
+        };
+      }
 
       // ✅ Pre-Read Pattern: if this timeout action results in a single active player,
       // prefetch snapshots needed by handleLastManStanding BEFORE any transaction writes.

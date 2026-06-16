@@ -31,6 +31,16 @@ export function initializeHand(game) {
     deck,
   };
 
+  // Capture who was already in the game LAST hand (before the reset below).
+  // Only these players are eligible for the dealer button, so a freshly-seated
+  // player can't enter directly on the button / a positionally strong spot.
+  // New entrants (waiting_for_hand) still post blinds normally when it's their
+  // turn in the rotation.
+  const buttonEligibleSeats = Object.entries(game.seats)
+    .filter(([, seat]) => seat && (seat.chips > 0) &&
+      seat.status !== 'waiting_for_hand' && seat.status !== 'sitting_out')
+    .map(([num]) => parseInt(num, 10));
+
   // Reset all seats
   const seats = { ...game.seats };
   Object.keys(seats).forEach((seatNum) => {
@@ -70,9 +80,15 @@ export function initializeHand(game) {
     throw new Error('Not enough players to start hand');
   }
 
-  // Find next dealer position
+  // Prefer rotating the button only among returning players. Fall back to all
+  // active players when the table is effectively brand new (fewer than 2
+  // returning), since the button has to go somewhere.
+  const buttonEligible = buttonEligibleSeats.filter((n) => activePlayers.includes(n));
+  const dealerPool = buttonEligible.length >= 2 ? buttonEligible : activePlayers;
+
+  // Find next dealer position among button-eligible seats
   let dealerSeat = (game.table.dealerSeat + 1) % game.meta.maxPlayers;
-  while (!activePlayers.includes(dealerSeat)) {
+  while (!dealerPool.includes(dealerSeat)) {
     dealerSeat = (dealerSeat + 1) % game.meta.maxPlayers;
   }
 

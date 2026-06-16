@@ -6,6 +6,7 @@
 import { initializeApp } from 'firebase-admin/app';
 import { onCall, HttpsError, onRequest } from 'firebase-functions/v2/https';
 import { onDocumentUpdated, onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { createRoom, joinSeat, leaveSeat, getRoom, deleteRoom, joinAsSpectator, leaveSpectator } from './handlers/room.js';
 import {
   startHand,
@@ -34,6 +35,7 @@ import {
 } from './handlers/handTasks.js';
 import {
   handleRoomAutoCloseHttp,
+  sweepIdleRooms,
 } from './handlers/roomTasks.js';
 import { requireSignedTask } from './utils/taskAuth.js';
 import { POKER_ACTION_MIN_INSTANCES } from './utils/config.js';
@@ -547,6 +549,21 @@ export const handleStartNextHand = onRequest(
 export const handleRoomAutoClose = onRequest(
   { cors: true, region: 'us-central1' },
   requireSignedTask(handleRoomAutoCloseHttp),
+);
+
+/**
+ * Periodic safety-net sweep for idle / abandoned rooms.
+ *
+ * The per-room auto-close Cloud Task is best-effort and can be lost; this cron
+ * guarantees idle and single-occupant ("squatting") rooms always get closed,
+ * and reclaims legacy orphan rooms that predate the task pipeline. Runs every
+ * 15 minutes — well under the 60-minute idle threshold.
+ */
+export const handleRoomSweep = onSchedule(
+  { schedule: 'every 15 minutes', region: 'us-central1', timeoutSeconds: 300 },
+  async () => {
+    await sweepIdleRooms();
+  },
 );
 
 // ============================================
