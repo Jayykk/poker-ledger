@@ -79,6 +79,8 @@
         :my-chips="myChips"
         :is-my-turn="isMyTurn"
         :actions-disabled="actionsDisabled"
+        :can-pre-act="canPreAct"
+        v-model:pre-action="preAction"
         @fold="handleFold"
         @check="handleCheck"
         @call="handleCall"
@@ -98,6 +100,10 @@
           class="buy-in-input"
           @keyup.enter="handleBuyInConfirm"
         />
+        <p v-if="currentGame?.meta" class="buy-in-hint">
+          Blinds {{ currentGame.meta.blinds?.small }}/{{ currentGame.meta.blinds?.big }}
+          · Buy-in {{ currentGame.meta.minBuyIn }}–{{ currentGame.meta.maxBuyIn }}
+        </p>
         <div class="modal-actions">
           <button @click="handleBuyInConfirm" class="btn-confirm">
             Join
@@ -116,6 +122,7 @@ import { computed, ref, provide, watch, onUnmounted, nextTick } from 'vue';
 import { usePokerGame } from '../../composables/usePokerGame.js';
 import { useGameActions } from '../../composables/useGameActions.js';
 import { useGameAnimations } from '../../composables/useGameAnimations.js';
+import { resolvePreAction } from '../../utils/pokerEntry.js';
 import { useAuthStore } from '../../store/modules/auth.js';
 import { useNotification } from '../../composables/useNotification.js';
 import CommunityCards from './CommunityCards.vue';
@@ -128,7 +135,7 @@ import ChipAnimation from './ChipAnimation.vue';
 const emit = defineEmits(['animation-start', 'animation-end']);
 
 const authStore = useAuthStore();
-const { error: showError } = useNotification();
+const { success, error: showError } = useNotification();
 
 // Initialize game animations
 const { isRevealingCards, isShowdownActive } = useGameAnimations();
@@ -698,6 +705,33 @@ const canStartHand = computed(() => {
   return isCreator && isWaiting && hasPlayers;
 });
 
+// Act-ahead: a seated, active player can pre-select an action while waiting.
+const canPreAct = computed(() => {
+  if (currentGame.value?.status !== 'playing') return false;
+  if (mySeatNumber.value === null) return false;
+  const seat = seats.value[mySeatNumber.value];
+  if (!seat) return false;
+  return seat.status === 'active' || seat.status === 'playing';
+});
+
+// The player's pending pre-action ('' when none). Cleared after it fires or on
+// a new hand.
+const preAction = ref('');
+
+// Auto-submit the pre-action the instant the turn reaches me.
+watch(isMyTurn, (mine) => {
+  if (!mine || !preAction.value) return;
+  const action = resolvePreAction(currentGame.value, authStore.user?.uid, preAction.value);
+  preAction.value = '';
+  if (action === 'fold') handleFold();
+  else if (action === 'check') handleCheck();
+  else if (action === 'call') handleCall();
+});
+
+// Drop a stale pre-action when a new hand starts or I'm no longer eligible.
+watch(() => currentGame.value?.handNumber, () => { preAction.value = ''; });
+watch(canPreAct, (ok) => { if (!ok) preAction.value = ''; });
+
 // Methods
 const isCurrentTurn = (seatNum) => {
   const seat = seats.value[seatNum];
@@ -713,7 +747,8 @@ const isMySeat = (seatNum) => {
 
 const showBuyInModal = (seatNumber) => {
   selectedSeatNumber.value = seatNumber;
-  buyInAmount.value = String(DEFAULT_BUY_IN); // Reset to default
+  // Default to the room's max buy-in (full stack) so the common case is one tap.
+  buyInAmount.value = String(currentGame.value?.meta?.maxBuyIn || DEFAULT_BUY_IN);
   showBuyInModalDialog.value = true;
 };
 
@@ -731,8 +766,10 @@ const handleBuyInConfirm = async () => {
 const handleJoinSeat = async (seatNumber, buyIn) => {
   try {
     await joinSeat(currentGame.value.id, seatNumber, buyIn);
+    success('You took a seat');
   } catch (error) {
     console.error('Failed to join seat:', error);
+    showError('Could not take that seat');
   }
 };
 
@@ -959,6 +996,12 @@ const handleAutoAction = (action) => {
 .buy-in-input:focus {
   outline: none;
   border-color: #4CAF50;
+}
+
+.buy-in-hint {
+  margin: -8px 0 16px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .modal-actions {

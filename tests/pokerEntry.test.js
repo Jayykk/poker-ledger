@@ -7,6 +7,9 @@ import {
   shouldAutoStartFirstHand,
   resolveAutoSeat,
   buildOnlineRoomConfig,
+  buildPokerInviteUrl,
+  parsePokerGameId,
+  resolvePreAction,
 } from '../src/utils/pokerEntry.js';
 
 /** Minimal pokerGames-shaped state. */
@@ -131,5 +134,77 @@ describe('buildOnlineRoomConfig', () => {
     const cfg = buildOnlineRoomConfig({ buyIn: 1500, smallBlind: 25, bigBlind: 50 });
     expect(cfg.smallBlind).toBe(25);
     expect(cfg.bigBlind).toBe(50);
+  });
+});
+
+describe('buildPokerInviteUrl', () => {
+  it('builds a hash route under the app base', () => {
+    expect(buildPokerInviteUrl('abc', 'https://x.com', '/poker-ledger/'))
+      .toBe('https://x.com/poker-ledger/#/poker-game/abc');
+  });
+
+  it('normalizes a base path missing its trailing slash', () => {
+    expect(buildPokerInviteUrl('abc', 'https://x.com', '/poker-ledger'))
+      .toBe('https://x.com/poker-ledger/#/poker-game/abc');
+  });
+
+  it('works with defaults (relative)', () => {
+    expect(buildPokerInviteUrl('abc')).toBe('/#/poker-game/abc');
+  });
+});
+
+describe('parsePokerGameId', () => {
+  it('extracts the id from a LIFF invite link', () => {
+    expect(parsePokerGameId('https://liff.line.me/123-xyz/poker-game/AbC123xyz?k=1'))
+      .toBe('AbC123xyz');
+  });
+
+  it('extracts the id from a web hash link', () => {
+    expect(parsePokerGameId('https://host/poker-ledger/#/poker-game/AbC123xyz'))
+      .toBe('AbC123xyz');
+  });
+
+  it('returns a bare id untouched', () => {
+    expect(parsePokerGameId('  AbC123xyz  ')).toBe('AbC123xyz');
+  });
+
+  it('returns null for empty / non-string input', () => {
+    expect(parsePokerGameId('')).toBeNull();
+    expect(parsePokerGameId('   ')).toBeNull();
+    expect(parsePokerGameId(null)).toBeNull();
+    expect(parsePokerGameId(undefined)).toBeNull();
+  });
+});
+
+describe('resolvePreAction', () => {
+  const facingBet = {
+    table: { currentBet: 100 },
+    seats: { 0: { odId: 'p1', roundBet: 0, chips: 1000 } },
+  };
+  const noBet = {
+    table: { currentBet: 20 },
+    seats: { 0: { odId: 'p1', roundBet: 20, chips: 1000 } }, // already matched
+  };
+
+  it('fold always folds', () => {
+    expect(resolvePreAction(facingBet, 'p1', 'fold')).toBe('fold');
+    expect(resolvePreAction(noBet, 'p1', 'fold')).toBe('fold');
+  });
+
+  it('check_fold folds when facing a bet, checks otherwise', () => {
+    expect(resolvePreAction(facingBet, 'p1', 'check_fold')).toBe('fold');
+    expect(resolvePreAction(noBet, 'p1', 'check_fold')).toBe('check');
+  });
+
+  it('call_any calls when facing a bet, checks otherwise', () => {
+    expect(resolvePreAction(facingBet, 'p1', 'call_any')).toBe('call');
+    expect(resolvePreAction(noBet, 'p1', 'call_any')).toBe('check');
+  });
+
+  it('returns null for missing inputs / unknown pre-action / no seat', () => {
+    expect(resolvePreAction(facingBet, 'p1', null)).toBeNull();
+    expect(resolvePreAction(null, 'p1', 'fold')).toBeNull();
+    expect(resolvePreAction(facingBet, 'p1', 'bogus')).toBeNull();
+    expect(resolvePreAction(facingBet, 'ghost', 'fold')).toBeNull();
   });
 });

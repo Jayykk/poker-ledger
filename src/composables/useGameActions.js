@@ -8,7 +8,7 @@ import { ref } from 'vue';
 import { usePokerStore } from '../store/modules/poker.js';
 import { useAuthStore } from '../store/modules/auth.js';
 import { useNotification } from './useNotification.js';
-import { useGameAnimations } from './useGameAnimations.js';
+import { usePokerSound } from './usePokerSound.js';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 // Shared with the backend (functions/src/engines) so client + server agree on
 // what is legal — lets us reject illegal moves instantly, before any callable.
@@ -61,7 +61,7 @@ export function useGameActions() {
   const pokerStore = usePokerStore();
   const authStore = useAuthStore();
   const { success, error: showError } = useNotification();
-  const { playSound } = useGameAnimations();
+  const { playPokerSound, unlock: unlockSound } = usePokerSound();
 
   // Track if buttons are disabled (for optimistic UI)
   const actionsDisabled = ref(false);
@@ -95,8 +95,10 @@ export function useGameActions() {
       }
     }
 
-    // 1. Instant visual feedback
-    playSound(soundName);
+    // 1. Instant visual feedback. This is a user gesture, so unlock audio
+    //    (iOS autoplay) before playing.
+    unlockSound();
+    playPokerSound(soundName);
 
     // 1b. Instant user feedback
     if (successMessage) {

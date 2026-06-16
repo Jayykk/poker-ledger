@@ -838,7 +838,7 @@ onMounted(async () => {
   const createParam = route.query.create;
   if (createParam) {
     // If a specific type is given, pre-select it; otherwise start at step 1
-    if (createParam === 'cash' || createParam === 'tournament') {
+    if (createParam === 'cash' || createParam === 'tournament' || createParam === 'online') {
       selectGameType(createParam);
     }
     showCreateModal.value = true;

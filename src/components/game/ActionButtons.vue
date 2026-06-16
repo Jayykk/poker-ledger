@@ -1,8 +1,29 @@
 <template>
   <div class="action-buttons">
     <div v-if="actionsDisabled" class="processing-banner">Processing...</div>
+
+    <!-- Act-ahead pre-selections (shown while waiting for your turn) -->
+    <div v-if="canPreAct && !isMyTurn" class="pre-actions">
+      <span class="pre-actions-label">Act ahead:</span>
+      <button
+        class="pre-btn"
+        :class="{ 'pre-selected': preAction === 'fold' }"
+        @click="togglePre('fold')"
+      >Fold</button>
+      <button
+        class="pre-btn"
+        :class="{ 'pre-selected': preAction === 'check_fold' }"
+        @click="togglePre('check_fold')"
+      >Check/Fold</button>
+      <button
+        class="pre-btn"
+        :class="{ 'pre-selected': preAction === 'call_any' }"
+        @click="togglePre('call_any')"
+      >Call Any</button>
+    </div>
+
     <!-- Main action buttons - horizontal layout -->
-    <div class="main-buttons">
+    <div v-else class="main-buttons">
       <!-- Call Button -->
       <button
         v-if="!canCheck"
@@ -112,9 +133,23 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Act-ahead: whether pre-selection is currently allowed (in a hand, seated,
+  // active) and the currently selected pre-action ('' when none).
+  canPreAct: {
+    type: Boolean,
+    default: false,
+  },
+  preAction: {
+    type: String,
+    default: '',
+  },
 });
 
-const emit = defineEmits(['fold', 'check', 'call', 'raise', 'all-in']);
+const emit = defineEmits(['fold', 'check', 'call', 'raise', 'all-in', 'update:preAction']);
+
+const togglePre = (value) => {
+  emit('update:preAction', props.preAction === value ? '' : value);
+};
 
 const { currentGame, minRaise, potSize: currentPot } = usePokerGame();
 
@@ -195,6 +230,50 @@ const confirmRaise = () => {
   color: rgba(255, 255, 255, 0.75);
   font-weight: 700;
   letter-spacing: 0.5px;
+}
+
+/* Act-ahead pre-selection row */
+.pre-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 600px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.pre-actions-label {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.pre-btn {
+  padding: 10px 14px;
+  min-height: 44px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-radius: 9999px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pre-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.pre-btn.pre-selected {
+  background: linear-gradient(135deg, rgba(33, 150, 243, 0.35) 0%, rgba(25, 118, 210, 0.3) 100%);
+  border-color: rgba(33, 150, 243, 0.85);
+  color: white;
+  box-shadow: 0 0 12px rgba(33, 150, 243, 0.5);
 }
 
 /* Main buttons container - horizontal layout */

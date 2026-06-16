@@ -38,6 +38,20 @@ function _getCtx() {
   return _audioCtx;
 }
 
+/**
+ * Shared AudioContext accessor for other audio composables (e.g. usePokerSound)
+ * so the whole app drives a single context (one iOS unlock, one heartbeat).
+ * Returns null when Web Audio is unavailable (e.g. jsdom test env).
+ * @return {?AudioContext}
+ */
+export function getAudioContext() {
+  try {
+    return _getCtx();
+  } catch {
+    return null;
+  }
+}
+
 let _isUnlocked = false;
 
 /**

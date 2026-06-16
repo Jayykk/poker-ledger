@@ -121,9 +121,8 @@
     <BaseModal v-model="showJoinRoomModal" :title="$t('action.joinOnline')">
       <BaseInput
         v-model="joinRoomCode"
-        :placeholder="$t('lobby.roomCode')"
+        :placeholder="$t('game.enterGameId')"
         class="mb-4"
-        maxlength="6"
       />
       <BaseButton @click="handleJoinRoom" variant="primary" fullWidth>
         {{ $t('common.confirm') }}
@@ -163,6 +162,7 @@ import { useLoadingStore } from './store/modules/loading.js';
 import { useConfirm } from './composables/useConfirm.js';
 import { useNotification } from './composables/useNotification.js';
 import { useLiff } from './composables/useLiff.js';
+import { parsePokerGameId } from './utils/pokerEntry.js';
 import LoadingSpinner from './components/common/LoadingSpinner.vue';
 import ToastNotification from './components/common/ToastNotification.vue';
 import ActionNotification from './components/common/ActionNotification.vue';
@@ -246,8 +246,9 @@ const handleCreateLive = () => {
 };
 
 const handleCreateOnline = () => {
-  // Navigate to poker lobby to create online room
-  router.push('/poker-lobby');
+  // Open the unified lobby's create flow with "online" pre-selected, so online
+  // poker shares the same one-touch create as cash/tournament.
+  router.push({ path: '/lobby', query: { create: 'online' } });
 };
 
 const handleJoinOnline = () => {
@@ -255,14 +256,15 @@ const handleJoinOnline = () => {
 };
 
 const handleJoinRoom = async () => {
-  if (!joinRoomCode.value || joinRoomCode.value.length !== 6) {
-    showError(t('lobby.joinGame') + ': ' + t('lobby.roomCode') + ' (6 digits)');
+  // Online rooms are 20-char Firestore ids, not 6-digit codes — accept a pasted
+  // invite link OR a bare id and extract the game id from it.
+  const gameId = parsePokerGameId(joinRoomCode.value);
+  if (!gameId) {
+    showError(t('action.joinOnline') + ': ' + t('game.enterGameId'));
     return;
   }
-  
-  // Navigate to poker game with the room code
-  // For now, we'll use the existing game join flow
-  router.push(`/poker-game/${joinRoomCode.value}`);
+
+  router.push(`/poker-game/${gameId}`);
   showJoinRoomModal.value = false;
   joinRoomCode.value = '';
 };
