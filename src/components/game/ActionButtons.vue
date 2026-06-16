@@ -22,8 +22,9 @@
       >Call Any</button>
     </div>
 
-    <!-- Main action buttons - horizontal layout -->
-    <div v-else class="main-buttons">
+    <!-- Main action buttons — only when it's actually my turn, so there are no
+         stale/locked buttons to mis-tap when the turn has already passed. -->
+    <div v-else-if="isMyTurn" class="main-buttons">
       <!-- Call Button -->
       <button
         v-if="!canCheck"
@@ -73,9 +74,13 @@
       </button>
     </div>
 
+    <!-- Not my turn and can't pre-act (folded / all-in / spectating): a slim
+         status line instead of dead locked buttons. -->
+    <div v-else class="waiting-hint">Waiting for other players…</div>
+
     <!-- Bet Controls (shown above main buttons when raising) -->
     <Transition name="slide-up">
-      <div v-if="showBetControls" class="bet-controls">
+      <div v-if="showBetControls && isMyTurn" class="bet-controls">
         <div class="bet-slider-container">
           <div class="bet-amount-display">💵 {{ betAmount }}</div>
           <input
@@ -249,6 +254,16 @@ const confirmRaise = () => {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.5px;
+}
+
+.waiting-hint {
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 14px 0;
 }
 
 .pre-btn {

@@ -1,6 +1,9 @@
 <template>
   <div class="poker-game-view">
-    <div v-if="error" class="error-screen">
+    <!-- Only a FATAL load error takes over the screen. Transient action errors
+         (e.g. a racy seat grab) surface as toasts and must NOT replace the
+         table — otherwise the player looks "kicked out". -->
+    <div v-if="error && !currentGame" class="error-screen">
       <p>{{ error }}</p>
       <button @click="goBack" class="btn-back">Back to Lobby</button>
     </div>
@@ -196,8 +199,11 @@
     <!-- Auto-Start Countdown Overlay -->
     <Transition name="fade">
       <GameOverlay v-if="showAutoStartCountdown && !isRunoutPlaying">
-        <span class="auto-start-capsule-text">Next hand in {{ autoStartCountdown }}...</span>
+        <span class="auto-start-capsule-text">
+          {{ countdownKind === 'first' ? 'Starting in' : 'Next hand in' }} {{ autoStartCountdown }}...
+        </span>
         <button
+          v-if="countdownKind === 'next'"
           type="button"
           class="auto-start-capsule-cancel"
           aria-label="Cancel auto-start"
@@ -286,7 +292,7 @@ const autoStartCountdown = ref(0);
 const showAutoStartCountdown = ref(false);
 const autoStartInterval = ref(null);
 const isStarting = ref(false); // Prevent double-submit
-const firstHandAutoStartCancelled = ref(false); // host dismissed the first-hand countdown
+const countdownKind = ref('next'); // 'first' (deal) | 'next' (auto-next hand)
 
 const clearAutoStartCountdown = () => {
   if (autoStartInterval.value) {
@@ -305,7 +311,8 @@ const triggerStartHand = () => {
     .finally(() => { isStarting.value = false; });
 };
 
-const beginAutoStartCountdown = () => {
+const beginAutoStartCountdown = (kind) => {
+  countdownKind.value = kind;
   clearAutoStartCountdown();
   autoStartCountdown.value = autoStartDelay.value;
   showAutoStartCountdown.value = true;
@@ -377,16 +384,17 @@ watch(() => [
   const game = currentGame.value;
   const userId = authStore.user?.uid;
 
-  // First hand of a new room.
-  if (!firstHandAutoStartCancelled.value && shouldAutoStartFirstHand(game, userId)) {
-    beginAutoStartCountdown();
+  // First hand of a new room — shown to EVERY seated player (any may trigger;
+  // the backend dedups), so nobody is left wondering whether it'll start.
+  if (shouldAutoStartFirstHand(game, userId)) {
+    beginAutoStartCountdown('first');
     return;
   }
 
-  // Between hands.
+  // Between hands — host-controlled auto-next.
   if (game?.table?.stage === 'showdown_complete' && isAutoNext.value &&
       game?.status !== 'paused' && isCreator.value && hasEnoughPlayers.value) {
-    beginAutoStartCountdown();
+    beginAutoStartCountdown('next');
   }
 });
 
@@ -411,7 +419,11 @@ watch(() => [currentGame.value, authStore.user?.uid], () => {
   if (buyIn === null) return; // already seated / full / not joinable
 
   joinSeat(gameId.value, undefined, buyIn).catch((err) => {
+    // Auto-seat is a background convenience — never let its failure surface as a
+    // page-takeover error. Clear the store error and leave the table visible so
+    // the player can pick a seat manually.
     console.error('Auto-seat failed; manual seat selection available:', err);
+    pokerStore.error = null;
   });
 }, { immediate: true });
 
@@ -430,6 +442,7 @@ const handleToggleSound = () => {
 };
 
 onMounted(async () => {
+  pokerStore.error = null; // clear any stale error from a previous view
   const id = route.params.gameId;
   if (id) {
     try {
@@ -604,18 +617,9 @@ const handleStopAfterHand = async () => {
 };
 
 const handleStopAutoStart = async () => {
-  // Always dismiss the visible countdown immediately.
+  // Only offered for the between-hands auto-next (host control). The first-hand
+  // countdown has no cancel — auto-start is the desired behaviour there.
   clearAutoStartCountdown();
-
-  const game = currentGame.value;
-  const isFirstHand = (game?.handNumber ?? 0) === 0 && game?.status === 'waiting';
-  if (isFirstHand) {
-    // No backend isAutoNext yet — suppress locally until the host starts manually.
-    firstHandAutoStartCancelled.value = true;
-    success('Auto-start cancelled');
-    return;
-  }
-
   try {
     await pokerStore.stopNextHand(gameId.value);
     success('Auto-start cancelled');
@@ -643,7 +647,8 @@ const handleDeleteRoom = async () => {
 };
 
 const goBack = () => {
-  router.push({ name: 'GameLobby' });
+  // Return to the unified lobby (with the bottom nav), not the legacy poker lobby.
+  router.push({ name: 'Lobby' });
 };
 </script>
 

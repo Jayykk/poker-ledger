@@ -14,21 +14,27 @@ function countFundedSeats(game) {
 }
 
 /**
- * Decide whether the FIRST hand of a room should auto-start.
+ * Decide whether the FIRST hand of a room should auto-start for this client.
  * Between-hands continuation is already driven by the backend `isAutoNext`
  * flag, so this only covers a brand-new room (handNumber 0, still waiting).
- * Only the host should trigger it, to avoid every client racing to deal.
+ *
+ * Any SEATED, funded player qualifies (not just the host) so EVERY seated
+ * client can show the countdown — neither player is left wondering whether the
+ * game will start. Concurrent triggers are safe: the backend's
+ * `validateGameStart` runs inside the startHand transaction and dedups them
+ * (only the first flips the room to 'playing'; the rest no-op).
  *
  * @param {Object} game - Current game state (pokerGames doc)
  * @param {string} userId - The local user's uid
- * @return {boolean} True when the host's client should begin the auto-deal.
+ * @return {boolean} True when this client should begin the auto-deal countdown.
  */
 export function shouldAutoStartFirstHand(game, userId) {
   if (!game || !userId) return false;
   if (game.status !== 'waiting') return false;
   if ((game.handNumber ?? 0) !== 0) return false; // a hand has already been played
-  if (game.meta?.createdBy !== userId) return false; // only the host triggers
-  return countFundedSeats(game) >= 2;
+  if (countFundedSeats(game) < 2) return false;
+  const seat = Object.values(game.seats || {}).find((s) => s && s.odId === userId);
+  return !!seat && seat.chips > 0; // must be seated with chips
 }
 
 /**
