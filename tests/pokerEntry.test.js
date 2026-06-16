@@ -33,12 +33,16 @@ function makeGame({
 }
 
 describe('shouldAutoStartFirstHand', () => {
-  it('lets the host auto-start when 2+ funded players are waiting on hand 0', () => {
+  it('lets a seated player auto-start when 2+ funded players are waiting on hand 0', () => {
     expect(shouldAutoStartFirstHand(makeGame(), 'host')).toBe(true);
   });
 
-  it('only the host triggers it (other clients do not)', () => {
-    expect(shouldAutoStartFirstHand(makeGame(), 'p2')).toBe(false);
+  it('any seated funded player qualifies (not just the host) — backend dedups', () => {
+    expect(shouldAutoStartFirstHand(makeGame(), 'p2')).toBe(true);
+  });
+
+  it('a non-seated viewer does not trigger', () => {
+    expect(shouldAutoStartFirstHand(makeGame(), 'spectator')).toBe(false);
   });
 
   it('does not fire once a hand has already been played', () => {

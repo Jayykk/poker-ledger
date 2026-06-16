@@ -70,6 +70,16 @@
       </div>
     </div>
 
+    <!-- My hand — large & always visible, sits just above the action bar -->
+    <div v-if="showMyHand" class="my-hand">
+      <PlayingCard
+        v-for="(card, i) in myHandCards"
+        :key="i"
+        :card="card"
+        size="normal"
+      />
+    </div>
+
     <!-- Action Controls (bottom of screen) - Always visible with proper states -->
     <div class="action-controls">
       <ActionButtons
@@ -128,6 +138,7 @@ import { useNotification } from '../../composables/useNotification.js';
 import CommunityCards from './CommunityCards.vue';
 import PotDisplay from './PotDisplay.vue';
 import PlayerSeat from './PlayerSeat.vue';
+import PlayingCard from './PlayingCard.vue';
 import ActionButtons from './ActionButtons.vue';
 import BaseModal from '../common/BaseModal.vue';
 import ChipAnimation from './ChipAnimation.vue';
@@ -705,6 +716,15 @@ const canStartHand = computed(() => {
   return isCreator && isWaiting && hasPlayers;
 });
 
+// My hand — shown large just above the action bar so the bottom-seat cards are
+// never hidden behind it. Visible whenever I hold cards and haven't folded.
+const myHandCards = computed(() => (myHoleCards.value || []).slice(0, 2));
+const showMyHand = computed(() => {
+  if (myHandCards.value.length < 2) return false;
+  if (mySeatNumber.value === null) return false;
+  return seats.value[mySeatNumber.value]?.status !== 'folded';
+});
+
 // Act-ahead: a seated, active player can pre-select an action while waiting.
 const canPreAct = computed(() => {
   if (currentGame.value?.status !== 'playing') return false;
@@ -916,6 +936,25 @@ const handleAutoAction = (action) => {
   /* Prevent the felt from showing through below the bottom UI */
   background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 50%, #0d1b2a 100%);
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* My hand — fixed just above the action bar, never covered by it */
+.my-hand {
+  position: fixed;
+  left: 50%;
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 95;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6));
+}
+
+@media (max-width: 768px) {
+  .my-hand {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
 }
 
 .start-hand-controls {
