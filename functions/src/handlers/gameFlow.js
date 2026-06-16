@@ -24,6 +24,7 @@ import { determineWinners } from '../utils/handEvaluator.js';
 import { createPokerTask } from '../utils/cloudTasks.js';
 import { createRoomAutoCloseTask } from '../utils/cloudTasks.js';
 import { getHandIdFromGame, writeHandHistoryEntry } from '../utils/handHistories.js';
+import { purgeAfkOutSeats } from './roomLifecycle.js';
 
 import {
   DEFAULT_TURN_TIMEOUT,
@@ -168,6 +169,11 @@ export async function startHand(gameId) {
     }
 
     let game = gameDoc.data();
+
+    // Cash out + free any seats flagged for AFK removal before dealing. Safe
+    // here: the previous hand is fully resolved, so no live pot depends on
+    // their bets.
+    purgeAfkOutSeats(transaction, db, gameRef, game, gameId);
 
     try {
       // Validate can start (throws a structured game error if not)
@@ -429,6 +435,10 @@ export async function handleLastManStanding(
       );
     }
   }
+
+  // The hand is now resolved (pot awarded). This is a safe point to cash out +
+  // free any AFK-flagged seats — bets no longer feed any pot.
+  purgeAfkOutSeats(transaction, getFirestore(), gameRef, game, gameRef.id);
 
   // Update game state
   transaction.update(gameRef, game);

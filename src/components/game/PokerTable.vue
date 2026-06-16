@@ -168,6 +168,21 @@ const {
 
 const { fold, check, call, raise, allIn, actionsDisabled, showCards } = useGameActions();
 
+// Seat maps — declared up here (before the bet-animation helpers below) because
+// the `{ immediate: true }` display-sync watch runs DURING setup and reads
+// maxSeats/seats. If these were declared lower (after that watch) the immediate
+// run would hit the const in its temporal dead zone — "Cannot access before
+// initialization" — and crash PokerTable's setup, leaving a blank green table.
+const maxSeats = computed(() => currentGame.value?.meta?.maxPlayers || 10);
+
+const seats = computed(() => {
+  const seatMap = {};
+  for (let i = 0; i < maxSeats.value; i++) {
+    seatMap[i] = currentGame.value?.seats?.[i] || null;
+  }
+  return seatMap;
+});
+
 // Constants
 const DEFAULT_BUY_IN = 1000;
 const MAX_SEATS = 10;
@@ -632,17 +647,6 @@ watch(
 const showBuyInModalDialog = ref(false);
 const buyInAmount = ref(String(DEFAULT_BUY_IN));
 const selectedSeatNumber = ref(null);
-
-// Computed
-const maxSeats = computed(() => currentGame.value?.meta?.maxPlayers || 10);
-
-const seats = computed(() => {
-  const seatMap = {};
-  for (let i = 0; i < maxSeats.value; i++) {
-    seatMap[i] = currentGame.value?.seats?.[i] || null;
-  }
-  return seatMap;
-});
 
 // Find my seat number
 const mySeatNumber = computed(() => {

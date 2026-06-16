@@ -239,6 +239,10 @@ const displayHoleCards = computed(() => {
   if (!props.seat) return [];
   if (props.seat.status === 'folded') return [];
 
+  // My own cards are rendered large in the dedicated `.my-hand` strip above the
+  // action bar, so don't draw a second (faded) copy inside my seat.
+  if (props.isMe) return [];
+
   // During an active hand, always reserve 2 card slots so the UI doesn't look empty.
   if (isHandActive.value) {
     if (props.isMe) {

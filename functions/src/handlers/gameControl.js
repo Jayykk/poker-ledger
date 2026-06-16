@@ -155,38 +155,31 @@ export async function sitDown(gameId, userId, userInfo, seatNumber, buyIn) {
 
     const game = gameDoc.data();
 
-    // Smart seat assignment:
-    // If requested seat is occupied, fall back to the first available seat.
-    const maxSeats = game?.meta?.maxPlayers ?? Object.keys(game.seats || {}).length;
-    const isValidRequestedSeat =
-      Number.isInteger(seatNumber) && seatNumber >= 0 && seatNumber < maxSeats;
-    const findFirstEmptySeat = () => {
-      for (let i = 0; i < maxSeats; i++) {
-        if (game.seats?.[i] === null) return i;
-      }
-      return null;
-    };
-
-    if (!isValidRequestedSeat) {
-      const firstEmpty = findFirstEmptySeat();
-      if (firstEmpty === null) {
-        throw new Error('Table is full');
-      }
-      seatNumber = firstEmpty;
-    } else if (game.seats?.[seatNumber] !== null) {
-      const firstEmpty = findFirstEmptySeat();
-      if (firstEmpty === null) {
-        throw new Error('Table is full');
-      }
-      seatNumber = firstEmpty;
+    // One identity = one seat. There is no manual seat picking and no "sit back
+    // in": leaving a table frees the seat and settles you, so a player who is
+    // already seated should never reach here.
+    const alreadySeated = Object.values(game.seats).some(
+      (seat) => seat && seat.odId === userId,
+    );
+    if (alreadySeated) {
+      throw new Error('Already seated at another position');
     }
 
-    // Check if user is already seated elsewhere
-    const existingSeat = Object.entries(game.seats).find(
-      ([, seat]) => seat && seat.odId === userId,
-    );
-    if (existingSeat) {
-      throw new Error('Already seated at another position');
+    // Auto-seat at a RANDOM empty seat (no seat selection in the UI). The
+    // requested seatNumber, if any, is only honoured when it happens to be free;
+    // otherwise we pick randomly so nobody can cherry-pick a position.
+    const maxSeats = game?.meta?.maxPlayers ?? Object.keys(game.seats || {}).length;
+    const emptySeats = [];
+    for (let i = 0; i < maxSeats; i++) {
+      if (game.seats?.[i] === null) emptySeats.push(i);
+    }
+    if (emptySeats.length === 0) {
+      throw new Error('Table is full');
+    }
+    const isValidRequestedSeat =
+      Number.isInteger(seatNumber) && emptySeats.includes(seatNumber);
+    if (!isValidRequestedSeat) {
+      seatNumber = emptySeats[Math.floor(Math.random() * emptySeats.length)];
     }
 
     // Validate buy-in amount

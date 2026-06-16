@@ -82,6 +82,13 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
     // Reset consecutive auto actions on manual player action
     game.table.consecutiveAutoActions = 0;
 
+    // The acting player is clearly present — clear their AFK strike streak so a
+    // single earlier timeout doesn't carry over toward the sit-out threshold.
+    const actorEntry = Object.entries(game.seats).find(([, s]) => s && s.odId === userId);
+    if (actorEntry && actorEntry[1].afkStrikes) {
+      game.seats[actorEntry[0]] = { ...actorEntry[1], afkStrikes: 0 };
+    }
+
     // Record action in events subcollection
     const actionEventData = {
       type: 'action',

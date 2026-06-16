@@ -19,6 +19,7 @@ import { createPokerTask, createPokerHttpTask, createRoomAutoCloseTask } from '.
 import { writeHandHistoryEntry } from '../utils/handHistories.js';
 import { ROOM_IDLE_TIMEOUT_SECONDS } from '../utils/config.js';
 import { buildSeatData, resolveBuyIn } from '../utils/seatFactory.js';
+import { recordPlayerCashOut } from './roomLifecycle.js';
 
 /**
  * Create a new poker game room
@@ -188,6 +189,10 @@ export async function leaveSeat(gameId, userId) {
 
   const autoCloseToken = uuidv4();
 
+  // Captured inside the transaction so we can settle the leaver afterwards.
+  // (Re-set on each transaction retry; only the committed value is used.)
+  let leavingSnapshot = null;
+
   const result = await db.runTransaction(async (transaction) => {
     const gameDoc = await transaction.get(gameRef);
 
@@ -206,6 +211,16 @@ export async function leaveSeat(gameId, userId) {
     }
 
     const [seatNum, seat] = seatEntry;
+
+    // Snapshot for settlement. chips already exclude any bets committed this
+    // hand (bets deduct chips immediately), so this is the correct cash-out;
+    // forfeited bets stay in the pot.
+    leavingSnapshot = {
+      odId: userId,
+      odName: seat?.odName || 'Player',
+      chips: Number(seat?.chips) || 0,
+      initialBuyIn: Number(seat?.initialBuyIn) || 0,
+    };
 
     const isPlaying = game.status === 'playing';
     const shouldForceFold = isPlaying && seat?.status !== 'folded';
@@ -368,6 +383,16 @@ export async function leaveSeat(gameId, userId) {
     createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
       .catch((err) => console.error('Auto-close task creation failed:', err)),
   );
+
+  // Settle the leaver into their history (leave = leave table + cash out).
+  // Skip pure break-even leaves (profit 0) to avoid cluttering history with
+  // "joined then immediately left" noise.
+  if (leavingSnapshot && (leavingSnapshot.chips - leavingSnapshot.initialBuyIn) !== 0) {
+    postTxTasks.push(
+      recordPlayerCashOut(db, leavingSnapshot, gameId, 'manual')
+        .catch((err) => console.error('Leave settlement failed:', err)),
+    );
+  }
   Promise.all(postTxTasks).catch(() => {});
 
   return result;
