@@ -148,8 +148,8 @@
         </div>
       </BaseCard>
 
-      <!-- Logout -->
-      <BaseButton @click="handleLogout" variant="danger" fullWidth>
+      <!-- Logout (hidden inside the LINE client — logout isn't possible in LIFF) -->
+      <BaseButton v-if="!isInLineClient" @click="handleLogout" variant="danger" fullWidth>
         {{ $t('auth.logout') }}
       </BaseButton>
     </div>
@@ -177,7 +177,7 @@ const { t, locale } = useI18n();
 const router = useRouter();
 const { displayName, isGuest, user, logout, linkEmailToGuest } = useAuth();
 const { notificationsEnabled, toggleNotifications } = usePushNotification();
-const { lineNotifyEnabled, toggleLineNotify } = useLiff();
+const { lineNotifyEnabled, toggleLineNotify, isInLineClient } = useLiff();
 const notification = useNotification();
 
 const userAvatar = computed(() => user.value?.photoURL || null);

@@ -43,12 +43,19 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useChart } from '../../composables/useChart.js';
 import { useUserStore } from '../../store/modules/user.js';
 import BaseCard from '../common/BaseCard.vue';
 import { CHART_COLORS } from '../../utils/constants.js';
+
+const props = defineProps({
+  gameTypeFilter: {
+    type: String,
+    default: 'all',
+  },
+});
 
 const { t } = useI18n();
 const { createPieChart } = useChart();
@@ -56,25 +63,30 @@ const userStore = useUserStore();
 
 const canvasId = ref(`winrate-chart-${Math.random().toString(36).substr(2, 9)}`);
 
+const filteredHistory = computed(() => {
+  if (props.gameTypeFilter === 'all') return userStore.history;
+  return userStore.history.filter(h => h.type === props.gameTypeFilter);
+});
+
 const winCount = computed(() => {
-  return userStore.history.filter(h => h.profit > 0).length;
+  return filteredHistory.value.filter(h => h.profit > 0).length;
 });
 
 const lossCount = computed(() => {
-  return userStore.history.filter(h => h.profit < 0).length;
+  return filteredHistory.value.filter(h => h.profit < 0).length;
 });
 
 const drawCount = computed(() => {
-  return userStore.history.filter(h => h.profit === 0).length;
+  return filteredHistory.value.filter(h => h.profit === 0).length;
 });
 
 const winRate = computed(() => {
-  const total = userStore.history.length;
+  const total = filteredHistory.value.length;
   return total > 0 ? Math.round((winCount.value / total) * 100) : 0;
 });
 
 const currentStreak = computed(() => {
-  const history = [...userStore.history].reverse(); // Most recent first
+  const history = [...filteredHistory.value].reverse(); // Most recent first
   if (history.length === 0) return 0;
   
   let streak = 0;
@@ -135,6 +147,10 @@ const renderChart = () => {
       }
   });
 };
+
+watch(() => props.gameTypeFilter, () => {
+  nextTick(renderChart);
+});
 
 onMounted(() => {
   renderChart();

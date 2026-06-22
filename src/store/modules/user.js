@@ -206,10 +206,11 @@ export const useUserStore = defineStore('user', () => {
   /**
    * Get history filtered by time period
    */
-  const getHistoryByPeriod = (period = 'all') => {
+  const getHistoryByPeriod = (period = 'all', type = 'all') => {
     const now = new Date();
     let startDate;
-    
+
+    let result;
     switch (period) {
       case 'week':
         startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -221,17 +222,25 @@ export const useUserStore = defineStore('user', () => {
         startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
         break;
       default:
-        return history.value;
+        startDate = null;
     }
 
-    return history.value.filter((h) => (h.createdAt || 0) >= startDate.getTime());
+    result = startDate
+      ? history.value.filter((h) => (h.createdAt || 0) >= startDate.getTime())
+      : history.value;
+
+    if (type !== 'all') {
+      result = result.filter((h) => h.type === type);
+    }
+
+    return result;
   };
 
   /**
    * Get stats for a specific time period
    */
-  const getStatsByPeriod = (period = 'all') => {
-    const periodHistory = getHistoryByPeriod(period);
+  const getStatsByPeriod = (period = 'all', type = 'all') => {
+    const periodHistory = getHistoryByPeriod(period, type);
 
     const totalProfit = periodHistory.reduce((sum, h) => sum + ((h.profit || 0) / (h.rate || 1)), 0);
     const wins = periodHistory.filter((h) => (h.profit || 0) > 0).length;
