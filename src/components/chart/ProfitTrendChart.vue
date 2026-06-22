@@ -57,6 +57,13 @@ import BaseCard from '../common/BaseCard.vue';
 import { formatNumber } from '../../utils/formatters.js';
 import { TIME_PERIODS, CHART_COLORS } from '../../utils/constants.js';
 
+const props = defineProps({
+  gameTypeFilter: {
+    type: String,
+    default: 'all',
+  },
+});
+
 const { t } = useI18n();
 const { createLineChart } = useChart();
 const userStore = useUserStore();
@@ -67,11 +74,11 @@ const isLoading = ref(false);
 const periods = [TIME_PERIODS.WEEK, TIME_PERIODS.MONTH, TIME_PERIODS.YEAR, TIME_PERIODS.ALL];
 
 const filteredHistory = computed(() => {
-  return userStore.getHistoryByPeriod(selectedPeriod.value);
+  return userStore.getHistoryByPeriod(selectedPeriod.value, props.gameTypeFilter);
 });
 
 const stats = computed(() => {
-  return userStore.getStatsByPeriod(selectedPeriod.value);
+  return userStore.getStatsByPeriod(selectedPeriod.value, props.gameTypeFilter);
 });
 
 const chartData = computed(() => {
@@ -165,8 +172,9 @@ const handlePeriodChange = (period) => {
   selectedPeriod.value = period;
 };
 
-// Watch selectedPeriod — use nextTick so DOM is settled before accessing canvas.
-watch(selectedPeriod, () => {
+// Watch selectedPeriod / game-type filter — use nextTick so DOM is settled
+// before accessing canvas.
+watch([selectedPeriod, () => props.gameTypeFilter], () => {
   nextTick(renderChart);
 });
 

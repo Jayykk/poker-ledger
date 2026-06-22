@@ -126,8 +126,8 @@
     <div v-show="activeTab === 'career'">
       <!-- Charts -->
       <div class="space-y-4 mb-6">
-        <ProfitTrendChart />
-        <WinRateChart />
+        <ProfitTrendChart :game-type-filter="gameTypeFilter" />
+        <WinRateChart :game-type-filter="gameTypeFilter" />
       </div>
 
       <!-- Export buttons -->
