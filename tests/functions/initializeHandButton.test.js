@@ -48,3 +48,31 @@ describe('initializeHand — dealer button fairness', () => {
     expect([0, 1]).toContain(game.table.dealerSeat);
   });
 });
+
+describe('initializeHand — deferred bust-out', () => {
+  it('frees a BUSTED seat (kept through the prior showdown) when the next hand starts', () => {
+    // C busted last hand and was kept seated (status 'busted', chips 0) so the
+    // showdown could animate. The next hand must drop their seat entirely.
+    const seats = {
+      0: { odId: 'a', odName: 'A', chips: 1000, status: 'active' },
+      1: { odId: 'b', odName: 'B', chips: 1000, status: 'active' },
+      2: { odId: 'c', odName: 'C', chips: 0, status: 'busted' },
+    };
+    const game = initializeHand(baseGame(seats, 0));
+
+    expect(game.seats[2]).toBeNull();
+    // The two players with chips are still dealt in.
+    expect(game.seats[0]).not.toBeNull();
+    expect(game.seats[1]).not.toBeNull();
+  });
+
+  it('also frees an untagged 0-chip seat as a fallback', () => {
+    const seats = {
+      0: { odId: 'a', odName: 'A', chips: 1000, status: 'active' },
+      1: { odId: 'b', odName: 'B', chips: 1000, status: 'active' },
+      2: { odId: 'c', odName: 'C', chips: 0, status: 'active' },
+    };
+    const game = initializeHand(baseGame(seats, 0));
+    expect(game.seats[2]).toBeNull();
+  });
+});

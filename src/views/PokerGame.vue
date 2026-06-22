@@ -265,7 +265,13 @@ const isAutoNext = computed(() => currentGame.value?.table?.isAutoNext ?? false)
 const autoStartDelay = computed(() => currentGame.value?.meta?.autoStartDelay ?? 5);
 const hasEnoughPlayers = computed(() => {
   const seats = currentGame.value?.seats || {};
-  return Object.values(seats).filter(s => s !== null).length >= 2;
+  // Count only players who can actually play. A BUSTED player lingers in their
+  // seat through showdown_complete for the result animation and is freed at the
+  // next hand — they must not count toward "enough to start", or auto-next would
+  // fire a hand that can't be dealt.
+  return Object.values(seats).filter(
+    s => s !== null && s.status !== 'busted' && (s.chips ?? 0) > 0,
+  ).length >= 2;
 });
 
 // Nudge the host to invite while seated and still waiting for a 2nd player.

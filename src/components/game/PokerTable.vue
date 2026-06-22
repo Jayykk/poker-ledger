@@ -49,7 +49,6 @@
           :visible="true"
           :betAmount="displayBetsBySeat[seatInfo.actualSeatNum] || 0"
           :position="seatInfo.position"
-          @join-seat="showBuyInModal"
           @auto-action="handleAutoAction"
           @animate-bet="handleAnimateBet"
         />
@@ -98,32 +97,6 @@
         @all-in="handleAllIn"
       />
     </div>
-
-    <!-- Buy-in Modal -->
-    <BaseModal v-model="showBuyInModalDialog" title="Join Seat">
-      <div class="buy-in-content">
-        <p class="mb-4 text-gray-300">Enter buy-in amount:</p>
-        <input
-          v-model="buyInAmount"
-          type="number"
-          :placeholder="String(DEFAULT_BUY_IN)"
-          class="buy-in-input"
-          @keyup.enter="handleBuyInConfirm"
-        />
-        <p v-if="currentGame?.meta" class="buy-in-hint">
-          Blinds {{ currentGame.meta.blinds?.small }}/{{ currentGame.meta.blinds?.big }}
-          · Buy-in {{ currentGame.meta.minBuyIn }}–{{ currentGame.meta.maxBuyIn }}
-        </p>
-        <div class="modal-actions">
-          <button @click="handleBuyInConfirm" class="btn-confirm">
-            Join
-          </button>
-          <button @click="showBuyInModalDialog = false" class="btn-cancel">
-            Cancel
-          </button>
-        </div>
-      </div>
-    </BaseModal>
   </div>
 </template>
 
@@ -134,19 +107,16 @@ import { useGameActions } from '../../composables/useGameActions.js';
 import { useGameAnimations } from '../../composables/useGameAnimations.js';
 import { resolvePreAction } from '../../utils/pokerEntry.js';
 import { useAuthStore } from '../../store/modules/auth.js';
-import { useNotification } from '../../composables/useNotification.js';
 import CommunityCards from './CommunityCards.vue';
 import PotDisplay from './PotDisplay.vue';
 import PlayerSeat from './PlayerSeat.vue';
 import PlayingCard from './PlayingCard.vue';
 import ActionButtons from './ActionButtons.vue';
-import BaseModal from '../common/BaseModal.vue';
 import ChipAnimation from './ChipAnimation.vue';
 
 const emit = defineEmits(['animation-start', 'animation-end']);
 
 const authStore = useAuthStore();
-const { success, error: showError } = useNotification();
 
 // Initialize game animations
 const { isRevealingCards, isShowdownActive } = useGameAnimations();
@@ -163,7 +133,6 @@ const {
   canRaise,
   loading,
   startHand,
-  joinSeat,
 } = usePokerGame();
 
 const { fold, check, call, raise, allIn, actionsDisabled, showCards } = useGameActions();
@@ -184,7 +153,6 @@ const seats = computed(() => {
 });
 
 // Constants
-const DEFAULT_BUY_IN = 1000;
 const MAX_SEATS = 10;
 
 // Fixed coordinate seat layouts for the vertical-oval felt.
@@ -643,11 +611,6 @@ watch(
   },
 );
 
-// Buy-in modal state
-const showBuyInModalDialog = ref(false);
-const buyInAmount = ref(String(DEFAULT_BUY_IN));
-const selectedSeatNumber = ref(null);
-
 // Find my seat number
 const mySeatNumber = computed(() => {
   const userId = authStore.user?.uid;
@@ -715,8 +678,10 @@ const canStartHand = computed(() => {
   if (!currentGame.value) return false;
   const isCreator = currentGame.value.meta?.createdBy === authStore.user?.uid;
   const isWaiting = currentGame.value.status === 'waiting';
+  // Busted players linger in their seat through showdown_complete for the result
+  // animation; they can't start a hand, so exclude them from the count.
   const hasPlayers = Object.values(seats.value)
-    .filter((s) => s !== null).length >= 2;
+    .filter((s) => s !== null && s.status !== 'busted' && (s.chips ?? 0) > 0).length >= 2;
   return isCreator && isWaiting && hasPlayers;
 });
 
@@ -767,34 +732,6 @@ const isMySeat = (seatNum) => {
   const seat = seats.value[seatNum];
   if (!seat) return false;
   return seat.odId === authStore.user?.uid;
-};
-
-const showBuyInModal = (seatNumber) => {
-  selectedSeatNumber.value = seatNumber;
-  // Default to the room's max buy-in (full stack) so the common case is one tap.
-  buyInAmount.value = String(currentGame.value?.meta?.maxBuyIn || DEFAULT_BUY_IN);
-  showBuyInModalDialog.value = true;
-};
-
-const handleBuyInConfirm = async () => {
-  const amount = parseInt(buyInAmount.value);
-  if (isNaN(amount) || amount <= 0) {
-    showError('Please enter a valid buy-in amount');
-    return;
-  }
-  
-  showBuyInModalDialog.value = false;
-  await handleJoinSeat(selectedSeatNumber.value, amount);
-};
-
-const handleJoinSeat = async (seatNumber, buyIn) => {
-  try {
-    await joinSeat(currentGame.value.id, seatNumber, buyIn);
-    success('You took a seat');
-  } catch (error) {
-    console.error('Failed to join seat:', error);
-    showError('Could not take that seat');
-  }
 };
 
 const handleStartHand = async () => {

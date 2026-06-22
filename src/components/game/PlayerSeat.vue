@@ -11,6 +11,7 @@
             'is-current-turn': isCurrentTurn,
             'is-me': isMe,
             'is-folded': seat.status === 'folded',
+            'is-busted': seat.status === 'busted',
             'is-sitting-out': seat.status === 'sitting_out',
             'is-waiting': seat.status === 'waiting_for_hand',
           }"
@@ -20,8 +21,9 @@
           <!-- Dealer Button Overlay -->
           <div v-if="seat.isDealer" class="dealer-badge">D</div>
           
-          <!-- Status Badge (Check/Fold/All-in/Sitting Out/Waiting) -->
+          <!-- Status Badge (Check/Fold/All-in/Busted/Sitting Out/Waiting) -->
           <div v-if="seat.status === 'folded'" class="status-badge badge-fold">✗</div>
+          <div v-else-if="seat.status === 'busted'" class="status-badge badge-busted">💀</div>
           <div v-else-if="seat.status === 'all_in'" class="status-badge badge-all-in">★</div>
           <div v-else-if="seat.status === 'sitting_out'" class="status-badge badge-sitting-out">☕</div>
           <div v-else-if="seat.status === 'waiting_for_hand'" class="status-badge badge-waiting">⏳</div>
@@ -78,18 +80,9 @@
       />
     </div>
 
-    <!-- Empty Seat (Join Button) -->
-    <div v-else-if="!isAlreadySeated && canJoin" class="empty-seat" @click="handleJoinClick">
-      <div class="empty-seat-inner">
-        <div class="join-icon">+</div>
-        <span class="join-text">Sit Here</span>
-      </div>
-    </div>
-
-    <!-- Empty Seat (Locked - Already Seated or Game in Progress) -->
-    <div v-else class="empty-seat locked">
-      <div class="join-icon">🔒</div>
-    </div>
+    <!-- Empty Seat — players are auto-seated, so this is just a quiet placeholder
+         (no manual "Sit Here" join button). -->
+    <div v-else class="empty-seat empty"></div>
   </div>
 </template>
 
@@ -134,7 +127,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['join-seat', 'auto-action', 'animate-bet']);
+const emit = defineEmits(['auto-action', 'animate-bet']);
 
 const { myHoleCards, currentGame } = usePokerGame();
 const authStore = useAuthStore();
@@ -337,13 +330,6 @@ const isLosingInShowdown = computed(() => {
 });
 
 // Check if current user is already seated anywhere
-const isAlreadySeated = computed(() => {
-  if (!currentGame.value) return false;
-  const userId = authStore.user?.uid;
-  return Object.values(currentGame.value.seats || {})
-    .some((seat) => seat && seat.odId === userId);
-});
-
 // Get turn timeout and expiration from Firestore
 const turnTimeout = computed(() => currentGame.value?.table?.turnTimeout || DEFAULT_TURN_TIMEOUT);
 const turnExpiresAt = computed(() => {
@@ -360,11 +346,6 @@ const turnExpiresAt = computed(() => {
   }
   return expiresAt;
 });
-
-const handleJoinClick = () => {
-  // Emit event to parent to show buy-in modal (non-blocking)
-  emit('join-seat', props.seatNumber);
-};
 
 // Add computed for seat status class
 const seatStatusClass = computed(() => {
@@ -383,13 +364,6 @@ const positionClass = computed(() => {
     return `pos-${p}`;
   }
   return '';
-});
-
-// Add computed for canJoin
-const canJoin = computed(() => {
-  // Can join if game is waiting or playing (will be spectator until next hand)
-  const status = currentGame.value?.status;
-  return status === 'waiting' || status === 'playing';
 });
 </script>
 
@@ -492,7 +466,8 @@ const canJoin = computed(() => {
   transition: all 0.3s ease-out;
 }
 
-.avatar-circle.is-folded {
+.avatar-circle.is-folded,
+.avatar-circle.is-busted {
   filter: grayscale(100%);
   opacity: 0.4;
   transition: all 0.3s ease-out;
@@ -550,6 +525,11 @@ const canJoin = computed(() => {
 
 .badge-fold {
   background: #ef4444;
+  color: white;
+}
+
+.badge-busted {
+  background: #1f2937;
   color: white;
 }
 
@@ -629,10 +609,9 @@ const canJoin = computed(() => {
   margin-top: 2px;
 }
 
-/* Empty Seat */
+/* Empty Seat — quiet, non-interactive placeholder (players are auto-seated) */
 .empty-seat {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   width: 60px;
@@ -640,45 +619,7 @@ const canJoin = computed(() => {
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.2);
   border: 2px dashed #555;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.empty-seat-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.join-text {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.5);
-  font-weight: bold;
-}
-
-.empty-seat:hover .join-text {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.empty-seat:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: #888;
-  transform: scale(1.1);
-}
-
-.empty-seat.locked {
-  cursor: not-allowed;
   opacity: 0.4;
-}
-
-.empty-seat.locked:hover {
-  transform: none;
-}
-
-.join-icon {
-  font-size: 24px;
-  color: #888;
 }
 
 /* Responsive */

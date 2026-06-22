@@ -38,7 +38,7 @@
         <span class="btn-amount">{{ formattedCallAmount }}</span>
       </button>
 
-      <!-- Raise Button -->
+      <!-- Bet / Raise Button (first aggressor with nothing to call is a BET) -->
       <button
         v-if="canRaise"
         class="btn btn-raise"
@@ -47,7 +47,7 @@
         @click="toggleBetControls"
       >
         <span class="btn-icon">📈</span>
-        <span class="btn-label">RAISE</span>
+        <span class="btn-label">{{ isBet ? 'BET' : 'RAISE' }}</span>
       </button>
 
       <!-- Check Button -->
@@ -94,15 +94,23 @@
           />
         </div>
         
-        <div class="quick-bet-buttons">
+        <!-- Opening bet: size off the pot. Facing a bet: size off the bet itself
+             (2×/3× the current bet), per how players think about raises. -->
+        <div v-if="isBet" class="quick-bet-buttons">
           <button @click="setBetAmount(minBet)" :disabled="isDisabled" class="quick-bet">Min</button>
           <button @click="setBetAmount(halfPot)" :disabled="isDisabled" class="quick-bet">½ Pot</button>
           <button @click="setBetAmount(potSize)" :disabled="isDisabled" class="quick-bet">Pot</button>
           <button @click="setBetAmount(maxBet)" :disabled="isDisabled" class="quick-bet">All-In</button>
         </div>
+        <div v-else class="quick-bet-buttons">
+          <button @click="setBetAmount(minBet)" :disabled="isDisabled" class="quick-bet">Min</button>
+          <button @click="setBetAmount(raiseTo2x)" :disabled="isDisabled" class="quick-bet">2×</button>
+          <button @click="setBetAmount(raiseTo3x)" :disabled="isDisabled" class="quick-bet">3×</button>
+          <button @click="setBetAmount(maxBet)" :disabled="isDisabled" class="quick-bet">All-In</button>
+        </div>
 
         <button @click="confirmRaise" :disabled="isDisabled" class="btn-confirm">
-          Confirm Raise {{ betAmount }}
+          Confirm {{ isBet ? 'Bet' : 'Raise' }} {{ betAmount }}
         </button>
       </div>
     </Transition>
@@ -156,12 +164,17 @@ const togglePre = (value) => {
   emit('update:preAction', props.preAction === value ? '' : value);
 };
 
-const { currentGame, minRaise, potSize: currentPot } = usePokerGame();
+const { currentGame, minRaise, potSize: currentPot, currentBet } = usePokerGame();
 
 const showBetControls = ref(false);
 const betAmount = ref(0);
 
 const isDisabled = computed(() => !props.isMyTurn || props.actionsDisabled);
+
+// No bet made yet this round (currentBet 0) means the first aggressor is opening
+// a BET, not a RAISE. Pre-flop the big blind keeps currentBet > 0, so a pre-flop
+// open correctly stays a RAISE (over the blind).
+const isBet = computed(() => (currentBet.value || 0) === 0);
 
 const isCallAllIn = computed(() => {
   return props.callAmount > 0 && props.callAmount === props.myChips;
@@ -190,6 +203,19 @@ const halfPot = computed(() => {
 const threeFourthPot = computed(() => {
   return Math.min(Math.floor(potSize.value * 0.75), maxBet.value);
 });
+
+// Raise sizing relative to the current bet (not the pot): "2×" means make the
+// total bet 2× the current bet. betAmount is chips added THIS turn, so to reach
+// a total of m × currentBet we add (m−1)×currentBet on top of our call.
+// Clamp into the legal [minBet, maxBet] window: a small current bet (e.g. an
+// incomplete short all-in) could make 2×/3× fall below the legal min-raise, so
+// floor at minBet to avoid emitting a raise the backend would reject.
+const raiseToMultiple = (m) => {
+  const target = (m - 1) * (currentBet.value || 0) + props.callAmount;
+  return Math.max(minBet.value, Math.min(target, maxBet.value));
+};
+const raiseTo2x = computed(() => raiseToMultiple(2));
+const raiseTo3x = computed(() => raiseToMultiple(3));
 
 const toggleBetControls = () => {
   if (isDisabled.value) return;

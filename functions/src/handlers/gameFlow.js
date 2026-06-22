@@ -241,11 +241,28 @@ export async function startHand(gameId) {
       };
     } catch (error) {
       const message = typeof error?.message === 'string' ? error.message : String(error);
+      const notEnoughPlayers =
+        error?.code === GameErrorCodes.NOT_ENOUGH_PLAYERS ||
+        message.includes('Need at least 2 players') ||
+        message.includes('Not enough players');
 
-      if (message.includes('Need at least 2 players')) {
+      if (notEnoughPlayers) {
         console.warn('Not enough players to start. Setting game to waiting.');
 
+        // Terminal-case cleanup: when a hand can't begin (e.g. only one player
+        // has chips after a bust), free any seats still tagged BUSTED from the
+        // prior hand. They were kept through the showdown for the animation;
+        // this is their deferred kick. Runs in the post-showdown next-hand task,
+        // so all watching clients drop the ghost seat at the same moment.
+        const cleanedSeats = { ...game.seats };
+        Object.entries(cleanedSeats).forEach(([seatNum, seat]) => {
+          if (seat && (seat.status === 'busted' || (seat.chips ?? 0) <= 0)) {
+            cleanedSeats[seatNum] = null;
+          }
+        });
+
         transaction.update(gameRef, {
+          'seats': cleanedSeats,
           'status': 'waiting',
           'table.stage': 'waiting',
           'table.currentTurn': null,
@@ -755,20 +772,24 @@ export async function handleShowdown(game, transaction, gameRef) {
     }
   }
 
-  // ===== Bust Out (Kick from seat) =====
-  // After chips are updated, remove anyone who busted (<= 0 chips) so they can re-buy.
+  // ===== Bust Out =====
+  // Snapshot the post-payout stacks for the hand history.
   const finalChipsBySeatNum = {};
   Object.entries(updatedSeats).forEach(([seatNum, seat]) => {
     if (!seat) return;
     finalChipsBySeatNum[seatNum] = seat.chips;
   });
 
-  Object.entries(updatedSeats).forEach(([seatNum, seat]) => {
-    if (!seat) return;
-    if ((seat.chips ?? 0) <= 0) {
-      console.log(`Player ${seat.odId} busted (seat ${seatNum})`);
-      // Kick them off the table so they can re-buy.
-      updatedSeats[seatNum] = null;
+  // Seat state machine: a player who lost their last chips becomes BUSTED rather
+  // than being kicked here. They stay seated through `showdown_complete` so the
+  // result animation plays out with them still visible (cards revealed below).
+  // The seat is freed (BUSTED → empty) when the next hand starts — i.e.
+  // settle → pay → show, then remove. See startHand / initializeHand.
+  Object.values(updatedSeats).forEach((seat) => {
+    // Don't overwrite 'folded' — the reveal step below mucks folded hands, and a
+    // busted player who reached showdown should still have their cards revealed.
+    if (seat && seat.status !== 'folded' && (seat.chips ?? 0) <= 0) {
+      seat.status = 'busted';
     }
   });
 

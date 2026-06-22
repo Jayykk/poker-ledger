@@ -45,6 +45,15 @@ export function initializeHand(game) {
   const seats = { ...game.seats };
   Object.keys(seats).forEach((seatNum) => {
     if (seats[seatNum]) {
+      // Deferred bust-out: a player marked BUSTED last hand was kept seated
+      // through that hand's showdown (so the result could animate). Now that the
+      // next hand is starting, free the seat (BUSTED → empty). The chips<=0
+      // fallback covers any seat that reached 0 without being tagged.
+      if (seats[seatNum].status === 'busted' || (seats[seatNum].chips ?? 0) <= 0) {
+        seats[seatNum] = null;
+        return;
+      }
+
       // Activate players who were waiting_for_hand
       // Reset status for new hand:
       // - waiting_for_hand → active (join the game)
