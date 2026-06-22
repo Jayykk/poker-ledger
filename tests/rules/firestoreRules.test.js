@@ -93,6 +93,19 @@ beforeEach(async () => {
 
     await setDoc(doc(db, 'users', ALICE), { name: 'Alice' });
     await setDoc(doc(db, 'users', BOB), { name: 'Bob' });
+
+    // Live event (Session layer): Alice hosts, scheduling with room for 8.
+    await setDoc(doc(db, 'sessions', 'evt-1'), {
+      hostUid: ALICE,
+      hostName: 'Alice',
+      status: 'scheduling',
+      maxPlayers: 8,
+      roster: [{ uid: ALICE, name: 'Alice' }],
+      rosterUids: [ALICE],
+      tableQueue: [{ order: 0, kind: 'cash', status: 'queued', presetSnapshot: {} }],
+      currentTableIndex: -1,
+      activeTable: null,
+    });
   });
 });
 
@@ -260,6 +273,66 @@ describe('tournamentSessions', () => {
     await assertFails(updateDoc(doc(bobDb(), 'tournamentSessions', 'dealer-off'), {
       status: 'paused',
     }));
+  });
+});
+
+describe('sessions (live event layer)', () => {
+  it('any signed-in user can GET an event by ID (shared LIFF link)', async () => {
+    await assertSucceeds(getDoc(doc(bobDb(), 'sessions', 'evt-1')));
+  });
+
+  it('non-hosts cannot enumerate events', async () => {
+    await assertFails(getDocs(collection(bobDb(), 'sessions')));
+  });
+
+  it('hosts can LIST their own events', async () => {
+    await assertSucceeds(getDocs(
+      query(collection(aliceDb(), 'sessions'), where('hostUid', '==', ALICE))
+    ));
+  });
+
+  it('create requires hostUid to match the caller', async () => {
+    await assertFails(setDoc(doc(bobDb(), 'sessions', 'evt-bad'), {
+      hostUid: ALICE, status: 'scheduling', maxPlayers: 8,
+    }));
+    await assertSucceeds(setDoc(doc(bobDb(), 'sessions', 'evt-bob'), {
+      hostUid: BOB, status: 'scheduling', maxPlayers: 8,
+      roster: [], rosterUids: [], tableQueue: [],
+    }));
+  });
+
+  it('a non-host may update ONLY the roster (RSVP join)', async () => {
+    await assertSucceeds(updateDoc(doc(bobDb(), 'sessions', 'evt-1'), {
+      roster: [{ uid: ALICE, name: 'Alice' }, { uid: BOB, name: 'Bob' }],
+      rosterUids: [ALICE, BOB],
+      updatedAt: new Date(),
+    }));
+  });
+
+  it('a non-host cannot change status, queue or maxPlayers', async () => {
+    await assertFails(updateDoc(doc(bobDb(), 'sessions', 'evt-1'), {
+      status: 'active',
+    }));
+    await assertFails(updateDoc(doc(bobDb(), 'sessions', 'evt-1'), {
+      maxPlayers: 99, roster: [], rosterUids: [],
+    }));
+    await assertFails(updateDoc(doc(bobDb(), 'sessions', 'evt-1'), {
+      tableQueue: [], roster: [], rosterUids: [],
+    }));
+  });
+
+  it('the host can change anything (activate a table)', async () => {
+    await assertSucceeds(updateDoc(doc(aliceDb(), 'sessions', 'evt-1'), {
+      status: 'active',
+      currentTableIndex: 0,
+      activeTable: { kind: 'cash', gameId: 'g1' },
+    }));
+  });
+
+  it('only the host or an admin can delete an event', async () => {
+    const { deleteDoc } = await import('firebase/firestore');
+    await assertFails(deleteDoc(doc(bobDb(), 'sessions', 'evt-1')));
+    await assertSucceeds(deleteDoc(doc(aliceDb(), 'sessions', 'evt-1')));
   });
 });
 

@@ -97,6 +97,8 @@ import TimeBankView from './views/TimeBankView.vue';
 import DealerClockView from './views/DealerClockView.vue';
 import DealerClockDemoView from './views/DealerClockDemoView.vue';
 import TournamentGameView from './views/TournamentGameView.vue';
+import SessionView from './views/SessionView.vue';
+import SessionSetupView from './views/SessionSetupView.vue';
 import TableManagementView from './views/admin/TableManagementView.vue';
 import CashTableEditView from './views/admin/CashTableEditView.vue';
 import TournamentEditView from './views/admin/TournamentEditView.vue';
@@ -152,6 +154,9 @@ import { logger } from "./utils/logger.js";
       { path: '/tournament-game/:gameId', name: 'TournamentGameDirect', component: TournamentGameView, meta: { requiresAuth: true } },
       { path: '/dealer-clock-demo', name: 'DealerClockDemo', component: DealerClockDemoView, meta: { requiresAuth: false } },
       { path: '/dealer-clock/:sessionId', name: 'DealerClock', component: DealerClockView, meta: { requiresAuth: false } },
+      { path: '/session-setup', name: 'SessionSetup', component: SessionSetupView, meta: { requiresAuth: true } },
+      { path: '/session-setup/:sessionId', name: 'SessionSetupEdit', component: SessionSetupView, meta: { requiresAuth: true } },
+      { path: '/session/:sessionId', name: 'Session', component: SessionView, meta: { requiresAuth: true } },
       { path: '/admin/tables', name: 'AdminTables', component: TableManagementView, meta: { requiresAuth: true } },
       { path: '/admin/cash/:gameId', name: 'AdminCashEdit', component: CashTableEditView, meta: { requiresAuth: true } },
       { path: '/admin/tournament/:sessionId', name: 'AdminTournamentEdit', component: TournamentEditView, meta: { requiresAuth: true } }
@@ -161,7 +166,7 @@ import { logger } from "./utils/logger.js";
   // Navigation guard: store intended path for post-login redirect
   router.beforeEach((to, from, next) => {
     if (to.meta.requiresAuth !== false && to.path !== '/login') {
-      if (to.params.gameId) {
+      if (to.params.gameId || to.params.sessionId) {
         sessionStorage.setItem('liff_redirect', to.fullPath);
       }
     }

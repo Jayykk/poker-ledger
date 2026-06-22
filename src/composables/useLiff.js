@@ -795,6 +795,138 @@ const sharePokerInvite = async (gameId, hostName) => {
   }
 };
 
+/** Build the shared LIFF URL for a live-event session page. */
+const sessionLiffUrl = (sessionId) =>
+  (sessionId && LIFF_ID ? `https://liff.line.me/${LIFF_ID}/session/${sessionId}` : undefined);
+
+/** Human label for a table-queue entry's kind. */
+const tableKindLabel = (kind) => (kind === 'tournament' ? '錦標賽' : '現金桌');
+
+/**
+ * Card A — live-event RSVP invite. Shared manually via the LINE picker.
+ * Blue/green theme: name, time, first table type, sign-up count.
+ */
+const shareSessionInvite = async (session) => {
+  if (!isInitialized.value || !session) return false;
+  try {
+    const uri = sessionLiffUrl(session.id);
+    const max = Number(session.maxPlayers) || 0;
+    const count = (session.roster || []).length;
+    const first = (session.tableQueue || [])[0];
+    const when = new Date(Number(session.dateTimeMs) || Date.now());
+    const pad = (n) => String(n).padStart(2, '0');
+    const timeText = `${when.getFullYear()}/${pad(when.getMonth() + 1)}/${pad(when.getDate())} ${pad(when.getHours())}:${pad(when.getMinutes())}`;
+
+    const rows = [
+      { type: 'box', layout: 'baseline', contents: [
+        { type: 'text', text: '🗓️ 時間', size: 'sm', color: '#AAAAAA', flex: 2 },
+        { type: 'text', text: timeText, size: 'sm', color: '#333333', flex: 5, wrap: true },
+      ] },
+    ];
+    if (first) {
+      rows.push({ type: 'box', layout: 'baseline', margin: 'md', contents: [
+        { type: 'text', text: '🃏 首桌', size: 'sm', color: '#AAAAAA', flex: 2 },
+        { type: 'text', text: tableKindLabel(first.kind), size: 'sm', color: '#333333', flex: 5 },
+      ] });
+    }
+    rows.push({ type: 'box', layout: 'baseline', margin: 'md', contents: [
+      { type: 'text', text: '👥 報名', size: 'sm', color: '#AAAAAA', flex: 2 },
+      { type: 'text', text: `${count}${max ? ` / ${max}` : ''} 人`, size: 'sm', color: '#1DB446', weight: 'bold', flex: 5 },
+    ] });
+
+    const bubble = {
+      type: 'bubble',
+      header: {
+        type: 'box', layout: 'vertical', backgroundColor: '#1565C0',
+        contents: [{ type: 'text', text: `♠️ ${session.name || '撲克揪團'}`, color: '#FFFFFF', weight: 'bold', size: 'lg', wrap: true }],
+        ...(uri ? { action: { type: 'uri', label: '查看詳情', uri } } : {}),
+      },
+      body: { type: 'box', layout: 'vertical', contents: rows, ...(uri ? { action: { type: 'uri', label: '查看詳情', uri } } : {}) },
+      ...(uri ? { footer: { type: 'box', layout: 'vertical', contents: [
+        { type: 'button', style: 'primary', color: '#1DB446', action: { type: 'uri', label: '♠️ 查看詳情 / 點我報名', uri } },
+      ] } } : {}),
+    };
+    const result = await liff.shareTargetPicker([{ type: 'flex', altText: `♠️ ${session.name || '撲克揪團'}`, contents: bubble }]);
+    return result !== undefined;
+  } catch (err) {
+    console.error('[LIFF] shareSessionInvite failed:', err);
+    return false;
+  }
+};
+
+/**
+ * Card B — "table is live" prompt. Links to the same session page, which routes
+ * the joiner straight into the current table.
+ */
+const shareSessionTableCard = async (session) => {
+  if (!isInitialized.value || !session) return false;
+  try {
+    const uri = sessionLiffUrl(session.id);
+    const idx = Number(session.currentTableIndex);
+    const kind = session.activeTable?.kind;
+    const bubble = {
+      type: 'bubble',
+      header: {
+        type: 'box', layout: 'vertical', backgroundColor: '#C62828',
+        contents: [{ type: 'text', text: '🔴 賽局正熱烈進行中！', color: '#FFFFFF', weight: 'bold', size: 'lg' }],
+        ...(uri ? { action: { type: 'uri', label: '進入牌桌', uri } } : {}),
+      },
+      body: { type: 'box', layout: 'vertical', contents: [
+        { type: 'text', text: session.name || '撲克活動', weight: 'bold', size: 'md', color: '#333333', wrap: true },
+        { type: 'text', text: `目前進行：第 ${Number.isFinite(idx) ? idx + 1 : 1} 桌 · ${tableKindLabel(kind)}`, size: 'sm', color: '#777777', margin: 'md' },
+      ], ...(uri ? { action: { type: 'uri', label: '進入牌桌', uri } } : {}) },
+      ...(uri ? { footer: { type: 'box', layout: 'vertical', contents: [
+        { type: 'button', style: 'primary', color: '#C62828', action: { type: 'uri', label: '🃏 立即進入牌桌入座', uri } },
+      ] } } : {}),
+    };
+    const result = await liff.shareTargetPicker([{ type: 'flex', altText: '🔴 賽局進行中，立即進入牌桌！', contents: bubble }]);
+    return result !== undefined;
+  } catch (err) {
+    console.error('[LIFF] shareSessionTableCard failed:', err);
+    return false;
+  }
+};
+
+/**
+ * Card D — session summary. Green theme: table count, total buy-in, top ranking.
+ */
+const shareSessionSummary = async (session, summary) => {
+  if (!isInitialized.value || !session || !summary) return false;
+  try {
+    const uri = sessionLiffUrl(session.id);
+    const medals = ['🥇', '🥈', '🥉'];
+    const rankRows = (summary.ranking || []).slice(0, 5).map((p, i) => ({
+      type: 'box', layout: 'horizontal', margin: i === 0 ? 'lg' : 'sm', contents: [
+        { type: 'text', text: `${medals[i] || `${i + 1}.`} ${p.name || ''}`, size: 'sm', color: '#333333', flex: 5, wrap: true },
+        { type: 'text', text: `${p.profitCash >= 0 ? '+' : ''}${Math.round(p.profitCash)}`, size: 'sm', weight: 'bold', align: 'end', color: p.profitCash >= 0 ? '#1DB446' : '#DC143C', flex: 3 },
+      ],
+    }));
+
+    const bubble = {
+      type: 'bubble',
+      header: {
+        type: 'box', layout: 'vertical', backgroundColor: '#1DB446',
+        contents: [{ type: 'text', text: '🏆 活動總結', color: '#FFFFFF', weight: 'bold', size: 'lg' }],
+        ...(uri ? { action: { type: 'uri', label: '查看總結', uri } } : {}),
+      },
+      body: { type: 'box', layout: 'vertical', contents: [
+        { type: 'text', text: session.name || '撲克活動', weight: 'bold', size: 'md', color: '#333333', wrap: true },
+        { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+          { type: 'text', text: `桌數 ${summary.tableCount || 0}`, size: 'sm', color: '#777777', flex: 0 },
+          { type: 'text', text: `總買入 ${Math.round(summary.totalBuyIn || 0)}`, size: 'sm', color: '#777777', align: 'end' },
+        ] },
+        { type: 'separator', color: '#EEEEEE', margin: 'lg' },
+        ...rankRows,
+      ], ...(uri ? { action: { type: 'uri', label: '查看總結', uri } } : {}) },
+    };
+    const result = await liff.shareTargetPicker([{ type: 'flex', altText: `🏆 ${session.name || '活動'} 總結`, contents: bubble }]);
+    return result !== undefined;
+  } catch (err) {
+    console.error('[LIFF] shareSessionSummary failed:', err);
+    return false;
+  }
+};
+
 /**
  * Close LIFF window (only works inside LINE client)
  */
@@ -833,6 +965,9 @@ export function useLiff() {
     sendDailyRankingMessage,
     shareGameInvite,
     sharePokerInvite,
+    shareSessionInvite,
+    shareSessionTableCard,
+    shareSessionSummary,
     closeLiff,
     toggleLineNotify,
   };
