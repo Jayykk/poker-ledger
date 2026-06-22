@@ -145,8 +145,59 @@
       </div>
     </div>
 
+    <!-- My Live Events (Session layer) -->
+    <div v-if="mySessions.length > 0" class="mb-6">
+      <h3 class="text-lg font-bold text-white mb-3">{{ $t('session.myEvents') }}</h3>
+      <div class="space-y-2">
+        <div
+          v-for="evt in mySessions"
+          :key="evt.id"
+          @click="$router.push(`/session/${evt.id}`)"
+          class="rounded-2xl border border-slate-700 bg-slate-800/40 transition p-4 cursor-pointer active:scale-95 hover:border-opacity-60"
+        >
+          <div class="flex justify-between items-center">
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <span class="text-white font-bold">{{ evt.name }}</span>
+                <span
+                  class="px-2 py-0.5 rounded text-xs font-bold"
+                  :class="evt.status === 'active'
+                    ? 'bg-amber-600/50 text-amber-200'
+                    : evt.status === 'completed'
+                      ? 'bg-slate-600/50 text-slate-300'
+                      : 'bg-emerald-600/50 text-emerald-200'"
+                >
+                  {{ evt.status === 'active'
+                    ? $t('session.statusActive')
+                    : evt.status === 'completed'
+                      ? $t('session.done')
+                      : $t('session.queued') }}
+                </span>
+              </div>
+              <div class="text-xs text-gray-400 mt-1">
+                👥 {{ (evt.roster || []).length }}{{ evt.maxPlayers ? ' / ' + evt.maxPlayers : '' }}
+                · {{ (evt.tableQueue || []).length }} 桌
+              </div>
+            </div>
+            <i class="fas fa-chevron-right text-emerald-400"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Quick Actions -->
     <div class="grid gap-4">
+      <BaseCard padding="md" clickable @click="$router.push('/session-setup')">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-xl">
+            <i class="fas fa-calendar-plus"></i>
+          </div>
+          <div>
+            <h3 class="text-white font-bold">{{ $t('session.create') }}</h3>
+          </div>
+        </div>
+      </BaseCard>
+
       <BaseCard padding="md" clickable @click="showCreateModal = true">
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-xl">
@@ -509,6 +560,7 @@ import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP, GAME_TYPE } from '../utils/const
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useCashPresets } from '../composables/useCashPresets.js';
+import { useSessions } from '../composables/useSessions.js';
 import { buildOnlineRoomConfig } from '../utils/pokerEntry.js';
 
 const { t } = useI18n();
@@ -556,6 +608,11 @@ const userPresets = ref([]);
 
 const { createSession: createTournamentSession, listenPresets } = useTournamentClock();
 const { listenPresets: listenCashPresets } = useCashPresets();
+const { listenMySessions } = useSessions();
+
+// Live events (Session layer) hosted by this user.
+const mySessions = ref([]);
+let unsubMySessions = null;
 
 // Merge built-in templates with user presets for the picker
 const allTemplateOptions = computed(() => {
@@ -830,6 +887,9 @@ onMounted(async () => {
   // Load rooms first
   await gameStore.loadMyRooms();
 
+  // Subscribe to live events this user hosts (newest first).
+  unsubMySessions = listenMySessions((list) => { mySessions.value = list; });
+
   // Load invitations and mark existing ones as seen
   loadInvitations();
 
@@ -874,6 +934,10 @@ watch(pendingInvitations, (newInvitations, oldInvitations) => {
 
 onUnmounted(() => {
   cleanupInvitations();
+  if (unsubMySessions) {
+    unsubMySessions();
+    unsubMySessions = null;
+  }
   if (unsubPresets) {
     unsubPresets();
     unsubPresets = null;
