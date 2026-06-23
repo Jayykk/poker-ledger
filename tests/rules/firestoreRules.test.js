@@ -94,24 +94,27 @@ beforeEach(async () => {
     await setDoc(doc(db, 'users', ALICE), { name: 'Alice' });
     await setDoc(doc(db, 'users', BOB), { name: 'Bob' });
 
-    // Live event (Session layer): Alice hosts, scheduling with room for 8.
+    // Live event (Session v2 — periods): Alice hosts, scheduling.
     await setDoc(doc(db, 'sessions', 'evt-1'), {
       hostUid: ALICE,
       hostName: 'Alice',
       status: 'scheduling',
-      maxPlayers: 8,
-      roster: [{ uid: ALICE, name: 'Alice' }],
-      rosterUids: [ALICE],
-      tableQueue: [{ order: 0, kind: 'cash', status: 'queued', presetSnapshot: {} }],
-      currentTableIndex: -1,
-      activeTable: null,
+      periods: [
+        { id: 'pA', order: 0, label: '下午', type: 'cash', maxPlayers: 8, status: 'queued', roster: [], rosterUids: [] },
+      ],
+      participantUids: [],
+      currentSlotIndex: -1,
+      activeSlot: null,
     });
-    // An event Bob has RSVP'd to (Alice hosts).
+    // An event Bob has RSVP'd to a period of (Alice hosts).
     await setDoc(doc(db, 'sessions', 'evt-joined'), {
-      hostUid: ALICE, hostName: 'Alice', status: 'scheduling', maxPlayers: 8,
-      roster: [{ uid: ALICE, name: 'Alice' }, { uid: BOB, name: 'Bob' }],
-      rosterUids: [ALICE, BOB],
-      tableQueue: [], currentTableIndex: -1, activeTable: null,
+      hostUid: ALICE, hostName: 'Alice', status: 'scheduling',
+      periods: [
+        { id: 'pB', order: 0, label: '晚上', type: 'tournament', maxPlayers: 9, status: 'queued',
+          roster: [{ uid: BOB, name: 'Bob' }], rosterUids: [BOB] },
+      ],
+      participantUids: [BOB],
+      currentSlotIndex: -1, activeSlot: null,
     });
   });
 });
@@ -298,15 +301,15 @@ describe('sessions (live event layer)', () => {
     ));
   });
 
-  it('registered players can LIST events they joined (rosterUids array-contains)', async () => {
+  it('registered players can LIST events they joined (participantUids array-contains)', async () => {
     await assertSucceeds(getDocs(
-      query(collection(bobDb(), 'sessions'), where('rosterUids', 'array-contains', BOB))
+      query(collection(bobDb(), 'sessions'), where('participantUids', 'array-contains', BOB))
     ));
   });
 
   it('a player cannot list events they have NOT joined', async () => {
     await assertFails(getDocs(
-      query(collection(bobDb(), 'sessions'), where('rosterUids', 'array-contains', 'someone-else'))
+      query(collection(bobDb(), 'sessions'), where('participantUids', 'array-contains', 'someone-else'))
     ));
   });
 
@@ -320,31 +323,31 @@ describe('sessions (live event layer)', () => {
     }));
   });
 
-  it('a non-host may update ONLY the roster (RSVP join)', async () => {
+  it('a non-host may update ONLY periods + participantUids (RSVP join)', async () => {
     await assertSucceeds(updateDoc(doc(bobDb(), 'sessions', 'evt-1'), {
-      roster: [{ uid: ALICE, name: 'Alice' }, { uid: BOB, name: 'Bob' }],
-      rosterUids: [ALICE, BOB],
+      periods: [
+        { id: 'pA', order: 0, label: '下午', type: 'cash', maxPlayers: 8, status: 'queued',
+          roster: [{ uid: BOB, name: 'Bob' }], rosterUids: [BOB] },
+      ],
+      participantUids: [BOB],
       updatedAt: new Date(),
     }));
   });
 
-  it('a non-host cannot change status, queue or maxPlayers', async () => {
+  it('a non-host cannot change status or name', async () => {
     await assertFails(updateDoc(doc(bobDb(), 'sessions', 'evt-1'), {
       status: 'active',
     }));
     await assertFails(updateDoc(doc(bobDb(), 'sessions', 'evt-1'), {
-      maxPlayers: 99, roster: [], rosterUids: [],
-    }));
-    await assertFails(updateDoc(doc(bobDb(), 'sessions', 'evt-1'), {
-      tableQueue: [], roster: [], rosterUids: [],
+      name: 'Hijacked', periods: [], participantUids: [],
     }));
   });
 
-  it('the host can change anything (activate a table)', async () => {
+  it('the host can change anything (activate a period)', async () => {
     await assertSucceeds(updateDoc(doc(aliceDb(), 'sessions', 'evt-1'), {
       status: 'active',
-      currentTableIndex: 0,
-      activeTable: { kind: 'cash', gameId: 'g1' },
+      currentSlotIndex: 0,
+      activeSlot: { id: 'pA', type: 'cash', gameId: 'g1' },
     }));
   });
 

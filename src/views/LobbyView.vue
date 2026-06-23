@@ -175,8 +175,7 @@
                 </span>
               </div>
               <div class="text-xs text-gray-400 mt-1">
-                👥 {{ (evt.roster || []).length }}{{ evt.maxPlayers ? ' / ' + evt.maxPlayers : '' }}
-                · {{ (evt.tableQueue || []).length }} 桌
+                👥 {{ (evt.participantUids || []).length }} · 🗓️ {{ (evt.periods || []).length }}
               </div>
             </div>
             <i class="fas fa-chevron-right text-emerald-400"></i>

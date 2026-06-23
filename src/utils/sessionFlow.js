@@ -1,100 +1,103 @@
 /**
  * Session flow helpers
- * Pure decision & aggregation logic for the live-event (Session) layer: routing
- * a visitor to the right view, RSVP cap checks, building the redirect target for
- * the active table, location-privacy gating, and rolling up a whole session's
- * tables into one summary.
+ * Pure decision & aggregation logic for the live-event (Session) layer, now
+ * organised around ordered "periods" (時段): routing a visitor to the right
+ * view, per-period RSVP capacity checks, building the redirect target for the
+ * active period's table, and rolling a session's tables into one summary.
  *
  * Kept free of Vue/Firebase (mirrors src/utils/pokerEntry.js) so the rules can
  * be unit-tested directly; the components/composables just act on what these
  * return.
  */
 
-// ── Membership & role ────────────────────────────────────────────────
-
-/** Is this uid on the RSVP roster? Prefers the denormalised rosterUids list. */
-export function isRosterMember(session, uid) {
-  if (!session || !uid) return false;
-  if (Array.isArray(session.rosterUids)) return session.rosterUids.includes(uid);
-  return Array.isArray(session.roster) && session.roster.some((r) => r && r.uid === uid);
-}
+// ── Role ─────────────────────────────────────────────────────────────
 
 /** Is this uid the host (organiser) of the session? */
 export function isHost(session, uid) {
   return !!session && !!uid && session.hostUid === uid;
 }
 
-// ── RSVP capacity ────────────────────────────────────────────────────
+// ── Periods ──────────────────────────────────────────────────────────
 
-/** Current number of people on the roster. */
-export function rosterCount(session) {
-  if (!session) return 0;
-  if (Array.isArray(session.roster)) return session.roster.length;
-  if (Array.isArray(session.rosterUids)) return session.rosterUids.length;
-  return 0;
+/** Find a period by id, or null. */
+export function periodById(session, periodId) {
+  if (!session || !periodId) return null;
+  return (session.periods || []).find((p) => p && p.id === periodId) || null;
 }
 
-/** Has the roster reached maxPlayers? (maxPlayers <= 0 means uncapped.) */
-export function isFull(session) {
-  const max = Number(session?.maxPlayers) || 0;
+/** The uids signed up for a period (prefers the denormalised rosterUids). */
+export function periodRosterUids(period) {
+  if (!period) return [];
+  if (Array.isArray(period.rosterUids)) return period.rosterUids;
+  return (period.roster || []).map((r) => r && r.uid).filter(Boolean);
+}
+
+/** Number signed up for a period. */
+export function periodCount(period) {
+  if (!period) return 0;
+  if (Array.isArray(period.roster)) return period.roster.length;
+  return periodRosterUids(period).length;
+}
+
+/** Has a period hit its own maxPlayers? (<= 0 means uncapped.) */
+export function periodFull(period) {
+  const max = Number(period?.maxPlayers) || 0;
   if (max <= 0) return false;
-  return rosterCount(session) >= max;
+  return periodCount(period) >= max;
+}
+
+/** A period is locked for sign-up changes once it is active or done. */
+export function isPeriodLocked(period) {
+  return !!period && !!period.status && period.status !== 'queued';
 }
 
 /**
- * Can this uid still reserve a spot? Only while scheduling, not already on the
- * roster, and not full. (The actual write is guarded again by a transaction.)
+ * Can this uid still toggle their sign-up for a period? Only while the period is
+ * queued, and either they're already in it (so they can leave) or it isn't full.
  */
-export function canJoinRsvp(session, uid) {
+export function canJoinPeriod(period, uid) {
+  if (!period || !uid) return false;
+  if (isPeriodLocked(period)) return false;
+  if (periodRosterUids(period).includes(uid)) return true;
+  return !periodFull(period);
+}
+
+/** Is this uid signed up for a specific period? */
+export function isSignedUpForPeriod(session, uid, periodId) {
+  if (!uid) return false;
+  return periodRosterUids(periodById(session, periodId)).includes(uid);
+}
+
+/** Is this uid signed up for ANY period (i.e. a participant of the event)? */
+export function isParticipant(session, uid) {
   if (!session || !uid) return false;
-  if (session.status !== 'scheduling') return false;
-  if (isRosterMember(session, uid)) return false;
-  return !isFull(session);
+  if (Array.isArray(session.participantUids)) return session.participantUids.includes(uid);
+  return (session.periods || []).some((p) => periodRosterUids(p).includes(uid));
 }
 
-// ── Active table → route ─────────────────────────────────────────────
+// ── Active period → route ────────────────────────────────────────────
 
 /**
- * Build the redirect path for the currently active table. Both live cash and
- * tournament tables route to their player-facing table view by gameId — cash to
- * the ledger (/game/:id), tournaments to the table manager
- * (/tournament-game/:id), NOT the clock. Returns null when nothing is activated.
+ * Build the redirect path for the active period's table. Linked periods route
+ * to their player-facing table by gameId — cash to the ledger (/game/:id),
+ * tournaments to the table manager (/tournament-game/:id), NOT the clock.
+ * Returns null for custom periods (no gameId) or when nothing is active.
  */
-export function buildActiveRoute(activeTable) {
-  if (!activeTable || !activeTable.gameId) return null;
-  if (activeTable.kind === 'tournament') {
-    return `/tournament-game/${activeTable.gameId}`;
-  }
-  return `/game/${activeTable.gameId}`;
-}
-
-/** The roster entry for this uid, or null. */
-export function rosterEntryOf(session, uid) {
-  if (!session || !uid) return null;
-  return (session.roster || []).find((r) => r && r.uid === uid) || null;
-}
-
-/**
- * Is this uid signed up for a specific table? A roster entry with no `tableIds`
- * (legacy data, or "all tables") counts as signed up for every table.
- */
-export function isSignedUpForTable(session, uid, tableId) {
-  const e = rosterEntryOf(session, uid);
-  if (!e) return false;
-  if (!Array.isArray(e.tableIds)) return true;
-  return e.tableIds.includes(tableId);
+export function buildActiveRoute(activeSlot) {
+  if (!activeSlot || !activeSlot.gameId) return null;
+  const t = activeSlot.type || activeSlot.kind;
+  if (t === 'tournament') return `/tournament-game/${activeSlot.gameId}`;
+  return `/game/${activeSlot.gameId}`;
 }
 
 // ── View routing decision ────────────────────────────────────────────
 
 /**
  * Decide what the SessionView should show for this visitor.
- *   mode 'rsvp'         → scheduling, non-host → show reservation UI
- *   mode 'host-console' → host (any non-completed status) → management console
- *   mode 'redirect'     → active, member signed up for the active table → jump in
- *   mode 'event'        → active, member NOT in the active table → show event page
- *   mode 'blocked'      → active, not on roster → "you haven't signed up" wall
  *   mode 'completed'    → finished → show the session summary
+ *   mode 'host-console' → host (any non-completed status) → management console
+ *   mode 'redirect'     → active, member signed up for the active linked period → jump in
+ *   mode 'rsvp'         → everyone else → the period sign-up board
  *
  * @param {Object} session - sessions/{id} document
  * @param {string} uid - the local user's uid
@@ -104,38 +107,24 @@ export function resolveSessionView(session, uid) {
   if (!session) return { mode: 'completed' };
   if (session.status === 'completed') return { mode: 'completed' };
 
-  const host = isHost(session, uid);
-
-  // Gathering-only events (table linkage off): always a plain sign-up board —
-  // no table activation, redirect, or block wall.
-  if (session.linkTables === false) {
-    return host ? { mode: 'host-console' } : { mode: 'rsvp' };
+  if (isHost(session, uid)) {
+    return { mode: 'host-console', route: buildActiveRoute(session.activeSlot) };
   }
 
-  switch (session.status) {
-  case 'scheduling':
-    return host ? { mode: 'host-console' } : { mode: 'rsvp' };
-  case 'active': {
-    const route = buildActiveRoute(session.activeTable);
-    // Host stays on the console to manage tables (and can tap into the table
-    // from there); they are never force-redirected.
-    if (host) return { mode: 'host-console', route };
-    if (!isRosterMember(session, uid)) return { mode: 'blocked' };
-    // A roster member is sent in only for tables they signed up for; otherwise
-    // they see the event page and wait for their table.
-    if (route && isSignedUpForTable(session, uid, session.activeTable?.id)) {
+  if (session.status === 'active') {
+    const route = buildActiveRoute(session.activeSlot);
+    const activeId = session.activeSlot?.id;
+    if (route && activeId && isSignedUpForPeriod(session, uid, activeId)) {
       return { mode: 'redirect', route };
     }
-    return { mode: 'event' };
   }
-  default:
-    return { mode: 'completed' };
-  }
+  // Scheduling, or active-but-not-in-the-running-table: the sign-up board.
+  return { mode: 'rsvp' };
 }
 
-// ── Location privacy ─────────────────────────────────────────────────
+// ── Location ─────────────────────────────────────────────────────────
 
-/** Is there a venue name to show? (Location is always public now.) */
+/** Is there a venue name to show? (Location is always public.) */
 export function canViewLocation(session) {
   return !!session?.location?.name;
 }

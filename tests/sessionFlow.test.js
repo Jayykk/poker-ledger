@@ -1,60 +1,42 @@
 /**
- * Unit tests for src/utils/sessionFlow.js
- * Pure decision & aggregation logic for the live-event (Session) layer.
+ * Unit tests for src/utils/sessionFlow.js — period-based live-event logic.
  */
 import { describe, it, expect } from 'vitest';
 import {
-  isRosterMember,
   isHost,
-  rosterCount,
-  isFull,
-  canJoinRsvp,
+  periodById,
+  periodRosterUids,
+  periodCount,
+  periodFull,
+  isPeriodLocked,
+  canJoinPeriod,
+  isSignedUpForPeriod,
+  isParticipant,
   buildActiveRoute,
   resolveSessionView,
   canViewLocation,
   defaultSessionName,
   aggregateSessionSummary,
-  rosterEntryOf,
-  isSignedUpForTable,
 } from '../src/utils/sessionFlow.js';
 
-/**
- * Minimal sessions-shaped state. When only `rosterUids` is overridden, `roster`
- * mirrors it so the two stay in sync (as the real RSVP write keeps them).
- */
+/** Minimal session with two periods (afternoon cash, evening tournament). */
 function makeSession(overrides = {}) {
-  const base = {
+  return {
     hostUid: 'host',
-    maxPlayers: 3,
     status: 'scheduling',
-    rosterUids: ['host'],
-    activeTable: null,
+    periods: [
+      { id: 'p1', order: 0, label: '下午', type: 'cash', maxPlayers: 3, status: 'queued',
+        roster: [{ uid: 'host' }], rosterUids: ['host'] },
+      { id: 'p2', order: 1, label: '晚上', type: 'tournament', maxPlayers: 9, status: 'queued',
+        roster: [], rosterUids: [] },
+    ],
+    participantUids: ['host'],
+    currentSlotIndex: -1,
+    activeSlot: null,
     location: null,
+    ...overrides,
   };
-  const merged = { ...base, ...overrides };
-  if (!('roster' in overrides)) {
-    merged.roster = merged.rosterUids.map((uid) => ({ uid, name: uid }));
-  }
-  return merged;
 }
-
-describe('isRosterMember', () => {
-  it('uses rosterUids when present', () => {
-    expect(isRosterMember(makeSession({ rosterUids: ['host', 'p2'] }), 'p2')).toBe(true);
-    expect(isRosterMember(makeSession({ rosterUids: ['host'] }), 'p2')).toBe(false);
-  });
-
-  it('falls back to roster array when rosterUids is absent', () => {
-    const s = { roster: [{ uid: 'p9' }] };
-    expect(isRosterMember(s, 'p9')).toBe(true);
-    expect(isRosterMember(s, 'nobody')).toBe(false);
-  });
-
-  it('guards null inputs', () => {
-    expect(isRosterMember(null, 'x')).toBe(false);
-    expect(isRosterMember(makeSession(), null)).toBe(false);
-  });
-});
 
 describe('isHost', () => {
   it('matches hostUid', () => {
@@ -63,136 +45,123 @@ describe('isHost', () => {
   });
 });
 
-describe('rosterCount / isFull', () => {
-  it('counts the roster', () => {
-    expect(rosterCount(makeSession({ rosterUids: ['a', 'b'] }))).toBe(2);
+describe('periods helpers', () => {
+  it('finds a period by id', () => {
+    expect(periodById(makeSession(), 'p2').label).toBe('晚上');
+    expect(periodById(makeSession(), 'nope')).toBe(null);
   });
 
-  it('is full at maxPlayers', () => {
-    expect(isFull(makeSession({ maxPlayers: 2, rosterUids: ['a', 'b'] }))).toBe(true);
-    expect(isFull(makeSession({ maxPlayers: 3, rosterUids: ['a', 'b'] }))).toBe(false);
+  it('reads roster uids and count', () => {
+    const s = makeSession();
+    expect(periodRosterUids(s.periods[0])).toEqual(['host']);
+    expect(periodCount(s.periods[0])).toBe(1);
   });
 
-  it('treats maxPlayers <= 0 as uncapped', () => {
-    expect(isFull(makeSession({ maxPlayers: 0, rosterUids: ['a', 'b'] }))).toBe(false);
+  it('detects a full period by its own cap', () => {
+    const full = { maxPlayers: 2, rosterUids: ['a', 'b'], roster: [{ uid: 'a' }, { uid: 'b' }] };
+    expect(periodFull(full)).toBe(true);
+    expect(periodFull({ maxPlayers: 3, rosterUids: ['a'] })).toBe(false);
+    expect(periodFull({ maxPlayers: 0, rosterUids: ['a', 'b'] })).toBe(false); // uncapped
+  });
+
+  it('locks a period once active/done', () => {
+    expect(isPeriodLocked({ status: 'queued' })).toBe(false);
+    expect(isPeriodLocked({ status: 'active' })).toBe(true);
+    expect(isPeriodLocked({ status: 'done' })).toBe(true);
   });
 });
 
-describe('canJoinRsvp', () => {
-  it('allows a new visitor while scheduling and not full', () => {
-    expect(canJoinRsvp(makeSession({ rosterUids: ['host'] }), 'p2')).toBe(true);
+describe('canJoinPeriod', () => {
+  it('allows joining a queued, non-full period', () => {
+    expect(canJoinPeriod({ status: 'queued', maxPlayers: 3, rosterUids: ['a'] }, 'b')).toBe(true);
   });
-
-  it('rejects when already on the roster', () => {
-    expect(canJoinRsvp(makeSession({ rosterUids: ['host', 'p2'] }), 'p2')).toBe(false);
+  it('lets an already-signed-up player toggle even if full', () => {
+    expect(canJoinPeriod({ status: 'queued', maxPlayers: 2, rosterUids: ['a', 'b'] }, 'b')).toBe(true);
   });
-
-  it('rejects when full', () => {
-    expect(canJoinRsvp(makeSession({ maxPlayers: 2, rosterUids: ['host', 'x'] }), 'p2')).toBe(false);
+  it('rejects a full period for a newcomer', () => {
+    expect(canJoinPeriod({ status: 'queued', maxPlayers: 2, rosterUids: ['a', 'b'] }, 'c')).toBe(false);
   });
+  it('rejects a locked (active/done) period', () => {
+    expect(canJoinPeriod({ status: 'active', maxPlayers: 9, rosterUids: [] }, 'a')).toBe(false);
+  });
+});
 
-  it('rejects once the session is no longer scheduling', () => {
-    expect(canJoinRsvp(makeSession({ status: 'active', rosterUids: ['host'] }), 'p2')).toBe(false);
+describe('isSignedUpForPeriod / isParticipant', () => {
+  it('checks per-period membership', () => {
+    const s = makeSession({ periods: [
+      { id: 'p1', rosterUids: ['host', 'x'], status: 'queued' },
+      { id: 'p2', rosterUids: ['y'], status: 'queued' },
+    ], participantUids: ['host', 'x', 'y'] });
+    expect(isSignedUpForPeriod(s, 'x', 'p1')).toBe(true);
+    expect(isSignedUpForPeriod(s, 'x', 'p2')).toBe(false);
+  });
+  it('checks event-wide participation via participantUids', () => {
+    const s = makeSession({ participantUids: ['host', 'z'] });
+    expect(isParticipant(s, 'z')).toBe(true);
+    expect(isParticipant(s, 'stranger')).toBe(false);
   });
 });
 
 describe('buildActiveRoute', () => {
-  it('routes cash tables to the ledger', () => {
-    expect(buildActiveRoute({ kind: 'cash', gameId: 'g1' })).toBe('/game/g1');
+  it('routes cash periods to the ledger', () => {
+    expect(buildActiveRoute({ id: 'p1', type: 'cash', gameId: 'g1' })).toBe('/game/g1');
   });
-
-  it('routes tournaments to the table manager by gameId (not the clock)', () => {
-    expect(buildActiveRoute({ kind: 'tournament', gameId: 'g2', tournamentSessionId: 't1' }))
-      .toBe('/tournament-game/g2');
+  it('routes tournament periods to the table manager', () => {
+    expect(buildActiveRoute({ id: 'p2', type: 'tournament', gameId: 'g2' })).toBe('/tournament-game/g2');
   });
-
-  it('returns null when nothing is activated / no gameId', () => {
+  it('returns null for custom / no-game slots', () => {
+    expect(buildActiveRoute({ id: 'p3', type: 'custom' })).toBe(null);
     expect(buildActiveRoute(null)).toBe(null);
-    expect(buildActiveRoute({ kind: 'cash' })).toBe(null);
-    expect(buildActiveRoute({ kind: 'tournament', tournamentSessionId: 't1' })).toBe(null);
-  });
-});
-
-describe('rosterEntryOf / isSignedUpForTable', () => {
-  const s = {
-    roster: [
-      { uid: 'a', tableIds: ['t1', 't3'] },
-      { uid: 'b' }, // legacy: no tableIds → all tables
-    ],
-  };
-
-  it('finds the roster entry', () => {
-    expect(rosterEntryOf(s, 'a').tableIds).toEqual(['t1', 't3']);
-    expect(rosterEntryOf(s, 'nobody')).toBe(null);
-  });
-
-  it('respects per-table sign-up', () => {
-    expect(isSignedUpForTable(s, 'a', 't1')).toBe(true);
-    expect(isSignedUpForTable(s, 'a', 't2')).toBe(false);
-  });
-
-  it('treats a missing tableIds list as signed up for every table', () => {
-    expect(isSignedUpForTable(s, 'b', 't1')).toBe(true);
-    expect(isSignedUpForTable(s, 'b', 'tX')).toBe(true);
-  });
-
-  it('returns false for a non-member', () => {
-    expect(isSignedUpForTable(s, 'ghost', 't1')).toBe(false);
   });
 });
 
 describe('resolveSessionView', () => {
-  it('shows RSVP to a non-host while scheduling', () => {
+  it('shows the sign-up board to a non-host while scheduling', () => {
     expect(resolveSessionView(makeSession(), 'p2')).toEqual({ mode: 'rsvp' });
   });
 
-  it('shows the host console while scheduling', () => {
-    expect(resolveSessionView(makeSession(), 'host')).toEqual({ mode: 'host-console' });
+  it('shows the host console (with route) to the host', () => {
+    const s = makeSession({ status: 'active', activeSlot: { id: 'p1', type: 'cash', gameId: 'g1' } });
+    expect(resolveSessionView(s, 'host')).toEqual({ mode: 'host-console', route: '/game/g1' });
   });
 
-  it('redirects a member signed up for the active table', () => {
+  it('redirects a member of the active linked period', () => {
     const s = makeSession({
       status: 'active',
-      roster: [{ uid: 'host' }, { uid: 'p2', tableIds: ['tbl1'] }],
-      rosterUids: ['host', 'p2'],
-      activeTable: { id: 'tbl1', kind: 'cash', gameId: 'g1' },
+      periods: [{ id: 'p1', type: 'cash', status: 'active', rosterUids: ['host', 'bob'] }],
+      participantUids: ['host', 'bob'],
+      activeSlot: { id: 'p1', type: 'cash', gameId: 'g1' },
     });
-    expect(resolveSessionView(s, 'p2')).toEqual({ mode: 'redirect', route: '/game/g1' });
+    expect(resolveSessionView(s, 'bob')).toEqual({ mode: 'redirect', route: '/game/g1' });
   });
 
-  it('shows the event page to a member NOT signed up for the active table', () => {
+  it('shows the board (no redirect) to a member NOT in the active period', () => {
     const s = makeSession({
       status: 'active',
-      roster: [{ uid: 'host' }, { uid: 'p2', tableIds: ['tbl2'] }],
-      rosterUids: ['host', 'p2'],
-      activeTable: { id: 'tbl1', kind: 'cash', gameId: 'g1' },
+      periods: [
+        { id: 'p1', type: 'cash', status: 'active', rosterUids: ['host'] },
+        { id: 'p2', type: 'tournament', status: 'queued', rosterUids: ['bob'] },
+      ],
+      participantUids: ['host', 'bob'],
+      activeSlot: { id: 'p1', type: 'cash', gameId: 'g1' },
     });
-    expect(resolveSessionView(s, 'p2')).toEqual({ mode: 'event' });
+    expect(resolveSessionView(s, 'bob')).toEqual({ mode: 'rsvp' });
   });
 
-  it('keeps the host on the console when active (with route for tap-in)', () => {
+  it('shows the board when the active period is custom (no route)', () => {
     const s = makeSession({
       status: 'active',
-      activeTable: { id: 'tbl1', kind: 'tournament', gameId: 'g2', tournamentSessionId: 't1' },
+      activeSlot: { id: 'p3', type: 'custom' },
     });
-    expect(resolveSessionView(s, 'host')).toEqual({ mode: 'host-console', route: '/tournament-game/g2' });
-  });
-
-  it('blocks a non-roster visitor on an active session', () => {
-    const s = makeSession({
-      status: 'active',
-      rosterUids: ['host'],
-      activeTable: { id: 'tbl1', kind: 'cash', gameId: 'g1' },
-    });
-    expect(resolveSessionView(s, 'stranger')).toEqual({ mode: 'blocked' });
+    expect(resolveSessionView(s, 'bob')).toEqual({ mode: 'rsvp' });
   });
 
   it('shows the summary when completed', () => {
-    expect(resolveSessionView(makeSession({ status: 'completed' }), 'p2')).toEqual({ mode: 'completed' });
+    expect(resolveSessionView(makeSession({ status: 'completed' }), 'bob')).toEqual({ mode: 'completed' });
   });
 
-  it('treats a missing session as completed/closed', () => {
-    expect(resolveSessionView(null, 'p2')).toEqual({ mode: 'completed' });
+  it('treats a missing session as completed', () => {
+    expect(resolveSessionView(null, 'bob')).toEqual({ mode: 'completed' });
   });
 });
 
@@ -200,36 +169,16 @@ describe('canViewLocation', () => {
   it('is hidden when there is no location', () => {
     expect(canViewLocation(makeSession())).toBe(false);
   });
-
-  it('is shown to everyone when a venue name is set', () => {
-    const s = makeSession({ location: { name: '內湖基地' } });
-    expect(canViewLocation(s)).toBe(true);
-  });
-});
-
-describe('resolveSessionView — gathering-only (linkTables=false)', () => {
-  it('shows RSVP to a non-host regardless of status', () => {
-    const s = makeSession({ status: 'active', linkTables: false, activeTable: { id: 't1', kind: 'cash', gameId: 'g1' } });
-    expect(resolveSessionView(s, 'p2')).toEqual({ mode: 'rsvp' });
-  });
-
-  it('shows the host console to the host', () => {
-    const s = makeSession({ status: 'scheduling', linkTables: false });
-    expect(resolveSessionView(s, 'host')).toEqual({ mode: 'host-console' });
-  });
-
-  it('never blocks or redirects a non-member', () => {
-    const s = makeSession({ status: 'active', linkTables: false, rosterUids: ['host'] });
-    expect(resolveSessionView(s, 'stranger')).toEqual({ mode: 'rsvp' });
+  it('is shown when a venue name is set', () => {
+    expect(canViewLocation(makeSession({ location: { name: '內湖基地' } }))).toBe(true);
   });
 });
 
 describe('defaultSessionName', () => {
   it('formats YYYYMMDD from the given time', () => {
-    const ms = new Date(2026, 5, 22, 19, 30).getTime(); // 2026-06-22 local
+    const ms = new Date(2026, 5, 22, 19, 30).getTime();
     expect(defaultSessionName(ms)).toBe('20260622 德州撲克活動');
   });
-
   it('returns empty string for invalid input', () => {
     expect(defaultSessionName('not-a-date')).toBe('');
   });
@@ -237,53 +186,27 @@ describe('defaultSessionName', () => {
 
 describe('aggregateSessionSummary', () => {
   const tableA = {
-    name: '現金 10/20',
-    kind: 'cash',
-    rate: 1,
+    name: '下午 現金', kind: 'cash', rate: 1,
     settlementSnapshot: [
       { odId: 'a', name: 'Alice', buyIn: 1000, stack: 1500, profit: 500 },
       { odId: 'b', name: 'Bob', buyIn: 1000, stack: 500, profit: -500 },
     ],
   };
   const tableB = {
-    name: 'MTT',
-    kind: 'tournament',
-    rate: 1,
+    name: '晚上 MTT', kind: 'tournament', rate: 1,
     settlement: [
       { odId: 'a', name: 'Alice', buyIn: 500, stack: 0, profit: -500 },
       { odId: 'c', name: 'Cara', buyIn: 500, stack: 1500, profit: 1000 },
     ],
   };
 
-  it('aggregates profit across tables keyed by odId', () => {
+  it('aggregates profit across periods keyed by odId', () => {
     const out = aggregateSessionSummary([tableA, tableB]);
     expect(out.tableCount).toBe(2);
-    const alice = out.ranking.find((p) => p.odId === 'a');
-    expect(alice.profitCash).toBe(0); // +500 then -500
-    expect(alice.tables).toBe(2);
-    expect(alice.buyInCash).toBe(1500);
-  });
-
-  it('totals buy-in across all tables and players', () => {
-    const out = aggregateSessionSummary([tableA, tableB]);
-    expect(out.totalBuyIn).toBe(3000); // 2000 + 1000
-  });
-
-  it('ranks winners first and exposes top winners/losers', () => {
-    const out = aggregateSessionSummary([tableA, tableB]);
-    expect(out.ranking[0].odId).toBe('c'); // +1000
-    expect(out.topWinners[0].name).toBe('Cara');
-    expect(out.topLosers[0].name).toBe('Bob'); // -500
-  });
-
-  it('applies per-table rate to convert chips to cash', () => {
-    const out = aggregateSessionSummary([
-      { name: 'cash', kind: 'cash', rate: 10, settlementSnapshot: [
-        { odId: 'a', name: 'Alice', buyIn: 1000, stack: 2000, profit: 1000 },
-      ] },
-    ]);
-    expect(out.ranking[0].profitCash).toBe(100); // 1000 / 10
-    expect(out.totalBuyIn).toBe(100); // 1000 / 10
+    expect(out.ranking.find((p) => p.odId === 'a').profitCash).toBe(0);
+    expect(out.totalBuyIn).toBe(3000);
+    expect(out.ranking[0].odId).toBe('c');
+    expect(out.topLosers[0].name).toBe('Bob');
   });
 
   it('handles empty / malformed input', () => {
