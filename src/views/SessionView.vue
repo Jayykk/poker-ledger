@@ -40,12 +40,28 @@
         </ul>
       </section>
 
-      <!-- RSVP CTA (non-host, scheduling) -->
+      <!-- Active-table banner for an event member not in the current table -->
+      <div v-if="view.mode === 'event'" class="active-banner">
+        🔴 {{ t('session.statusActive') }} · {{ activeTableLabel }}
+      </div>
+
+      <!-- RSVP CTA (non-host, scheduling): pick which tables to join -->
       <div v-if="view.mode === 'rsvp'" class="cta">
-        <button v-if="amJoined" class="btn-danger" @click="onCancel">{{ t('session.cancelRsvp') }}</button>
-        <button v-else :disabled="full" class="btn-primary" @click="onJoin">
-          {{ full ? t('session.full') : t('session.join') }}
+        <div class="table-pick">
+          <label v-for="tbl in (session.tableQueue || [])" :key="tbl.id" class="pick-row">
+            <input type="checkbox" :value="tbl.id" v-model="selectedTableIds" />
+            <span class="kind">{{ tbl.kind === 'tournament' ? t('session.tournament') : t('session.cash') }}</span>
+            <span class="pick-label">{{ tbl.label || tbl.presetSnapshot?.name || '—' }}</span>
+          </label>
+        </div>
+        <button
+          class="btn-primary"
+          :disabled="(!amJoined && full) || selectedTableIds.length === 0"
+          @click="onJoin"
+        >
+          {{ amJoined ? t('common.save') : (full ? t('session.full') : t('session.join')) }}
         </button>
+        <button v-if="amJoined" class="btn-danger" @click="onCancel">{{ t('session.cancelRsvp') }}</button>
       </div>
 
       <!-- Host console -->
@@ -64,11 +80,19 @@
             {{ t('session.startEvent') }}
           </button>
           <template v-if="session.status === 'active'">
-            <button v-if="view.route" class="btn-secondary" @click="enterTable">{{ t('session.enterTable') }}</button>
-            <button class="btn-primary" @click="onNext">{{ t('session.nextTable') }}</button>
+            <!-- A table is running -->
+            <button v-if="session.activeTable && view.route" class="btn-secondary" @click="enterTable">
+              {{ t('session.enterTable') }}
+            </button>
+            <!-- Between tables (e.g. after dissolve / last table finished) -->
+            <p v-if="!session.activeTable" class="muted">{{ t('session.noActiveTable') }}</p>
+            <button v-if="!session.activeTable && nextQueuedExists" class="btn-primary" @click="onStartNext">
+              {{ t('session.startNext') }}
+            </button>
             <button class="btn-danger" @click="onEnd">{{ t('session.endEvent') }}</button>
           </template>
           <button class="btn-ghost" @click="onEdit">{{ t('session.editTables') }}</button>
+          <button class="btn-ghost danger-text" @click="onDelete">🗑 {{ t('session.deleteEvent') }}</button>
         </div>
 
         <div class="share-actions">
@@ -107,15 +131,16 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '../store/modules/auth.js';
 import { useSessions } from '../composables/useSessions.js';
 import { useLiff } from '../composables/useLiff.js';
 import {
-  resolveSessionView, canViewLocation, isRosterMember, rosterCount, isFull,
+  resolveSessionView, canViewLocation, isRosterMember, rosterCount, isFull, rosterEntryOf,
 } from '../utils/sessionFlow.js';
+import { markSessionReturn } from '../utils/sessionReturn.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -123,19 +148,30 @@ const { t } = useI18n();
 const authStore = useAuthStore();
 const {
   session, loading, listenSession,
-  rsvp, cancelRsvp, activateFirstTable, advanceToNextTable, endSession, loadSessionSummary,
+  rsvp, cancelRsvp, activateFirstTable, advanceToNextTable, endSession, deleteSession, loadSessionSummary,
+  listenGameStatus, hasNextTable,
 } = useSessions();
 const { shareSessionInvite, shareSessionTableCard, shareSessionSummary } = useLiff();
 
 const uid = computed(() => authStore.user?.uid || null);
 const summary = ref(null);
 const notice = ref('');
+const selectedTableIds = ref([]);
 let redirected = false;
 
 const view = computed(() => resolveSessionView(session.value, uid.value));
 const amJoined = computed(() => isRosterMember(session.value, uid.value));
 const full = computed(() => isFull(session.value));
 const showLocation = computed(() => canViewLocation(session.value, uid.value));
+const nextQueuedExists = computed(() => hasNextTable(session.value));
+
+const activeTableLabel = computed(() => {
+  const at = session.value?.activeTable;
+  if (!at) return '';
+  const row = (session.value?.tableQueue || []).find((e) => e.id === at.id);
+  const kind = (at.kind === 'tournament') ? t('session.tournament') : t('session.cash');
+  return `${kind}${row?.label || row?.presetSnapshot?.name ? ' · ' + (row.label || row.presetSnapshot?.name) : ''}`;
+});
 
 const rosterText = computed(() => {
   const max = Number(session.value?.maxPlayers) || 0;
@@ -176,16 +212,25 @@ async function withNotice(fn) {
   }
 }
 
-const onJoin = () => withNotice(() => rsvp(route.params.sessionId));
+const onJoin = () => withNotice(() => rsvp(route.params.sessionId, [...selectedTableIds.value]));
 const onCancel = () => withNotice(() => cancelRsvp(route.params.sessionId));
 const onStart = () => withNotice(() => activateFirstTable(route.params.sessionId));
-const onNext = () => withNotice(() => advanceToNextTable(route.params.sessionId));
+const onStartNext = () => withNotice(() => advanceToNextTable(route.params.sessionId));
 const onEnd = () => withNotice(async () => {
   if (!window.confirm(t('session.confirmEnd'))) return;
   await endSession(route.params.sessionId);
 });
+const onDelete = () => withNotice(async () => {
+  if (!window.confirm(t('session.confirmDelete'))) return;
+  await deleteSession(route.params.sessionId);
+  router.push('/lobby');
+});
 const onEdit = () => router.push(`/session-setup/${route.params.sessionId}`);
-const enterTable = () => { if (view.value.route) router.push(view.value.route); };
+const enterTable = () => {
+  if (!view.value.route) return;
+  markSessionReturn(route.params.sessionId, session.value?.activeTable?.gameId);
+  router.push(view.value.route);
+};
 
 const onShareInvite = () => withNotice(() => shareSessionInvite(session.value));
 const onShareTable = () => withNotice(() => shareSessionTableCard(session.value));
@@ -195,6 +240,7 @@ const onShareSummary = () => withNotice(() => shareSessionSummary(session.value,
 watch(view, (v) => {
   if (v.mode === 'redirect' && v.route && !redirected) {
     redirected = true;
+    markSessionReturn(route.params.sessionId, session.value?.activeTable?.gameId);
     router.replace(v.route);
   }
 }, { immediate: true });
@@ -206,8 +252,51 @@ watch(() => session.value?.status, async (status) => {
   }
 });
 
+// Default the RSVP table picker: my existing selection, else every table.
+watch([session, uid], () => {
+  if (!session.value || session.value.status !== 'scheduling') return;
+  const entry = rosterEntryOf(session.value, uid.value);
+  const allIds = (session.value.tableQueue || []).map((e) => e.id);
+  if (entry && Array.isArray(entry.tableIds)) {
+    selectedTableIds.value = [...entry.tableIds];
+  } else if (selectedTableIds.value.length === 0) {
+    selectedTableIds.value = allIds;
+  }
+}, { immediate: true });
+
+// Host-side auto-advance: when the active table's game finishes and another
+// table is queued, move on automatically. Only the host runs this.
+let unsubGame = null;
+let advancing = false;
+watch(() => (view.value.mode === 'host-console' ? session.value?.activeTable?.gameId : null), (gameId) => {
+  if (unsubGame) { unsubGame(); unsubGame = null; }
+  if (!gameId) return;
+  unsubGame = listenGameStatus(gameId, async (status) => {
+    if (advancing) return;
+    // A table ends by settlement (completed/closed) OR by being dissolved
+    // (the game doc is deleted → 'missing') or cancelled. advanceToNextTable
+    // then either activates the next queued table or, if none remain, clears
+    // the active table (the event stays active until the host ends it).
+    const finished = ['completed', 'closed', 'cancelled', 'missing'].includes(status);
+    if (finished && session.value?.status === 'active' && session.value?.activeTable) {
+      advancing = true;
+      try {
+        await advanceToNextTable(route.params.sessionId);
+      } catch (err) {
+        notice.value = err?.message || t('session.actionFailed');
+      } finally {
+        advancing = false;
+      }
+    }
+  });
+}, { immediate: true });
+
 onMounted(() => {
   listenSession(route.params.sessionId);
+});
+
+onUnmounted(() => {
+  if (unsubGame) { unsubGame(); unsubGame = null; }
 });
 </script>
 
@@ -292,7 +381,35 @@ onMounted(() => {
 }
 .muted { color: rgba(255, 255, 255, 0.45); }
 
-.cta { margin-top: 20px; }
+.cta { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+
+.active-banner {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255, 152, 0, 0.15);
+  border: 1px solid rgba(255, 152, 0, 0.4);
+  color: #ffcc80;
+  font-weight: bold;
+}
+
+.table-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.pick-row input { width: 18px; height: 18px; }
+.pick-label { flex: 1; }
 
 .queue-plan { margin: 0 0 16px; padding-left: 18px; }
 .queue-plan li {
@@ -332,6 +449,7 @@ button {
 .btn-secondary { background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); color: white; }
 .btn-danger { background: #c0392b; color: white; }
 .btn-ghost { background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); }
+.btn-ghost.danger-text { color: #ff8a80; border-color: rgba(255, 107, 107, 0.4); }
 .full-w { width: 100%; margin-top: 12px; }
 
 .wall { text-align: center; }

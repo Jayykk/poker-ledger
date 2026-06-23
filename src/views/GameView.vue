@@ -249,6 +249,7 @@ import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
 import { formatNumber, formatCash, calculateNet } from '../utils/formatters.js';
 import { generateTextReport } from '../utils/exportReport.js';
 import { DEFAULT_EXCHANGE_RATE, DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from '../utils/constants.js';
+import { consumeSessionReturn } from '../utils/sessionReturn.js';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -599,8 +600,9 @@ const handleSettle = async () => {
         }
         // Send settlement report to LINE chat (user's own name, free)
         sendSettlementMessage({ gameName, gameId: gId, rate, players });
+        const back = consumeSessionReturn(gId);
         clearCurrentGame();
-        router.push('/report');
+        router.push(back || '/report');
       }
     }, t('loading.settling'));
   }
@@ -613,9 +615,11 @@ const handleCloseGame = async () => {
   });
   if (shouldClose) {
     await withLoading(async () => {
+      const gId = game.value?.id;
       const closeSuccess = await closeGame();
       if (closeSuccess) {
-        router.push('/lobby');
+        const back = consumeSessionReturn(gId);
+        router.push(back || '/lobby');
       }
     }, t('loading.closing'));
   }

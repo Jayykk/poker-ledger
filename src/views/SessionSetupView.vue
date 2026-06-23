@@ -253,6 +253,7 @@ onMounted(async () => {
         showToJoinedOnly: !!s.location?.showToJoinedOnly,
       };
       form.tableQueue = (s.tableQueue || []).map((e) => ({
+        id: e.id || null, // preserve stable id so RSVP tableIds keep matching
         kind: e.kind || 'cash',
         presetId: '', // not re-selectable; snapshot already stored
         presetSnapshot: e.presetSnapshot || {},
@@ -361,6 +362,10 @@ onUnmounted(() => {
 .form-group input[type='number'],
 .form-group input[type='datetime-local'] {
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
   padding: 10px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);

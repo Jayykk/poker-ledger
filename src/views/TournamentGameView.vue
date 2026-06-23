@@ -258,6 +258,7 @@ import HandHistoryList from '../components/game/HandHistoryList.vue';
 import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
 import { formatNumber } from '../utils/formatters.js';
 import { DEFAULT_BUY_IN } from '../utils/constants.js';
+import { consumeSessionReturn } from '../utils/sessionReturn.js';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -676,8 +677,9 @@ const handleSettle = async () => {
           gameId: gId,
           players: settleResult.settlement,
         });
+        const back = consumeSessionReturn(gId);
         clearCurrentGame();
-        router.push('/report');
+        router.push(back || '/report');
       }
     }, t('loading.settling'));
   }
@@ -687,9 +689,11 @@ const handleCloseGame = async () => {
   const shouldClose = await confirm({ message: t('game.confirmClose'), type: 'danger' });
   if (shouldClose) {
     await withLoading(async () => {
+      const gId = game.value?.id;
       const ok = await closeGame();
       if (ok) {
-        router.push('/lobby');
+        const back = consumeSessionReturn(gId);
+        router.push(back || '/lobby');
       }
     }, t('loading.closing'));
   }

@@ -664,6 +664,10 @@
     "mustHaveTable": "テーブルを1つ以上追加してください",
     "created": "イベントを作成しました",
     "saved": "保存しました",
-    "actionFailed": "操作に失敗しました"
+    "actionFailed": "操作に失敗しました",
+    "noActiveTable": "進行中のテーブルはありません",
+    "startNext": "次のテーブルを開始",
+    "deleteEvent": "イベントを削除",
+    "confirmDelete": "イベント全体を削除しますか？元に戻せません（各テーブルの記録は保持されます）。"
   }
 }

@@ -664,6 +664,10 @@
     "mustHaveTable": "Please add at least one table",
     "created": "Event created",
     "saved": "Saved",
-    "actionFailed": "Action failed"
+    "actionFailed": "Action failed",
+    "noActiveTable": "No table in progress",
+    "startNext": "Start Next Table",
+    "deleteEvent": "Delete Event",
+    "confirmDelete": "Delete this entire event? This cannot be undone (table records are kept)."
   }
 }
