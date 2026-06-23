@@ -23,6 +23,21 @@ import { useTournamentClock } from './useTournamentClock.js';
 import { GAME_TYPE } from '../utils/constants.js';
 import { defaultSessionName, aggregateSessionSummary } from '../utils/sessionFlow.js';
 
+// Live/scheduling events float to the top of the "my events" list; finished
+// ones sink. Within a status group, newest first.
+const STATUS_RANK = { active: 0, scheduling: 1, completed: 2 };
+export const MY_SESSIONS_LIMIT = 20;
+
+/** Sort a session list for the lobby (status priority, then newest first). */
+export function sortSessions(list) {
+  return [...list].sort((a, b) => {
+    const ra = STATUS_RANK[a.status] ?? 3;
+    const rb = STATUS_RANK[b.status] ?? 3;
+    if (ra !== rb) return ra - rb;
+    return (b.dateTimeMs || 0) - (a.dateTimeMs || 0);
+  });
+}
+
 export function useSessions() {
   const authStore = useAuthStore();
   const gameStore = useGameStore();
@@ -86,10 +101,8 @@ export function useSessions() {
         hostName: authStore.displayName,
         dateTimeMs: Number(form.dateTimeMs) || Date.now(),
         maxPlayers: Number(form.maxPlayers) || 8,
-        location: {
-          name: form.location?.name || '',
-          showToJoinedOnly: !!form.location?.showToJoinedOnly,
-        },
+        location: { name: form.location?.name || '' },
+        linkTables: form.linkTables !== false, // default on (linked)
         status: 'scheduling',
         roster: [host],
         rosterUids: [u.uid],
@@ -116,12 +129,8 @@ export function useSessions() {
     if (patch.name !== undefined) data.name = patch.name;
     if (patch.dateTimeMs !== undefined) data.dateTimeMs = Number(patch.dateTimeMs) || Date.now();
     if (patch.maxPlayers !== undefined) data.maxPlayers = Number(patch.maxPlayers) || 8;
-    if (patch.location !== undefined) {
-      data.location = {
-        name: patch.location?.name || '',
-        showToJoinedOnly: !!patch.location?.showToJoinedOnly,
-      };
-    }
+    if (patch.location !== undefined) data.location = { name: patch.location?.name || '' };
+    if (patch.linkTables !== undefined) data.linkTables = patch.linkTables !== false;
     if (patch.tableQueue !== undefined) data.tableQueue = buildQueue(patch.tableQueue);
     await updateDoc(ref_, data);
   }
@@ -158,25 +167,23 @@ export function useSessions() {
     );
   }
 
-  // Live/scheduling events float to the top of the "my events" list; finished
-  // ones sink. Within a status group, newest first. Capped to avoid clutter.
-  const STATUS_RANK = { active: 0, scheduling: 1, completed: 2 };
-  const MY_SESSIONS_LIMIT = 20;
-
-  /** Subscribe to the sessions this user hosts (for the "my events" list). */
+  /** Subscribe to the sessions this user hosts. Delivers a raw (unsorted) list. */
   function listenMySessions(callback) {
     const u = authStore.user;
     if (!u) return () => {};
     const q = query(collection(db, 'sessions'), where('hostUid', '==', u.uid));
     return onSnapshot(q, (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      list.sort((a, b) => {
-        const ra = STATUS_RANK[a.status] ?? 3;
-        const rb = STATUS_RANK[b.status] ?? 3;
-        if (ra !== rb) return ra - rb;
-        return (b.dateTimeMs || 0) - (a.dateTimeMs || 0);
-      });
-      callback(list.slice(0, MY_SESSIONS_LIMIT));
+      callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+  }
+
+  /** Subscribe to the sessions this user has RSVP'd to. Raw (unsorted) list. */
+  function listenJoinedSessions(callback) {
+    const u = authStore.user;
+    if (!u) return () => {};
+    const q = query(collection(db, 'sessions'), where('rosterUids', 'array-contains', u.uid));
+    return onSnapshot(q, (snap) => {
+      callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
   }
 
@@ -448,6 +455,7 @@ export function useSessions() {
     updateQueue,
     listenSession,
     listenMySessions,
+    listenJoinedSessions,
     listenGameStatus,
     hasNextTable,
     getSession,

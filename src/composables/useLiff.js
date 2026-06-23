@@ -802,56 +802,120 @@ const sessionLiffUrl = (sessionId) =>
 /** Human label for a table-queue entry's kind. */
 const tableKindLabel = (kind) => (kind === 'tournament' ? '錦標賽' : '現金桌');
 
-/**
- * Card A — live-event RSVP invite. Shared manually via the LINE picker.
- * Blue/green theme: name, time, first table type, sign-up count.
- */
-const shareSessionInvite = async (session) => {
-  if (!isInitialized.value || !session) return false;
-  try {
-    const uri = sessionLiffUrl(session.id);
-    const max = Number(session.maxPlayers) || 0;
-    const count = (session.roster || []).length;
-    const first = (session.tableQueue || [])[0];
-    const when = new Date(Number(session.dateTimeMs) || Date.now());
-    const pad = (n) => String(n).padStart(2, '0');
-    const timeText = `${when.getFullYear()}/${pad(when.getMonth() + 1)}/${pad(when.getDate())} ${pad(when.getHours())}:${pad(when.getMinutes())}`;
+/** Shared info rows for the live-event cards: time, location, (optional count). */
+const sessionInfoRows = (session, { includeCount = true } = {}) => {
+  const max = Number(session.maxPlayers) || 0;
+  const count = (session.roster || []).length;
+  const locationName = session.location?.name || '';
+  const when = new Date(Number(session.dateTimeMs) || Date.now());
+  const pad = (n) => String(n).padStart(2, '0');
+  const timeText = `${when.getFullYear()}/${pad(when.getMonth() + 1)}/${pad(when.getDate())} ${pad(when.getHours())}:${pad(when.getMinutes())}`;
 
-    const rows = [
-      { type: 'box', layout: 'baseline', contents: [
-        { type: 'text', text: '🗓️ 時間', size: 'sm', color: '#AAAAAA', flex: 2 },
-        { type: 'text', text: timeText, size: 'sm', color: '#333333', flex: 5, wrap: true },
-      ] },
-    ];
-    if (first) {
-      rows.push({ type: 'box', layout: 'baseline', margin: 'md', contents: [
-        { type: 'text', text: '🃏 首桌', size: 'sm', color: '#AAAAAA', flex: 2 },
-        { type: 'text', text: tableKindLabel(first.kind), size: 'sm', color: '#333333', flex: 5 },
-      ] });
-    }
+  const rows = [
+    { type: 'box', layout: 'baseline', contents: [
+      { type: 'text', text: '🗓️ 時間', size: 'sm', color: '#AAAAAA', flex: 2 },
+      { type: 'text', text: timeText, size: 'sm', color: '#333333', flex: 5, wrap: true },
+    ] },
+  ];
+  if (locationName) {
+    rows.push({ type: 'box', layout: 'baseline', margin: 'md', contents: [
+      { type: 'text', text: '📍 地點', size: 'sm', color: '#AAAAAA', flex: 2 },
+      { type: 'text', text: locationName, size: 'sm', color: '#333333', flex: 5, wrap: true },
+    ] });
+  }
+  if (includeCount) {
     rows.push({ type: 'box', layout: 'baseline', margin: 'md', contents: [
       { type: 'text', text: '👥 報名', size: 'sm', color: '#AAAAAA', flex: 2 },
       { type: 'text', text: `${count}${max ? ` / ${max}` : ''} 人`, size: 'sm', color: '#1DB446', weight: 'bold', flex: 5 },
     ] });
+  }
+  return rows;
+};
 
-    const bubble = {
-      type: 'bubble',
-      header: {
-        type: 'box', layout: 'vertical', backgroundColor: '#1565C0',
-        contents: [{ type: 'text', text: `♠️ ${session.name || '撲克揪團'}`, color: '#FFFFFF', weight: 'bold', size: 'lg', wrap: true }],
-        ...(uri ? { action: { type: 'uri', label: '查看詳情', uri } } : {}),
-      },
-      body: { type: 'box', layout: 'vertical', contents: rows, ...(uri ? { action: { type: 'uri', label: '查看詳情', uri } } : {}) },
-      ...(uri ? { footer: { type: 'box', layout: 'vertical', contents: [
-        { type: 'button', style: 'primary', color: '#1DB446', action: { type: 'uri', label: '♠️ 查看詳情 / 點我報名', uri } },
-      ] } } : {}),
-    };
-    const result = await liff.shareTargetPicker([{ type: 'flex', altText: `♠️ ${session.name || '撲克揪團'}`, contents: bubble }]);
+/** Footer with the join CTA so anyone seeing the card can tap in. */
+const sessionFooter = (uri) => (uri ? {
+  footer: { type: 'box', layout: 'vertical', contents: [
+    { type: 'button', style: 'primary', color: '#1DB446', action: { type: 'uri', label: '♠️ 查看詳情 / 點我報名', uri } },
+  ] },
+} : {});
+
+/** Card A bubble — plain invite (host's manual share via picker). */
+const buildSessionInviteBubble = (session) => {
+  const uri = sessionLiffUrl(session.id);
+  return {
+    type: 'bubble',
+    header: {
+      type: 'box', layout: 'vertical', backgroundColor: '#1565C0',
+      contents: [{ type: 'text', text: `♠️ ${session.name || '撲克揪團'}`, color: '#FFFFFF', weight: 'bold', size: 'lg', wrap: true }],
+      ...(uri ? { action: { type: 'uri', label: '查看詳情', uri } } : {}),
+    },
+    body: { type: 'box', layout: 'vertical', contents: sessionInfoRows(session), ...(uri ? { action: { type: 'uri', label: '查看詳情', uri } } : {}) },
+    ...sessionFooter(uri),
+  };
+};
+
+/** Card A via the LINE share picker (manual invite — host picks recipients). */
+const shareSessionInvite = async (session) => {
+  if (!isInitialized.value || !session) return false;
+  try {
+    const result = await liff.shareTargetPicker([
+      { type: 'flex', altText: `♠️ ${session.name || '撲克揪團'}`, contents: buildSessionInviteBubble(session) },
+    ]);
     return result !== undefined;
   } catch (err) {
     console.error('[LIFF] shareSessionInvite failed:', err);
     return false;
   }
+};
+
+/**
+ * Auto-post a concise roster-update card to the current LINE chat when a player
+ * signs up or cancels — mirrors sendBuyInMessage/sendUndoMessage. Green by
+ * default; red only when the event becomes full. Carries the join CTA so the
+ * chat can tap in. Free, in-client only, gated by the LINE-notify preference.
+ */
+const sendSessionRsvpMessage = async (session, joinerName, { cancelled = false } = {}) => {
+  if (!lineNotifyEnabled.value || !session) return false;
+  const uri = sessionLiffUrl(session.id);
+  const name = joinerName || '有人';
+  const count = (session.roster || []).length;
+  const max = Number(session.maxPlayers) || 0;
+  const countText = `${count}${max ? `/${max}` : ''}`;
+  const full = max > 0 && count >= max;
+
+  let headerColor = '#1DB446';
+  let headerText = '🃏 報名更新';
+  let alertText = `${name} 已報名，目前 ${countText} 人`;
+  let alertColor = '#1DB446';
+  if (cancelled) {
+    headerColor = '#FF8C00';
+    headerText = '🪑 報名異動';
+    alertText = `${name} 取消報名，目前 ${countText} 人`;
+    alertColor = '#FF8C00';
+  } else if (full) {
+    headerColor = '#D9383A';
+    headerText = '🈵 本場已額滿';
+    alertText = `${name} 卡下最後一位！${countText} 額滿`;
+    alertColor = '#D9383A';
+  }
+
+  const bubble = {
+    type: 'bubble',
+    header: {
+      type: 'box', layout: 'vertical', backgroundColor: headerColor,
+      contents: [{ type: 'text', text: headerText, color: '#FFFFFF', weight: 'bold', size: 'md' }],
+      ...(uri ? { action: { type: 'uri', label: '查看詳情', uri } } : {}),
+    },
+    body: { type: 'box', layout: 'vertical', contents: [
+      { type: 'text', text: session.name || '撲克揪團', weight: 'bold', size: 'md', color: '#333333', wrap: true },
+      { type: 'text', text: alertText, size: 'sm', color: alertColor, wrap: true, margin: 'sm' },
+      { type: 'separator', color: '#EEEEEE', margin: 'lg' },
+      ...sessionInfoRows(session, { includeCount: false }),
+    ], ...(uri ? { action: { type: 'uri', label: '查看詳情', uri } } : {}) },
+    ...sessionFooter(uri),
+  };
+  const altText = `${headerText}・${session.name || '撲克揪團'} ${countText}`;
+  return sendMessages([{ type: 'flex', altText, contents: bubble }]);
 };
 
 /**
@@ -966,6 +1030,7 @@ export function useLiff() {
     shareGameInvite,
     sharePokerInvite,
     shareSessionInvite,
+    sendSessionRsvpMessage,
     shareSessionTableCard,
     shareSessionSummary,
     closeLiff,

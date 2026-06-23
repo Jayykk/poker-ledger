@@ -102,8 +102,15 @@ export function isSignedUpForTable(session, uid, tableId) {
  */
 export function resolveSessionView(session, uid) {
   if (!session) return { mode: 'completed' };
+  if (session.status === 'completed') return { mode: 'completed' };
 
   const host = isHost(session, uid);
+
+  // Gathering-only events (table linkage off): always a plain sign-up board —
+  // no table activation, redirect, or block wall.
+  if (session.linkTables === false) {
+    return host ? { mode: 'host-console' } : { mode: 'rsvp' };
+  }
 
   switch (session.status) {
   case 'scheduling':
@@ -121,8 +128,6 @@ export function resolveSessionView(session, uid) {
     }
     return { mode: 'event' };
   }
-  case 'completed':
-    return { mode: 'completed' };
   default:
     return { mode: 'completed' };
   }
@@ -130,17 +135,9 @@ export function resolveSessionView(session, uid) {
 
 // ── Location privacy ─────────────────────────────────────────────────
 
-/**
- * Should the venue name be shown to this visitor? Public unless the host marked
- * it "joined only", in which case only the host and roster members see it.
- * UI-level gating (the field still lives in the publicly-readable doc) — fine
- * for a coarse venue label, per spec intent.
- */
-export function canViewLocation(session, uid) {
-  const loc = session?.location;
-  if (!loc || !loc.name) return false;
-  if (!loc.showToJoinedOnly) return true;
-  return isHost(session, uid) || isRosterMember(session, uid);
+/** Is there a venue name to show? (Location is always public now.) */
+export function canViewLocation(session) {
+  return !!session?.location?.name;
 }
 
 // ── Defaults ─────────────────────────────────────────────────────────

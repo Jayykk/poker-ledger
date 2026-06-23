@@ -66,38 +66,42 @@
 
       <!-- Host console -->
       <div v-if="view.mode === 'host-console'" class="console">
-        <h3>{{ t('session.tableQueue') }}</h3>
-        <ol class="queue-plan">
-          <li v-for="(row, i) in session.tableQueue" :key="i" :class="row.status">
-            <span class="kind">{{ row.kind === 'tournament' ? t('session.tournament') : t('session.cash') }}</span>
-            <span class="qlabel">{{ row.label || row.presetSnapshot?.name || '—' }}</span>
-            <span class="qstatus">{{ queueStatusLabel(row.status) }}</span>
-          </li>
-        </ol>
+        <template v-if="linkTables">
+          <h3>{{ t('session.tableQueue') }}</h3>
+          <ol class="queue-plan">
+            <li v-for="(row, i) in session.tableQueue" :key="i" :class="row.status">
+              <span class="kind">{{ row.kind === 'tournament' ? t('session.tournament') : t('session.cash') }}</span>
+              <span class="qlabel">{{ row.label || row.presetSnapshot?.name || '—' }}</span>
+              <span class="qstatus">{{ queueStatusLabel(row.status) }}</span>
+            </li>
+          </ol>
+        </template>
+        <p v-else class="muted gathering-note">{{ t('session.gatheringMode') }}</p>
 
         <div class="host-actions">
-          <button v-if="session.status === 'scheduling'" class="btn-primary" @click="onStart">
-            {{ t('session.startEvent') }}
-          </button>
-          <template v-if="session.status === 'active'">
-            <!-- A table is running -->
-            <button v-if="session.activeTable && view.route" class="btn-secondary" @click="enterTable">
-              {{ t('session.enterTable') }}
+          <template v-if="linkTables">
+            <button v-if="session.status === 'scheduling'" class="btn-primary" @click="onStart">
+              {{ t('session.startEvent') }}
             </button>
-            <!-- Between tables (e.g. after dissolve / last table finished) -->
-            <p v-if="!session.activeTable" class="muted">{{ t('session.noActiveTable') }}</p>
-            <button v-if="!session.activeTable && nextQueuedExists" class="btn-primary" @click="onStartNext">
-              {{ t('session.startNext') }}
-            </button>
-            <button class="btn-danger" @click="onEnd">{{ t('session.endEvent') }}</button>
+            <template v-if="session.status === 'active'">
+              <button v-if="session.activeTable && view.route" class="btn-secondary" @click="enterTable">
+                {{ t('session.enterTable') }}
+              </button>
+              <p v-if="!session.activeTable" class="muted">{{ t('session.noActiveTable') }}</p>
+              <button v-if="!session.activeTable && nextQueuedExists" class="btn-primary" @click="onStartNext">
+                {{ t('session.startNext') }}
+              </button>
+              <button class="btn-danger" @click="onEnd">{{ t('session.endEvent') }}</button>
+            </template>
           </template>
+          <button v-else class="btn-danger" @click="onEnd">{{ t('session.endEvent') }}</button>
           <button class="btn-ghost" @click="onEdit">{{ t('session.editTables') }}</button>
           <button class="btn-ghost danger-text" @click="onDelete">🗑 {{ t('session.deleteEvent') }}</button>
         </div>
 
         <div class="share-actions">
           <button class="btn-ghost" @click="onShareInvite">📤 {{ t('session.shareInvite') }}</button>
-          <button v-if="session.status === 'active'" class="btn-ghost" @click="onShareTable">🃏 {{ t('session.shareTable') }}</button>
+          <button v-if="linkTables && session.status === 'active' && session.activeTable" class="btn-ghost" @click="onShareTable">🃏 {{ t('session.shareTable') }}</button>
         </div>
       </div>
 
@@ -147,11 +151,11 @@ const router = useRouter();
 const { t } = useI18n();
 const authStore = useAuthStore();
 const {
-  session, loading, listenSession,
+  session, loading, listenSession, getSession,
   rsvp, cancelRsvp, activateFirstTable, advanceToNextTable, endSession, deleteSession, loadSessionSummary,
   listenGameStatus, hasNextTable,
 } = useSessions();
-const { shareSessionInvite, shareSessionTableCard, shareSessionSummary } = useLiff();
+const { shareSessionInvite, sendSessionRsvpMessage, shareSessionTableCard, shareSessionSummary } = useLiff();
 
 const uid = computed(() => authStore.user?.uid || null);
 const summary = ref(null);
@@ -162,7 +166,8 @@ let redirected = false;
 const view = computed(() => resolveSessionView(session.value, uid.value));
 const amJoined = computed(() => isRosterMember(session.value, uid.value));
 const full = computed(() => isFull(session.value));
-const showLocation = computed(() => canViewLocation(session.value, uid.value));
+const showLocation = computed(() => canViewLocation(session.value));
+const linkTables = computed(() => session.value?.linkTables !== false);
 const nextQueuedExists = computed(() => hasNextTable(session.value));
 
 const activeTableLabel = computed(() => {
@@ -212,8 +217,21 @@ async function withNotice(fn) {
   }
 }
 
-const onJoin = () => withNotice(() => rsvp(route.params.sessionId, [...selectedTableIds.value]));
-const onCancel = () => withNotice(() => cancelRsvp(route.params.sessionId));
+const onJoin = () => withNotice(async () => {
+  const wasJoined = amJoined.value;
+  await rsvp(route.params.sessionId, [...selectedTableIds.value]);
+  // On a fresh sign-up (not a selection update), auto-post a roster-update card
+  // with the now-updated count to the group chat — mirrors the buy-in message.
+  if (!wasJoined) {
+    const fresh = await getSession(route.params.sessionId);
+    if (fresh) sendSessionRsvpMessage(fresh, authStore.displayName);
+  }
+});
+const onCancel = () => withNotice(async () => {
+  await cancelRsvp(route.params.sessionId);
+  const fresh = await getSession(route.params.sessionId);
+  if (fresh) sendSessionRsvpMessage(fresh, authStore.displayName, { cancelled: true });
+});
 const onStart = () => withNotice(() => activateFirstTable(route.params.sessionId));
 const onStartNext = () => withNotice(() => advanceToNextTable(route.params.sessionId));
 const onEnd = () => withNotice(async () => {
@@ -304,9 +322,12 @@ onUnmounted(() => {
 .session-view {
   min-height: 100vh;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  padding: 32px 16px;
+  /* Extra bottom padding so the last button clears the fixed bottom nav + FAB */
+  padding: 32px 16px 120px;
   color: white;
 }
+
+.gathering-note { margin: 14px 0; }
 
 .state-msg {
   max-width: 560px;

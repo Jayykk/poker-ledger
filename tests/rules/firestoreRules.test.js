@@ -106,6 +106,13 @@ beforeEach(async () => {
       currentTableIndex: -1,
       activeTable: null,
     });
+    // An event Bob has RSVP'd to (Alice hosts).
+    await setDoc(doc(db, 'sessions', 'evt-joined'), {
+      hostUid: ALICE, hostName: 'Alice', status: 'scheduling', maxPlayers: 8,
+      roster: [{ uid: ALICE, name: 'Alice' }, { uid: BOB, name: 'Bob' }],
+      rosterUids: [ALICE, BOB],
+      tableQueue: [], currentTableIndex: -1, activeTable: null,
+    });
   });
 });
 
@@ -288,6 +295,18 @@ describe('sessions (live event layer)', () => {
   it('hosts can LIST their own events', async () => {
     await assertSucceeds(getDocs(
       query(collection(aliceDb(), 'sessions'), where('hostUid', '==', ALICE))
+    ));
+  });
+
+  it('registered players can LIST events they joined (rosterUids array-contains)', async () => {
+    await assertSucceeds(getDocs(
+      query(collection(bobDb(), 'sessions'), where('rosterUids', 'array-contains', BOB))
+    ));
+  });
+
+  it('a player cannot list events they have NOT joined', async () => {
+    await assertFails(getDocs(
+      query(collection(bobDb(), 'sessions'), where('rosterUids', 'array-contains', 'someone-else'))
     ));
   });
 
