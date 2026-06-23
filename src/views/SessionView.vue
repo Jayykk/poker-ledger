@@ -64,12 +64,6 @@
         <button v-if="amJoined" class="btn-danger" @click="onCancel">{{ t('session.cancelRsvp') }}</button>
       </div>
 
-      <!-- Anyone viewing the event (member/visitor) can forward the invite with
-           the latest sign-up count -->
-      <div v-if="view.mode === 'rsvp' || view.mode === 'event'" class="member-share">
-        <button class="btn-ghost full-w" @click="onShareInvite">📤 {{ t('session.shareInvite') }}</button>
-      </div>
-
       <!-- Host console -->
       <div v-if="view.mode === 'host-console'" class="console">
         <template v-if="linkTables">
@@ -157,11 +151,11 @@ const router = useRouter();
 const { t } = useI18n();
 const authStore = useAuthStore();
 const {
-  session, loading, listenSession,
+  session, loading, listenSession, getSession,
   rsvp, cancelRsvp, activateFirstTable, advanceToNextTable, endSession, deleteSession, loadSessionSummary,
   listenGameStatus, hasNextTable,
 } = useSessions();
-const { shareSessionInvite, shareSessionTableCard, shareSessionSummary } = useLiff();
+const { shareSessionInvite, sendSessionRsvpMessage, shareSessionTableCard, shareSessionSummary } = useLiff();
 
 const uid = computed(() => authStore.user?.uid || null);
 const summary = ref(null);
@@ -223,8 +217,21 @@ async function withNotice(fn) {
   }
 }
 
-const onJoin = () => withNotice(() => rsvp(route.params.sessionId, [...selectedTableIds.value]));
-const onCancel = () => withNotice(() => cancelRsvp(route.params.sessionId));
+const onJoin = () => withNotice(async () => {
+  const wasJoined = amJoined.value;
+  await rsvp(route.params.sessionId, [...selectedTableIds.value]);
+  // On a fresh sign-up (not a selection update), auto-post a roster-update card
+  // with the now-updated count to the group chat — mirrors the buy-in message.
+  if (!wasJoined) {
+    const fresh = await getSession(route.params.sessionId);
+    if (fresh) sendSessionRsvpMessage(fresh, authStore.displayName);
+  }
+});
+const onCancel = () => withNotice(async () => {
+  await cancelRsvp(route.params.sessionId);
+  const fresh = await getSession(route.params.sessionId);
+  if (fresh) sendSessionRsvpMessage(fresh, authStore.displayName, { cancelled: true });
+});
 const onStart = () => withNotice(() => activateFirstTable(route.params.sessionId));
 const onStartNext = () => withNotice(() => advanceToNextTable(route.params.sessionId));
 const onEnd = () => withNotice(async () => {
@@ -320,7 +327,6 @@ onUnmounted(() => {
   color: white;
 }
 
-.member-share { margin-top: 14px; }
 .gathering-note { margin: 14px 0; }
 
 .state-msg {
