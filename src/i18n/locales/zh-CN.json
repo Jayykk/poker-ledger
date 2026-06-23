@@ -664,6 +664,10 @@
     "mustHaveTable": "请至少新增一个桌次",
     "created": "活动已创建",
     "saved": "已保存",
-    "actionFailed": "操作失败"
+    "actionFailed": "操作失败",
+    "noActiveTable": "当前无进行中桌次",
+    "startNext": "开始下一桌",
+    "deleteEvent": "删除活动",
+    "confirmDelete": "确定要删除整个活动吗？此操作无法撤销（各桌记录会保留）。"
   }
 }

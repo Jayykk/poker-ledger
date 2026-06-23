@@ -80,10 +80,19 @@
             {{ t('session.startEvent') }}
           </button>
           <template v-if="session.status === 'active'">
-            <button v-if="view.route" class="btn-secondary" @click="enterTable">{{ t('session.enterTable') }}</button>
+            <!-- A table is running -->
+            <button v-if="session.activeTable && view.route" class="btn-secondary" @click="enterTable">
+              {{ t('session.enterTable') }}
+            </button>
+            <!-- Between tables (e.g. after dissolve / last table finished) -->
+            <p v-if="!session.activeTable" class="muted">{{ t('session.noActiveTable') }}</p>
+            <button v-if="!session.activeTable && nextQueuedExists" class="btn-primary" @click="onStartNext">
+              {{ t('session.startNext') }}
+            </button>
             <button class="btn-danger" @click="onEnd">{{ t('session.endEvent') }}</button>
           </template>
           <button class="btn-ghost" @click="onEdit">{{ t('session.editTables') }}</button>
+          <button class="btn-ghost danger-text" @click="onDelete">🗑 {{ t('session.deleteEvent') }}</button>
         </div>
 
         <div class="share-actions">
@@ -138,7 +147,7 @@ const { t } = useI18n();
 const authStore = useAuthStore();
 const {
   session, loading, listenSession,
-  rsvp, cancelRsvp, activateFirstTable, advanceToNextTable, endSession, loadSessionSummary,
+  rsvp, cancelRsvp, activateFirstTable, advanceToNextTable, endSession, deleteSession, loadSessionSummary,
   listenGameStatus, hasNextTable,
 } = useSessions();
 const { shareSessionInvite, shareSessionTableCard, shareSessionSummary } = useLiff();
@@ -153,6 +162,7 @@ const view = computed(() => resolveSessionView(session.value, uid.value));
 const amJoined = computed(() => isRosterMember(session.value, uid.value));
 const full = computed(() => isFull(session.value));
 const showLocation = computed(() => canViewLocation(session.value, uid.value));
+const nextQueuedExists = computed(() => hasNextTable(session.value));
 
 const activeTableLabel = computed(() => {
   const at = session.value?.activeTable;
@@ -204,9 +214,15 @@ async function withNotice(fn) {
 const onJoin = () => withNotice(() => rsvp(route.params.sessionId, [...selectedTableIds.value]));
 const onCancel = () => withNotice(() => cancelRsvp(route.params.sessionId));
 const onStart = () => withNotice(() => activateFirstTable(route.params.sessionId));
+const onStartNext = () => withNotice(() => advanceToNextTable(route.params.sessionId));
 const onEnd = () => withNotice(async () => {
   if (!window.confirm(t('session.confirmEnd'))) return;
   await endSession(route.params.sessionId);
+});
+const onDelete = () => withNotice(async () => {
+  if (!window.confirm(t('session.confirmDelete'))) return;
+  await deleteSession(route.params.sessionId);
+  router.push('/lobby');
 });
 const onEdit = () => router.push(`/session-setup/${route.params.sessionId}`);
 const enterTable = () => { if (view.value.route) router.push(view.value.route); };
@@ -251,8 +267,12 @@ watch(() => (view.value.mode === 'host-console' ? session.value?.activeTable?.ga
   if (!gameId) return;
   unsubGame = listenGameStatus(gameId, async (status) => {
     if (advancing) return;
-    const finished = status === 'completed' || status === 'closed';
-    if (finished && session.value?.status === 'active' && hasNextTable(session.value)) {
+    // A table ends by settlement (completed/closed) OR by being dissolved
+    // (the game doc is deleted → 'missing') or cancelled. advanceToNextTable
+    // then either activates the next queued table or, if none remain, clears
+    // the active table (the event stays active until the host ends it).
+    const finished = ['completed', 'closed', 'cancelled', 'missing'].includes(status);
+    if (finished && session.value?.status === 'active' && session.value?.activeTable) {
       advancing = true;
       try {
         await advanceToNextTable(route.params.sessionId);
@@ -423,6 +443,7 @@ button {
 .btn-secondary { background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); color: white; }
 .btn-danger { background: #c0392b; color: white; }
 .btn-ghost { background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); }
+.btn-ghost.danger-text { color: #ff8a80; border-color: rgba(255, 107, 107, 0.4); }
 .full-w { width: 100%; margin-top: 12px; }
 
 .wall { text-align: center; }

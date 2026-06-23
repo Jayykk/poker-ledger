@@ -14,7 +14,7 @@
 import { ref, computed, onUnmounted } from 'vue';
 import { db } from '../firebase-init.js';
 import {
-  collection, doc, getDoc, setDoc, updateDoc,
+  collection, doc, getDoc, setDoc, updateDoc, deleteDoc,
   onSnapshot, serverTimestamp, runTransaction, query, where,
 } from 'firebase/firestore';
 import { useAuthStore } from '../store/modules/auth.js';
@@ -357,7 +357,14 @@ export function useSessions() {
     return activateIndex(id, 0);
   }
 
-  /** Host: "進入下一場次" — close the current table and activate the next. */
+  /**
+   * Advance past the current table: mark it done and activate the next queued
+   * table. If none remain, clear the active table but keep the event 'active'
+   * (the host decides whether to add more tables or end the event manually —
+   * the event is never auto-completed). Used both by the host-side
+   * auto-advance (when a table finishes or is dissolved) and the manual
+   * "start next table" action.
+   */
   async function advanceToNextTable(id) {
     const ref_ = doc(db, 'sessions', id);
     const snap = await getDoc(ref_);
@@ -368,16 +375,21 @@ export function useSessions() {
     const next = cur + 1;
 
     if (next >= queue.length) {
+      // No more queued tables — sit idle between tables, awaiting the host.
       const newQueue = queue.map((e, i) => (i === cur ? { ...e, status: 'done' } : e));
       await updateDoc(ref_, {
-        status: 'completed',
         tableQueue: newQueue,
         activeTable: null,
         updatedAt: serverTimestamp(),
       });
-      return { completed: true };
+      return { activeTable: null };
     }
     return activateIndex(id, next);
+  }
+
+  /** Host: delete the whole event (underlying table games keep their history). */
+  async function deleteSession(id) {
+    await deleteDoc(doc(db, 'sessions', id));
   }
 
   /** Host: end the whole event now. */
@@ -444,6 +456,7 @@ export function useSessions() {
     activateFirstTable,
     advanceToNextTable,
     endSession,
+    deleteSession,
     loadSessionSummary,
     cleanup,
   };
