@@ -215,7 +215,7 @@ export function useSessions() {
    */
   async function rsvp(id, tableIds = null) {
     const u = requireUser();
-    await runTransaction(db, async (t) => {
+    return runTransaction(db, async (t) => {
       const ref_ = doc(db, 'sessions', id);
       const snap = await t.get(ref_);
       if (!snap.exists()) throw new Error('Session not found');
@@ -232,21 +232,23 @@ export function useSessions() {
         const next = roster.slice();
         next[existingIdx] = { ...next[existingIdx], tableIds: entry.tableIds };
         t.update(ref_, { roster: next, updatedAt: serverTimestamp() });
-        return;
+        return { id, ...s, roster: next };
       }
       const max = Number(s.maxPlayers) || 0;
       if (max > 0 && roster.length >= max) throw new Error('已滿座');
+      const nextRoster = [...roster, entry];
       t.update(ref_, {
-        roster: [...roster, entry],
+        roster: nextRoster,
         rosterUids: [...uids, u.uid],
         updatedAt: serverTimestamp(),
       });
+      return { id, ...s, roster: nextRoster, rosterUids: [...uids, u.uid] };
     });
   }
 
   async function cancelRsvp(id) {
     const u = requireUser();
-    await runTransaction(db, async (t) => {
+    return runTransaction(db, async (t) => {
       const ref_ = doc(db, 'sessions', id);
       const snap = await t.get(ref_);
       if (!snap.exists()) throw new Error('Session not found');
@@ -255,6 +257,7 @@ export function useSessions() {
       const roster = (s.roster || []).filter((r) => r && r.uid !== u.uid);
       const uids = (s.rosterUids || []).filter((x) => x !== u.uid);
       t.update(ref_, { roster, rosterUids: uids, updatedAt: serverTimestamp() });
+      return { id, ...s, roster, rosterUids: uids };
     });
   }
 

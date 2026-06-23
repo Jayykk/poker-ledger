@@ -151,7 +151,7 @@ const router = useRouter();
 const { t } = useI18n();
 const authStore = useAuthStore();
 const {
-  session, loading, listenSession, getSession,
+  session, loading, listenSession,
   rsvp, cancelRsvp, activateFirstTable, advanceToNextTable, endSession, deleteSession, loadSessionSummary,
   listenGameStatus, hasNextTable,
 } = useSessions();
@@ -219,17 +219,13 @@ async function withNotice(fn) {
 
 const onJoin = () => withNotice(async () => {
   const wasJoined = amJoined.value;
-  await rsvp(route.params.sessionId, [...selectedTableIds.value]);
+  const fresh = await rsvp(route.params.sessionId, [...selectedTableIds.value]);
   // On a fresh sign-up (not a selection update), auto-post a roster-update card
   // with the now-updated count to the group chat — mirrors the buy-in message.
-  if (!wasJoined) {
-    const fresh = await getSession(route.params.sessionId);
-    if (fresh) sendSessionRsvpMessage(fresh, authStore.displayName);
-  }
+  if (!wasJoined && fresh) sendSessionRsvpMessage(fresh, authStore.displayName);
 });
 const onCancel = () => withNotice(async () => {
-  await cancelRsvp(route.params.sessionId);
-  const fresh = await getSession(route.params.sessionId);
+  const fresh = await cancelRsvp(route.params.sessionId);
   if (fresh) sendSessionRsvpMessage(fresh, authStore.displayName, { cancelled: true });
 });
 const onStart = () => withNotice(() => activateFirstTable(route.params.sessionId));
