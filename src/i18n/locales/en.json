@@ -681,6 +681,7 @@
     "modifyPeriods": "Modify Periods",
     "periodsUpdated": "Periods updated",
     "signUpPeriods": "Sign up for periods",
+    "mySignUp": "My sign-up (tick the periods above)",
     "startNextPeriod": "Start Next Period",
     "noActivePeriod": "No period in progress",
     "mustHavePeriod": "Please add at least one period"
