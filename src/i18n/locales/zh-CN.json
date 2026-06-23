@@ -681,6 +681,7 @@
     "modifyPeriods": "修改时段",
     "periodsUpdated": "时段已更新",
     "signUpPeriods": "报名时段",
+    "mySignUp": "我的报名（勾选上方时段）",
     "startNextPeriod": "开始下一时段",
     "noActivePeriod": "当前无进行中时段",
     "mustHavePeriod": "请至少新增一个时段"

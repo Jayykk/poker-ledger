@@ -106,7 +106,20 @@ export function useSessions() {
     error.value = null;
     try {
       const ref_ = doc(collection(db, 'sessions'));
-      const periods = buildPeriods(form.periods);
+      // The host opens the room to play: seat them in every period by default so
+      // a fresh event reads "1/N" rather than an empty "0/N". They can still
+      // drop out of any period from the host console's sign-up picker.
+      const hostEntry = rosterEntry(u);
+      const periods = buildPeriods(form.periods).map((p) => {
+        const max = Number(p.maxPlayers) || 0;
+        if ((p.rosterUids || []).includes(u.uid)) return p;
+        if (max > 0 && (p.roster || []).length >= max) return p;
+        return {
+          ...p,
+          roster: [...(p.roster || []), hostEntry],
+          rosterUids: [...(p.rosterUids || []), u.uid],
+        };
+      });
       await setDoc(ref_, {
         name: form.name || defaultSessionName(Date.now()),
         hostUid: u.uid,

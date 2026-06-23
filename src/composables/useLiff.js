@@ -753,41 +753,99 @@ const sendDailyRankingMessage = async ({ dateLabel, startDateStr, endDateStr, to
   return sendMessages([{ type: 'flex', altText, contents: bubble }]);
 };
 
+/** Footer with a single primary CTA button (used by the open-table invites). */
+const ctaFooter = (uri, label, color) => ({
+  type: 'box',
+  layout: 'vertical',
+  contents: [
+    { type: 'button', style: 'primary', color, action: { type: 'uri', label, uri } },
+  ],
+});
+
 /**
- * Share a game invite via LINE share target picker
+ * Share a game invite via the LINE share target picker (Flex Message).
+ * Cash → green, tournament → gold; the whole bubble + footer button open the
+ * table where the joiner is auto-seated.
  */
 const shareGameInvite = async (gameName, gameId, hostName, isTournament = false) => {
   if (!isInitialized.value) return false;
   try {
     const liffPath = isTournament ? `tournament-game/${gameId}` : `game/${gameId}`;
     const liffUrl = `https://liff.line.me/${LIFF_ID}/${liffPath}`;
-    const result = await liff.shareTargetPicker([
-      {
-        type: 'text',
-        text: `🃏 ${hostName} 開了一桌「${gameName}」！\n👉 點擊加入：${liffUrl}`,
+    const headerColor = isTournament ? '#A16207' : '#1DB446';
+    const headerEmoji = isTournament ? '🏆' : '🃏';
+    const typeText = isTournament ? '錦標賽' : '現金桌';
+    const name = gameName || (isTournament ? '錦標賽' : '牌局');
+    const host = hostName || '朋友';
+    const altText = `${headerEmoji} ${host} 開了一桌「${name}」！`;
+    const tapAction = { type: 'uri', label: '加入牌桌', uri: liffUrl };
+
+    const bubble = {
+      type: 'bubble',
+      header: {
+        type: 'box', layout: 'vertical', backgroundColor: headerColor,
+        contents: [{ type: 'text', text: `${headerEmoji} 開桌邀請`, color: '#FFFFFF', weight: 'bold', size: 'md' }],
+        action: tapAction,
       },
-    ]);
+      body: {
+        type: 'box', layout: 'vertical', spacing: 'sm',
+        contents: [
+          { type: 'text', text: name, weight: 'bold', size: 'lg', color: '#333333', wrap: true },
+          { type: 'separator', color: '#EEEEEE', margin: 'lg' },
+          { type: 'box', layout: 'baseline', margin: 'lg', contents: [
+            { type: 'text', text: '👤 主辦', size: 'sm', color: '#AAAAAA', flex: 2 },
+            { type: 'text', text: host, size: 'sm', color: '#333333', flex: 5, wrap: true },
+          ] },
+          { type: 'box', layout: 'baseline', margin: 'md', contents: [
+            { type: 'text', text: '🎲 類型', size: 'sm', color: '#AAAAAA', flex: 2 },
+            { type: 'text', text: typeText, size: 'sm', color: '#333333', flex: 5 },
+          ] },
+        ],
+        action: tapAction,
+      },
+      footer: ctaFooter(liffUrl, isTournament ? '🏆 點我報名參賽' : '🃏 點我加入牌桌', headerColor),
+    };
+
+    const result = await liff.shareTargetPicker([{ type: 'flex', altText, contents: bubble }]);
     return result !== undefined;
   } catch (err) {
-    console.error('[LIFF] shareTargetPicker failed:', err);
+    console.error('[LIFF] shareGameInvite failed:', err);
     return false;
   }
 };
 
 /**
- * Share an online poker table invite via the LINE share target picker.
- * The link opens straight into the table where the joiner is auto-seated.
+ * Share an online poker table invite via the LINE share target picker (Flex
+ * Message). The link opens straight into the table where the joiner is
+ * auto-seated.
  */
 const sharePokerInvite = async (gameId, hostName) => {
   if (!isInitialized.value) return false;
   try {
     const liffUrl = `https://liff.line.me/${LIFF_ID}/poker-game/${gameId}`;
-    const result = await liff.shareTargetPicker([
-      {
-        type: 'text',
-        text: `🃏 ${hostName || '朋友'} 開了一桌線上德州撲克！\n👉 點連結直接入座：${liffUrl}`,
+    const host = hostName || '朋友';
+    const altText = `🃏 ${host} 開了一桌線上德州撲克！`;
+    const tapAction = { type: 'uri', label: '入座', uri: liffUrl };
+
+    const bubble = {
+      type: 'bubble',
+      header: {
+        type: 'box', layout: 'vertical', backgroundColor: '#0F9D58',
+        contents: [{ type: 'text', text: '🃏 線上德州撲克', color: '#FFFFFF', weight: 'bold', size: 'md' }],
+        action: tapAction,
       },
-    ]);
+      body: {
+        type: 'box', layout: 'vertical', spacing: 'sm',
+        contents: [
+          { type: 'text', text: `${host} 開了一桌！`, weight: 'bold', size: 'lg', color: '#333333', wrap: true },
+          { type: 'text', text: '點下方按鈕直接入座，與好友同桌對戰。', size: 'sm', color: '#777777', margin: 'sm', wrap: true },
+        ],
+        action: tapAction,
+      },
+      footer: ctaFooter(liffUrl, '🎮 點連結直接入座', '#0F9D58'),
+    };
+
+    const result = await liff.shareTargetPicker([{ type: 'flex', altText, contents: bubble }]);
     return result !== undefined;
   } catch (err) {
     console.error('[LIFF] sharePokerInvite failed:', err);
@@ -867,9 +925,11 @@ const buildSessionBubble = (session, { headerText, headerColor, alertText, alert
 const shareSessionInvite = async (session) => {
   if (!isInitialized.value || !session) return false;
   try {
-    const bubble = buildSessionBubble(session, { headerText: `♠️ ${session.name || '撲克揪團'}` });
+    // Header is a status label (not the event name) so the name only shows once,
+    // in the body — avoids the duplicated-title look in the chat.
+    const bubble = buildSessionBubble(session, { headerText: '🃏 現場揪團預約中', headerColor: '#1DB446' });
     const result = await liff.shareTargetPicker([
-      { type: 'flex', altText: `♠️ ${session.name || '撲克揪團'}`, contents: bubble },
+      { type: 'flex', altText: `🃏 現場揪團預約中・${session.name || '撲克揪團'}`, contents: bubble },
     ]);
     return result !== undefined;
   } catch (err) {

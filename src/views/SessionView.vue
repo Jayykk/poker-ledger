@@ -34,7 +34,7 @@
           <div class="p-head">
             <label class="p-pick">
               <input
-                v-if="view.mode === 'rsvp' && p.status === 'queued'"
+                v-if="canPick && p.status === 'queued'"
                 type="checkbox"
                 :value="p.id"
                 v-model="selectedPeriodIds"
@@ -65,6 +65,16 @@
 
       <!-- Host console -->
       <div v-if="view.mode === 'host-console'" class="console">
+        <!-- Host is a participant too: manage own sign-ups via the period picker above -->
+        <div v-if="hasQueuedPeriod" class="host-rsvp">
+          <span class="muted">{{ t('session.mySignUp') }}</span>
+          <div class="host-rsvp-btns">
+            <button class="btn-secondary" :disabled="joinDisabled" @click="onJoin">
+              {{ amJoined ? t('common.save') : t('session.signUpPeriods') }}
+            </button>
+            <button v-if="amJoined" class="btn-danger" @click="onCancel">{{ t('session.cancelRsvp') }}</button>
+          </div>
+        </div>
         <div class="host-actions">
           <button v-if="session.status === 'scheduling'" class="btn-primary" @click="onStart">
             {{ t('session.startEvent') }}
@@ -126,6 +136,7 @@ import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '../store/modules/auth.js';
 import { useSessions } from '../composables/useSessions.js';
 import { useLiff } from '../composables/useLiff.js';
+import { useConfirm } from '../composables/useConfirm.js';
 import {
   resolveSessionView, canViewLocation, isParticipant,
   periodCount, periodFull, canJoinPeriod, isSignedUpForPeriod,
@@ -142,6 +153,7 @@ const {
   listenGameStatus, hasNextSlot,
 } = useSessions();
 const { shareSessionInvite, sendSessionRsvpMessage, shareSessionTableCard, shareSessionSummary } = useLiff();
+const { confirm } = useConfirm();
 
 const uid = computed(() => authStore.user?.uid || null);
 const summary = ref(null);
@@ -156,6 +168,10 @@ const showLocation = computed(() => canViewLocation(session.value));
 const canStartNext = computed(() => !!session.value && session.value.status === 'active'
   && (!session.value.activeSlot || session.value.activeSlot.type === 'custom') && hasNextSlot(session.value));
 const joinDisabled = computed(() => !amJoined.value && selectedPeriodIds.value.length === 0);
+// The host participates by default and manages their own sign-ups from the
+// console, so the period picker + RSVP CTA show for both RSVP and host views.
+const canPick = computed(() => view.value.mode === 'rsvp' || view.value.mode === 'host-console');
+const hasQueuedPeriod = computed(() => (session.value?.periods || []).some((p) => p.status === 'queued'));
 
 const activeLabel = computed(() => {
   const at = session.value?.activeSlot;
@@ -212,11 +228,11 @@ const onCancel = () => withNotice(async () => {
 const onStart = () => withNotice(() => activateFirstTable(route.params.sessionId));
 const onStartNext = () => withNotice(() => advanceToNextTable(route.params.sessionId));
 const onEnd = () => withNotice(async () => {
-  if (!window.confirm(t('session.confirmEnd'))) return;
+  if (!await confirm({ message: t('session.confirmEnd'), type: 'warning' })) return;
   await endSession(route.params.sessionId);
 });
 const onDelete = () => withNotice(async () => {
-  if (!window.confirm(t('session.confirmDelete'))) return;
+  if (!await confirm({ message: t('session.confirmDelete'), type: 'danger' })) return;
   await deleteSession(route.params.sessionId);
   router.push('/lobby');
 });
@@ -337,6 +353,13 @@ onUnmounted(() => { if (unsubGame) { unsubGame(); unsubGame = null; } });
 .cta { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
 .console { margin-top: 12px; }
 .host-actions, .share-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.host-rsvp {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 12px; margin-bottom: 4px;
+  background: rgba(76,175,80,0.1); border: 1px solid rgba(76,175,80,0.3); border-radius: 10px;
+}
+.host-rsvp-btns { display: flex; gap: 8px; }
+.host-rsvp-btns button { padding: 8px 14px; }
 
 button { padding: 10px 16px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; }
 .btn-primary { background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; flex: 1; }

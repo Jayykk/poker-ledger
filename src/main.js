@@ -4,6 +4,7 @@ import App from './App.vue';
 import pinia from './store/index.js';
 import i18n from './i18n/index.js';
 import { useLiff } from './composables/useLiff.js';
+import { useNotificationStore } from './store/modules/notification.js';
 import './styles/main.css';
 import './styles/themes/dark.css';
 import './styles/themes/light.css';
@@ -24,9 +25,17 @@ if ('serviceWorker' in navigator) {
         newWorker.addEventListener('statechange', () => {
           // New SW is ready and there's an existing one controlling the page
           if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
-            // Notify user to refresh
-            if (confirm('有新版本可用，是否立即更新？')) {
-              window.location.reload();
+            // Prompt to refresh via the app's shared action notification
+            // (Pinia is active by the time the SW activates post-mount).
+            try {
+              useNotificationStore().addActionNotification({
+                type: 'custom',
+                title: '有新版本可用',
+                message: '是否立即更新？',
+                onConfirm: () => window.location.reload(),
+              });
+            } catch (e) {
+              console.error('[SW] Update prompt failed:', e);
             }
           }
         });

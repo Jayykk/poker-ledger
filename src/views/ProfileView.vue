@@ -219,9 +219,9 @@ const handleToggleNotifications = async () => {
     // Use setTimeout to avoid blocking the UI toggle animation
     setTimeout(() => {
       if (result.error === 'denied') {
-        window.alert(t('profile.errors.notificationDenied'));
+        notification.error(t('profile.errors.notificationDenied'));
       } else if (result.error === 'unsupported') {
-        window.alert(t('profile.errors.notificationUnsupported'));
+        notification.error(t('profile.errors.notificationUnsupported'));
       }
     }, 100);
   }
