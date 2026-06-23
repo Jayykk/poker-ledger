@@ -237,7 +237,12 @@ export function useSessions() {
   /**
    * Set this user's sign-ups to exactly `periodIds`. Adds to newly-selected
    * queued periods (capacity-checked), removes from deselected queued periods.
-   * Active/done periods are immutable. Returns the updated session.
+   * Active/done periods are immutable.
+   *
+   * Idempotent: if the requested set matches the current sign-up exactly, no
+   * write is made and `{ changed: false }` is returned, so the caller can skip
+   * re-posting the roster card (prevents spam from repeated taps). Otherwise
+   * returns the updated session with `changed: true`.
    */
   async function rsvp(id, periodIds = []) {
     const u = requireUser();
@@ -250,6 +255,7 @@ export function useSessions() {
       const periods = Array.isArray(s.periods) ? s.periods : [];
       const entry = rosterEntry(u);
 
+      let changed = false;
       const next = periods.map((p) => {
         const locked = p.status && p.status !== 'queued';
         if (locked) return p;
@@ -260,9 +266,11 @@ export function useSessions() {
           if (max > 0 && (p.roster || []).length >= max) {
             throw new Error(`「${p.label || ''}」已滿座`);
           }
+          changed = true;
           return { ...p, roster: [...(p.roster || []), entry], rosterUids: [...(p.rosterUids || []), u.uid] };
         }
         if (!desired && inIt) {
+          changed = true;
           return {
             ...p,
             roster: (p.roster || []).filter((r) => r.uid !== u.uid),
@@ -272,13 +280,18 @@ export function useSessions() {
         return p;
       });
 
+      if (!changed) return { id, ...s, changed: false };
       const participantUids = unionParticipants(next);
       t.update(ref_, { periods: next, participantUids, updatedAt: serverTimestamp() });
-      return { id, ...s, periods: next, participantUids };
+      return { id, ...s, periods: next, participantUids, changed: true };
     });
   }
 
-  /** Leave the event: remove this user from all queued periods. */
+  /**
+   * Leave the event: remove this user from all queued periods. Idempotent —
+   * returns `{ changed: false }` (no write) when the user wasn't signed up for
+   * any queued period.
+   */
   async function cancelRsvp(id) {
     const u = requireUser();
     return runTransaction(db, async (t) => {
@@ -287,18 +300,21 @@ export function useSessions() {
       if (!snap.exists()) throw new Error('Session not found');
       const s = snap.data();
       const periods = Array.isArray(s.periods) ? s.periods : [];
+      let changed = false;
       const next = periods.map((p) => {
         const locked = p.status && p.status !== 'queued';
         if (locked || !(p.rosterUids || []).includes(u.uid)) return p;
+        changed = true;
         return {
           ...p,
           roster: (p.roster || []).filter((r) => r.uid !== u.uid),
           rosterUids: (p.rosterUids || []).filter((x) => x !== u.uid),
         };
       });
+      if (!changed) return { id, ...s, changed: false };
       const participantUids = unionParticipants(next);
       t.update(ref_, { periods: next, participantUids, updatedAt: serverTimestamp() });
-      return { id, ...s, periods: next, participantUids };
+      return { id, ...s, periods: next, participantUids, changed: true };
     });
   }
 

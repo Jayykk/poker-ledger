@@ -57,10 +57,10 @@
 
       <!-- RSVP actions (non-host) -->
       <div v-if="view.mode === 'rsvp'" class="cta">
-        <button class="btn-primary" :disabled="joinDisabled" @click="onJoin">
+        <button class="btn-primary" :disabled="joinDisabled || rsvpBusy" @click="onJoin">
           {{ amJoined ? t('common.save') : t('session.signUpPeriods') }}
         </button>
-        <button v-if="amJoined" class="btn-danger" @click="onCancel">{{ t('session.cancelRsvp') }}</button>
+        <button v-if="amJoined" class="btn-danger" :disabled="rsvpBusy" @click="onCancel">{{ t('session.cancelRsvp') }}</button>
       </div>
 
       <!-- Host console -->
@@ -69,10 +69,10 @@
         <div v-if="hasQueuedPeriod" class="host-rsvp">
           <span class="muted">{{ t('session.mySignUp') }}</span>
           <div class="host-rsvp-btns">
-            <button class="btn-secondary" :disabled="joinDisabled" @click="onJoin">
+            <button class="btn-secondary" :disabled="joinDisabled || rsvpBusy" @click="onJoin">
               {{ amJoined ? t('common.save') : t('session.signUpPeriods') }}
             </button>
-            <button v-if="amJoined" class="btn-danger" @click="onCancel">{{ t('session.cancelRsvp') }}</button>
+            <button v-if="amJoined" class="btn-danger" :disabled="rsvpBusy" @click="onCancel">{{ t('session.cancelRsvp') }}</button>
           </div>
         </div>
         <div class="host-actions">
@@ -217,13 +217,27 @@ async function withNotice(fn) {
   try { await fn(); } catch (err) { notice.value = err?.message || t('session.actionFailed'); }
 }
 
-const onJoin = () => withNotice(async () => {
-  const fresh = await rsvp(route.params.sessionId, [...selectedPeriodIds.value]);
-  if (fresh) sendSessionRsvpMessage(fresh, authStore.displayName);
+// In-flight guard: while an RSVP write is processing, ignore further taps so
+// spam-clicking can't fire concurrent transactions / duplicate roster cards.
+const rsvpBusy = ref(false);
+async function withRsvp(fn) {
+  if (rsvpBusy.value) return;
+  rsvpBusy.value = true;
+  notice.value = '';
+  try { await fn(); }
+  catch (err) { notice.value = err?.message || t('session.actionFailed'); }
+  finally { rsvpBusy.value = false; }
+}
+
+// Only post the roster card when the sign-up actually changed (the transaction
+// is idempotent and reports `changed`).
+const onJoin = () => withRsvp(async () => {
+  const res = await rsvp(route.params.sessionId, [...selectedPeriodIds.value]);
+  if (res?.changed) sendSessionRsvpMessage(res, authStore.displayName);
 });
-const onCancel = () => withNotice(async () => {
-  const fresh = await cancelRsvp(route.params.sessionId);
-  if (fresh) sendSessionRsvpMessage(fresh, authStore.displayName, { cancelled: true });
+const onCancel = () => withRsvp(async () => {
+  const res = await cancelRsvp(route.params.sessionId);
+  if (res?.changed) sendSessionRsvpMessage(res, authStore.displayName, { cancelled: true });
 });
 const onStart = () => withNotice(() => activateFirstTable(route.params.sessionId));
 const onStartNext = () => withNotice(() => advanceToNextTable(route.params.sessionId));
