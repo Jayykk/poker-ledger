@@ -55,19 +55,34 @@ export function canJoinRsvp(session, uid) {
 // ── Active table → route ─────────────────────────────────────────────
 
 /**
- * Build the redirect path for the currently active table. Live cash tables land
- * on the cash ledger (/game/:id); live tournaments land on the clock
- * (/tournament-clock/:id). Returns null when nothing is activated yet.
+ * Build the redirect path for the currently active table. Both live cash and
+ * tournament tables route to their player-facing table view by gameId — cash to
+ * the ledger (/game/:id), tournaments to the table manager
+ * (/tournament-game/:id), NOT the clock. Returns null when nothing is activated.
  */
 export function buildActiveRoute(activeTable) {
-  if (!activeTable) return null;
-  if (activeTable.kind === 'cash' && activeTable.gameId) {
-    return `/game/${activeTable.gameId}`;
+  if (!activeTable || !activeTable.gameId) return null;
+  if (activeTable.kind === 'tournament') {
+    return `/tournament-game/${activeTable.gameId}`;
   }
-  if (activeTable.kind === 'tournament' && activeTable.tournamentSessionId) {
-    return `/tournament-clock/${activeTable.tournamentSessionId}`;
-  }
-  return null;
+  return `/game/${activeTable.gameId}`;
+}
+
+/** The roster entry for this uid, or null. */
+export function rosterEntryOf(session, uid) {
+  if (!session || !uid) return null;
+  return (session.roster || []).find((r) => r && r.uid === uid) || null;
+}
+
+/**
+ * Is this uid signed up for a specific table? A roster entry with no `tableIds`
+ * (legacy data, or "all tables") counts as signed up for every table.
+ */
+export function isSignedUpForTable(session, uid, tableId) {
+  const e = rosterEntryOf(session, uid);
+  if (!e) return false;
+  if (!Array.isArray(e.tableIds)) return true;
+  return e.tableIds.includes(tableId);
 }
 
 // ── View routing decision ────────────────────────────────────────────
@@ -76,7 +91,8 @@ export function buildActiveRoute(activeTable) {
  * Decide what the SessionView should show for this visitor.
  *   mode 'rsvp'         → scheduling, non-host → show reservation UI
  *   mode 'host-console' → host (any non-completed status) → management console
- *   mode 'redirect'     → active, roster member → jump to the live table (route)
+ *   mode 'redirect'     → active, member signed up for the active table → jump in
+ *   mode 'event'        → active, member NOT in the active table → show event page
  *   mode 'blocked'      → active, not on roster → "you haven't signed up" wall
  *   mode 'completed'    → finished → show the session summary
  *
@@ -94,11 +110,16 @@ export function resolveSessionView(session, uid) {
     return host ? { mode: 'host-console' } : { mode: 'rsvp' };
   case 'active': {
     const route = buildActiveRoute(session.activeTable);
-    // Host stays on the console to advance/close tables (and can tap into the
-    // table from there); they are never force-redirected.
+    // Host stays on the console to manage tables (and can tap into the table
+    // from there); they are never force-redirected.
     if (host) return { mode: 'host-console', route };
-    if (isRosterMember(session, uid) && route) return { mode: 'redirect', route };
-    return { mode: 'blocked' };
+    if (!isRosterMember(session, uid)) return { mode: 'blocked' };
+    // A roster member is sent in only for tables they signed up for; otherwise
+    // they see the event page and wait for their table.
+    if (route && isSignedUpForTable(session, uid, session.activeTable?.id)) {
+      return { mode: 'redirect', route };
+    }
+    return { mode: 'event' };
   }
   case 'completed':
     return { mode: 'completed' };

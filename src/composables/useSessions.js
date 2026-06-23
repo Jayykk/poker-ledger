@@ -53,9 +53,15 @@ export function useSessions() {
     };
   }
 
+  /** Generate a stable table id (survives queue reordering). */
+  function genTableId(i) {
+    return `t_${Date.now().toString(36)}_${i}_${Math.random().toString(36).slice(2, 6)}`;
+  }
+
   /** Normalise a queue editor list into stored tableQueue rows. */
   function buildQueue(rawQueue = []) {
     return rawQueue.map((e, i) => ({
+      id: e.id || genTableId(i),
       order: i,
       kind: e.kind === 'tournament' ? 'tournament' : 'cash',
       label: e.label || '',
@@ -152,6 +158,11 @@ export function useSessions() {
     );
   }
 
+  // Live/scheduling events float to the top of the "my events" list; finished
+  // ones sink. Within a status group, newest first. Capped to avoid clutter.
+  const STATUS_RANK = { active: 0, scheduling: 1, completed: 2 };
+  const MY_SESSIONS_LIMIT = 20;
+
   /** Subscribe to the sessions this user hosts (for the "my events" list). */
   function listenMySessions(callback) {
     const u = authStore.user;
@@ -159,9 +170,29 @@ export function useSessions() {
     const q = query(collection(db, 'sessions'), where('hostUid', '==', u.uid));
     return onSnapshot(q, (snap) => {
       const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      list.sort((a, b) => (b.dateTimeMs || 0) - (a.dateTimeMs || 0));
-      callback(list);
+      list.sort((a, b) => {
+        const ra = STATUS_RANK[a.status] ?? 3;
+        const rb = STATUS_RANK[b.status] ?? 3;
+        if (ra !== rb) return ra - rb;
+        return (b.dateTimeMs || 0) - (a.dateTimeMs || 0);
+      });
+      callback(list.slice(0, MY_SESSIONS_LIMIT));
     });
+  }
+
+  /** Subscribe to a table's game status (for host-side auto-advance). */
+  function listenGameStatus(gameId, callback) {
+    if (!gameId) return () => {};
+    return onSnapshot(doc(db, 'games', gameId), (snap) => {
+      callback(snap.exists() ? (snap.data().status || null) : 'missing');
+    });
+  }
+
+  /** Is there a queued table after the current one? */
+  function hasNextTable(s) {
+    const queue = s?.tableQueue || [];
+    const next = (s?.currentTableIndex ?? -1) + 1;
+    return next < queue.length;
   }
 
   async function getSession(id) {
@@ -170,7 +201,12 @@ export function useSessions() {
   }
 
   // ── RSVP (atomic cap enforcement) ───────────────────
-  async function rsvp(id) {
+  /**
+   * Sign up (or update table selection). `tableIds` is the list of tables the
+   * player will join; omit/empty means "all tables". Idempotent on re-RSVP:
+   * an existing member's selection is updated without consuming another slot.
+   */
+  async function rsvp(id, tableIds = null) {
     const u = requireUser();
     await runTransaction(db, async (t) => {
       const ref_ = doc(db, 'sessions', id);
@@ -178,13 +214,23 @@ export function useSessions() {
       if (!snap.exists()) throw new Error('Session not found');
       const s = snap.data();
       if (s.status !== 'scheduling') throw new Error('報名已截止');
-      const uids = Array.isArray(s.rosterUids) ? s.rosterUids : [];
-      if (uids.includes(u.uid)) return; // already in — idempotent
       const roster = Array.isArray(s.roster) ? s.roster : [];
+      const uids = Array.isArray(s.rosterUids) ? s.rosterUids : [];
+      const entry = { ...rosterEntry(u) };
+      if (Array.isArray(tableIds)) entry.tableIds = tableIds;
+
+      const existingIdx = roster.findIndex((r) => r && r.uid === u.uid);
+      if (existingIdx >= 0) {
+        // Update selection in place; keep original joinedAtMs.
+        const next = roster.slice();
+        next[existingIdx] = { ...next[existingIdx], tableIds: entry.tableIds };
+        t.update(ref_, { roster: next, updatedAt: serverTimestamp() });
+        return;
+      }
       const max = Number(s.maxPlayers) || 0;
       if (max > 0 && roster.length >= max) throw new Error('已滿座');
       t.update(ref_, {
-        roster: [...roster, rosterEntry(u)],
+        roster: [...roster, entry],
         rosterUids: [...uids, u.uid],
         updatedAt: serverTimestamp(),
       });
@@ -238,6 +284,43 @@ export function useSessions() {
     return { gameId, tournamentSessionId: null };
   }
 
+  /**
+   * Add the roster members who signed up for this table as players of the freshly
+   * created game (the host is already seated by createGame). A member with no
+   * `tableIds` counts as signed up for every table.
+   */
+  async function addSignedUpPlayers(gameId, sessionDoc, entry, buyIn) {
+    if (!gameId) return;
+    const hostUid = sessionDoc.hostUid;
+    const wanted = (sessionDoc.roster || []).filter((r) => {
+      if (!r || !r.uid || r.uid === hostUid) return false;
+      if (!Array.isArray(r.tableIds)) return true; // "all tables"
+      return r.tableIds.includes(entry.id);
+    });
+    if (wanted.length === 0) return;
+
+    const gameRef = doc(db, 'games', gameId);
+    const gSnap = await getDoc(gameRef);
+    if (!gSnap.exists()) return;
+    const players = Array.isArray(gSnap.data().players) ? gSnap.data().players.slice() : [];
+    const seen = new Set(players.map((p) => p.uid).filter(Boolean));
+
+    let added = 0;
+    for (const r of wanted) {
+      if (seen.has(r.uid)) continue;
+      seen.add(r.uid);
+      players.push({
+        id: `${Date.now()}_${added}`,
+        name: r.name || 'Player',
+        uid: r.uid,
+        buyIn: Number(buyIn) || 0,
+        stack: 0,
+      });
+      added += 1;
+    }
+    if (added > 0) await updateDoc(gameRef, { players });
+  }
+
   async function activateIndex(id, index) {
     const ref_ = doc(db, 'sessions', id);
     const snap = await getDoc(ref_);
@@ -249,6 +332,10 @@ export function useSessions() {
 
     const { gameId, tournamentSessionId } = await createTableRoom(s, entry);
 
+    // Auto-seat everyone who reserved this specific table.
+    const buyIn = Number(entry.presetSnapshot?.buyIn) || 0;
+    await addSignedUpPlayers(gameId, s, entry, buyIn);
+
     const newQueue = queue.map((e, i) => {
       if (i < index) return { ...e, status: 'done' };
       if (i === index) return { ...e, status: 'active', gameId, tournamentSessionId };
@@ -258,7 +345,7 @@ export function useSessions() {
     await updateDoc(ref_, {
       status: 'active',
       currentTableIndex: index,
-      activeTable: { kind: entry.kind, gameId, tournamentSessionId },
+      activeTable: { id: entry.id, kind: entry.kind, gameId, tournamentSessionId },
       tableQueue: newQueue,
       updatedAt: serverTimestamp(),
     });
@@ -349,6 +436,8 @@ export function useSessions() {
     updateQueue,
     listenSession,
     listenMySessions,
+    listenGameStatus,
+    hasNextTable,
     getSession,
     rsvp,
     cancelRsvp,

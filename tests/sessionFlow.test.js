@@ -14,6 +14,8 @@ import {
   canViewLocation,
   defaultSessionName,
   aggregateSessionSummary,
+  rosterEntryOf,
+  isSignedUpForTable,
 } from '../src/utils/sessionFlow.js';
 
 /**
@@ -99,13 +101,43 @@ describe('buildActiveRoute', () => {
     expect(buildActiveRoute({ kind: 'cash', gameId: 'g1' })).toBe('/game/g1');
   });
 
-  it('routes tournaments to the clock', () => {
-    expect(buildActiveRoute({ kind: 'tournament', tournamentSessionId: 't1' })).toBe('/tournament-clock/t1');
+  it('routes tournaments to the table manager by gameId (not the clock)', () => {
+    expect(buildActiveRoute({ kind: 'tournament', gameId: 'g2', tournamentSessionId: 't1' }))
+      .toBe('/tournament-game/g2');
   });
 
-  it('returns null when nothing is activated', () => {
+  it('returns null when nothing is activated / no gameId', () => {
     expect(buildActiveRoute(null)).toBe(null);
     expect(buildActiveRoute({ kind: 'cash' })).toBe(null);
+    expect(buildActiveRoute({ kind: 'tournament', tournamentSessionId: 't1' })).toBe(null);
+  });
+});
+
+describe('rosterEntryOf / isSignedUpForTable', () => {
+  const s = {
+    roster: [
+      { uid: 'a', tableIds: ['t1', 't3'] },
+      { uid: 'b' }, // legacy: no tableIds → all tables
+    ],
+  };
+
+  it('finds the roster entry', () => {
+    expect(rosterEntryOf(s, 'a').tableIds).toEqual(['t1', 't3']);
+    expect(rosterEntryOf(s, 'nobody')).toBe(null);
+  });
+
+  it('respects per-table sign-up', () => {
+    expect(isSignedUpForTable(s, 'a', 't1')).toBe(true);
+    expect(isSignedUpForTable(s, 'a', 't2')).toBe(false);
+  });
+
+  it('treats a missing tableIds list as signed up for every table', () => {
+    expect(isSignedUpForTable(s, 'b', 't1')).toBe(true);
+    expect(isSignedUpForTable(s, 'b', 'tX')).toBe(true);
+  });
+
+  it('returns false for a non-member', () => {
+    expect(isSignedUpForTable(s, 'ghost', 't1')).toBe(false);
   });
 });
 
@@ -118,28 +150,39 @@ describe('resolveSessionView', () => {
     expect(resolveSessionView(makeSession(), 'host')).toEqual({ mode: 'host-console' });
   });
 
-  it('redirects a roster member to the active table', () => {
+  it('redirects a member signed up for the active table', () => {
     const s = makeSession({
       status: 'active',
+      roster: [{ uid: 'host' }, { uid: 'p2', tableIds: ['tbl1'] }],
       rosterUids: ['host', 'p2'],
-      activeTable: { kind: 'cash', gameId: 'g1' },
+      activeTable: { id: 'tbl1', kind: 'cash', gameId: 'g1' },
     });
     expect(resolveSessionView(s, 'p2')).toEqual({ mode: 'redirect', route: '/game/g1' });
+  });
+
+  it('shows the event page to a member NOT signed up for the active table', () => {
+    const s = makeSession({
+      status: 'active',
+      roster: [{ uid: 'host' }, { uid: 'p2', tableIds: ['tbl2'] }],
+      rosterUids: ['host', 'p2'],
+      activeTable: { id: 'tbl1', kind: 'cash', gameId: 'g1' },
+    });
+    expect(resolveSessionView(s, 'p2')).toEqual({ mode: 'event' });
   });
 
   it('keeps the host on the console when active (with route for tap-in)', () => {
     const s = makeSession({
       status: 'active',
-      activeTable: { kind: 'tournament', tournamentSessionId: 't1' },
+      activeTable: { id: 'tbl1', kind: 'tournament', gameId: 'g2', tournamentSessionId: 't1' },
     });
-    expect(resolveSessionView(s, 'host')).toEqual({ mode: 'host-console', route: '/tournament-clock/t1' });
+    expect(resolveSessionView(s, 'host')).toEqual({ mode: 'host-console', route: '/tournament-game/g2' });
   });
 
   it('blocks a non-roster visitor on an active session', () => {
     const s = makeSession({
       status: 'active',
       rosterUids: ['host'],
-      activeTable: { kind: 'cash', gameId: 'g1' },
+      activeTable: { id: 'tbl1', kind: 'cash', gameId: 'g1' },
     });
     expect(resolveSessionView(s, 'stranger')).toEqual({ mode: 'blocked' });
   });
