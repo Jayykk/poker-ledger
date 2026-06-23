@@ -560,7 +560,7 @@ import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP, GAME_TYPE } from '../utils/const
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useCashPresets } from '../composables/useCashPresets.js';
-import { useSessions } from '../composables/useSessions.js';
+import { useSessions, sortSessions, MY_SESSIONS_LIMIT } from '../composables/useSessions.js';
 import { buildOnlineRoomConfig } from '../utils/pokerEntry.js';
 
 const { t } = useI18n();
@@ -608,11 +608,18 @@ const userPresets = ref([]);
 
 const { createSession: createTournamentSession, listenPresets } = useTournamentClock();
 const { listenPresets: listenCashPresets } = useCashPresets();
-const { listenMySessions } = useSessions();
+const { listenMySessions, listenJoinedSessions } = useSessions();
 
-// Live events (Session layer) hosted by this user.
-const mySessions = ref([]);
+// Live events (Session layer): both the ones I host and the ones I've joined.
+const hostedSessions = ref([]);
+const joinedSessions = ref([]);
+const mySessions = computed(() => {
+  const byId = new Map();
+  for (const s of [...hostedSessions.value, ...joinedSessions.value]) byId.set(s.id, s);
+  return sortSessions([...byId.values()]).slice(0, MY_SESSIONS_LIMIT);
+});
 let unsubMySessions = null;
+let unsubJoinedSessions = null;
 
 // Merge built-in templates with user presets for the picker
 const allTemplateOptions = computed(() => {
@@ -887,8 +894,9 @@ onMounted(async () => {
   // Load rooms first
   await gameStore.loadMyRooms();
 
-  // Subscribe to live events this user hosts (newest first).
-  unsubMySessions = listenMySessions((list) => { mySessions.value = list; });
+  // Subscribe to live events this user hosts AND has joined (merged in mySessions).
+  unsubMySessions = listenMySessions((list) => { hostedSessions.value = list; });
+  unsubJoinedSessions = listenJoinedSessions((list) => { joinedSessions.value = list; });
 
   // Load invitations and mark existing ones as seen
   loadInvitations();
@@ -937,6 +945,10 @@ onUnmounted(() => {
   if (unsubMySessions) {
     unsubMySessions();
     unsubMySessions = null;
+  }
+  if (unsubJoinedSessions) {
+    unsubJoinedSessions();
+    unsubJoinedSessions = null;
   }
   if (unsubPresets) {
     unsubPresets();
