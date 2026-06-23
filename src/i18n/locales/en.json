@@ -668,6 +668,9 @@
     "noActiveTable": "No table in progress",
     "startNext": "Start Next Table",
     "deleteEvent": "Delete Event",
-    "confirmDelete": "Delete this entire event? This cannot be undone (table records are kept)."
+    "confirmDelete": "Delete this entire event? This cannot be undone (table records are kept).",
+    "linkTables": "Table linkage",
+    "linkTablesHint": "On: the event opens tables in order and seats sign-ups automatically. Off: sign-up board only — players open their own rooms.",
+    "gatheringMode": "Sign-up only (no table linkage)"
   }
 }

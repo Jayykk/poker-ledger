@@ -668,6 +668,9 @@
     "noActiveTable": "目前無進行中桌次",
     "startNext": "開始下一桌",
     "deleteEvent": "刪除活動",
-    "confirmDelete": "確定要刪除整個活動嗎？此動作無法復原（各桌記錄會保留）。"
+    "confirmDelete": "確定要刪除整個活動嗎？此動作無法復原（各桌記錄會保留）。",
+    "linkTables": "牌桌連動",
+    "linkTablesHint": "開啟：活動依序開桌並自動帶入報名者；關閉：僅作揪團報名，各自開房",
+    "gatheringMode": "純揪團模式（不連動牌桌）"
   }
 }

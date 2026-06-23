@@ -22,14 +22,18 @@
       <div class="form-group">
         <label>{{ t('session.location') }}</label>
         <input v-model="form.location.name" type="text" :placeholder="t('session.locationPlaceholder')" />
-        <label class="checkbox-row">
-          <input v-model="form.location.showToJoinedOnly" type="checkbox" />
-          <span>{{ t('session.locationPrivate') }}</span>
-        </label>
       </div>
 
-      <!-- Table queue -->
-      <div class="queue-section">
+      <div class="form-group">
+        <label class="checkbox-row">
+          <input v-model="form.linkTables" type="checkbox" />
+          <span>{{ t('session.linkTables') }}</span>
+        </label>
+        <small class="field-hint">{{ t('session.linkTablesHint') }}</small>
+      </div>
+
+      <!-- Table queue (only when table linkage is on) -->
+      <div v-if="form.linkTables" class="queue-section">
         <h2>{{ t('session.tableQueue') }}</h2>
 
         <div v-if="form.tableQueue.length === 0" class="queue-empty">
@@ -122,7 +126,8 @@ const form = reactive({
   name: '',
   dateTimeMs: Date.now(),
   maxPlayers: 8,
-  location: { name: '', showToJoinedOnly: false },
+  location: { name: '' },
+  linkTables: true,
   tableQueue: [],
 });
 
@@ -248,10 +253,8 @@ onMounted(async () => {
       form.name = s.name || '';
       form.dateTimeMs = s.dateTimeMs || Date.now();
       form.maxPlayers = s.maxPlayers || 8;
-      form.location = {
-        name: s.location?.name || '',
-        showToJoinedOnly: !!s.location?.showToJoinedOnly,
-      };
+      form.location = { name: s.location?.name || '' };
+      form.linkTables = s.linkTables !== false;
       form.tableQueue = (s.tableQueue || []).map((e) => ({
         id: e.id || null, // preserve stable id so RSVP tableIds keep matching
         kind: e.kind || 'cash',
@@ -271,6 +274,11 @@ onMounted(async () => {
 
 // ── Save ───────────────────────────────────────────────
 function validate() {
+  // Gathering-only events need no tables at all.
+  if (!form.linkTables) {
+    errorMsg.value = '';
+    return true;
+  }
   if (form.tableQueue.length === 0) {
     errorMsg.value = t('session.mustHaveTable');
     return false;
@@ -295,8 +303,9 @@ async function save() {
       name: form.name || defaultName,
       dateTimeMs: form.dateTimeMs,
       maxPlayers: form.maxPlayers,
-      location: { ...form.location },
-      tableQueue: form.tableQueue,
+      location: { name: form.location.name },
+      linkTables: form.linkTables,
+      tableQueue: form.linkTables ? form.tableQueue : [],
     };
     if (isEdit.value) {
       await updateSession(route.params.sessionId, payload);
@@ -329,7 +338,8 @@ onUnmounted(() => {
 .session-setup {
   min-height: 100vh;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  padding: 32px 16px;
+  /* clear the fixed bottom nav + FAB */
+  padding: 32px 16px 120px;
 }
 
 .setup-card {
@@ -383,6 +393,14 @@ onUnmounted(() => {
 }
 
 .checkbox-row input { width: auto; }
+
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  line-height: 1.4;
+}
 
 .queue-section {
   margin-top: 24px;

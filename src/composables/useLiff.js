@@ -812,7 +812,7 @@ const shareSessionInvite = async (session) => {
     const uri = sessionLiffUrl(session.id);
     const max = Number(session.maxPlayers) || 0;
     const count = (session.roster || []).length;
-    const first = (session.tableQueue || [])[0];
+    const locationName = session.location?.name || '';
     const when = new Date(Number(session.dateTimeMs) || Date.now());
     const pad = (n) => String(n).padStart(2, '0');
     const timeText = `${when.getFullYear()}/${pad(when.getMonth() + 1)}/${pad(when.getDate())} ${pad(when.getHours())}:${pad(when.getMinutes())}`;
@@ -823,10 +823,10 @@ const shareSessionInvite = async (session) => {
         { type: 'text', text: timeText, size: 'sm', color: '#333333', flex: 5, wrap: true },
       ] },
     ];
-    if (first) {
+    if (locationName) {
       rows.push({ type: 'box', layout: 'baseline', margin: 'md', contents: [
-        { type: 'text', text: '🃏 首桌', size: 'sm', color: '#AAAAAA', flex: 2 },
-        { type: 'text', text: tableKindLabel(first.kind), size: 'sm', color: '#333333', flex: 5 },
+        { type: 'text', text: '📍 地點', size: 'sm', color: '#AAAAAA', flex: 2 },
+        { type: 'text', text: locationName, size: 'sm', color: '#333333', flex: 5, wrap: true },
       ] });
     }
     rows.push({ type: 'box', layout: 'baseline', margin: 'md', contents: [

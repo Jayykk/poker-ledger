@@ -101,10 +101,8 @@ export function useSessions() {
         hostName: authStore.displayName,
         dateTimeMs: Number(form.dateTimeMs) || Date.now(),
         maxPlayers: Number(form.maxPlayers) || 8,
-        location: {
-          name: form.location?.name || '',
-          showToJoinedOnly: !!form.location?.showToJoinedOnly,
-        },
+        location: { name: form.location?.name || '' },
+        linkTables: form.linkTables !== false, // default on (linked)
         status: 'scheduling',
         roster: [host],
         rosterUids: [u.uid],
@@ -131,12 +129,8 @@ export function useSessions() {
     if (patch.name !== undefined) data.name = patch.name;
     if (patch.dateTimeMs !== undefined) data.dateTimeMs = Number(patch.dateTimeMs) || Date.now();
     if (patch.maxPlayers !== undefined) data.maxPlayers = Number(patch.maxPlayers) || 8;
-    if (patch.location !== undefined) {
-      data.location = {
-        name: patch.location?.name || '',
-        showToJoinedOnly: !!patch.location?.showToJoinedOnly,
-      };
-    }
+    if (patch.location !== undefined) data.location = { name: patch.location?.name || '' };
+    if (patch.linkTables !== undefined) data.linkTables = patch.linkTables !== false;
     if (patch.tableQueue !== undefined) data.tableQueue = buildQueue(patch.tableQueue);
     await updateDoc(ref_, data);
   }

@@ -64,40 +64,50 @@
         <button v-if="amJoined" class="btn-danger" @click="onCancel">{{ t('session.cancelRsvp') }}</button>
       </div>
 
+      <!-- Anyone viewing the event (member/visitor) can forward the invite with
+           the latest sign-up count -->
+      <div v-if="view.mode === 'rsvp' || view.mode === 'event'" class="member-share">
+        <button class="btn-ghost full-w" @click="onShareInvite">📤 {{ t('session.shareInvite') }}</button>
+      </div>
+
       <!-- Host console -->
       <div v-if="view.mode === 'host-console'" class="console">
-        <h3>{{ t('session.tableQueue') }}</h3>
-        <ol class="queue-plan">
-          <li v-for="(row, i) in session.tableQueue" :key="i" :class="row.status">
-            <span class="kind">{{ row.kind === 'tournament' ? t('session.tournament') : t('session.cash') }}</span>
-            <span class="qlabel">{{ row.label || row.presetSnapshot?.name || '—' }}</span>
-            <span class="qstatus">{{ queueStatusLabel(row.status) }}</span>
-          </li>
-        </ol>
+        <template v-if="linkTables">
+          <h3>{{ t('session.tableQueue') }}</h3>
+          <ol class="queue-plan">
+            <li v-for="(row, i) in session.tableQueue" :key="i" :class="row.status">
+              <span class="kind">{{ row.kind === 'tournament' ? t('session.tournament') : t('session.cash') }}</span>
+              <span class="qlabel">{{ row.label || row.presetSnapshot?.name || '—' }}</span>
+              <span class="qstatus">{{ queueStatusLabel(row.status) }}</span>
+            </li>
+          </ol>
+        </template>
+        <p v-else class="muted gathering-note">{{ t('session.gatheringMode') }}</p>
 
         <div class="host-actions">
-          <button v-if="session.status === 'scheduling'" class="btn-primary" @click="onStart">
-            {{ t('session.startEvent') }}
-          </button>
-          <template v-if="session.status === 'active'">
-            <!-- A table is running -->
-            <button v-if="session.activeTable && view.route" class="btn-secondary" @click="enterTable">
-              {{ t('session.enterTable') }}
+          <template v-if="linkTables">
+            <button v-if="session.status === 'scheduling'" class="btn-primary" @click="onStart">
+              {{ t('session.startEvent') }}
             </button>
-            <!-- Between tables (e.g. after dissolve / last table finished) -->
-            <p v-if="!session.activeTable" class="muted">{{ t('session.noActiveTable') }}</p>
-            <button v-if="!session.activeTable && nextQueuedExists" class="btn-primary" @click="onStartNext">
-              {{ t('session.startNext') }}
-            </button>
-            <button class="btn-danger" @click="onEnd">{{ t('session.endEvent') }}</button>
+            <template v-if="session.status === 'active'">
+              <button v-if="session.activeTable && view.route" class="btn-secondary" @click="enterTable">
+                {{ t('session.enterTable') }}
+              </button>
+              <p v-if="!session.activeTable" class="muted">{{ t('session.noActiveTable') }}</p>
+              <button v-if="!session.activeTable && nextQueuedExists" class="btn-primary" @click="onStartNext">
+                {{ t('session.startNext') }}
+              </button>
+              <button class="btn-danger" @click="onEnd">{{ t('session.endEvent') }}</button>
+            </template>
           </template>
+          <button v-else class="btn-danger" @click="onEnd">{{ t('session.endEvent') }}</button>
           <button class="btn-ghost" @click="onEdit">{{ t('session.editTables') }}</button>
           <button class="btn-ghost danger-text" @click="onDelete">🗑 {{ t('session.deleteEvent') }}</button>
         </div>
 
         <div class="share-actions">
           <button class="btn-ghost" @click="onShareInvite">📤 {{ t('session.shareInvite') }}</button>
-          <button v-if="session.status === 'active'" class="btn-ghost" @click="onShareTable">🃏 {{ t('session.shareTable') }}</button>
+          <button v-if="linkTables && session.status === 'active' && session.activeTable" class="btn-ghost" @click="onShareTable">🃏 {{ t('session.shareTable') }}</button>
         </div>
       </div>
 
@@ -162,7 +172,8 @@ let redirected = false;
 const view = computed(() => resolveSessionView(session.value, uid.value));
 const amJoined = computed(() => isRosterMember(session.value, uid.value));
 const full = computed(() => isFull(session.value));
-const showLocation = computed(() => canViewLocation(session.value, uid.value));
+const showLocation = computed(() => canViewLocation(session.value));
+const linkTables = computed(() => session.value?.linkTables !== false);
 const nextQueuedExists = computed(() => hasNextTable(session.value));
 
 const activeTableLabel = computed(() => {
@@ -304,9 +315,13 @@ onUnmounted(() => {
 .session-view {
   min-height: 100vh;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  padding: 32px 16px;
+  /* Extra bottom padding so the last button clears the fixed bottom nav + FAB */
+  padding: 32px 16px 120px;
   color: white;
 }
+
+.member-share { margin-top: 14px; }
+.gathering-note { margin: 14px 0; }
 
 .state-msg {
   max-width: 560px;

@@ -198,22 +198,29 @@ describe('resolveSessionView', () => {
 
 describe('canViewLocation', () => {
   it('is hidden when there is no location', () => {
-    expect(canViewLocation(makeSession(), 'host')).toBe(false);
+    expect(canViewLocation(makeSession())).toBe(false);
   });
 
-  it('is public when not marked joined-only', () => {
-    const s = makeSession({ location: { name: '內湖基地', showToJoinedOnly: false } });
-    expect(canViewLocation(s, 'stranger')).toBe(true);
+  it('is shown to everyone when a venue name is set', () => {
+    const s = makeSession({ location: { name: '內湖基地' } });
+    expect(canViewLocation(s)).toBe(true);
+  });
+});
+
+describe('resolveSessionView — gathering-only (linkTables=false)', () => {
+  it('shows RSVP to a non-host regardless of status', () => {
+    const s = makeSession({ status: 'active', linkTables: false, activeTable: { id: 't1', kind: 'cash', gameId: 'g1' } });
+    expect(resolveSessionView(s, 'p2')).toEqual({ mode: 'rsvp' });
   });
 
-  it('is gated to host/roster when joined-only', () => {
-    const s = makeSession({
-      rosterUids: ['host', 'p2'],
-      location: { name: '內湖基地', showToJoinedOnly: true },
-    });
-    expect(canViewLocation(s, 'host')).toBe(true);
-    expect(canViewLocation(s, 'p2')).toBe(true);
-    expect(canViewLocation(s, 'stranger')).toBe(false);
+  it('shows the host console to the host', () => {
+    const s = makeSession({ status: 'scheduling', linkTables: false });
+    expect(resolveSessionView(s, 'host')).toEqual({ mode: 'host-console' });
+  });
+
+  it('never blocks or redirects a non-member', () => {
+    const s = makeSession({ status: 'active', linkTables: false, rosterUids: ['host'] });
+    expect(resolveSessionView(s, 'stranger')).toEqual({ mode: 'rsvp' });
   });
 });
 
