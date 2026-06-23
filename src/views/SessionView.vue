@@ -140,6 +140,7 @@ import { useLiff } from '../composables/useLiff.js';
 import {
   resolveSessionView, canViewLocation, isRosterMember, rosterCount, isFull, rosterEntryOf,
 } from '../utils/sessionFlow.js';
+import { markSessionReturn } from '../utils/sessionReturn.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -225,7 +226,11 @@ const onDelete = () => withNotice(async () => {
   router.push('/lobby');
 });
 const onEdit = () => router.push(`/session-setup/${route.params.sessionId}`);
-const enterTable = () => { if (view.value.route) router.push(view.value.route); };
+const enterTable = () => {
+  if (!view.value.route) return;
+  markSessionReturn(route.params.sessionId, session.value?.activeTable?.gameId);
+  router.push(view.value.route);
+};
 
 const onShareInvite = () => withNotice(() => shareSessionInvite(session.value));
 const onShareTable = () => withNotice(() => shareSessionTableCard(session.value));
@@ -235,6 +240,7 @@ const onShareSummary = () => withNotice(() => shareSessionSummary(session.value,
 watch(view, (v) => {
   if (v.mode === 'redirect' && v.route && !redirected) {
     redirected = true;
+    markSessionReturn(route.params.sessionId, session.value?.activeTable?.gameId);
     router.replace(v.route);
   }
 }, { immediate: true });
