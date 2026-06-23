@@ -671,6 +671,18 @@
     "confirmDelete": "确定要删除整个活动吗？此操作无法撤销（各桌记录会保留）。",
     "linkTables": "牌桌联动",
     "linkTablesHint": "开启：活动依序开桌并自动带入报名者；关闭：仅作召集报名，各自开房",
-    "gatheringMode": "纯召集模式（不联动牌桌）"
+    "gatheringMode": "纯召集模式（不联动牌桌）",
+    "periods": "时段安排",
+    "addPeriod": "新增时段",
+    "periodLabel": "时段名称",
+    "periodLabelPlaceholder": "例：下午 / 晚上 / 1400",
+    "custom": "自定义",
+    "slotMax": "人数上限",
+    "modifyPeriods": "修改时段",
+    "periodsUpdated": "时段已更新",
+    "signUpPeriods": "报名时段",
+    "startNextPeriod": "开始下一时段",
+    "noActivePeriod": "当前无进行中时段",
+    "mustHavePeriod": "请至少新增一个时段"
   }
 }

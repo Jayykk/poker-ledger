@@ -671,6 +671,18 @@
     "confirmDelete": "イベント全体を削除しますか？元に戻せません（各テーブルの記録は保持されます）。",
     "linkTables": "テーブル連動",
     "linkTablesHint": "オン：イベントが順にテーブルを開き、参加者を自動着席。オフ：参加募集のみ（各自で部屋を作成）。",
-    "gatheringMode": "募集のみ（テーブル連動なし）"
+    "gatheringMode": "募集のみ（テーブル連動なし）",
+    "periods": "時間帯",
+    "addPeriod": "時間帯を追加",
+    "periodLabel": "時間帯名",
+    "periodLabelPlaceholder": "例：午後 / 夜 / 1400",
+    "custom": "カスタム",
+    "slotMax": "最大人数",
+    "modifyPeriods": "時間帯を変更",
+    "periodsUpdated": "時間帯を更新しました",
+    "signUpPeriods": "時間帯に参加",
+    "startNextPeriod": "次の時間帯を開始",
+    "noActivePeriod": "進行中の時間帯はありません",
+    "mustHavePeriod": "時間帯を1つ以上追加してください"
   }
 }

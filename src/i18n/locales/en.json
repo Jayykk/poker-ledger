@@ -671,6 +671,18 @@
     "confirmDelete": "Delete this entire event? This cannot be undone (table records are kept).",
     "linkTables": "Table linkage",
     "linkTablesHint": "On: the event opens tables in order and seats sign-ups automatically. Off: sign-up board only — players open their own rooms.",
-    "gatheringMode": "Sign-up only (no table linkage)"
+    "gatheringMode": "Sign-up only (no table linkage)",
+    "periods": "Periods",
+    "addPeriod": "Add Period",
+    "periodLabel": "Period name",
+    "periodLabelPlaceholder": "e.g. Afternoon / Evening / 1400",
+    "custom": "Custom",
+    "slotMax": "Max players",
+    "modifyPeriods": "Modify Periods",
+    "periodsUpdated": "Periods updated",
+    "signUpPeriods": "Sign up for periods",
+    "startNextPeriod": "Start Next Period",
+    "noActivePeriod": "No period in progress",
+    "mustHavePeriod": "Please add at least one period"
   }
 }

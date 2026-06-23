@@ -15,74 +15,68 @@
       </div>
 
       <div class="form-group">
-        <label>{{ t('session.maxPlayers') }}</label>
-        <input v-model.number="form.maxPlayers" type="number" min="2" max="50" />
-      </div>
-
-      <div class="form-group">
         <label>{{ t('session.location') }}</label>
         <input v-model="form.location.name" type="text" :placeholder="t('session.locationPlaceholder')" />
       </div>
 
-      <div class="form-group">
-        <label class="checkbox-row">
-          <input v-model="form.linkTables" type="checkbox" />
-          <span>{{ t('session.linkTables') }}</span>
-        </label>
-        <small class="field-hint">{{ t('session.linkTablesHint') }}</small>
-      </div>
+      <!-- Periods -->
+      <div class="queue-section">
+        <h2>{{ t('session.periods') }}</h2>
 
-      <!-- Table queue (only when table linkage is on) -->
-      <div v-if="form.linkTables" class="queue-section">
-        <h2>{{ t('session.tableQueue') }}</h2>
-
-        <div v-if="form.tableQueue.length === 0" class="queue-empty">
-          {{ t('session.mustHaveTable') }}
+        <div v-if="form.periods.length === 0" class="queue-empty">
+          {{ t('session.mustHavePeriod') }}
         </div>
 
         <div
-          v-for="(row, i) in form.tableQueue"
-          :key="i"
-          class="queue-row"
+          v-for="(row, i) in form.periods"
+          :key="row.id || i"
+          class="period-row"
           :class="{ locked: isRowLocked(row) }"
         >
-          <div class="queue-order">{{ i + 1 }}</div>
-
-          <div class="queue-fields">
-            <div class="queue-line">
-              <select v-model="row.kind" :disabled="isRowLocked(row)" @change="onKindChange(row)">
-                <option value="cash">{{ t('session.cash') }}</option>
-                <option value="tournament">{{ t('session.tournament') }}</option>
-              </select>
-
-              <select
-                v-model="row.presetId"
-                :disabled="isRowLocked(row)"
-                @change="onPresetSelect(row)"
-              >
-                <option value="">{{ t('session.selectPreset') }}</option>
-                <option
-                  v-for="opt in presetOptions(row.kind)"
-                  :key="opt.id"
-                  :value="opt.id"
-                >
-                  {{ opt.label }}
-                </option>
-              </select>
-            </div>
-            <div v-if="isRowLocked(row)" class="queue-status">
-              {{ row.status === 'active' ? t('session.statusActive') : t('session.done') }} · {{ t('session.locked') }}
+          <div class="period-head">
+            <div class="queue-order">{{ i + 1 }}</div>
+            <input
+              class="period-label"
+              v-model="row.label"
+              :disabled="isRowLocked(row)"
+              type="text"
+              :placeholder="t('session.periodLabelPlaceholder')"
+            />
+            <div class="queue-actions" v-if="!isRowLocked(row)">
+              <button :disabled="i === 0 || isRowLocked(form.periods[i - 1])" :title="t('session.moveUp')" @click="moveUp(i)">▲</button>
+              <button :disabled="i === form.periods.length - 1" :title="t('session.moveDown')" @click="moveDown(i)">▼</button>
+              <button class="remove" :title="t('session.remove')" @click="removePeriod(i)">✕</button>
             </div>
           </div>
 
-          <div class="queue-actions" v-if="!isRowLocked(row)">
-            <button :disabled="i === 0 || isRowLocked(form.tableQueue[i - 1])" :title="t('session.moveUp')" @click="moveUp(i)">▲</button>
-            <button :disabled="i === form.tableQueue.length - 1" :title="t('session.moveDown')" @click="moveDown(i)">▼</button>
-            <button class="remove" :title="t('session.remove')" @click="removeTable(i)">✕</button>
+          <div class="period-line">
+            <select v-model="row.type" :disabled="isRowLocked(row)" @change="onTypeChange(row)">
+              <option value="cash">{{ t('session.cash') }}</option>
+              <option value="tournament">{{ t('session.tournament') }}</option>
+              <option value="custom">{{ t('session.custom') }}</option>
+            </select>
+            <label class="cap">
+              <span>{{ t('session.slotMax') }}</span>
+              <input v-model.number="row.maxPlayers" :disabled="isRowLocked(row)" type="number" min="1" max="50" />
+            </label>
+          </div>
+
+          <select
+            v-if="row.type !== 'custom'"
+            v-model="row.presetId"
+            :disabled="isRowLocked(row)"
+            @change="onPresetSelect(row)"
+          >
+            <option value="">{{ presetSnapshotLabel(row) || t('session.selectPreset') }}</option>
+            <option v-for="opt in presetOptions(row.type)" :key="opt.id" :value="opt.id">{{ opt.label }}</option>
+          </select>
+
+          <div v-if="isRowLocked(row)" class="queue-status">
+            {{ row.status === 'active' ? t('session.statusActive') : t('session.done') }} · {{ t('session.locked') }}
           </div>
         </div>
 
-        <button class="btn-add" @click="addTable">＋ {{ t('session.addTable') }}</button>
+        <button class="btn-add" @click="addPeriod">＋ {{ t('session.addPeriod') }}</button>
       </div>
 
       <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
@@ -90,7 +84,7 @@
       <div class="setup-actions">
         <button class="btn-cancel" @click="goBack">{{ t('common.cancel') }}</button>
         <button class="btn-confirm" :disabled="saving" @click="save">
-          {{ saving ? t('loading') : t('common.save') }}
+          {{ saving ? t('loading') : (isEdit ? t('session.modifyPeriods') : t('common.save')) }}
         </button>
       </div>
     </div>
@@ -104,6 +98,7 @@ import { useI18n } from 'vue-i18n';
 import { useSessions } from '../composables/useSessions.js';
 import { useCashPresets } from '../composables/useCashPresets.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
+import { useLiff } from '../composables/useLiff.js';
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
 import { defaultSessionName } from '../utils/sessionFlow.js';
 
@@ -113,6 +108,7 @@ const { t } = useI18n();
 const { createSession, updateSession, getSession } = useSessions();
 const cashPresetsApi = useCashPresets();
 const tournamentApi = useTournamentClock();
+const { sendSessionUpdateMessage } = useLiff();
 
 const isEdit = computed(() => !!route.params.sessionId);
 const defaultName = defaultSessionName(Date.now());
@@ -121,14 +117,13 @@ const cashPresets = ref([]);
 const userTournamentPresets = ref([]);
 const saving = ref(false);
 const errorMsg = ref('');
+let loadedSig = '';
 
 const form = reactive({
   name: '',
   dateTimeMs: Date.now(),
-  maxPlayers: 8,
   location: { name: '' },
-  linkTables: true,
-  tableQueue: [],
+  periods: [],
 });
 
 // ── datetime-local <-> ms ──────────────────────────────
@@ -146,97 +141,68 @@ const dateTimeLocal = computed({
 });
 
 // ── Preset option lists ────────────────────────────────
-function presetOptions(kind) {
-  if (kind === 'tournament') {
-    const builtin = TOURNAMENT_TEMPLATES.map((tpl) => ({
-      id: `tpl:${tpl.id}`,
-      label: `${tpl.name} (${t('session.cash')}: ${tpl.buyIn})`,
-      source: tpl,
-    }));
-    const user = userTournamentPresets.value.map((p) => ({
-      id: `usr:${p.id}`,
-      label: p.name || p.id,
-      source: p,
-    }));
+function presetOptions(type) {
+  if (type === 'tournament') {
+    const builtin = TOURNAMENT_TEMPLATES.map((tpl) => ({ id: `tpl:${tpl.id}`, label: `${tpl.name} (${tpl.buyIn})`, source: tpl }));
+    const user = userTournamentPresets.value.map((p) => ({ id: `usr:${p.id}`, label: p.name || p.id, source: p }));
     return [...builtin, ...user];
   }
-  return cashPresets.value.map((p) => ({
-    id: p.id,
-    label: `${p.name} (${p.buyIn})`,
-    source: p,
-  }));
+  return cashPresets.value.map((p) => ({ id: p.id, label: `${p.name} (${p.buyIn})`, source: p }));
+}
+function findOption(type, id) {
+  return presetOptions(type).find((o) => o.id === id) || null;
+}
+function presetSnapshotLabel(row) {
+  return row.presetSnapshot && row.presetSnapshot.name ? row.presetSnapshot.name : '';
 }
 
-function findOption(kind, id) {
-  return presetOptions(kind).find((o) => o.id === id) || null;
-}
-
-// ── Queue manipulation ─────────────────────────────────
+// ── Period manipulation ────────────────────────────────
 function isRowLocked(row) {
   return row.status === 'active' || row.status === 'done';
 }
-
-function addTable() {
-  form.tableQueue.push({
-    kind: 'cash',
-    presetId: '',
-    presetSnapshot: {},
-    label: '',
-    status: 'queued',
-    gameId: null,
-    tournamentSessionId: null,
+function addPeriod() {
+  form.periods.push({
+    id: null, label: '', type: 'cash', maxPlayers: 8,
+    presetId: '', presetSnapshot: {}, roster: [], rosterUids: [],
+    status: 'queued', gameId: null, tournamentSessionId: null,
   });
 }
-
-function removeTable(i) {
-  form.tableQueue.splice(i, 1);
-}
-
+function removePeriod(i) { form.periods.splice(i, 1); }
 function moveUp(i) {
   if (i === 0) return;
-  const arr = form.tableQueue;
-  [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
+  const a = form.periods;
+  [a[i - 1], a[i]] = [a[i], a[i - 1]];
 }
-
 function moveDown(i) {
-  const arr = form.tableQueue;
-  if (i >= arr.length - 1) return;
-  [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]];
+  const a = form.periods;
+  if (i >= a.length - 1) return;
+  [a[i + 1], a[i]] = [a[i], a[i + 1]];
 }
-
-function onKindChange(row) {
+function onTypeChange(row) {
   row.presetId = '';
   row.presetSnapshot = {};
-  row.label = '';
 }
-
 function onPresetSelect(row) {
-  const opt = findOption(row.kind, row.presetId);
-  if (!opt) {
-    row.presetSnapshot = {};
-    row.label = '';
-    return;
-  }
+  const opt = findOption(row.type, row.presetId);
+  if (!opt) { row.presetSnapshot = {}; return; }
   const s = opt.source;
-  if (row.kind === 'tournament') {
+  if (row.type === 'tournament') {
     row.presetSnapshot = {
-      name: s.name || '',
-      subtitle: s.subtitle || '',
-      buyIn: Number(s.buyIn) || 0,
-      startingChips: s.startingChips,
-      reentryUntilLevel: s.reentryUntilLevel,
-      maxReentries: s.maxReentries,
-      levels: s.levels,
-      payoutRatios: s.payoutRatios,
+      name: s.name || '', subtitle: s.subtitle || '', buyIn: Number(s.buyIn) || 0,
+      startingChips: s.startingChips, reentryUntilLevel: s.reentryUntilLevel,
+      maxReentries: s.maxReentries, levels: s.levels, payoutRatios: s.payoutRatios,
     };
   } else {
-    row.presetSnapshot = {
-      name: s.name || '',
-      buyIn: Number(s.buyIn) || 0,
-      rate: Number(s.rate) || 1,
-    };
+    row.presetSnapshot = { name: s.name || '', buyIn: Number(s.buyIn) || 0, rate: Number(s.rate) || 1 };
   }
-  row.label = `${opt.label}`;
+}
+
+// ── Change signature (for "modify periods" notification) ──
+function periodsSig(periods) {
+  return JSON.stringify((periods || []).map((p) => ({
+    label: p.label || '', type: p.type, max: Number(p.maxPlayers) || 0,
+    preset: p.presetSnapshot?.name || '',
+  })));
 }
 
 // ── Load (edit mode) ───────────────────────────────────
@@ -252,44 +218,42 @@ onMounted(async () => {
     if (s) {
       form.name = s.name || '';
       form.dateTimeMs = s.dateTimeMs || Date.now();
-      form.maxPlayers = s.maxPlayers || 8;
       form.location = { name: s.location?.name || '' };
-      form.linkTables = s.linkTables !== false;
-      form.tableQueue = (s.tableQueue || []).map((e) => ({
-        id: e.id || null, // preserve stable id so RSVP tableIds keep matching
-        kind: e.kind || 'cash',
-        presetId: '', // not re-selectable; snapshot already stored
+      form.periods = (s.periods || []).map((e) => ({
+        id: e.id || null,
+        label: e.label || '',
+        type: e.type || 'cash',
+        maxPlayers: e.maxPlayers || 8,
+        presetId: '', // snapshot already stored; not re-selectable
         presetSnapshot: e.presetSnapshot || {},
-        label: e.label || (e.presetSnapshot?.name || ''),
+        roster: e.roster || [],
+        rosterUids: e.rosterUids || [],
         status: e.status || 'queued',
         gameId: e.gameId || null,
         tournamentSessionId: e.tournamentSessionId || null,
       }));
+      loadedSig = periodsSig(form.periods);
     }
   } else {
     form.name = defaultName;
-    addTable();
+    addPeriod();
   }
+});
+
+onUnmounted(() => {
+  if (unsubCash) unsubCash();
+  if (unsubTour) unsubTour();
 });
 
 // ── Save ───────────────────────────────────────────────
 function validate() {
-  // Gathering-only events need no tables at all.
-  if (!form.linkTables) {
-    errorMsg.value = '';
-    return true;
-  }
-  if (form.tableQueue.length === 0) {
-    errorMsg.value = t('session.mustHaveTable');
-    return false;
-  }
-  // Every queued row must have a chosen preset (snapshot with a buy-in).
-  const incomplete = form.tableQueue.some(
-    (r) => r.status === 'queued' && !(r.presetSnapshot && r.presetSnapshot.name)
-  );
-  if (incomplete) {
-    errorMsg.value = t('session.selectPreset');
-    return false;
+  if (form.periods.length === 0) { errorMsg.value = t('session.mustHavePeriod'); return false; }
+  for (const p of form.periods) {
+    if (!p.label || !p.label.trim()) { errorMsg.value = t('session.periodLabel'); return false; }
+    if (!(Number(p.maxPlayers) > 0)) { errorMsg.value = t('session.slotMax'); return false; }
+    if (p.status === 'queued' && p.type !== 'custom' && !(p.presetSnapshot && p.presetSnapshot.name)) {
+      errorMsg.value = t('session.selectPreset'); return false;
+    }
   }
   errorMsg.value = '';
   return true;
@@ -302,13 +266,16 @@ async function save() {
     const payload = {
       name: form.name || defaultName,
       dateTimeMs: form.dateTimeMs,
-      maxPlayers: form.maxPlayers,
       location: { name: form.location.name },
-      linkTables: form.linkTables,
-      tableQueue: form.linkTables ? form.tableQueue : [],
+      periods: form.periods,
     };
     if (isEdit.value) {
+      const changed = periodsSig(form.periods) !== loadedSig;
       await updateSession(route.params.sessionId, payload);
+      if (changed) {
+        const fresh = await getSession(route.params.sessionId);
+        if (fresh) sendSessionUpdateMessage(fresh);
+      }
       router.push(`/session/${route.params.sessionId}`);
     } else {
       const id = await createSession(payload);
@@ -327,11 +294,6 @@ function goBack() {
   if (isEdit.value) router.push(`/session/${route.params.sessionId}`);
   else router.push('/lobby');
 }
-
-onUnmounted(() => {
-  if (unsubCash) unsubCash();
-  if (unsubTour) unsubTour();
-});
 </script>
 
 <style scoped>
@@ -352,22 +314,10 @@ onUnmounted(() => {
   color: white;
 }
 
-.setup-card h1 {
-  margin: 0 0 24px;
-  font-size: 26px;
-}
+.setup-card h1 { margin: 0 0 24px; font-size: 26px; }
 
-.form-group {
-  margin-bottom: 18px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 6px;
-  font-weight: bold;
-  color: rgba(255, 255, 255, 0.85);
-}
-
+.form-group { margin-bottom: 18px; }
+.form-group label { display: block; margin-bottom: 6px; font-weight: bold; color: rgba(255, 255, 255, 0.85); }
 .form-group input[type='text'],
 .form-group input[type='number'],
 .form-group input[type='datetime-local'] {
@@ -384,142 +334,66 @@ onUnmounted(() => {
   font-size: 16px;
 }
 
-.checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  font-weight: normal;
-}
+.queue-section { margin-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 16px; }
+.queue-section h2 { font-size: 18px; margin: 0 0 12px; }
+.queue-empty { color: rgba(255, 255, 255, 0.5); font-size: 14px; margin-bottom: 12px; }
 
-.checkbox-row input { width: auto; }
-
-.field-hint {
-  display: block;
-  margin-top: 6px;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.queue-section {
-  margin-top: 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding-top: 16px;
-}
-
-.queue-section h2 {
-  font-size: 18px;
-  margin: 0 0 12px;
-}
-
-.queue-empty {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 14px;
-  margin-bottom: 12px;
-}
-
-.queue-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
+.period-row {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 10px;
-}
-
-.queue-row.locked { opacity: 0.6; }
-
-.queue-order {
-  width: 26px;
-  height: 26px;
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #2196F3;
-  border-radius: 50%;
-  font-weight: bold;
-  font-size: 14px;
-}
-
-.queue-fields { flex: 1; }
-
-.queue-line {
-  display: flex;
-  gap: 8px;
-}
-
-.queue-line select {
-  flex: 1;
-  padding: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  color: white;
-  font-size: 14px;
-}
-
-.queue-status {
-  margin-top: 6px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.queue-actions {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+}
+.period-row.locked { opacity: 0.6; }
+
+.period-head { display: flex; align-items: center; gap: 10px; }
+.queue-order {
+  width: 26px; height: 26px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  background: #2196F3; border-radius: 50%; font-weight: bold; font-size: 14px;
+}
+.period-label {
+  flex: 1; min-width: 0; box-sizing: border-box;
+  padding: 8px; background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; color: white; font-size: 15px;
 }
 
+.period-line { display: flex; gap: 8px; align-items: center; }
+.period-line select {
+  flex: 1; min-width: 0; padding: 8px;
+  background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px; color: white; font-size: 14px;
+}
+.cap { display: flex; align-items: center; gap: 6px; font-size: 13px; color: rgba(255,255,255,0.7); }
+.cap input { width: 64px; padding: 8px; box-sizing: border-box; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; }
+
+.period-row > select {
+  padding: 8px; background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; color: white; font-size: 14px;
+}
+
+.queue-actions { display: flex; gap: 4px; }
 .queue-actions button {
-  width: 30px;
-  height: 26px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  color: white;
-  cursor: pointer;
+  width: 30px; height: 26px; background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; color: white; cursor: pointer;
 }
-
 .queue-actions button:disabled { opacity: 0.3; cursor: not-allowed; }
 .queue-actions button.remove { color: #ff6b6b; }
+.queue-status { font-size: 12px; color: rgba(255, 255, 255, 0.55); }
 
 .btn-add {
-  width: 100%;
-  padding: 10px;
-  background: rgba(76, 175, 80, 0.2);
-  border: 1px dashed rgba(76, 175, 80, 0.6);
-  border-radius: 8px;
-  color: #8fe08f;
-  font-weight: bold;
-  cursor: pointer;
+  width: 100%; padding: 10px;
+  background: rgba(76, 175, 80, 0.2); border: 1px dashed rgba(76, 175, 80, 0.6);
+  border-radius: 8px; color: #8fe08f; font-weight: bold; cursor: pointer;
 }
 
-.error-msg {
-  color: #ff6b6b;
-  font-size: 14px;
-  margin-top: 14px;
-}
-
-.setup-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.btn-cancel,
-.btn-confirm {
-  flex: 1;
-  padding: 12px;
-  border: none;
-  border-radius: 6px;
-  font-weight: bold;
-  cursor: pointer;
-}
-
+.error-msg { color: #ff6b6b; font-size: 14px; margin-top: 14px; }
+.setup-actions { display: flex; gap: 12px; margin-top: 24px; }
+.btn-cancel, .btn-confirm { flex: 1; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
 .btn-cancel { background: #666; color: white; }
 .btn-confirm { background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; }
 .btn-confirm:disabled { opacity: 0.6; cursor: not-allowed; }

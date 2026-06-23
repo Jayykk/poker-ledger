@@ -1,14 +1,18 @@
 /**
- * Sessions Composable
+ * Sessions Composable (v2 — period model)
  * Manages the live-event (Session) layer via Firestore real-time sync, mirroring
  * the client-direct pattern used by the cash ledger (`games`) and tournament
- * clock (`tournamentSessions`). A Session sits ABOVE existing live tables: it
- * holds the RSVP roster and an ordered queue of tables that are created lazily
- * — only the currently-active table exists as a real `games` /
- * `tournamentSessions` document; the rest are plan snapshots.
+ * clock (`tournamentSessions`).
  *
- * No Cloud Functions: RSVP cap is enforced atomically with runTransaction.
- * Activation reuses the existing createGame / createTournamentSession APIs.
+ * A Session holds an ordered list of "periods" (時段). Each period has its own
+ * free-text label, a type (cash / tournament / custom), its own maxPlayers, and
+ * its own RSVP roster. Cash/tournament periods link to a real table (created
+ * lazily and auto-seated with that period's sign-ups); custom periods have no
+ * table — the auto-advance chain pauses on them until the host moves on.
+ *
+ * No Cloud Functions: per-period RSVP caps are enforced atomically with
+ * runTransaction; `participantUids` (union of all period rosters) powers the
+ * lobby "events I joined" query and the rules membership check.
  */
 
 import { ref, computed, onUnmounted } from 'vue';
@@ -60,31 +64,39 @@ export function useSessions() {
   }
 
   function rosterEntry(u) {
-    return {
-      uid: u.uid,
-      name: authStore.displayName,
-      avatar: u.photoURL || null,
-      joinedAtMs: Date.now(),
-    };
+    return { uid: u.uid, name: authStore.displayName, avatar: u.photoURL || null, joinedAtMs: Date.now() };
   }
 
-  /** Generate a stable table id (survives queue reordering). */
-  function genTableId(i) {
-    return `t_${Date.now().toString(36)}_${i}_${Math.random().toString(36).slice(2, 6)}`;
+  /** Stable period id (survives reordering; RSVP selections key off it). */
+  function genPeriodId(i) {
+    return `p_${Date.now().toString(36)}_${i}_${Math.random().toString(36).slice(2, 6)}`;
   }
 
-  /** Normalise a queue editor list into stored tableQueue rows. */
-  function buildQueue(rawQueue = []) {
-    return rawQueue.map((e, i) => ({
-      id: e.id || genTableId(i),
-      order: i,
-      kind: e.kind === 'tournament' ? 'tournament' : 'cash',
-      label: e.label || '',
-      presetSnapshot: e.presetSnapshot || {},
-      gameId: e.gameId || null,
-      tournamentSessionId: e.tournamentSessionId || null,
-      status: e.status || 'queued',
-    }));
+  /** Normalise an editor period list into stored period rows. */
+  function buildPeriods(raw = []) {
+    return raw.map((e, i) => {
+      const type = ['cash', 'tournament', 'custom'].includes(e.type) ? e.type : 'cash';
+      return {
+        id: e.id || genPeriodId(i),
+        order: i,
+        label: e.label || '',
+        type,
+        maxPlayers: Number(e.maxPlayers) > 0 ? Number(e.maxPlayers) : 8,
+        presetSnapshot: type === 'custom' ? {} : (e.presetSnapshot || {}),
+        roster: Array.isArray(e.roster) ? e.roster : [],
+        rosterUids: Array.isArray(e.rosterUids) ? e.rosterUids : [],
+        gameId: e.gameId || null,
+        tournamentSessionId: e.tournamentSessionId || null,
+        status: e.status || 'queued',
+      };
+    });
+  }
+
+  /** Union of every period's rosterUids. */
+  function unionParticipants(periods) {
+    const set = new Set();
+    for (const p of periods || []) for (const uid of p.rosterUids || []) set.add(uid);
+    return [...set];
   }
 
   // ── Create / edit ───────────────────────────────────
@@ -94,21 +106,18 @@ export function useSessions() {
     error.value = null;
     try {
       const ref_ = doc(collection(db, 'sessions'));
-      const host = rosterEntry(u);
+      const periods = buildPeriods(form.periods);
       await setDoc(ref_, {
         name: form.name || defaultSessionName(Date.now()),
         hostUid: u.uid,
         hostName: authStore.displayName,
         dateTimeMs: Number(form.dateTimeMs) || Date.now(),
-        maxPlayers: Number(form.maxPlayers) || 8,
         location: { name: form.location?.name || '' },
-        linkTables: form.linkTables !== false, // default on (linked)
         status: 'scheduling',
-        roster: [host],
-        rosterUids: [u.uid],
-        tableQueue: buildQueue(form.tableQueue),
-        currentTableIndex: -1,
-        activeTable: null,
+        periods,
+        participantUids: unionParticipants(periods),
+        currentSlotIndex: -1,
+        activeSlot: null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -122,25 +131,37 @@ export function useSessions() {
     }
   }
 
-  /** Host-only edit of basic info + the still-queued portion of the table plan. */
+  /**
+   * Host-only edit. When `periods` is provided, live state (roster, status,
+   * linkage) of existing periods is preserved by id so editing labels/types/caps
+   * never wipes sign-ups or running tables.
+   */
   async function updateSession(id, patch) {
     const ref_ = doc(db, 'sessions', id);
     const data = { updatedAt: serverTimestamp() };
     if (patch.name !== undefined) data.name = patch.name;
     if (patch.dateTimeMs !== undefined) data.dateTimeMs = Number(patch.dateTimeMs) || Date.now();
-    if (patch.maxPlayers !== undefined) data.maxPlayers = Number(patch.maxPlayers) || 8;
     if (patch.location !== undefined) data.location = { name: patch.location?.name || '' };
-    if (patch.linkTables !== undefined) data.linkTables = patch.linkTables !== false;
-    if (patch.tableQueue !== undefined) data.tableQueue = buildQueue(patch.tableQueue);
+    if (patch.periods !== undefined) {
+      const cur = await getDoc(ref_);
+      const existing = cur.exists() ? (cur.data().periods || []) : [];
+      const byId = new Map(existing.map((p) => [p.id, p]));
+      const merged = buildPeriods(patch.periods).map((p) => {
+        const old = byId.get(p.id);
+        if (!old) return p;
+        return {
+          ...p,
+          roster: old.roster || [],
+          rosterUids: old.rosterUids || [],
+          status: old.status || 'queued',
+          gameId: old.gameId || null,
+          tournamentSessionId: old.tournamentSessionId || null,
+        };
+      });
+      data.periods = merged;
+      data.participantUids = unionParticipants(merged);
+    }
     await updateDoc(ref_, data);
-  }
-
-  /** Host-only queue reorder/add/remove. Active/done entries must be preserved. */
-  async function updateQueue(id, newQueue) {
-    await updateDoc(doc(db, 'sessions', id), {
-      tableQueue: buildQueue(newQueue),
-      updatedAt: serverTimestamp(),
-    });
   }
 
   // ── Realtime subscription ───────────────────────────
@@ -160,34 +181,27 @@ export function useSessions() {
           error.value = 'Session not found';
         }
       },
-      (err) => {
-        loading.value = false;
-        error.value = err.message;
-      },
+      (err) => { loading.value = false; error.value = err.message; },
     );
   }
 
-  /** Subscribe to the sessions this user hosts. Delivers a raw (unsorted) list. */
+  /** Sessions this user hosts (raw, unsorted). */
   function listenMySessions(callback) {
     const u = authStore.user;
     if (!u) return () => {};
     const q = query(collection(db, 'sessions'), where('hostUid', '==', u.uid));
-    return onSnapshot(q, (snap) => {
-      callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
+    return onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
   }
 
-  /** Subscribe to the sessions this user has RSVP'd to. Raw (unsorted) list. */
+  /** Sessions this user has RSVP'd to any period of (raw, unsorted). */
   function listenJoinedSessions(callback) {
     const u = authStore.user;
     if (!u) return () => {};
-    const q = query(collection(db, 'sessions'), where('rosterUids', 'array-contains', u.uid));
-    return onSnapshot(q, (snap) => {
-      callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
+    const q = query(collection(db, 'sessions'), where('participantUids', 'array-contains', u.uid));
+    return onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
   }
 
-  /** Subscribe to a table's game status (for host-side auto-advance). */
+  /** A table's game status (for host-side auto-advance). */
   function listenGameStatus(gameId, callback) {
     if (!gameId) return () => {};
     return onSnapshot(doc(db, 'games', gameId), (snap) => {
@@ -195,11 +209,10 @@ export function useSessions() {
     });
   }
 
-  /** Is there a queued table after the current one? */
-  function hasNextTable(s) {
-    const queue = s?.tableQueue || [];
-    const next = (s?.currentTableIndex ?? -1) + 1;
-    return next < queue.length;
+  /** Is there a period after the current one? */
+  function hasNextSlot(s) {
+    const periods = s?.periods || [];
+    return ((s?.currentSlotIndex ?? -1) + 1) < periods.length;
   }
 
   async function getSession(id) {
@@ -207,45 +220,52 @@ export function useSessions() {
     return snap.exists() ? { id: snap.id, ...snap.data() } : null;
   }
 
-  // ── RSVP (atomic cap enforcement) ───────────────────
+  // ── RSVP (per-period, atomic cap) ───────────────────
   /**
-   * Sign up (or update table selection). `tableIds` is the list of tables the
-   * player will join; omit/empty means "all tables". Idempotent on re-RSVP:
-   * an existing member's selection is updated without consuming another slot.
+   * Set this user's sign-ups to exactly `periodIds`. Adds to newly-selected
+   * queued periods (capacity-checked), removes from deselected queued periods.
+   * Active/done periods are immutable. Returns the updated session.
    */
-  async function rsvp(id, tableIds = null) {
+  async function rsvp(id, periodIds = []) {
     const u = requireUser();
+    const want = new Set(periodIds || []);
     return runTransaction(db, async (t) => {
       const ref_ = doc(db, 'sessions', id);
       const snap = await t.get(ref_);
       if (!snap.exists()) throw new Error('Session not found');
       const s = snap.data();
-      if (s.status !== 'scheduling') throw new Error('報名已截止');
-      const roster = Array.isArray(s.roster) ? s.roster : [];
-      const uids = Array.isArray(s.rosterUids) ? s.rosterUids : [];
-      const entry = { ...rosterEntry(u) };
-      if (Array.isArray(tableIds)) entry.tableIds = tableIds;
+      const periods = Array.isArray(s.periods) ? s.periods : [];
+      const entry = rosterEntry(u);
 
-      const existingIdx = roster.findIndex((r) => r && r.uid === u.uid);
-      if (existingIdx >= 0) {
-        // Update selection in place; keep original joinedAtMs.
-        const next = roster.slice();
-        next[existingIdx] = { ...next[existingIdx], tableIds: entry.tableIds };
-        t.update(ref_, { roster: next, updatedAt: serverTimestamp() });
-        return { id, ...s, roster: next };
-      }
-      const max = Number(s.maxPlayers) || 0;
-      if (max > 0 && roster.length >= max) throw new Error('已滿座');
-      const nextRoster = [...roster, entry];
-      t.update(ref_, {
-        roster: nextRoster,
-        rosterUids: [...uids, u.uid],
-        updatedAt: serverTimestamp(),
+      const next = periods.map((p) => {
+        const locked = p.status && p.status !== 'queued';
+        if (locked) return p;
+        const inIt = (p.rosterUids || []).includes(u.uid);
+        const desired = want.has(p.id);
+        if (desired && !inIt) {
+          const max = Number(p.maxPlayers) || 0;
+          if (max > 0 && (p.roster || []).length >= max) {
+            throw new Error(`「${p.label || ''}」已滿座`);
+          }
+          return { ...p, roster: [...(p.roster || []), entry], rosterUids: [...(p.rosterUids || []), u.uid] };
+        }
+        if (!desired && inIt) {
+          return {
+            ...p,
+            roster: (p.roster || []).filter((r) => r.uid !== u.uid),
+            rosterUids: (p.rosterUids || []).filter((x) => x !== u.uid),
+          };
+        }
+        return p;
       });
-      return { id, ...s, roster: nextRoster, rosterUids: [...uids, u.uid] };
+
+      const participantUids = unionParticipants(next);
+      t.update(ref_, { periods: next, participantUids, updatedAt: serverTimestamp() });
+      return { id, ...s, periods: next, participantUids };
     });
   }
 
+  /** Leave the event: remove this user from all queued periods. */
   async function cancelRsvp(id) {
     const u = requireUser();
     return runTransaction(db, async (t) => {
@@ -253,25 +273,29 @@ export function useSessions() {
       const snap = await t.get(ref_);
       if (!snap.exists()) throw new Error('Session not found');
       const s = snap.data();
-      if (s.status !== 'scheduling') throw new Error('報名已截止');
-      const roster = (s.roster || []).filter((r) => r && r.uid !== u.uid);
-      const uids = (s.rosterUids || []).filter((x) => x !== u.uid);
-      t.update(ref_, { roster, rosterUids: uids, updatedAt: serverTimestamp() });
-      return { id, ...s, roster, rosterUids: uids };
+      const periods = Array.isArray(s.periods) ? s.periods : [];
+      const next = periods.map((p) => {
+        const locked = p.status && p.status !== 'queued';
+        if (locked || !(p.rosterUids || []).includes(u.uid)) return p;
+        return {
+          ...p,
+          roster: (p.roster || []).filter((r) => r.uid !== u.uid),
+          rosterUids: (p.rosterUids || []).filter((x) => x !== u.uid),
+        };
+      });
+      const participantUids = unionParticipants(next);
+      t.update(ref_, { periods: next, participantUids, updatedAt: serverTimestamp() });
+      return { id, ...s, periods: next, participantUids };
     });
   }
 
-  // ── Table activation (lazy create) ──────────────────
-  /**
-   * Create the real room for a queue entry, reusing existing create APIs.
-   * @return {{gameId: ?string, tournamentSessionId: ?string}}
-   */
-  async function createTableRoom(sessionDoc, entry) {
-    const snapshot = entry.presetSnapshot || {};
+  // ── Period activation (lazy create for linked periods) ──
+  async function createTableRoom(sessionDoc, period) {
+    const snapshot = period.presetSnapshot || {};
     const buyIn = Number(snapshot.buyIn) || 0;
-    const name = snapshot.name || entry.label || sessionDoc.name || 'Table';
+    const name = snapshot.name || period.label || sessionDoc.name || 'Table';
 
-    if (entry.kind === 'tournament') {
+    if (period.type === 'tournament') {
       const tournamentSessionId = await clock.createSession({
         name,
         subtitle: snapshot.subtitle || '',
@@ -283,116 +307,96 @@ export function useSessions() {
         payoutRatios: snapshot.payoutRatios,
       });
       const gameId = await gameStore.createGame(name, buyIn, GAME_TYPE.TOURNAMENT, { tournamentSessionId });
-      if (gameId) {
-        await updateDoc(doc(db, 'tournamentSessions', tournamentSessionId), { gameId });
-      }
+      if (gameId) await updateDoc(doc(db, 'tournamentSessions', tournamentSessionId), { gameId });
       return { gameId, tournamentSessionId };
     }
-
-    // cash
     const gameId = await gameStore.createGame(name, buyIn, GAME_TYPE.LIVE, { rate: snapshot.rate });
     return { gameId, tournamentSessionId: null };
   }
 
-  /**
-   * Add the roster members who signed up for this table as players of the freshly
-   * created game (the host is already seated by createGame). A member with no
-   * `tableIds` counts as signed up for every table.
-   */
-  async function addSignedUpPlayers(gameId, sessionDoc, entry, buyIn) {
+  /** Seat everyone signed up for this period (host is already seated; dedup by uid). */
+  async function addSignedUpPlayers(gameId, period, buyIn) {
     if (!gameId) return;
-    const hostUid = sessionDoc.hostUid;
-    const wanted = (sessionDoc.roster || []).filter((r) => {
-      if (!r || !r.uid || r.uid === hostUid) return false;
-      if (!Array.isArray(r.tableIds)) return true; // "all tables"
-      return r.tableIds.includes(entry.id);
-    });
-    if (wanted.length === 0) return;
-
+    const wanted = (period.roster || []).filter((r) => r && r.uid);
+    if (!wanted.length) return;
     const gameRef = doc(db, 'games', gameId);
     const gSnap = await getDoc(gameRef);
     if (!gSnap.exists()) return;
     const players = Array.isArray(gSnap.data().players) ? gSnap.data().players.slice() : [];
     const seen = new Set(players.map((p) => p.uid).filter(Boolean));
-
     let added = 0;
     for (const r of wanted) {
       if (seen.has(r.uid)) continue;
       seen.add(r.uid);
-      players.push({
-        id: `${Date.now()}_${added}`,
-        name: r.name || 'Player',
-        uid: r.uid,
-        buyIn: Number(buyIn) || 0,
-        stack: 0,
-      });
+      players.push({ id: `${Date.now()}_${added}`, name: r.name || 'Player', uid: r.uid, buyIn: Number(buyIn) || 0, stack: 0 });
       added += 1;
     }
     if (added > 0) await updateDoc(gameRef, { players });
   }
 
+  /**
+   * Activate the period at `index`. Linked (cash/tournament) periods create the
+   * table and auto-seat sign-ups; custom periods just become the active slot
+   * with no table (the chain pauses there). Earlier periods are marked done.
+   */
   async function activateIndex(id, index) {
     const ref_ = doc(db, 'sessions', id);
     const snap = await getDoc(ref_);
     if (!snap.exists()) throw new Error('Session not found');
     const s = snap.data();
-    const queue = s.tableQueue || [];
-    const entry = queue[index];
-    if (!entry) throw new Error('No table at this position');
+    const periods = s.periods || [];
+    const period = periods[index];
+    if (!period) throw new Error('No period at this position');
 
-    const { gameId, tournamentSessionId } = await createTableRoom(s, entry);
+    let gameId = null;
+    let tournamentSessionId = null;
+    if (period.type !== 'custom') {
+      ({ gameId, tournamentSessionId } = await createTableRoom(s, period));
+      await addSignedUpPlayers(gameId, period, Number(period.presetSnapshot?.buyIn) || 0);
+    }
 
-    // Auto-seat everyone who reserved this specific table.
-    const buyIn = Number(entry.presetSnapshot?.buyIn) || 0;
-    await addSignedUpPlayers(gameId, s, entry, buyIn);
-
-    const newQueue = queue.map((e, i) => {
-      if (i < index) return { ...e, status: 'done' };
+    const newPeriods = periods.map((e, i) => {
+      if (i < index) return e.status === 'done' ? e : { ...e, status: 'done' };
       if (i === index) return { ...e, status: 'active', gameId, tournamentSessionId };
       return e;
     });
+    const activeSlot = period.type === 'custom'
+      ? { id: period.id, type: 'custom' }
+      : { id: period.id, type: period.type, gameId, tournamentSessionId };
 
     await updateDoc(ref_, {
       status: 'active',
-      currentTableIndex: index,
-      activeTable: { id: entry.id, kind: entry.kind, gameId, tournamentSessionId },
-      tableQueue: newQueue,
+      currentSlotIndex: index,
+      activeSlot,
+      periods: newPeriods,
       updatedAt: serverTimestamp(),
     });
-    return { gameId, tournamentSessionId, kind: entry.kind };
+    return { gameId, tournamentSessionId, type: period.type };
   }
 
-  /** Host: "轉為正式開局" — activate the first queued table. */
+  /** Host: "轉為正式開局" — activate the first period. */
   function activateFirstTable(id) {
     return activateIndex(id, 0);
   }
 
   /**
-   * Advance past the current table: mark it done and activate the next queued
-   * table. If none remain, clear the active table but keep the event 'active'
-   * (the host decides whether to add more tables or end the event manually —
-   * the event is never auto-completed). Used both by the host-side
-   * auto-advance (when a table finishes or is dissolved) and the manual
-   * "start next table" action.
+   * Advance to the next period: mark the current one done and activate the next
+   * (creating its table, or pausing if it's custom). If none remain, clear the
+   * active slot but keep the event 'active' (host ends manually). Used by both
+   * the host-side auto-advance and the manual "start next period" action.
    */
   async function advanceToNextTable(id) {
     const ref_ = doc(db, 'sessions', id);
     const snap = await getDoc(ref_);
     if (!snap.exists()) throw new Error('Session not found');
     const s = snap.data();
-    const queue = s.tableQueue || [];
-    const cur = s.currentTableIndex ?? -1;
+    const periods = s.periods || [];
+    const cur = s.currentSlotIndex ?? -1;
     const next = cur + 1;
-
-    if (next >= queue.length) {
-      // No more queued tables — sit idle between tables, awaiting the host.
-      const newQueue = queue.map((e, i) => (i === cur ? { ...e, status: 'done' } : e));
-      await updateDoc(ref_, {
-        tableQueue: newQueue,
-        activeTable: null,
-        updatedAt: serverTimestamp(),
-      });
-      return { activeTable: null };
+    if (next >= periods.length) {
+      const newPeriods = periods.map((e, i) => (i === cur && e.status !== 'done' ? { ...e, status: 'done' } : e));
+      await updateDoc(ref_, { periods: newPeriods, activeSlot: null, updatedAt: serverTimestamp() });
+      return { activeSlot: null };
     }
     return activateIndex(id, next);
   }
@@ -407,43 +411,27 @@ export function useSessions() {
     const ref_ = doc(db, 'sessions', id);
     const snap = await getDoc(ref_);
     if (!snap.exists()) throw new Error('Session not found');
-    const queue = (snap.data().tableQueue || []).map((e) => (
-      e.status === 'active' ? { ...e, status: 'done' } : e
-    ));
-    await updateDoc(ref_, {
-      status: 'completed',
-      tableQueue: queue,
-      activeTable: null,
-      updatedAt: serverTimestamp(),
-    });
+    const periods = (snap.data().periods || []).map((e) => (e.status === 'active' ? { ...e, status: 'done' } : e));
+    await updateDoc(ref_, { status: 'completed', periods, activeSlot: null, updatedAt: serverTimestamp() });
   }
 
   // ── Session summary ─────────────────────────────────
-  /** Read every activated table's game doc and roll them up (see sessionFlow). */
   async function loadSessionSummary(id) {
     const s = await getSession(id);
     if (!s) return aggregateSessionSummary([]);
-    const entries = (s.tableQueue || []).filter((e) => e.gameId);
-    const games = await Promise.all(entries.map(async (e) => {
+    const linked = (s.periods || []).filter((e) => e.gameId);
+    const games = await Promise.all(linked.map(async (e) => {
       const snap = await getDoc(doc(db, 'games', e.gameId));
       if (!snap.exists()) return null;
       const g = snap.data();
-      return {
-        name: e.label || g.name || '',
-        kind: e.kind,
-        rate: g.rate || 1,
-        settlementSnapshot: g.settlementSnapshot,
-      };
+      return { name: e.label || g.name || '', kind: e.type, rate: g.rate || 1, settlementSnapshot: g.settlementSnapshot };
     }));
     return aggregateSessionSummary(games.filter(Boolean));
   }
 
   // ── Cleanup ─────────────────────────────────────────
   function cleanup() {
-    if (unsubscribe) {
-      unsubscribe();
-      unsubscribe = null;
-    }
+    if (unsubscribe) { unsubscribe(); unsubscribe = null; }
   }
   onUnmounted(cleanup);
 
@@ -455,12 +443,11 @@ export function useSessions() {
     isHost,
     createSession,
     updateSession,
-    updateQueue,
     listenSession,
     listenMySessions,
     listenJoinedSessions,
     listenGameStatus,
-    hasNextTable,
+    hasNextSlot,
     getSession,
     rsvp,
     cancelRsvp,

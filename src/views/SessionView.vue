@@ -1,22 +1,11 @@
 <template>
   <div class="session-view">
     <div v-if="loading && !session" class="state-msg">{{ t('loading') }}</div>
-
     <div v-else-if="!session" class="state-msg">{{ t('session.ended') }}</div>
 
-    <!-- Redirecting a roster member to the active table -->
-    <div v-else-if="view.mode === 'redirect'" class="state-msg">
-      {{ t('session.redirecting') }}
-    </div>
+    <!-- Redirecting a participant into their active table -->
+    <div v-else-if="view.mode === 'redirect'" class="state-msg">{{ t('session.redirecting') }}</div>
 
-    <!-- Block wall: not signed up for an active event -->
-    <div v-else-if="view.mode === 'blocked'" class="card wall">
-      <div class="wall-icon">🚧</div>
-      <h2>{{ t('session.notJoinedTitle') }}</h2>
-      <p>{{ t('session.notJoinedMsg') }}</p>
-    </div>
-
-    <!-- Everything else: scheduling RSVP, host console, or completed summary -->
     <div v-else class="card">
       <header class="head">
         <h1>{{ session.name }}</h1>
@@ -26,82 +15,78 @@
       <div class="meta">
         <div class="meta-row"><span>🗓️</span><span>{{ formatDateTime(session.dateTimeMs) }}</span></div>
         <div v-if="showLocation" class="meta-row"><span>📍</span><span>{{ session.location.name }}</span></div>
-        <div class="meta-row"><span>👥</span><span>{{ rosterText }}</span></div>
       </div>
 
-      <!-- Roster -->
-      <section class="roster">
-        <h3>{{ t('session.roster') }}</h3>
-        <ul>
-          <li v-for="(r, i) in session.roster" :key="r.uid || i">
-            <span class="seat-no">{{ i + 1 }}</span>{{ r.name }}
-          </li>
-          <li v-if="!session.roster || session.roster.length === 0" class="muted">—</li>
-        </ul>
+      <!-- Active-period banner (someone in the event but not the running table) -->
+      <div v-if="session.status === 'active' && activeLabel" class="active-banner">
+        🔴 {{ t('session.statusActive') }} · {{ activeLabel }}
+      </div>
+
+      <!-- Period board (sign-up + per-period rosters) -->
+      <section class="periods">
+        <h3>{{ t('session.periods') }}</h3>
+        <div
+          v-for="p in (session.periods || [])"
+          :key="p.id"
+          class="period-card"
+          :class="p.status"
+        >
+          <div class="p-head">
+            <label class="p-pick">
+              <input
+                v-if="view.mode === 'rsvp' && p.status === 'queued'"
+                type="checkbox"
+                :value="p.id"
+                v-model="selectedPeriodIds"
+                :disabled="!canTogglePeriod(p)"
+              />
+              <span class="kind">{{ typeLabel(p.type) }}</span>
+              <span class="p-label">{{ p.label || '—' }}</span>
+            </label>
+            <span class="p-count" :class="{ full: periodFull(p) }">{{ periodCount(p) }}/{{ p.maxPlayers }}</span>
+          </div>
+          <div class="p-sub">
+            <span class="p-status">{{ statusText(p.status) }}</span>
+            <span v-if="iAmIn(p)" class="p-mine">✓</span>
+          </div>
+          <ul v-if="(p.roster || []).length" class="p-roster">
+            <li v-for="(r, i) in p.roster" :key="r.uid || i">{{ r.name }}</li>
+          </ul>
+        </div>
       </section>
 
-      <!-- Active-table banner for an event member not in the current table -->
-      <div v-if="view.mode === 'event'" class="active-banner">
-        🔴 {{ t('session.statusActive') }} · {{ activeTableLabel }}
-      </div>
-
-      <!-- RSVP CTA (non-host, scheduling): pick which tables to join -->
+      <!-- RSVP actions (non-host) -->
       <div v-if="view.mode === 'rsvp'" class="cta">
-        <div v-if="linkTables" class="table-pick">
-          <label v-for="tbl in (session.tableQueue || [])" :key="tbl.id" class="pick-row">
-            <input type="checkbox" :value="tbl.id" v-model="selectedTableIds" />
-            <span class="kind">{{ tbl.kind === 'tournament' ? t('session.tournament') : t('session.cash') }}</span>
-            <span class="pick-label">{{ tbl.label || tbl.presetSnapshot?.name || '—' }}</span>
-          </label>
-        </div>
-        <button
-          class="btn-primary"
-          :disabled="(!amJoined && full) || (linkTables && selectedTableIds.length === 0)"
-          @click="onJoin"
-        >
-          {{ amJoined ? t('common.save') : (full ? t('session.full') : t('session.join')) }}
+        <button class="btn-primary" :disabled="joinDisabled" @click="onJoin">
+          {{ amJoined ? t('common.save') : t('session.signUpPeriods') }}
         </button>
         <button v-if="amJoined" class="btn-danger" @click="onCancel">{{ t('session.cancelRsvp') }}</button>
       </div>
 
       <!-- Host console -->
       <div v-if="view.mode === 'host-console'" class="console">
-        <template v-if="linkTables">
-          <h3>{{ t('session.tableQueue') }}</h3>
-          <ol class="queue-plan">
-            <li v-for="(row, i) in session.tableQueue" :key="i" :class="row.status">
-              <span class="kind">{{ row.kind === 'tournament' ? t('session.tournament') : t('session.cash') }}</span>
-              <span class="qlabel">{{ row.label || row.presetSnapshot?.name || '—' }}</span>
-              <span class="qstatus">{{ queueStatusLabel(row.status) }}</span>
-            </li>
-          </ol>
-        </template>
-        <p v-else class="muted gathering-note">{{ t('session.gatheringMode') }}</p>
-
         <div class="host-actions">
-          <template v-if="linkTables">
-            <button v-if="session.status === 'scheduling'" class="btn-primary" @click="onStart">
-              {{ t('session.startEvent') }}
+          <button v-if="session.status === 'scheduling'" class="btn-primary" @click="onStart">
+            {{ t('session.startEvent') }}
+          </button>
+          <template v-if="session.status === 'active'">
+            <button v-if="session.activeSlot && view.route" class="btn-secondary" @click="enterTable">
+              {{ t('session.enterTable') }}
             </button>
-            <template v-if="session.status === 'active'">
-              <button v-if="session.activeTable && view.route" class="btn-secondary" @click="enterTable">
-                {{ t('session.enterTable') }}
-              </button>
-              <p v-if="!session.activeTable" class="muted">{{ t('session.noActiveTable') }}</p>
-              <button v-if="!session.activeTable && nextQueuedExists" class="btn-primary" @click="onStartNext">
-                {{ t('session.startNext') }}
-              </button>
-              <button class="btn-danger" @click="onEnd">{{ t('session.endEvent') }}</button>
-            </template>
+            <p v-if="!session.activeSlot" class="muted">{{ t('session.noActivePeriod') }}</p>
+            <button v-if="canStartNext" class="btn-primary" @click="onStartNext">
+              {{ t('session.startNextPeriod') }}
+            </button>
+            <button class="btn-danger" @click="onEnd">{{ t('session.endEvent') }}</button>
           </template>
-          <button v-else class="btn-danger" @click="onEnd">{{ t('session.endEvent') }}</button>
-          <button class="btn-ghost" @click="onEdit">{{ t('session.editTables') }}</button>
+          <button class="btn-ghost" @click="onEdit">{{ t('session.modifyPeriods') }}</button>
           <button class="btn-ghost danger-text" @click="onDelete">🗑 {{ t('session.deleteEvent') }}</button>
         </div>
-
         <div class="share-actions">
           <button class="btn-ghost" @click="onShareInvite">📤 {{ t('session.shareInvite') }}</button>
-          <button v-if="linkTables && session.status === 'active' && session.activeTable" class="btn-ghost" @click="onShareTable">🃏 {{ t('session.shareTable') }}</button>
+          <button v-if="session.status === 'active' && session.activeSlot && view.route" class="btn-ghost" @click="onShareTable">
+            🃏 {{ t('session.shareTable') }}
+          </button>
         </div>
       </div>
 
@@ -142,7 +127,8 @@ import { useAuthStore } from '../store/modules/auth.js';
 import { useSessions } from '../composables/useSessions.js';
 import { useLiff } from '../composables/useLiff.js';
 import {
-  resolveSessionView, canViewLocation, isRosterMember, rosterCount, isFull, rosterEntryOf,
+  resolveSessionView, canViewLocation, isParticipant,
+  periodCount, periodFull, canJoinPeriod, isSignedUpForPeriod,
 } from '../utils/sessionFlow.js';
 import { markSessionReturn } from '../utils/sessionReturn.js';
 
@@ -151,36 +137,31 @@ const router = useRouter();
 const { t } = useI18n();
 const authStore = useAuthStore();
 const {
-  session, loading, listenSession,
+  session, loading, listenSession, getSession,
   rsvp, cancelRsvp, activateFirstTable, advanceToNextTable, endSession, deleteSession, loadSessionSummary,
-  listenGameStatus, hasNextTable,
+  listenGameStatus, hasNextSlot,
 } = useSessions();
 const { shareSessionInvite, sendSessionRsvpMessage, shareSessionTableCard, shareSessionSummary } = useLiff();
 
 const uid = computed(() => authStore.user?.uid || null);
 const summary = ref(null);
 const notice = ref('');
-const selectedTableIds = ref([]);
+const selectedPeriodIds = ref([]);
 let redirected = false;
+let pickInit = false;
 
 const view = computed(() => resolveSessionView(session.value, uid.value));
-const amJoined = computed(() => isRosterMember(session.value, uid.value));
-const full = computed(() => isFull(session.value));
+const amJoined = computed(() => isParticipant(session.value, uid.value));
 const showLocation = computed(() => canViewLocation(session.value));
-const linkTables = computed(() => session.value?.linkTables !== false);
-const nextQueuedExists = computed(() => hasNextTable(session.value));
+const canStartNext = computed(() => !!session.value && session.value.status === 'active'
+  && (!session.value.activeSlot || session.value.activeSlot.type === 'custom') && hasNextSlot(session.value));
+const joinDisabled = computed(() => !amJoined.value && selectedPeriodIds.value.length === 0);
 
-const activeTableLabel = computed(() => {
-  const at = session.value?.activeTable;
+const activeLabel = computed(() => {
+  const at = session.value?.activeSlot;
   if (!at) return '';
-  const row = (session.value?.tableQueue || []).find((e) => e.id === at.id);
-  const kind = (at.kind === 'tournament') ? t('session.tournament') : t('session.cash');
-  return `${kind}${row?.label || row?.presetSnapshot?.name ? ' · ' + (row.label || row.presetSnapshot?.name) : ''}`;
-});
-
-const rosterText = computed(() => {
-  const max = Number(session.value?.maxPlayers) || 0;
-  return `${rosterCount(session.value)}/${max}`;
+  const p = (session.value?.periods || []).find((e) => e.id === at.id);
+  return p ? `${typeLabel(p.type)} · ${p.label || ''}` : '';
 });
 
 const statusLabel = computed(() => {
@@ -192,16 +173,23 @@ const statusLabel = computed(() => {
   }
 });
 
-function queueStatusLabel(s) {
+function typeLabel(type) {
+  if (type === 'tournament') return t('session.tournament');
+  if (type === 'custom') return t('session.custom');
+  return t('session.cash');
+}
+function statusText(s) {
   if (s === 'active') return t('session.statusActive');
   if (s === 'done') return t('session.done');
   return t('session.queued');
 }
-
-function medal(i) {
-  return ['🥇', '🥈', '🥉'][i] || `${i + 1}.`;
+function iAmIn(p) {
+  return isSignedUpForPeriod(session.value, uid.value, p.id);
 }
-
+function canTogglePeriod(p) {
+  return canJoinPeriod(p, uid.value);
+}
+function medal(i) { return ['🥇', '🥈', '🥉'][i] || `${i + 1}.`; }
 function formatDateTime(ms) {
   const d = new Date(Number(ms) || Date.now());
   const pad = (n) => String(n).padStart(2, '0');
@@ -210,19 +198,12 @@ function formatDateTime(ms) {
 
 async function withNotice(fn) {
   notice.value = '';
-  try {
-    await fn();
-  } catch (err) {
-    notice.value = err?.message || t('session.actionFailed');
-  }
+  try { await fn(); } catch (err) { notice.value = err?.message || t('session.actionFailed'); }
 }
 
 const onJoin = () => withNotice(async () => {
-  const wasJoined = amJoined.value;
-  const fresh = await rsvp(route.params.sessionId, [...selectedTableIds.value]);
-  // On a fresh sign-up (not a selection update), auto-post a roster-update card
-  // with the now-updated count to the group chat — mirrors the buy-in message.
-  if (!wasJoined && fresh) sendSessionRsvpMessage(fresh, authStore.displayName);
+  const fresh = await rsvp(route.params.sessionId, [...selectedPeriodIds.value]);
+  if (fresh) sendSessionRsvpMessage(fresh, authStore.displayName);
 });
 const onCancel = () => withNotice(async () => {
   const fresh = await cancelRsvp(route.params.sessionId);
@@ -242,7 +223,7 @@ const onDelete = () => withNotice(async () => {
 const onEdit = () => router.push(`/session-setup/${route.params.sessionId}`);
 const enterTable = () => {
   if (!view.value.route) return;
-  markSessionReturn(route.params.sessionId, session.value?.activeTable?.gameId);
+  markSessionReturn(route.params.sessionId, session.value?.activeSlot?.gameId);
   router.push(view.value.route);
 };
 
@@ -250,259 +231,131 @@ const onShareInvite = () => withNotice(() => shareSessionInvite(session.value));
 const onShareTable = () => withNotice(() => shareSessionTableCard(session.value));
 const onShareSummary = () => withNotice(() => shareSessionSummary(session.value, summary.value));
 
-// Redirect roster members to the live table once it is active.
+// Redirect a participant into their active linked table.
 watch(view, (v) => {
   if (v.mode === 'redirect' && v.route && !redirected) {
     redirected = true;
-    markSessionReturn(route.params.sessionId, session.value?.activeTable?.gameId);
+    markSessionReturn(route.params.sessionId, session.value?.activeSlot?.gameId);
     router.replace(v.route);
   }
 }, { immediate: true });
 
-// Load the cross-table summary once the event is completed.
+// Load the cross-period summary once completed.
 watch(() => session.value?.status, async (status) => {
   if (status === 'completed' && !summary.value) {
     summary.value = await loadSessionSummary(route.params.sessionId);
   }
 });
 
-// Default the RSVP table picker: my existing selection, else every table.
-watch([session, uid], () => {
-  if (!session.value || session.value.status !== 'scheduling') return;
-  const entry = rosterEntryOf(session.value, uid.value);
-  const allIds = (session.value.tableQueue || []).map((e) => e.id);
-  if (entry && Array.isArray(entry.tableIds)) {
-    selectedTableIds.value = [...entry.tableIds];
-  } else if (selectedTableIds.value.length === 0) {
-    selectedTableIds.value = allIds;
-  }
+// Initialise the period picker once: my queued sign-ups, else all joinable queued.
+watch(session, (s) => {
+  if (!s || pickInit || s.status === 'completed') return;
+  const queued = (s.periods || []).filter((p) => p.status === 'queued');
+  const mine = queued.filter((p) => (p.rosterUids || []).includes(uid.value)).map((p) => p.id);
+  selectedPeriodIds.value = (mine.length || isParticipant(s, uid.value))
+    ? mine
+    : queued.filter((p) => canJoinPeriod(p, uid.value)).map((p) => p.id);
+  pickInit = true;
 }, { immediate: true });
 
-// Host-side auto-advance: when the active table's game finishes and another
-// table is queued, move on automatically. Only the host runs this.
+// Host-side auto-advance: when the active period's table finishes (settle /
+// dissolve), advance to the next period (or pause on a custom one).
 let unsubGame = null;
 let advancing = false;
-watch(() => (view.value.mode === 'host-console' ? session.value?.activeTable?.gameId : null), (gameId) => {
+watch(() => (view.value.mode === 'host-console' ? session.value?.activeSlot?.gameId : null), (gameId) => {
   if (unsubGame) { unsubGame(); unsubGame = null; }
   if (!gameId) return;
   unsubGame = listenGameStatus(gameId, async (status) => {
     if (advancing) return;
-    // A table ends by settlement (completed/closed) OR by being dissolved
-    // (the game doc is deleted → 'missing') or cancelled. advanceToNextTable
-    // then either activates the next queued table or, if none remain, clears
-    // the active table (the event stays active until the host ends it).
     const finished = ['completed', 'closed', 'cancelled', 'missing'].includes(status);
-    if (finished && session.value?.status === 'active' && session.value?.activeTable) {
+    if (finished && session.value?.status === 'active' && session.value?.activeSlot) {
       advancing = true;
-      try {
-        await advanceToNextTable(route.params.sessionId);
-      } catch (err) {
-        notice.value = err?.message || t('session.actionFailed');
-      } finally {
-        advancing = false;
-      }
+      try { await advanceToNextTable(route.params.sessionId); }
+      catch (err) { notice.value = err?.message || t('session.actionFailed'); }
+      finally { advancing = false; }
     }
   });
 }, { immediate: true });
 
-onMounted(() => {
-  listenSession(route.params.sessionId);
-});
-
-onUnmounted(() => {
-  if (unsubGame) { unsubGame(); unsubGame = null; }
-});
+onMounted(() => { listenSession(route.params.sessionId); });
+onUnmounted(() => { if (unsubGame) { unsubGame(); unsubGame = null; } });
 </script>
 
 <style scoped>
 .session-view {
   min-height: 100vh;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  /* Extra bottom padding so the last button clears the fixed bottom nav + FAB */
   padding: 32px 16px 120px;
   color: white;
 }
-
-.gathering-note { margin: 14px 0; }
-
-.state-msg {
-  max-width: 560px;
-  margin: 80px auto;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 18px;
-}
-
+.state-msg { max-width: 560px; margin: 80px auto; text-align: center; color: rgba(255,255,255,0.7); font-size: 18px; }
 .card {
-  max-width: 560px;
-  margin: 0 auto;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 24px;
+  max-width: 560px; margin: 0 auto;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px; padding: 24px;
 }
-
-.head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-}
-
+.head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .head h1 { margin: 0; font-size: 24px; }
-
-.status-pill {
-  flex: 0 0 auto;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: bold;
-}
+.status-pill { flex: 0 0 auto; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
 .status-pill.scheduling { background: #2196F3; }
 .status-pill.active { background: #ff9800; }
 .status-pill.completed { background: #607d8b; }
 
-.meta {
-  margin: 16px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.meta-row {
-  display: flex;
-  gap: 10px;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.roster h3, .console h3, .summary h3 {
-  font-size: 16px;
-  margin: 18px 0 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding-top: 14px;
-}
-
-.roster ul { list-style: none; padding: 0; margin: 0; }
-.roster li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 0;
-  color: rgba(255, 255, 255, 0.9);
-}
-.seat-no {
-  width: 22px; height: 22px;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 50%;
-  font-size: 12px;
-}
-.muted { color: rgba(255, 255, 255, 0.45); }
-
-.cta { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+.meta { margin: 16px 0; display: flex; flex-direction: column; gap: 8px; }
+.meta-row { display: flex; gap: 10px; color: rgba(255,255,255,0.85); }
 
 .active-banner {
-  margin-top: 16px;
-  padding: 12px;
-  border-radius: 10px;
-  background: rgba(255, 152, 0, 0.15);
-  border: 1px solid rgba(255, 152, 0, 0.4);
-  color: #ffcc80;
-  font-weight: bold;
+  margin: 8px 0 16px; padding: 12px; border-radius: 10px;
+  background: rgba(255,152,0,0.15); border: 1px solid rgba(255,152,0,0.4);
+  color: #ffcc80; font-weight: bold;
 }
 
-.table-pick {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.pick-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  cursor: pointer;
-}
-.pick-row input { width: 18px; height: 18px; }
-.pick-label { flex: 1; }
-
-.queue-plan { margin: 0 0 16px; padding-left: 18px; }
-.queue-plan li {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  padding: 6px 0;
-}
-.queue-plan li.active .qstatus { color: #ffb74d; font-weight: bold; }
-.queue-plan li.done { opacity: 0.55; }
-.kind {
-  font-size: 11px;
-  background: rgba(255, 255, 255, 0.12);
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-.qlabel { flex: 1; }
-.qstatus { font-size: 12px; color: rgba(255, 255, 255, 0.6); }
-
-.host-actions, .share-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 12px;
+.periods h3, .summary h3 {
+  font-size: 16px; margin: 18px 0 10px;
+  border-top: 1px solid rgba(255,255,255,0.1); padding-top: 14px;
 }
 
-button {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 8px;
-  font-weight: bold;
-  cursor: pointer;
-  font-size: 14px;
+.period-card {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 12px; margin-bottom: 10px;
 }
+.period-card.active { border-color: rgba(255,152,0,0.5); }
+.period-card.done { opacity: 0.6; }
+.p-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.p-pick { display: flex; align-items: center; gap: 8px; flex: 1; cursor: pointer; }
+.p-pick input { width: 18px; height: 18px; }
+.kind { font-size: 11px; background: rgba(255,255,255,0.12); padding: 2px 8px; border-radius: 10px; }
+.p-label { font-weight: bold; }
+.p-count { font-size: 14px; font-weight: bold; color: #1DB446; }
+.p-count.full { color: #ff6b6b; }
+.p-sub { display: flex; gap: 12px; margin-top: 6px; font-size: 12px; color: rgba(255,255,255,0.55); }
+.p-mine { color: #4caf50; }
+.p-roster { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.p-roster li { font-size: 12px; background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 8px; }
+
+.muted { color: rgba(255,255,255,0.45); }
+.cta { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+.console { margin-top: 12px; }
+.host-actions, .share-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+
+button { padding: 10px 16px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; }
 .btn-primary { background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; flex: 1; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-secondary { background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); color: white; }
 .btn-danger { background: #c0392b; color: white; }
-.btn-ghost { background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); }
-.btn-ghost.danger-text { color: #ff8a80; border-color: rgba(255, 107, 107, 0.4); }
+.btn-ghost { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); }
+.btn-ghost.danger-text { color: #ff8a80; border-color: rgba(255,107,107,0.4); }
 .full-w { width: 100%; margin-top: 12px; }
 
-.wall { text-align: center; }
-.wall-icon { font-size: 48px; }
-
-.summary-totals {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 12px;
-}
-.summary-totals div {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  padding: 12px;
-  text-align: center;
-}
-.summary-totals span { display: block; font-size: 12px; color: rgba(255, 255, 255, 0.6); }
+.summary-totals { display: flex; gap: 16px; margin-bottom: 12px; }
+.summary-totals div { flex: 1; background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; text-align: center; }
+.summary-totals span { display: block; font-size: 12px; color: rgba(255,255,255,0.6); }
 .summary-totals strong { font-size: 20px; }
-
 .rank-list { list-style: none; padding: 0; margin: 0; }
-.rank-list li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
+.rank-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
 .rank-medal { width: 24px; }
 .rank-name { flex: 1; }
 .rank-profit.pos { color: #4caf50; font-weight: bold; }
 .rank-profit.neg { color: #ff6b6b; font-weight: bold; }
-
-.notice {
-  margin-top: 16px;
-  color: #ffd54f;
-  font-size: 14px;
-}
+.notice { margin-top: 16px; color: #ffd54f; font-size: 14px; }
 </style>
