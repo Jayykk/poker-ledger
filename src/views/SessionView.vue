@@ -47,7 +47,7 @@
 
       <!-- RSVP CTA (non-host, scheduling): pick which tables to join -->
       <div v-if="view.mode === 'rsvp'" class="cta">
-        <div class="table-pick">
+        <div v-if="linkTables" class="table-pick">
           <label v-for="tbl in (session.tableQueue || [])" :key="tbl.id" class="pick-row">
             <input type="checkbox" :value="tbl.id" v-model="selectedTableIds" />
             <span class="kind">{{ tbl.kind === 'tournament' ? t('session.tournament') : t('session.cash') }}</span>
@@ -56,7 +56,7 @@
         </div>
         <button
           class="btn-primary"
-          :disabled="(!amJoined && full) || selectedTableIds.length === 0"
+          :disabled="(!amJoined && full) || (linkTables && selectedTableIds.length === 0)"
           @click="onJoin"
         >
           {{ amJoined ? t('common.save') : (full ? t('session.full') : t('session.join')) }}
