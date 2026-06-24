@@ -1,3 +1,6 @@
+// NOTE: at build time, vite.config.js's sw-cache-version plugin rewrites this
+// with the entry-bundle hash so each deploy ships a fresh sw.js (triggers the
+// update prompt + purges old caches). This literal is only the dev fallback.
 const CACHE_NAME = 'poker-sync-v3';
 
 // Install event - skip waiting to activate immediately
