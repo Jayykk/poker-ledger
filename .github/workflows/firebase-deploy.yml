@@ -63,15 +63,14 @@ jobs:
           cd functions
           npm ci
       
-      # 【關鍵修改 2】Google 身分驗證 (WIF)
+      # Google 身分驗證：用 Service Account 金鑰（firebase-tools 完整支援，
+      # 比 WIF 的 external_account 憑證可靠）。auth action 會把金鑰寫成檔案並
+      # 設定 GOOGLE_APPLICATION_CREDENTIALS，firebase deploy 直接吃。
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v2'
         with:
-          # 我們刚刚建立成功的 Provider ID
-          workload_identity_provider: 'projects/825053137358/locations/global/workloadIdentityPools/github-actions/providers/github-final'
-          # 你的 Service Account
-          service_account: 'firebase-adminsdk-fbsvc@poker-ledger-a0e06.iam.gserviceaccount.com'
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
 
       # 【關鍵修改 3】安裝 Firebase 工具並部署
       - name: Install Firebase CLI
@@ -115,13 +114,12 @@ jobs:
       - name: Build
         run: npm run build
       
-      # 【關鍵修改 2】Google 身分驗證 (Hosting 也要做一次)
+      # Google 身分驗證：用 Service Account 金鑰（Hosting 也要做一次）。
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v2'
         with:
-          workload_identity_provider: 'projects/825053137358/locations/global/workloadIdentityPools/github-actions/providers/github-final'
-          service_account: 'firebase-adminsdk-fbsvc@poker-ledger-a0e06.iam.gserviceaccount.com'
+          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
 
       # 【關鍵修改 3】安裝工具並部署
       - name: Install Firebase CLI
