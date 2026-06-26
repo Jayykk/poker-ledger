@@ -90,6 +90,9 @@ jobs:
 
       - name: Deploy to Firebase Functions
         run: firebase deploy --only functions --force --project poker-ledger-a0e06
+        env:
+          # 👇 改用這個變數名稱，並且直接把 Secret 的 JSON 內容餵給它
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
   deploy-hosting:
     runs-on: ubuntu-latest
@@ -127,3 +130,6 @@ jobs:
       
       - name: Deploy to Firebase Hosting
         run: firebase deploy --only hosting --project poker-ledger-a0e06
+        env:
+          # 👇 這裡也同步改成 GCP_SA_KEY
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
