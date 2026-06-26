@@ -22,7 +22,7 @@ import { DEFAULT_TURN_TIMEOUT } from '../utils/config.js';
 // Constants
 const SHOWDOWN_ADMIRE_DELAY_SECONDS = 5;
 
-/**
+/** 
  * Handle turn timeout - HTTP endpoint for Cloud Tasks
  * @param {Object} req - HTTP request
  * @param {Object} res - HTTP response
