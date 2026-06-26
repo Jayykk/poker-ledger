@@ -881,18 +881,18 @@ const sessionMetaRows = (session) => {
   return rows;
 };
 
-/** One row per period: "label  type  n/max" (full marked 🈵). */
+/** One row per period: "label  type  n/max" (full marked 滿). */
 const periodRowsOf = (session) => (session.periods || []).map((p, i) => {
   const max = Number(p.maxPlayers) || 0;
   const count = (p.roster || []).length;
   const full = max > 0 && count >= max;
-  // Horizontal (not baseline) layout + per-cell centre gravity: the 🈵 emoji
-  // doesn't sit on the text baseline, so under `baseline` it nudged the count
-  // out of line on full rows. Centring each cell keeps every row aligned.
+  // Use a plain "滿" glyph rather than the 🈵 emoji: the emoji doesn't sit on
+  // the text baseline, so it nudged the count out of line on full rows. A
+  // normal CJK character shares the digits' baseline, keeping the row aligned.
   return { type: 'box', layout: 'horizontal', margin: i === 0 ? 'md' : 'sm', contents: [
     { type: 'text', text: p.label || '—', size: 'sm', color: '#333333', flex: 4, wrap: true, gravity: 'center' },
     { type: 'text', text: periodTypeLabel(p.type), size: 'xs', color: '#999999', flex: 3, gravity: 'center' },
-    { type: 'text', text: `${full ? '🈵 ' : ''}${count}${max ? `/${max}` : ''}`, size: 'sm', weight: 'bold', align: 'end', gravity: 'center', color: full ? '#D9383A' : '#1DB446', flex: 3 },
+    { type: 'text', text: `${full ? '滿 ' : ''}${count}${max ? `/${max}` : ''}`, size: 'sm', weight: 'bold', align: 'end', gravity: 'center', color: full ? '#D9383A' : '#1DB446', flex: 3 },
   ] };
 });
 

@@ -1,4 +1,5 @@
-import { FieldValue, getFirestore } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from '../utils/db.js';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { roundNumber, toMillis } from '../utils/numbers.js';
 

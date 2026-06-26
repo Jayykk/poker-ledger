@@ -5,7 +5,8 @@
  * for analytics queries (e.g. "how often was I dealt AA?").
  */
 
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from './db.js';
 
 const RANK_VALUE = {
   '2': 2,

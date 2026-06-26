@@ -14,7 +14,8 @@
  * queryability/indexing.
  */
 
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from '../utils/db.js';
 
 /**
  * Add a game event to the events subcollection

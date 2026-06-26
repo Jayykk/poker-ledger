@@ -4,11 +4,12 @@
  */
 
 import { CloudTasksClient } from '@google-cloud/tasks';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from './db.js';
 import { signTaskBody, TASK_SIGNATURE_HEADER } from './taskAuth.js';
 
 const PROJECT_ID = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
-const LOCATION = process.env.CLOUD_TASKS_LOCATION || 'us-central1';
+const LOCATION = process.env.CLOUD_TASKS_LOCATION || 'asia-east1';
 const QUEUE_NAME = 'poker-turn-timeouts';
 
 let tasksClient = null;

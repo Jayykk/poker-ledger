@@ -4,7 +4,7 @@
  */
 
 import { defineStore } from 'pinia';
-import { db, app } from '../../firebase-init.js';
+import { db, functions } from '../../firebase-init.js';
 import {
   collection,
   doc,
@@ -14,7 +14,7 @@ import {
   getDocs,
   updateDoc,
 } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { httpsCallable } from 'firebase/functions';
 import { useAuthStore } from './auth.js';
 import { logger } from '../../utils/logger.js';
 
@@ -107,7 +107,6 @@ export const usePokerStore = defineStore('poker', {
       this.error = null;
 
       try {
-        const functions = getFunctions(app);
         const createRoom = httpsCallable(functions, 'createPokerRoom');
         
         const result = await createRoom({ config });
@@ -139,7 +138,6 @@ export const usePokerStore = defineStore('poker', {
           this.joinGameListener(gameId);
         }
 
-        const functions = getFunctions(app);
         
         // Use sitDown endpoint (works for both waiting and playing games)
         const sitDown = httpsCallable(functions, 'sitDownPokerSeat');
@@ -168,7 +166,6 @@ export const usePokerStore = defineStore('poker', {
       this.error = null;
 
       try {
-        const functions = getFunctions(app);
         const leaveSeat = httpsCallable(functions, 'leavePokerSeat');
         
         await leaveSeat({ gameId: this.gameId });
@@ -195,7 +192,6 @@ export const usePokerStore = defineStore('poker', {
       this.error = null;
 
       try {
-        const functions = getFunctions(app);
         const startHand = httpsCallable(functions, 'startPokerHand');
         
         const result = await startHand({ gameId: this.gameId });
@@ -267,7 +263,6 @@ export const usePokerStore = defineStore('poker', {
         }
 
         // Fire the API call in the background
-        const functions = getFunctions(app);
         const playerAction = httpsCallable(functions, 'pokerPlayerAction');
         const turnId = this.currentGame?.table?.currentTurnId;
 
@@ -288,7 +283,6 @@ export const usePokerStore = defineStore('poker', {
 
       // Standard (non-optimistic) path
       try {
-        const functions = getFunctions(app);
         const playerAction = httpsCallable(functions, 'pokerPlayerAction');
         
         // 🔑 Include currentTurnId for validation
@@ -336,7 +330,6 @@ export const usePokerStore = defineStore('poker', {
      */
     async endGameAfterHand(gameId) {
       try {
-        const functions = getFunctions(app);
         const endAfterHand = httpsCallable(functions, 'setEndAfterHand');
         
         await endAfterHand({ gameId });
@@ -351,7 +344,6 @@ export const usePokerStore = defineStore('poker', {
      */
     async settleGame(gameId) {
       try {
-        const functions = getFunctions(app);
         const settleGame = httpsCallable(functions, 'settlePokerGame');
         
         await settleGame({ gameId });
@@ -366,7 +358,6 @@ export const usePokerStore = defineStore('poker', {
      */
     async deleteRoom(gameId) {
       try {
-        const functions = getFunctions(app);
         const deleteRoom = httpsCallable(functions, 'deletePokerRoom');
         
         await deleteRoom({ gameId });
@@ -387,7 +378,6 @@ export const usePokerStore = defineStore('poker', {
      */
     async resumeGame(gameId) {
       try {
-        const functions = getFunctions(app);
         const resumeGame = httpsCallable(functions, 'resumePokerGame');
         
         await resumeGame({ gameId });
@@ -402,7 +392,6 @@ export const usePokerStore = defineStore('poker', {
      */
     async togglePause(gameId) {
       try {
-        const functions = getFunctions(app);
         const togglePause = httpsCallable(functions, 'togglePausePokerGame');
         
         await togglePause({ gameId });
@@ -417,7 +406,6 @@ export const usePokerStore = defineStore('poker', {
      */
     async stopNextHand(gameId) {
       try {
-        const functions = getFunctions(app);
         const stopNextHand = httpsCallable(functions, 'stopNextPokerHand');
         
         await stopNextHand({ gameId });

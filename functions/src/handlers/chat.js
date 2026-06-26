@@ -3,7 +3,8 @@
  * Functions for managing in-game chat
  */
 
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from '../utils/db.js';
 
 const MAX_MESSAGE_LENGTH = 500;
 

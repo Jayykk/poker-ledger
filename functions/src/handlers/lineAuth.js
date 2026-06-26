@@ -3,7 +3,8 @@
  * Verifies LINE access token and issues Firebase Custom Token
  */
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from '../utils/db.js';
 
 const LINE_PROFILE_URL = 'https://api.line.me/v2/profile';
 const LINE_VERIFY_URL = 'https://api.line.me/oauth2/v2.1/verify';

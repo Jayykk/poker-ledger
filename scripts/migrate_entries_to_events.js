@@ -93,7 +93,7 @@ try {
   process.exit(1);
 }
 
-const db = getFirestore();
+const db = getFirestore(process.env.FIRESTORE_DATABASE_ID || 'poker-tw');
 
 /**
  * Convert various timestamp formats to Firestore Timestamp

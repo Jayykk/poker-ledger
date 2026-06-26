@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { initializeAuth, browserLocalPersistence } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 
 // Detect LINE's in-app browser (blocks IndexedDB / BroadcastChannel)
 const isLineClient = /Line\//i.test(navigator.userAgent);
@@ -26,20 +27,29 @@ export const auth = initializeAuth(app, {
   persistence: browserLocalPersistence
 });
 
+// App data lives in the named `poker-tw` database, not the legacy `(default)`
+// one — passed as the databaseId (3rd arg) to every initializeFirestore() call.
+const FIRESTORE_DATABASE_ID = 'poker-tw';
+
 // Firestore: same issue — use memory cache in LINE browser.
 let db;
 try {
   if (isLineClient) {
-    db = initializeFirestore(app, { localCache: memoryLocalCache() });
+    db = initializeFirestore(app, { localCache: memoryLocalCache() }, FIRESTORE_DATABASE_ID);
   } else {
     db = initializeFirestore(app, {
       localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager()
       })
-    });
+    }, FIRESTORE_DATABASE_ID);
   }
 } catch (e) {
   console.warn('Firestore persistent cache failed, using memory cache:', e);
-  db = initializeFirestore(app, { localCache: memoryLocalCache() });
+  db = initializeFirestore(app, { localCache: memoryLocalCache() }, FIRESTORE_DATABASE_ID);
 }
 export { db };
+
+// All Cloud Functions are deployed to asia-east1 (Taiwan). The client must
+// target the same region or httpsCallable() resolves to us-central1 and 404s.
+// Import this shared instance everywhere instead of calling getFunctions().
+export const functions = getFunctions(app, 'asia-east1');

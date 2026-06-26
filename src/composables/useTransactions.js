@@ -1,7 +1,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue';
 import { collection, query, where, orderBy, onSnapshot, addDoc, doc, runTransaction, serverTimestamp } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { db } from '../firebase-init.js';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../firebase-init.js';
 import { useAuth } from './useAuth.js';
 
 /**
@@ -19,7 +19,6 @@ export function useTransactions(gameIdRef) {
   const listenerReady = ref(false);
 
   let unsubscribe = null;
-  const functions = getFunctions();
 
   /**
    * Resolve current gameId from the ref
