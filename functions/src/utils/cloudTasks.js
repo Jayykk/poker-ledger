@@ -4,11 +4,14 @@
  */
 
 import { CloudTasksClient } from '@google-cloud/tasks';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from './db.js';
 import { signTaskBody, TASK_SIGNATURE_HEADER } from './taskAuth.js';
+import { FUNCTIONS_REGION } from './config.js';
 
 const PROJECT_ID = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
-const LOCATION = process.env.CLOUD_TASKS_LOCATION || 'us-central1';
+// Tasks live in the same region as the functions they invoke unless overridden.
+const LOCATION = process.env.CLOUD_TASKS_LOCATION || FUNCTIONS_REGION;
 const QUEUE_NAME = 'poker-turn-timeouts';
 
 let tasksClient = null;

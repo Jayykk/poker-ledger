@@ -3,7 +3,8 @@
  * Manages turn timeouts in the backend to prevent client-side timer issues
  */
 
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from '../utils/db.js';
 import { v4 as uuidv4 } from 'uuid';
 import { processAction } from '../engines/texasHoldem.js';
 import {

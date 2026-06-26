@@ -2,7 +2,7 @@
  * Hand-related Cloud Task HTTP handlers
  */
 
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore } from '../utils/db.js';
 import { resolveShowdown, winByFoldTimeout, startHand } from './game.js';
 
 /**

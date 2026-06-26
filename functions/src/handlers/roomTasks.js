@@ -2,7 +2,7 @@
  * Room-related Cloud Task HTTP handlers
  */
 
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore } from '../utils/db.js';
 import { createPokerHttpTask } from '../utils/cloudTasks.js';
 import { ROOM_IDLE_TIMEOUT_SECONDS as IDLE_TIMEOUT_SECONDS } from '../utils/config.js';
 import { evaluateRoomClose, settleAndCloseRoom } from './roomLifecycle.js';

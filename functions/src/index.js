@@ -4,6 +4,7 @@
  */
 
 import { initializeApp } from 'firebase-admin/app';
+import { setGlobalOptions } from 'firebase-functions/v2';
 import { onCall, HttpsError, onRequest } from 'firebase-functions/v2/https';
 import { onDocumentUpdated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
@@ -38,7 +39,8 @@ import {
   sweepIdleRooms,
 } from './handlers/roomTasks.js';
 import { requireSignedTask } from './utils/taskAuth.js';
-import { POKER_ACTION_MIN_INSTANCES } from './utils/config.js';
+import { POKER_ACTION_MIN_INSTANCES, FUNCTIONS_REGION } from './utils/config.js';
+import { FIRESTORE_DATABASE_ID } from './utils/db.js';
 import { lineLogin as lineLoginHandler } from './handlers/lineAuth.js';
 import {
   recordBuyIn as recordBuyInHandler,
@@ -55,9 +57,16 @@ import {
 // Initialize Firebase Admin
 initializeApp();
 
+// Deploy every function to FUNCTIONS_REGION (asia-east1 / Taiwan) by default.
+// Individual triggers can still override per-function, but all share this region.
+setGlobalOptions({ region: FUNCTIONS_REGION });
+
 // Runtime options for the hottest, latency-sensitive poker callables. Keeping a
 // warm instance ready removes the cold-start stall on the first action/hand.
 const HOT_CALLABLE_OPTS = { minInstances: POKER_ACTION_MIN_INSTANCES };
+
+// Shared options for the Cloud Tasks HTTP endpoints (signed-task callers).
+const TASK_HTTP_OPTS = { cors: true, region: FUNCTIONS_REGION };
 
 /**
  * Create a new poker game room
@@ -513,7 +522,7 @@ export const leavePokerSpectator = onCall(async (request) => {
  * This endpoint is called by Cloud Tasks when a player's turn times out
  */
 export const handleTurnTimeout = onRequest(
-  { cors: true, region: 'us-central1' },
+  TASK_HTTP_OPTS,
   requireSignedTask(handleTurnTimeoutHttp),
 );
 
@@ -522,7 +531,7 @@ export const handleTurnTimeout = onRequest(
  * Used for early-reveal UX: stage=showdown -> reveal -> delay -> resolve winners.
  */
 export const handleShowdownResolve = onRequest(
-  { cors: true, region: 'us-central1' },
+  TASK_HTTP_OPTS,
   requireSignedTask(handleShowdownResolveHttp),
 );
 
@@ -531,7 +540,7 @@ export const handleShowdownResolve = onRequest(
  * If winner doesn't show within 5 seconds, default to muck and start next hand.
  */
 export const handleWinByFoldTimeout = onRequest(
-  { cors: true, region: 'us-central1' },
+  TASK_HTTP_OPTS,
   requireSignedTask(handleWinByFoldTimeoutHttp),
 );
 
@@ -539,7 +548,7 @@ export const handleWinByFoldTimeout = onRequest(
  * Start next hand after showdown (called by Cloud Tasks)
  */
 export const handleStartNextHand = onRequest(
-  { cors: true, region: 'us-central1' },
+  TASK_HTTP_OPTS,
   requireSignedTask(handleStartNextHandHttp),
 );
 
@@ -547,7 +556,7 @@ export const handleStartNextHand = onRequest(
  * Auto-close idle room (called by Cloud Tasks)
  */
 export const handleRoomAutoClose = onRequest(
-  { cors: true, region: 'us-central1' },
+  TASK_HTTP_OPTS,
   requireSignedTask(handleRoomAutoCloseHttp),
 );
 
@@ -560,7 +569,7 @@ export const handleRoomAutoClose = onRequest(
  * 15 minutes — well under the 60-minute idle threshold.
  */
 export const handleRoomSweep = onSchedule(
-  { schedule: 'every 15 minutes', region: 'us-central1', timeoutSeconds: 300 },
+  { schedule: 'every 15 minutes', region: FUNCTIONS_REGION, timeoutSeconds: 300 },
   async () => {
     await sweepIdleRooms();
   },
@@ -680,7 +689,7 @@ export const syncCompletedGameHistory = onCall(async (request) => {
   }
 });
 
-export const onCompletedGameProjectionUpdate = onDocumentUpdated('games/{gameId}', async (event) => {
+export const onCompletedGameProjectionUpdate = onDocumentUpdated({ document: 'games/{gameId}', database: FIRESTORE_DATABASE_ID }, async (event) => {
   const beforeGame = event.data.before.exists ? event.data.before.data() : null;
   const afterGame = event.data.after.exists ? event.data.after.data() : null;
   const { gameId } = event.params;
@@ -705,7 +714,7 @@ export const onCompletedGameProjectionUpdate = onDocumentUpdated('games/{gameId}
  * Firestore trigger to manage turn timeout tasks
  * Triggered when the game document is updated
  */
-export const onTurnChange = onDocumentWritten('pokerGames/{gameId}', async (event) => {
+export const onTurnChange = onDocumentWritten({ document: 'pokerGames/{gameId}', database: FIRESTORE_DATABASE_ID }, async (event) => {
   // This trigger is no longer needed since we're handling task creation
   // in the transaction post-processing. Keeping for backward compatibility
   // but it will do nothing.

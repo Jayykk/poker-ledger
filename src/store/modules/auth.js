@@ -12,8 +12,8 @@ import {
   linkWithCredential
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { auth, db } from '../../firebase-init.js';
+import { httpsCallable } from 'firebase/functions';
+import { auth, db, functions } from '../../firebase-init.js';
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null);
@@ -163,7 +163,6 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     error.value = '';
     try {
-      const functions = getFunctions();
       const lineLoginFn = httpsCallable(functions, 'lineLogin');
       const { data } = await lineLoginFn({ accessToken });
 

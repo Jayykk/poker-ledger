@@ -85,7 +85,7 @@ try {
   process.exit(1);
 }
 
-const db = getFirestore();
+const db = getFirestore(process.env.FIRESTORE_DATABASE_ID || 'poker-tw');
 
 /** Resolve a Firestore Timestamp-ish value to ms, or null. */
 function toMillis(ts) {

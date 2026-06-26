@@ -2,7 +2,8 @@
  * Transaction handler for Cloud Functions
  * Records buy-ins with "who did it for whom" audit trail
  */
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from '../utils/db.js';
 import { coerceNumber } from '../utils/numbers.js';
 
 /**

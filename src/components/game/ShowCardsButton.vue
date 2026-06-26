@@ -13,7 +13,8 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../firebase-init.js';
 
 const props = defineProps({
   gameId: {
@@ -41,7 +42,6 @@ const handleShowCards = async () => {
 
   loading.value = true;
   try {
-    const functions = getFunctions();
     const showPokerCards = httpsCallable(functions, 'showPokerCards');
 
     const result = await showPokerCards({

@@ -3,7 +3,8 @@
  * Functions for creating and managing poker game rooms
  */
 
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from '../utils/db.js';
 import { v4 as uuidv4 } from 'uuid';
 import { validateJoinSeat } from '../utils/validators.js';
 import { addGameEvent } from '../lib/events.js';

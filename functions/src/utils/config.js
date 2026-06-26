@@ -33,6 +33,11 @@ function envCount(name, fallback) {
   return value >= 0 ? Math.floor(value) : fallback;
 }
 
+// Region every Cloud Function deploys to. Single source for the backend — used
+// by setGlobalOptions and per-trigger region overrides in index.js. Override
+// with the FUNCTIONS_REGION env var (functions/.env) for a different env.
+export const FUNCTIONS_REGION = process.env.FUNCTIONS_REGION || 'asia-east1';
+
 // Seconds a player has to act before auto fold/check.
 export const DEFAULT_TURN_TIMEOUT = envNumber('TURN_TIMEOUT_SECONDS', 30);
 
@@ -54,4 +59,7 @@ export const ROOM_IDLE_TIMEOUT_SECONDS = envNumber('ROOM_IDLE_TIMEOUT_SECONDS', 
 // main cause of "pressed the button, nothing happened". Each warm instance
 // bills for idle CPU/memory, so set to 0 to disable when cost matters more
 // than first-action snappiness. Ignored by the local emulator.
-export const POKER_ACTION_MIN_INSTANCES = envCount('POKER_ACTION_MIN_INSTANCES', 1);
+//
+// Default 0: no warm instance is kept running (pure cold-start, zero idle cost).
+// Set POKER_ACTION_MIN_INSTANCES > 0 to trade cost for first-action snappiness.
+export const POKER_ACTION_MIN_INSTANCES = envCount('POKER_ACTION_MIN_INSTANCES', 0);

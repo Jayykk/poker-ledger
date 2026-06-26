@@ -9,7 +9,8 @@ import { usePokerStore } from '../store/modules/poker.js';
 import { useAuthStore } from '../store/modules/auth.js';
 import { useNotification } from './useNotification.js';
 import { usePokerSound } from './usePokerSound.js';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase-init.js';
 // Shared with the backend (functions/src/engines) so client + server agree on
 // what is legal — lets us reject illegal moves instantly, before any callable.
 import { checkPlayerAction } from '@engine/actionValidator.js';
@@ -165,7 +166,6 @@ export function useGameActions() {
    */
   const showCards = async (gameId) => {
     try {
-      const functions = getFunctions();
       const showPokerCards = httpsCallable(functions, 'showPokerCards');
 
       const result = await showPokerCards({ gameId });
@@ -184,7 +184,6 @@ export function useGameActions() {
    */
   const sendMessage = async (gameId, message) => {
     try {
-      const functions = getFunctions();
       const sendChatMessage = httpsCallable(functions, 'sendChatMessage');
 
       const result = await sendChatMessage({ gameId, message });
@@ -202,7 +201,6 @@ export function useGameActions() {
    */
   const joinAsSpectator = async (gameId) => {
     try {
-      const functions = getFunctions();
       const joinPokerSpectator = httpsCallable(functions, 'joinPokerSpectator');
 
       const result = await joinPokerSpectator({ gameId });
@@ -221,7 +219,6 @@ export function useGameActions() {
    */
   const leaveSpectator = async (gameId) => {
     try {
-      const functions = getFunctions();
       const leavePokerSpectator = httpsCallable(functions, 'leavePokerSpectator');
 
       const result = await leavePokerSpectator({ gameId });

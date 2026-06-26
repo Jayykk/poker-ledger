@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { httpsCallable } from 'firebase/functions';
 import {
   doc,
   updateDoc,
@@ -12,7 +12,7 @@ import {
   limit,
   getDoc,
 } from 'firebase/firestore';
-import { db } from '../firebase-init.js';
+import { db, functions } from '../firebase-init.js';
 import { useAuthStore } from '../store/modules/auth.js';
 import { createSyncRequestToken } from '../utils/historyProjection.js';
 
@@ -27,7 +27,6 @@ import { createSyncRequestToken } from '../utils/historyProjection.js';
  */
 export function useConfigEditor() {
   const authStore = useAuthStore();
-  const functions = getFunctions();
   const saving = ref(false);
   const error = ref('');
   const isSyncing = ref(false);
