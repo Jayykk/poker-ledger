@@ -29,7 +29,12 @@ export const auth = initializeAuth(app, {
 
 // App data lives in the named `poker-tw` database, not the legacy `(default)`
 // one — passed as the databaseId (3rd arg) to every initializeFirestore() call.
-const FIRESTORE_DATABASE_ID = 'poker-tw';
+// Single source for the frontend; override per-env with VITE_FIRESTORE_DATABASE_ID.
+const FIRESTORE_DATABASE_ID = import.meta.env.VITE_FIRESTORE_DATABASE_ID || 'poker-tw';
+
+// Region the Cloud Functions are deployed to. Must match the backend or
+// httpsCallable() resolves to us-central1 and 404s. Override with VITE_FUNCTIONS_REGION.
+const FUNCTIONS_REGION = import.meta.env.VITE_FUNCTIONS_REGION || 'asia-east1';
 
 // Firestore: same issue — use memory cache in LINE browser.
 let db;
@@ -49,7 +54,6 @@ try {
 }
 export { db };
 
-// All Cloud Functions are deployed to asia-east1 (Taiwan). The client must
-// target the same region or httpsCallable() resolves to us-central1 and 404s.
-// Import this shared instance everywhere instead of calling getFunctions().
-export const functions = getFunctions(app, 'asia-east1');
+// Shared Functions instance pinned to the backend region. Import this
+// everywhere instead of calling getFunctions() so the region stays consistent.
+export const functions = getFunctions(app, FUNCTIONS_REGION);

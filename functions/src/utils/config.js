@@ -33,6 +33,11 @@ function envCount(name, fallback) {
   return value >= 0 ? Math.floor(value) : fallback;
 }
 
+// Region every Cloud Function deploys to. Single source for the backend — used
+// by setGlobalOptions and per-trigger region overrides in index.js. Override
+// with the FUNCTIONS_REGION env var (functions/.env) for a different env.
+export const FUNCTIONS_REGION = process.env.FUNCTIONS_REGION || 'asia-east1';
+
 // Seconds a player has to act before auto fold/check.
 export const DEFAULT_TURN_TIMEOUT = envNumber('TURN_TIMEOUT_SECONDS', 30);
 
