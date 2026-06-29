@@ -37,8 +37,10 @@ service cloud.firestore {
       allow write: if isOwner(userId);
 
       // Per-game history projection, written by Cloud Functions only.
+      // Read is open to any signed-in user because the leaderboard aggregates
+      // every player's per-game results (matches the open users get/list above).
       match /history_sub/{gameId} {
-        allow read: if isOwner(userId);
+        allow read: if isAuthenticated();
         allow write: if false;
       }
 
