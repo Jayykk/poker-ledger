@@ -458,6 +458,26 @@ export function useSessions() {
     return aggregateSessionSummary(games.filter(Boolean));
   }
 
+  // ── Personal quick-setup ("the usual" event, one per user) ──
+  // Stored on the user doc so a host can recreate their regular venue + period
+  // layout with one tap. Only the reusable shape is kept — never the date,
+  // rosters, statuses, or table linkage. Guarded by the users/{uid} owner rule.
+  async function getSessionQuickSetup() {
+    const u = authStore.user;
+    if (!u) return null;
+    const snap = await getDoc(doc(db, 'users', u.uid));
+    return snap.exists() ? (snap.data().sessionQuickSetup || null) : null;
+  }
+
+  async function saveSessionQuickSetup(setup) {
+    const u = requireUser();
+    await setDoc(
+      doc(db, 'users', u.uid),
+      { sessionQuickSetup: { ...setup, updatedAt: serverTimestamp() } },
+      { merge: true },
+    );
+  }
+
   // ── Cleanup ─────────────────────────────────────────
   function cleanup() {
     if (unsubscribe) { unsubscribe(); unsubscribe = null; }
@@ -485,6 +505,8 @@ export function useSessions() {
     endSession,
     deleteSession,
     loadSessionSummary,
+    getSessionQuickSetup,
+    saveSessionQuickSetup,
     cleanup,
   };
 }

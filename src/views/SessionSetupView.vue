@@ -3,6 +3,21 @@
     <div class="setup-card">
       <h1>{{ isEdit ? t('session.edit') : t('session.create') }}</h1>
 
+      <!-- Quick personal setup: one-tap load / save "the usual" event -->
+      <div v-if="!isEdit" class="quick-bar">
+        <div class="quick-actions">
+          <button class="btn-quick load" :disabled="!quickSetup" @click="applyQuickSetup">
+            ⚡ {{ t('session.loadQuick') }}
+          </button>
+          <button class="btn-quick save" :disabled="quickSaving" @click="saveAsQuickSetup">
+            💾 {{ t('session.saveQuick') }}
+          </button>
+        </div>
+        <p class="quick-hint">
+          {{ quickMsg || (quickSetup ? t('session.quickHint') : t('session.quickEmpty')) }}
+        </p>
+      </div>
+
       <!-- Basic info -->
       <div class="form-group">
         <label>{{ t('session.name') }}</label>
@@ -105,7 +120,7 @@ import { defaultSessionName } from '../utils/sessionFlow.js';
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
-const { createSession, updateSession, getSession } = useSessions();
+const { createSession, updateSession, getSession, getSessionQuickSetup, saveSessionQuickSetup } = useSessions();
 const cashPresetsApi = useCashPresets();
 const tournamentApi = useTournamentClock();
 const { sendSessionUpdateMessage } = useLiff();
@@ -118,6 +133,11 @@ const userTournamentPresets = ref([]);
 const saving = ref(false);
 const errorMsg = ref('');
 let loadedSig = '';
+
+// Personal quick-setup ("the usual" event): null until loaded/saved.
+const quickSetup = ref(null);
+const quickSaving = ref(false);
+const quickMsg = ref('');
 
 const form = reactive({
   name: '',
@@ -197,6 +217,52 @@ function onPresetSelect(row) {
   }
 }
 
+// ── Personal quick-setup (load / save "the usual" event) ──
+function periodFromQuick(p) {
+  return {
+    id: null,
+    label: p.label || '',
+    type: p.type || 'cash',
+    maxPlayers: Number(p.maxPlayers) || 8,
+    presetId: '',
+    presetSnapshot: p.presetSnapshot || {},
+    roster: [], rosterUids: [],
+    status: 'queued', gameId: null, tournamentSessionId: null,
+  };
+}
+function applyQuickSetup() {
+  const qs = quickSetup.value;
+  if (!qs) return;
+  form.location.name = qs.location?.name || '';
+  const rows = (qs.periods || []).map(periodFromQuick);
+  if (rows.length) form.periods = rows;
+  errorMsg.value = '';
+}
+async function saveAsQuickSetup() {
+  quickSaving.value = true;
+  errorMsg.value = '';
+  try {
+    const setup = {
+      location: { name: form.location.name || '' },
+      periods: form.periods.map((p) => ({
+        label: p.label || '',
+        type: p.type || 'cash',
+        maxPlayers: Number(p.maxPlayers) || 8,
+        presetSnapshot: p.presetSnapshot || {},
+      })),
+    };
+    await saveSessionQuickSetup(setup);
+    quickSetup.value = setup;
+    quickMsg.value = t('session.quickSaved');
+    setTimeout(() => { quickMsg.value = ''; }, 2500);
+  } catch (err) {
+    console.error('Save quick setup error:', err);
+    errorMsg.value = err.message || t('session.actionFailed');
+  } finally {
+    quickSaving.value = false;
+  }
+}
+
 // ── Change signature (for "modify periods" notification) ──
 function periodsSig(periods) {
   return JSON.stringify((periods || []).map((p) => ({
@@ -237,6 +303,7 @@ onMounted(async () => {
   } else {
     form.name = defaultName;
     addPeriod();
+    try { quickSetup.value = await getSessionQuickSetup(); } catch (_) { quickSetup.value = null; }
   }
 });
 
@@ -314,7 +381,29 @@ function goBack() {
   color: white;
 }
 
-.setup-card h1 { margin: 0 0 24px; font-size: 26px; }
+.setup-card h1 { margin: 0 0 16px; font-size: 26px; }
+
+.quick-bar {
+  margin-bottom: 20px;
+  padding: 12px;
+  background: rgba(255, 193, 7, 0.08);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 10px;
+}
+.quick-actions { display: flex; gap: 10px; }
+.btn-quick {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 193, 7, 0.5);
+  background: rgba(255, 193, 7, 0.15);
+  color: #ffd766;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+}
+.btn-quick:disabled { opacity: 0.4; cursor: not-allowed; }
+.quick-hint { margin: 8px 2px 0; font-size: 12px; color: rgba(255, 255, 255, 0.6); }
 
 .form-group { margin-bottom: 18px; }
 .form-group label { display: block; margin-bottom: 6px; font-weight: bold; color: rgba(255, 255, 255, 0.85); }
