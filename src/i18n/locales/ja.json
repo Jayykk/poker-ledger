@@ -690,6 +690,12 @@
     "mySignUp": "自分の参加（上の時間帯を選択）",
     "startNextPeriod": "次の時間帯を開始",
     "noActivePeriod": "進行中の時間帯はありません",
-    "mustHavePeriod": "時間帯を1つ以上追加してください"
+    "mustHavePeriod": "時間帯を1つ以上追加してください",
+    "copyRoster": "既存の参加者を引き継ぐ",
+    "copySelectAll": "全選択",
+    "copyClear": "クリア",
+    "copySelected": "{count}/{max} 人選択中",
+    "copyRosterHint": "このイベントに登録済みのメンバーを新しい時間帯へそのまま追加できます。再登録は不要です",
+    "copyOverCap": "「{label}」の追加人数が上限を超えています"
   }
 }

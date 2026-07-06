@@ -690,6 +690,12 @@
     "mySignUp": "My sign-up (tick the periods above)",
     "startNextPeriod": "Start Next Period",
     "noActivePeriod": "No period in progress",
-    "mustHavePeriod": "Please add at least one period"
+    "mustHavePeriod": "Please add at least one period",
+    "copyRoster": "Copy current sign-ups",
+    "copySelectAll": "Select all",
+    "copyClear": "Clear",
+    "copySelected": "{count}/{max} selected",
+    "copyRosterHint": "Tick members already signed up for this event to seat them in this new period — no need to RSVP again",
+    "copyOverCap": "\"{label}\" has more copied members than its player cap"
   }
 }
