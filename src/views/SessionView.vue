@@ -17,8 +17,17 @@
         <div v-if="showLocation" class="meta-row"><span>📍</span><span>{{ session.location.name }}</span></div>
       </div>
 
-      <!-- Active-period banner (someone in the event but not the running table) -->
-      <div v-if="session.status === 'active' && activeLabel" class="active-banner">
+      <!-- Active-period banner (someone in the event but not the running table).
+           When nothing is actually running — no activeSlot, or it points at an
+           already-finished table — show the idle hint instead. Skipped for the
+           host console, which has its own "no active period" line. -->
+      <div
+        v-if="session.status === 'active' && view.mode !== 'host-console' && (staleActive || !session.activeSlot)"
+        class="active-banner idle"
+      >
+        ⏸️ {{ t('session.noActivePeriod') }}
+      </div>
+      <div v-else-if="session.status === 'active' && activeLabel" class="active-banner">
         🔴 {{ t('session.statusActive') }} · {{ activeLabel }}
       </div>
 
@@ -150,7 +159,7 @@ const authStore = useAuthStore();
 const {
   session, loading, listenSession, getSession,
   rsvp, cancelRsvp, activateFirstTable, advanceToNextTable, endSession, deleteSession, loadSessionSummary,
-  listenGameStatus, hasNextSlot,
+  listenGameStatus, isGameLive, hasNextSlot,
 } = useSessions();
 const { shareSessionInvite, sendSessionRsvpMessage, shareSessionTableCard, shareSessionSummary } = useLiff();
 const { confirm } = useConfirm();
@@ -159,10 +168,15 @@ const uid = computed(() => authStore.user?.uid || null);
 const summary = ref(null);
 const notice = ref('');
 const selectedPeriodIds = ref([]);
-let redirected = false;
 let pickInit = false;
 
-const view = computed(() => resolveSessionView(session.value, uid.value));
+// Raw routing decision. `view` downgrades a 'redirect' whose target table
+// turned out to be finished already (stale activeSlot) to the sign-up board.
+const rawView = computed(() => resolveSessionView(session.value, uid.value));
+const staleActive = ref(false);
+const view = computed(() => (
+  rawView.value.mode === 'redirect' && staleActive.value ? { mode: 'rsvp' } : rawView.value
+));
 const amJoined = computed(() => isParticipant(session.value, uid.value));
 const showLocation = computed(() => canViewLocation(session.value));
 const canStartNext = computed(() => !!session.value && session.value.status === 'active'
@@ -261,12 +275,21 @@ const onShareInvite = () => withNotice(() => shareSessionInvite(session.value));
 const onShareTable = () => withNotice(() => shareSessionTableCard(session.value));
 const onShareSummary = () => withNotice(() => shareSessionSummary(session.value, summary.value));
 
-// Redirect a participant into their active linked table.
-watch(view, (v) => {
-  if (v.mode === 'redirect' && v.route && !redirected) {
-    redirected = true;
-    markSessionReturn(route.params.sessionId, session.value?.activeSlot?.gameId);
-    router.replace(v.route);
+// Redirect a participant into their active linked table — after verifying the
+// table is still running. Auto-advance only runs while the host has this page
+// open, so activeSlot can go stale and point at a settled game; redirecting
+// then would only bounce the visitor off the table view back to the lobby.
+// Checked once per gameId, so a host advancing to the next table while the
+// visitor waits on this page re-triggers the redirect for the new game.
+let checkedGameId = null;
+watch(() => [rawView.value.mode, session.value?.activeSlot?.gameId], async ([mode, gameId]) => {
+  if (mode !== 'redirect' || !gameId || checkedGameId === gameId) return;
+  checkedGameId = gameId;
+  if (await isGameLive(gameId)) {
+    markSessionReturn(route.params.sessionId, gameId);
+    router.replace(rawView.value.route);
+  } else {
+    staleActive.value = true;
   }
 }, { immediate: true });
 
@@ -338,6 +361,10 @@ onUnmounted(() => { if (unsubGame) { unsubGame(); unsubGame = null; } });
   margin: 8px 0 16px; padding: 12px; border-radius: 10px;
   background: rgba(255,152,0,0.15); border: 1px solid rgba(255,152,0,0.4);
   color: #ffcc80; font-weight: bold;
+}
+.active-banner.idle {
+  background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.65);
 }
 
 .periods h3, .summary h3 {

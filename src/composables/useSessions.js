@@ -24,7 +24,7 @@ import {
 import { useAuthStore } from '../store/modules/auth.js';
 import { useGameStore } from '../store/modules/game.js';
 import { useTournamentClock } from './useTournamentClock.js';
-import { GAME_TYPE } from '../utils/constants.js';
+import { GAME_TYPE, GAME_STATUS } from '../utils/constants.js';
 import { defaultSessionName, aggregateSessionSummary } from '../utils/sessionFlow.js';
 
 // Live/scheduling events float to the top of the "my events" list; finished
@@ -220,6 +220,23 @@ export function useSessions() {
     return onSnapshot(doc(db, 'games', gameId), (snap) => {
       callback(snap.exists() ? (snap.data().status || null) : 'missing');
     });
+  }
+
+  /**
+   * One-shot check: does this game doc still exist and is it running? Used to
+   * verify a session's activeSlot before redirecting a participant into the
+   * table (auto-advance only runs on the host's device, so activeSlot can go
+   * stale and point at an already-settled game). Read failures count as not
+   * live — staying on the session page beats bouncing off the table view.
+   */
+  async function isGameLive(gameId) {
+    if (!gameId) return false;
+    try {
+      const snap = await getDoc(doc(db, 'games', gameId));
+      return snap.exists() && snap.data().status === GAME_STATUS.ACTIVE;
+    } catch (_) {
+      return false;
+    }
   }
 
   /** Is there a period after the current one? */
@@ -496,6 +513,7 @@ export function useSessions() {
     listenMySessions,
     listenJoinedSessions,
     listenGameStatus,
+    isGameLive,
     hasNextSlot,
     getSession,
     rsvp,
