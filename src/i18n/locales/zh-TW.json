@@ -690,6 +690,12 @@
     "mySignUp": "我的報名（勾選上方時段）",
     "startNextPeriod": "開始下一時段",
     "noActivePeriod": "目前無進行中時段",
-    "mustHavePeriod": "請至少新增一個時段"
+    "mustHavePeriod": "請至少新增一個時段",
+    "copyRoster": "帶入現有報名者",
+    "copySelectAll": "全選",
+    "copyClear": "清除",
+    "copySelected": "已選 {count}/{max} 人",
+    "copyRosterHint": "從本活動已報名的成員直接帶入這個新時段，成員不必再報名一次",
+    "copyOverCap": "「{label}」帶入人數超過上限"
   }
 }

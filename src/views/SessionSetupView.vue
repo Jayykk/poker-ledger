@@ -86,6 +86,37 @@
             <option v-for="opt in presetOptions(row.type)" :key="opt.id" :value="opt.id">{{ opt.label }}</option>
           </select>
 
+          <!-- Edit mode, new period only: copy existing sign-ups so members
+               don't have to RSVP again for a period added mid-event -->
+          <div v-if="isEdit && !row.id && participantPool.length" class="copy-roster">
+            <div class="copy-head">
+              <span>
+                {{ t('session.copyRoster') }} ·
+                {{ t('session.copySelected', { count: row.roster.length, max: row.maxPlayers }) }}
+              </span>
+              <button type="button" class="copy-all" @click="toggleAllCopy(row)">
+                {{ allCopied(row) ? t('session.copyClear') : t('session.copySelectAll') }}
+              </button>
+            </div>
+            <div class="copy-list">
+              <label
+                v-for="m in participantPool"
+                :key="m.uid"
+                class="copy-member"
+                :class="{ disabled: !isCopied(row, m) && copyFull(row) }"
+              >
+                <input
+                  type="checkbox"
+                  :checked="isCopied(row, m)"
+                  :disabled="!isCopied(row, m) && copyFull(row)"
+                  @change="toggleCopy(row, m)"
+                />
+                <span>{{ m.name }}</span>
+              </label>
+            </div>
+            <p class="copy-hint">{{ t('session.copyRosterHint') }}</p>
+          </div>
+
           <div v-if="isRowLocked(row)" class="queue-status">
             {{ row.status === 'active' ? t('session.statusActive') : t('session.done') }} · {{ t('session.locked') }}
           </div>
@@ -202,6 +233,56 @@ function onTypeChange(row) {
   row.presetId = '';
   row.presetSnapshot = {};
 }
+
+// ── Copy existing sign-ups into a newly added period (edit mode) ──
+// Pool = union of every loaded period's roster, deduped by uid. Members ticked
+// here are written as the new period's initial roster, so nobody has to RSVP
+// again; they can still drop out themselves later (the period stays 'queued').
+const participantPool = ref([]);
+
+function buildParticipantPool(periods) {
+  const pool = [];
+  const seen = new Set();
+  for (const p of periods || []) {
+    for (const r of p.roster || []) {
+      if (!r || !r.uid || seen.has(r.uid)) continue;
+      seen.add(r.uid);
+      pool.push({ uid: r.uid, name: r.name || 'Player', avatar: r.avatar || null });
+    }
+  }
+  return pool;
+}
+function isCopied(row, m) {
+  return (row.rosterUids || []).includes(m.uid);
+}
+function copyFull(row) {
+  const max = Number(row.maxPlayers) || 0;
+  return max > 0 && (row.roster || []).length >= max;
+}
+function toggleCopy(row, m) {
+  if (isCopied(row, m)) {
+    row.roster = row.roster.filter((r) => r.uid !== m.uid);
+    row.rosterUids = row.rosterUids.filter((x) => x !== m.uid);
+    return;
+  }
+  if (copyFull(row)) return;
+  row.roster = [...row.roster, { uid: m.uid, name: m.name, avatar: m.avatar || null, joinedAtMs: Date.now() }];
+  row.rosterUids = [...row.rosterUids, m.uid];
+}
+function allCopied(row) {
+  return participantPool.value.length > 0 && participantPool.value.every((m) => isCopied(row, m));
+}
+function toggleAllCopy(row) {
+  if (allCopied(row)) {
+    row.roster = [];
+    row.rosterUids = [];
+    return;
+  }
+  for (const m of participantPool.value) {
+    if (copyFull(row)) break;
+    if (!isCopied(row, m)) toggleCopy(row, m);
+  }
+}
 function onPresetSelect(row) {
   const opt = findOption(row.type, row.presetId);
   if (!opt) { row.presetSnapshot = {}; return; }
@@ -298,6 +379,7 @@ onMounted(async () => {
         gameId: e.gameId || null,
         tournamentSessionId: e.tournamentSessionId || null,
       }));
+      participantPool.value = buildParticipantPool(s.periods);
       loadedSig = periodsSig(form.periods);
     }
   } else {
@@ -320,6 +402,9 @@ function validate() {
     if (!(Number(p.maxPlayers) > 0)) { errorMsg.value = t('session.slotMax'); return false; }
     if (p.status === 'queued' && p.type !== 'custom' && !(p.presetSnapshot && p.presetSnapshot.name)) {
       errorMsg.value = t('session.selectPreset'); return false;
+    }
+    if (!p.id && (p.roster || []).length > Number(p.maxPlayers)) {
+      errorMsg.value = t('session.copyOverCap', { label: p.label || '' }); return false;
     }
   }
   errorMsg.value = '';
@@ -473,6 +558,43 @@ function goBack() {
 .queue-actions button:disabled { opacity: 0.3; cursor: not-allowed; }
 .queue-actions button.remove { color: #ff6b6b; }
 .queue-status { font-size: 12px; color: rgba(255, 255, 255, 0.55); }
+
+.copy-roster {
+  background: rgba(33, 150, 243, 0.08);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  border-radius: 8px;
+  padding: 10px;
+}
+.copy-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+.copy-all {
+  padding: 4px 10px;
+  background: rgba(33, 150, 243, 0.2);
+  border: 1px solid rgba(33, 150, 243, 0.5);
+  border-radius: 6px;
+  color: #7fc3f7;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.copy-list { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; }
+.copy-member {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+}
+.copy-member.disabled { opacity: 0.4; cursor: not-allowed; }
+.copy-member input { accent-color: #2196F3; }
+.copy-hint { margin: 8px 0 0; font-size: 12px; color: rgba(255, 255, 255, 0.5); }
 
 .btn-add {
   width: 100%; padding: 10px;
