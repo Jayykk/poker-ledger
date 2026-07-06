@@ -376,8 +376,9 @@ describe('users / friends / invitations', () => {
     await assertSucceeds(setDoc(doc(aliceDb(), 'users', ALICE), { name: 'Alice 2' }));
   });
 
-  it('history_sub is owner-read, CF-write only', async () => {
-    await assertFails(getDocs(collection(bobDb(), 'users', ALICE, 'history_sub')));
+  it('history_sub is authenticated-read (leaderboard), CF-write only', async () => {
+    await assertSucceeds(getDocs(collection(bobDb(), 'users', ALICE, 'history_sub')));
+    await assertFails(getDocs(collection(anonDb(), 'users', ALICE, 'history_sub')));
     await assertFails(setDoc(
       doc(aliceDb(), 'users', ALICE, 'history_sub', 'g1'), { profit: 1 }
     ));
