@@ -1,5 +1,9 @@
 # Online Texas Hold'em Poker Game - Implementation Summary
 
+> ⚠️ **歷史快照（2024-12-16）**：本文件為當時實作的紀錄，內容多已過時——依賴版本、
+> 「Known Limitations」（邊池/計時器/手牌歷史其後皆已完成）、檔案結構
+> （`handlers/game.js` 已拆分）皆與現況不符。現況請以根目錄 `README.md` 與 `TODO.md` 為準。
+
 ## 📋 Overview
 
 This implementation adds a complete online Texas Hold'em poker game feature to the Poker Sync Pro application. The feature allows users to play real-time poker games with friends using a secure, server-authoritative architecture.
@@ -275,12 +279,21 @@ firebase deploy --only hosting
 5. Test mobile device compatibility
 
 ### Known Limitations
+
+> ⚠️ 以下限制皆已於後續開發解決：邊池計算（`engines/potCalculator.js`）、
+> 回合計時/逾時（`handlers/turnTimer.js` + `TurnTimer.vue`）、
+> 手牌歷史 UI（`HandHistoryList/HandHistoryDetail.vue`）。
+
 - Side pots not yet fully implemented (simple pot distribution)
 - No rebuy functionality during active games
 - Timer/timeout handling not yet implemented
 - No hand history replay UI
 
 ### Dependencies to Monitor
+
+> ⚠️ 已過時。現行版本：`firebase` ^12.14.0、`firebase-admin` ^12、`firebase-functions` ^7.2.5
+> （2026-06 升級，見 TODO.md P3）。
+
 - `firebase` v9.22.0
 - `vue` v3.4.0
 - `pinia` v2.1.7

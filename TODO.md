@@ -19,7 +19,9 @@
 - [x] Phase 1-4 全部完成：Cloud Functions 遊戲引擎、發牌/比牌、完整下注流程、
       回合管理、勝負判定、動畫、音效、計時器、聊天、旁觀、好友邀請
 - [x] 防殭屍任務機制（turnId / autoCloseToken 驗證）
-- [x] Run It Twice、亮牌（showPokerCards）、邊池計算
+- [x] 亮牌（showPokerCards）、邊池計算
+  - ⚠️ 2026-07-07 review 更正：Run It Twice 實際**未接線**——`RunItTwiceModal.vue` 無任何引用、
+    引擎 `runItTwice()` 無任何 handler 呼叫，且該函式有同板 bug（見下方 2026-07-07 review 順帶發現）
 
 ### 錦標賽系統（Tournament）
 - [x] 錦標賽時鐘（全螢幕盲注計時、自動升盲、休息時段、音效警示）
@@ -30,6 +32,25 @@
 - [x] Re-entry 管理（買入次數上限、undo、場次計數同步）
 - [x] 螢幕常亮（Wake Lock，含 iOS fallback）
 - [x] 錦標賽結算（含 active→completed 轉換修正，47d3127）
+
+### Session 活動系統（Live Events，2026-06-17 ~ 2026-07-06，PR #169-#179）
+- [x] 活動層資料模型：`sessions` collection，時段制 v2（每時段獨立 RSVP 名單、人數上限、
+      自訂時段；PR #174）
+- [x] RSVP 流程：LIFF 分享連結報名/取消、防連點重複卡片（a914dee）、
+      名單更新自動發 Flex 卡片到 LINE 群（6bc5c74）、時段人數欄位對齊（57a1416）
+- [x] 桌次連動：啟用時段時惰性建立現金/錦標賽桌並導引參與者、時段間自動推進、
+      解散/結算後回到活動頁（737ed5e / 1d96a2a）；桌次連動開關與成員分享邀請（63ab2af）
+- [x] 主辦控制台與邀請分享強化（0ca9fa9）；大廳顯示已加入（非僅主辦）的活動（3e2bf95）
+- [x] 個人快速開局（sessionQuickSetup，79e6e3c）；編輯時新增時段自動複製既有報名（06a022d）
+- [x] 導向防護：導引參與者前先驗證 active table 仍存活（8be2e2d）
+
+### 基礎設施遷移（2026-06-24，PR #178/#179）
+- [x] Cloud Functions 遷至 `asia-east1`、Firestore 改用具名資料庫 `poker-tw`；
+      region/database id 集中為 env-driven 常數（0219fd4）
+- [x] CI 部署認證改用 Service Account 金鑰（`credentials_json`）——WIF 的 external_account
+      憑證與 `firebase deploy` 不相容（bc07be1 / ae3c415）
+- [x] 移除 CI 的 Firebase Hosting 部署（前端只走 GitHub Pages，避免重複發版；e3cb908）
+- [x] `sw.js` CACHE_NAME 依每次建置的 entry hash 蓋章（652c855）
 
 ### 管理後台（Admin）
 - [x] 桌況管理 `/admin/tables`（現金/錦標賽分頁、completed 過濾含 closed 狀態）
@@ -47,7 +68,8 @@
 - [x] 報表圖表穩定化（destroy+recreate、防無限 re-render，aff33e6 / 068fd72）
 - [x] 排行榜期間過濾改用日曆邊界（9a422b3）
 - [x] Cache-busting 檔名 + no-cache meta tags（b53a5b3）
-- [x] GitHub Actions 自動部署（GitHub Pages + Firebase Functions/Hosting，WIF 認證）
+- [x] GitHub Actions 自動部署（GitHub Pages + Firebase Functions；認證用 SA 金鑰，
+      WIF 與 firebase deploy 不相容，見 bc07be1）
 
 ---
 
@@ -267,6 +289,112 @@
 
 ---
 
-**最後更新**: 2026-06-16
+## 🔧 優化待辦（2026-07-07 記帳/周邊模組 Review 產出）
+
+> 範圍：線上德撲**以外**的模組（記帳、錦標賽、Session 活動、LINE、Admin、基礎設施）。
+> 德撲順帶發現另列於本節末。所有 file:line 於 2026-07-07 逐項驗證屬實。
+
+### P0 — 資安/金流完整性
+
+- [ ] **`games` 更新權限全開**（`firestore.rules:109`）：任何登入者持 gameId 可改寫
+      `players[]`、stack、`settlementSnapshot`、甚至 `hostUid`。連結即授權模型下仍可收緊：
+      比照 `sessions` 用 `diff().affectedKeys()` 分級——非 host 僅能改玩家/籌碼相關欄位，
+      禁改 `hostUid` / `settlementSnapshot` / `status` 轉 completed；或把結算寫入移到 Cloud Functions
+- [ ] **`transactions` 建立/撤銷無驗證**（`firestore.rules:214-221`）：create 不檢查
+      `actionUid == auth.uid`、金額型別/正負；update（undo）任何登入者都能撤銷任何人的買入。
+      短期：rules 補欄位驗證 + undo 限 actionUid/host；長期：既有 P0「搬子集合」項目維持不變
+- [ ] **`sessions` 非主辦者可整包改寫 `periods`**（`firestore.rules:275-280`）：`hasOnly`
+      只限制「動了哪些 key」不限制值，非主辦者可覆蓋他人 RSVP、改時段上限與 `gameId` 連動。
+      需值級驗證（限制只能增刪自己的 roster entry）或 RSVP 改走 Cloud Functions
+- [ ] **Rules 部署漂移**：CI 只測不部署 rules（既有已知），`firebase-deploy.yml` 的觸發路徑
+      含 `firestore.rules` 但實際只部署 functions——改 rules 會觸發部署卻不部署 rules，易誤以為已生效。
+      需人工確認 production rules 與 repo 一致；評估把 rules 部署納入 CI（過 emulator 測試 gate 後）
+
+### P1 — 正確性
+
+- [ ] **錦標賽獎金四捨五入不對帳**（`src/store/modules/game.js:707,720`）：各名次獨立
+      `Math.round(totalBuyIns * pct / 100)`，總和可能 ≠ 獎池（多人 33/33/33 類配置必然漂移）。
+      改最大餘數法收斂並補單元測試
+- [ ] **結算數學無單元測試**：`settleGame` / `settleTournament`（`game.js:413,676`）依賴
+      firebase 無法直接測；`calculateMinimumTransfers`（`src/utils/exportReport.js:11`）是
+      module-private 只能間接測。建議抽純函式（輸入 players → 輸出 settlement）到 utils 再補測
+- [ ] **結算前不驗證 totalStack ≡ totalBuyIn**（`game.js:431-437`）：籌碼誤登直接烙進
+      `settlementSnapshot`，僅事後文字報告有警示（`exportReport.js:82`）。結算 UI 應在
+      落差非零時攔一次確認
+- [ ] **客戶端時鐘用於排序/業務欄位**：`createdAt: Date.now()`（`game.js:97`，`loadMyRooms`
+      靠它排序）、`eliminatedAt: Date.now()`（`game.js:520`）、`historyProjection.requestedAt`
+      （`game.js:446,734`）。跨裝置時鐘偏移會亂序，改 `serverTimestamp()`（排序欄位優先）
+- [ ] **無全域錯誤處理**：無 `app.config.errorHandler`、無 `unhandledrejection` 監聽
+      （src/ 全域 grep 零命中）。至少補 logger 收斂 + toast，為未來錯誤監控鋪路
+
+### P2 — 效能
+
+- [ ] **排行榜 N+1 全量讀取**（`src/components/social/Leaderboard.vue:336-375`）：讀整個
+      `users` 集合 + 每人一次 `history_sub` getDocs（無上限），成本 O(使用者 × 場次)、
+      每次開排行榜都跑。解法與下方功能評估 F4 合併：CF 維護彙總集合
+- [ ] **`loadMyRooms` 全集合掃描**（`game.js:760-791`）：抓所有 active games 再前端過濾
+      （程式內註解自承）。加 `playerUids` 陣列欄位 + `array-contains` 查詢
+      （需資料遷移 + rules list 條件同步調整）
+- [ ] **TableManagementView 以 catch-fallback 代替索引**（`src/views/admin/TableManagementView.vue:221-256`）：
+      orderBy 缺索引就退回無序全撈。補 `firestore.indexes.json` 對應索引、移除 fallback
+- [ ] **CI 縫隙**：`firebase-deploy.yml` 部署前不跑 rules emulator 測試，且 `ci.yml`
+      `branches-ignore: main`——直推 main 可完全繞過 rules 測試；`deploy.yml:33` 用
+      `npm install` 而非 `npm ci`，production 建置失去 lockfile 確定性
+
+### P3 — 品質
+
+- [ ] store 監聽器依賴 view 手動呼叫 `stopListeners()` / `cleanup()`
+      （`store/modules/poker.js:481-490`、`game.js:796`），漏呼叫即洩漏——盤點所有離開路徑，
+      或改在 router leave guard 統一處理
+- [ ] App.vue 產線殼層仍含 LIFF debug 面板 markup 與 `debugLogs` 累積
+      （`App.vue:15-27,189-190,298-303`；`showDebugPanel` 預設 false 且無開啟入口，屬惰性死 UI）——
+      清除或包 `import.meta.env.DEV`
+- [ ] 雙軌狀態模式：Pinia store 與 composable 各自持有 Firestore 監聽與業務邏輯
+      （ledger/auth/poker 走 store；sessions/tournament clock 走 composable）——訂約定並文件化即可，
+      不強制重構
+- [ ] 既有未完成項維持：前端 ESLint、`tests/events.test.js` placeholder、E2E（Playwright）、
+      `migrate_entries_to_events.js` 遷移、composables 單元測試
+
+### 順帶發現（線上德撲模組——本次 review 範圍外，僅記錄）
+
+- [ ] **Run It Twice 未接線 + 同板 bug**（`functions/src/engines/texasHoldem.js:453-499`）：
+      引擎 `runItTwice()` 無任何 handler 呼叫、前端 `RunItTwiceModal.vue` 無任何引用（死碼）；
+      且該函式 `deck1`/`deck2` 從同一 `game.table.deck` 複製、發牌順序相同——兩次 runout
+      **必然完全相同**。若要真的上線此功能需先修牌堆邏輯（第二輪用不同隨機性或延續同副牌不重置）
+- [ ] 死碼 `calculateSidePots`（`texasHoldem.js:399-445`）：讀已不存在的 `seat.currentBet`
+      欄位；實際邊池計算在 `engines/potCalculator.js`（`gameFlow.js:23` 引用）。可刪
+- [ ] `onTurnChange` no-op trigger 仍在部署（`functions/src/index.js:717-722`）：註解自承
+      已不需要，白佔一個 Firestore trigger。可刪
+- [ ] **客戶端自動結算 double-settle 競態**（`src/store/modules/poker.js:446-472`）：每個連線
+      客戶端的 `onSnapshot` 都跑非原子 check-then-act（讀 `settling` → updateDoc → settleGame），
+      多客戶端可同時通過檢查各自觸發結算；失敗時重置 `settling:false` 還會再觸發。
+      `settling` 旗標任何登入者可寫（rules 允許非 meta 更新）。**金流相關，建議升級為近期修復**：
+      結算觸發移到 Cloud Functions（status 轉 ended 的 server-side trigger）或至少改 transaction 搶鎖
+
+---
+
+## 💡 功能評估：數據統計強化（2026-07-07）
+
+> 方向已確認。皆建立在既有 `users/{uid}/history_sub` 投影（Cloud Functions 寫入、
+> 已含每場結果）之上，前端純計算 + Chart.js，後端成本低。建議實作順序：F1 → F4 → F2 → F3。
+
+- [ ] **F1 個人戰績深度分析**（ReportView 強化；工作量：小）
+  - 星期幾/時段勝率熱圖、連勝連敗記錄、最大單場贏/輸、平均買入 vs 損益（ROI 走勢）
+  - 資料現成（history_sub 已有逐場記錄 + 時間戳），純前端聚合，無 schema 變更
+- [ ] **F2 錦標賽專屬統計**（工作量：小-中）
+  - ITM 率、平均名次、錦標賽 ROI（buyIn vs prize）
+  - 前置：確認 `history_sub` 投影是否帶 `placement`/`prize`
+    （`functions/src/handlers/gameHistoryProjection.js`），缺則擴充投影欄位 + 回填既有紀錄
+- [ ] **F3 對手對戰統計**（工作量：中）
+  - 同桌次數、同桌時的相對損益（「跟誰打最容易輸」）
+  - 需在投影加同場名單（可從 `settlementSnapshot` 回填）；注意隱私——僅限好友間可見
+- [ ] **F4 排行榜彙總集合**（工作量：中；**與 P2「排行榜 N+1」一石二鳥**）
+  - CF 在結算/投影更新時同步維護 `leaderboardStats/{uid}`（月/季/年彙總欄位），
+    排行榜從「全 users × history_sub 掃描」改為讀單一集合
+  - 同時解 N+1 效能問題並開啟「歷史期間排行」「全站排行」等新能力
+
+---
+
+**最後更新**: 2026-07-07
 **負責人**: Jayykk
 **專案版本**: 10.0.0

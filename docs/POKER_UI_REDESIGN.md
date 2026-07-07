@@ -1,5 +1,8 @@
 # Poker UI Redesign and Bug Fixes
 
+> ⚠️ **歷史快照**：本文件為當時實作的紀錄，UI 其後於 2026-06 的 P4 大重構再次改版
+> （見 TODO.md §P4）。現況請以根目錄 `README.md` 與 `TODO.md` 為準。
+
 ## Summary of Changes
 
 This document summarizes the changes made to redesign the poker game interface and fix critical bugs.
