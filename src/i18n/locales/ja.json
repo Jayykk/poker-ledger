@@ -22,6 +22,7 @@
     "copyFailed": "コピー失敗",
     "max": "最大",
     "error": "エラー",
+    "unexpectedError": "予期しないエラーが発生しました。再試行するかページを再読み込みしてください",
     "yes": "はい",
     "no": "いいえ"
   },
@@ -160,6 +161,7 @@
     "gameEnded": "ゲーム終了",
     "confirmClose": "ゲームを終了しますか？データは削除されます。",
     "confirmSettlement": "精算を確認しますか？",
+    "confirmSettlementGap": "⚠️ チップ合計と購入合計が一致しません（誤差 {gap}）。精算すると誤差が記録に残ります。続行しますか？",
     "confirmBind": "この席に紐付けますか？",
     "confirmRemove": "削除しますか？",
     "createFailed": "ゲーム作成失敗",

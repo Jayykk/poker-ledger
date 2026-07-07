@@ -570,9 +570,13 @@ const handleCopyReport = async () => {
 };
 
 const handleSettle = async () => {
+  // A non-zero stack/buy-in gap gets baked into the settlement snapshot
+  // permanently — make the host acknowledge it explicitly.
   const shouldSettle = await confirm({
-    message: t('game.confirmSettlement'),
-    type: 'warning'
+    message: gap.value !== 0
+      ? t('game.confirmSettlementGap', { gap: formatNumber(gap.value) })
+      : t('game.confirmSettlement'),
+    type: gap.value !== 0 ? 'danger' : 'warning'
   });
   if (shouldSettle) {
     await withLoading(async () => {

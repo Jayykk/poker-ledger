@@ -25,10 +25,12 @@ let testEnv;
 
 const ALICE = 'alice-uid';
 const BOB = 'bob-uid';
+const CHARLIE = 'charlie-uid';
 const ADMIN = 'admin-uid';
 
 const aliceDb = () => testEnv.authenticatedContext(ALICE).firestore();
 const bobDb = () => testEnv.authenticatedContext(BOB).firestore();
+const charlieDb = () => testEnv.authenticatedContext(CHARLIE).firestore();
 const adminDb = () => testEnv.authenticatedContext(ADMIN).firestore();
 const anonDb = () => testEnv.unauthenticatedContext().firestore();
 
@@ -78,6 +80,11 @@ beforeEach(async () => {
     await setDoc(doc(db, 'transactions', 'tx-1'), {
       gameId: 'active-game', status: 'active', amount: 100,
       targetUid: BOB, actionUid: ALICE,
+    });
+    // Recorded by Bob in Alice's game — exercises the host-undo branch.
+    await setDoc(doc(db, 'transactions', 'tx-by-bob'), {
+      gameId: 'active-game', status: 'active', amount: 200,
+      targetUid: BOB, actionUid: BOB,
     });
 
     await setDoc(doc(db, 'tournamentSessions', 'dealer-on'), {
@@ -154,9 +161,36 @@ describe('games (ledger)', () => {
     await assertSucceeds(getDocs(collection(adminDb(), 'games')));
   });
 
-  it('any signed-in user can update a game (capability model: link = invite)', async () => {
+  it('create requires hostUid to match the caller', async () => {
+    await assertFails(setDoc(doc(bobDb(), 'games', 'spoofed-game'), {
+      status: 'active', hostUid: ALICE, players: [], name: 'Spoofed',
+    }));
+    await assertSucceeds(setDoc(doc(bobDb(), 'games', 'bobs-game'), {
+      status: 'active', hostUid: BOB, players: [], name: 'Bob\'s',
+    }));
+  });
+
+  it('non-hosts may update the roster (capability model: link = invite)', async () => {
     await assertSucceeds(updateDoc(doc(bobDb(), 'games', 'active-game'), {
       players: [{ uid: BOB, name: 'Bob', buyIn: 1000 }],
+    }));
+  });
+
+  it('non-hosts cannot touch settlement, lifecycle, or ownership fields', async () => {
+    await assertFails(updateDoc(doc(bobDb(), 'games', 'active-game'), {
+      status: 'completed', settlementSnapshot: [{ odId: BOB, profit: 99999 }],
+    }));
+    await assertFails(updateDoc(doc(bobDb(), 'games', 'active-game'), {
+      hostUid: BOB,
+    }));
+    await assertFails(updateDoc(doc(bobDb(), 'games', 'active-game'), {
+      players: [], rate: 100,
+    }));
+  });
+
+  it('the host can settle (status/rate/settlementSnapshot)', async () => {
+    await assertSucceeds(updateDoc(doc(aliceDb(), 'games', 'active-game'), {
+      status: 'completed', rate: 10, settlementSnapshot: [],
     }));
   });
 
@@ -248,14 +282,55 @@ describe('transactions (buy-in audit)', () => {
     ));
   });
 
-  it('undo: active → undone is allowed', async () => {
-    await assertSucceeds(updateDoc(doc(bobDb(), 'transactions', 'tx-1'), {
+  it('create must be signed as the caller with a sane shape', async () => {
+    await assertSucceeds(addDoc(collection(bobDb(), 'transactions'), {
+      gameId: 'active-game', actionUid: BOB, actionName: 'Bob',
+      targetUid: BOB, targetName: 'Bob', amount: 1000, type: 'buy_in',
+      status: 'active', undoneBy: null, undoOf: null,
+    }));
+    // Spoofing someone else as the actor is rejected.
+    await assertFails(addDoc(collection(bobDb(), 'transactions'), {
+      gameId: 'active-game', actionUid: ALICE, actionName: 'Alice',
+      targetUid: BOB, targetName: 'Bob', amount: 1000, type: 'buy_in',
+      status: 'active',
+    }));
+    // Non-numeric amounts and non-active initial status are rejected.
+    await assertFails(addDoc(collection(bobDb(), 'transactions'), {
+      gameId: 'active-game', actionUid: BOB, actionName: 'Bob',
+      targetUid: BOB, targetName: 'Bob', amount: '1000', type: 'buy_in',
+      status: 'active',
+    }));
+    await assertFails(addDoc(collection(bobDb(), 'transactions'), {
+      gameId: 'active-game', actionUid: BOB, actionName: 'Bob',
+      targetUid: BOB, targetName: 'Bob', amount: 1000, type: 'buy_in',
       status: 'undone',
     }));
   });
 
-  it('undo cannot be reverted or transition to other states', async () => {
+  it('undo: allowed for the original actor', async () => {
+    await assertSucceeds(updateDoc(doc(aliceDb(), 'transactions', 'tx-1'), {
+      status: 'undone',
+    }));
+  });
+
+  it('undo: allowed for the game host', async () => {
+    // tx-by-bob was recorded by Bob in Alice's game — Alice hosts, so she may undo it.
+    await assertSucceeds(updateDoc(doc(aliceDb(), 'transactions', 'tx-by-bob'), {
+      status: 'undone',
+    }));
+  });
+
+  it('undo: strangers (neither actor, host, nor admin) are rejected', async () => {
     await assertFails(updateDoc(doc(bobDb(), 'transactions', 'tx-1'), {
+      status: 'undone',
+    }));
+  });
+
+  it('undo cannot change other fields, be reverted, or transition elsewhere', async () => {
+    await assertFails(updateDoc(doc(aliceDb(), 'transactions', 'tx-1'), {
+      status: 'undone', amount: 999999,
+    }));
+    await assertFails(updateDoc(doc(aliceDb(), 'transactions', 'tx-1'), {
       status: 'active', amount: 999999,
     }));
   });
@@ -340,6 +415,53 @@ describe('sessions (live event layer)', () => {
     }));
     await assertFails(updateDoc(doc(bobDb(), 'sessions', 'evt-1'), {
       name: 'Hijacked', periods: [], participantUids: [],
+    }));
+  });
+
+  it('a non-host cannot add or remove periods', async () => {
+    await assertFails(updateDoc(doc(bobDb(), 'sessions', 'evt-1'), {
+      periods: [], participantUids: [], updatedAt: new Date(),
+    }));
+    await assertFails(updateDoc(doc(bobDb(), 'sessions', 'evt-1'), {
+      periods: [
+        { id: 'pA', order: 0, label: '下午', type: 'cash', maxPlayers: 8, status: 'queued',
+          roster: [{ uid: BOB, name: 'Bob' }], rosterUids: [BOB] },
+        { id: 'pX', order: 1, label: '加開', type: 'cash', maxPlayers: 8, status: 'queued',
+          roster: [], rosterUids: [] },
+      ],
+      participantUids: [BOB],
+      updatedAt: new Date(),
+    }));
+  });
+
+  it('a non-host can only add/remove THEMSELVES from participantUids', async () => {
+    // Bob smuggling a third uid in alongside himself is rejected.
+    await assertFails(updateDoc(doc(bobDb(), 'sessions', 'evt-1'), {
+      periods: [
+        { id: 'pA', order: 0, label: '下午', type: 'cash', maxPlayers: 8, status: 'queued',
+          roster: [{ uid: BOB, name: 'Bob' }, { uid: CHARLIE, name: 'Charlie' }],
+          rosterUids: [BOB, CHARLIE] },
+      ],
+      participantUids: [BOB, CHARLIE],
+      updatedAt: new Date(),
+    }));
+    // Charlie kicking Bob off an event he RSVP'd to is rejected.
+    await assertFails(updateDoc(doc(charlieDb(), 'sessions', 'evt-joined'), {
+      periods: [
+        { id: 'pB', order: 0, label: '晚上', type: 'tournament', maxPlayers: 9, status: 'queued',
+          roster: [], rosterUids: [] },
+      ],
+      participantUids: [],
+      updatedAt: new Date(),
+    }));
+    // Bob cancelling his own RSVP is fine.
+    await assertSucceeds(updateDoc(doc(bobDb(), 'sessions', 'evt-joined'), {
+      periods: [
+        { id: 'pB', order: 0, label: '晚上', type: 'tournament', maxPlayers: 9, status: 'queued',
+          roster: [], rosterUids: [] },
+      ],
+      participantUids: [],
+      updatedAt: new Date(),
     }));
   });
 

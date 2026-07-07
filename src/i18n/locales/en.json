@@ -22,6 +22,7 @@
     "copyFailed": "Copy failed",
     "max": "Max",
     "error": "Error",
+    "unexpectedError": "An unexpected error occurred — please retry or refresh the page",
     "yes": "Yes",
     "no": "No"
   },
@@ -160,6 +161,7 @@
     "gameEnded": "Game ended",
     "confirmClose": "Confirm to close the game? All data will be deleted.",
     "confirmSettlement": "Confirm settlement?",
+    "confirmSettlementGap": "⚠️ Total stacks don't match total buy-ins (gap {gap}). Settling will bake this gap into the records permanently. Continue?",
     "confirmBind": "Bind this seat?",
     "confirmRemove": "Remove?",
     "createFailed": "Failed to create game",

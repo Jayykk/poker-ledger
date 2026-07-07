@@ -20,6 +20,8 @@ import { db } from '../../firebase-init.js';
 import { useAuthStore } from './auth.js';
 import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';
 import { createSyncRequestToken } from '../../utils/historyProjection.js';
+import { timestampToMillis } from '../../utils/formatters.js';
+import { buildCashSettlement, buildTournamentSettlement } from '../../utils/settlementMath.js';
 
 function getEffectiveTournamentLevel(levels = [], currentLevelIndex = 0) {
   const normalizedIndex = Number.isFinite(Number(currentLevelIndex))
@@ -94,7 +96,9 @@ export const useGameStore = defineStore('game', () => {
         hostName,
         type, // Add game type
         status: type === GAME_TYPE.ONLINE ? GAME_STATUS.WAITING : GAME_STATUS.ACTIVE,
-        createdAt: Date.now(),
+        // Server clock — client clocks skew across devices and this field
+        // orders the room list. Readers normalize via timestampToMillis().
+        createdAt: serverTimestamp(),
         baseBuyIn: parseInt(buyInAmount),
         players: [{
           id: Date.now().toString(),
@@ -417,7 +421,6 @@ export const useGameStore = defineStore('game', () => {
     try {
       const settledGameId = gameId.value;
       const syncToken = createSyncRequestToken('settle');
-      const nowMs = Date.now();
 
       await runTransaction(db, async (t) => {
         const gameRef = doc(db, 'games', settledGameId);
@@ -426,15 +429,7 @@ export const useGameStore = defineStore('game', () => {
         if (!gameDoc.exists()) throw new Error('Game not found');
 
         const gameData = gameDoc.data();
-        const players = gameData.players;
-
-        const settlementSnapshot = players.map((player) => ({
-          odId: player.uid || null,
-          name: player.name,
-          buyIn: Math.round(player.buyIn || 0),
-          stack: Math.round(player.stack || 0),
-          profit: Math.round((player.stack || 0) - player.buyIn),
-        }));
+        const settlementSnapshot = buildCashSettlement(gameData.players);
 
         t.update(gameRef, {
           status: GAME_STATUS.COMPLETED,
@@ -443,7 +438,7 @@ export const useGameStore = defineStore('game', () => {
           updatedAt: serverTimestamp(),
           settlementSnapshot,
           'historyProjection.requestToken': syncToken,
-          'historyProjection.requestedAt': nowMs,
+          'historyProjection.requestedAt': serverTimestamp(),
         });
       });
 
@@ -680,7 +675,6 @@ export const useGameStore = defineStore('game', () => {
     try {
       const settledGameId = gameId.value;
       const syncToken = createSyncRequestToken('settle-tournament');
-      const nowMs = Date.now();
       let settlementResult = [];
 
       await runTransaction(db, async (t) => {
@@ -691,9 +685,6 @@ export const useGameStore = defineStore('game', () => {
         const gameData = gameDoc.data();
         const players = gameData.players;
 
-        // Calculate prize pool from all buy-ins
-        const totalBuyIns = players.reduce((sum, p) => sum + (p.buyIn || 0), 0);
-
         // Auto-crown last alive player as champion (placement=1) if not already set
         const alive = players.filter(p => !p.eliminated);
         if (alive.length === 1 && !alive[0].placement) {
@@ -701,25 +692,10 @@ export const useGameStore = defineStore('game', () => {
           players[champIdx] = { ...players[champIdx], placement: 1 };
         }
 
-        // Build placement → prize map
-        const prizeMap = {};
-        for (const r of payoutRatios) {
-          prizeMap[r.place] = Math.round(totalBuyIns * r.percentage / 100);
-        }
-
-        // Prepare settlement records — include ALL players so even eliminated
-        // participants (no prize) get a history record in their report.
-        const settlement = players
-          .map(p => ({
-            playerId: p.id || null,
-            odId: p.uid || null,
-            name: p.name,
-            placement: p.placement || null,
-            buyIn: p.buyIn || 0,
-            prize: prizeMap[p.placement] || 0,
-            profit: (prizeMap[p.placement] || 0) - (p.buyIn || 0),
-          }))
-          .sort((a, b) => (a.placement || 999) - (b.placement || 999));
+        // Settlement records include ALL players so even eliminated participants
+        // (no prize) get a history record; prize rounding is reconciled against
+        // the pool with the largest-remainder method (see settlementMath.js).
+        const settlement = buildTournamentSettlement(players, payoutRatios);
         settlementResult = settlement;
 
         t.update(gameRef, {
@@ -731,7 +707,7 @@ export const useGameStore = defineStore('game', () => {
           completedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           'historyProjection.requestToken': syncToken,
-          'historyProjection.requestedAt': nowMs,
+          'historyProjection.requestedAt': serverTimestamp(),
         });
       });
 
@@ -780,8 +756,11 @@ export const useGameStore = defineStore('game', () => {
         }
       });
       
-      // Sort by creation time, newest first
-      myRooms.value = rooms.sort((a, b) => b.createdAt - a.createdAt);
+      // Sort by creation time, newest first (createdAt is a Firestore
+      // Timestamp on new games and epoch millis on legacy ones)
+      myRooms.value = rooms.sort(
+        (a, b) => timestampToMillis(b.createdAt) - timestampToMillis(a.createdAt)
+      );
     } catch (err) {
       console.error('Load my rooms error:', err);
       error.value = 'Failed to load rooms: ' + err.message;

@@ -22,6 +22,7 @@
     "copyFailed": "复制失败",
     "max": "最多",
     "error": "错误",
+    "unexpectedError": "发生未预期的错误，请重试或刷新页面",
     "yes": "是",
     "no": "否"
   },
@@ -160,6 +161,7 @@
     "gameEnded": "此局已结束",
     "confirmClose": "确定要「解散」房间吗？数据将直接删除。",
     "confirmSettlement": "确认结算并封存?",
+    "confirmSettlementGap": "⚠️ 总筹码与总买入不一致（误差 {gap}）。结算后误差会永久写入记录，确定要继续吗？",
     "confirmBind": "绑定此座位?",
     "confirmRemove": "移除?",
     "createFailed": "开局失败",

@@ -28,6 +28,16 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // True when `after` differs from `before` (both string lists) at most by
+    // adding and/or removing the single uid — used to pin RSVP writes to the
+    // caller's own membership.
+    function onlySelfDelta(before, after, uid) {
+      return (after.toSet().difference(before.toSet()).size() == 0 ||
+              after.toSet().difference(before.toSet()) == [uid].toSet()) &&
+             (before.toSet().difference(after.toSet()).size() == 0 ||
+              before.toSet().difference(after.toSet()) == [uid].toSet());
+    }
+
     // ============================================
     // Users
     // ============================================
@@ -102,11 +112,19 @@ service cloud.firestore {
         (resource.data.status == 'active' ||
          resource.data.hostUid == request.auth.uid ||
          isAdmin());
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        request.resource.data.hostUid == request.auth.uid;
       // Joining via link adds yourself to the players array, and seated
       // players update stacks/buy-ins — both happen before/without being the
       // host, so updates follow the capability model (having the ID = invited).
-      allow update: if isAuthenticated();
+      // Non-hosts are limited to the roster (players/updatedAt): settlement,
+      // lifecycle, and ownership fields (settlementSnapshot, status, rate,
+      // hostUid, …) are host/admin-only.
+      allow update: if isAuthenticated() &&
+        (resource.data.hostUid == request.auth.uid ||
+         isAdmin() ||
+         request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['players', 'updatedAt']));
       allow delete: if isAuthenticated() &&
         (resource.data.hostUid == request.auth.uid || isAdmin());
 
@@ -213,11 +231,26 @@ service cloud.firestore {
     // parent doc gates access; tracked in TODO.md (P0, mid-term).
     match /transactions/{txId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      // Only allow flipping an active record to undone.
+      // The writer must sign the record as themselves (actionUid) with a sane
+      // shape — matches the client fallback writer in useTransactions.js.
+      // (The Cloud Function path uses the Admin SDK and bypasses rules.)
+      allow create: if isAuthenticated()
+        && request.resource.data.actionUid == request.auth.uid
+        && request.resource.data.gameId is string
+        && request.resource.data.amount is number
+        && request.resource.data.type is string
+        && request.resource.data.status == 'active';
+      // Only allow flipping an active record to undone (nothing else may
+      // change), and only by whoever recorded it, the game's host, or an
+      // admin — mirrors the UI's canUndo() gate (TransactionLog.vue).
       allow update: if isAuthenticated()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status'])
         && request.resource.data.status == 'undone'
-        && resource.data.status == 'active';
+        && resource.data.status == 'active'
+        && (resource.data.actionUid == request.auth.uid
+            || isAdmin()
+            || get(/databases/$(database)/documents/games/$(resource.data.gameId)).data.hostUid == request.auth.uid);
     }
 
     // ============================================
@@ -271,12 +304,19 @@ service cloud.firestore {
         request.resource.data.hostUid == request.auth.uid;
       // Host/admin may change anything. Any other authenticated user may update
       // ONLY the per-period rosters (RSVP join/cancel) via `periods` +
-      // `participantUids` — not status, name, etc.
+      // `participantUids` — not status, name, etc. RSVP writes additionally may
+      // not add/remove periods, and may only add/remove the caller themselves
+      // from the participant roster. (Per-entry roster contents inside
+      // `periods` can't be validated in rules — full enforcement needs a CF.)
       allow update: if isAuthenticated() && (
         resource.data.hostUid == request.auth.uid ||
         isAdmin() ||
-        request.resource.data.diff(resource.data).affectedKeys()
+        (request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['periods', 'participantUids', 'updatedAt'])
+         && request.resource.data.periods.size() == resource.data.periods.size()
+         && onlySelfDelta(resource.data.participantUids,
+                          request.resource.data.participantUids,
+                          request.auth.uid))
       );
       allow delete: if isAuthenticated() &&
         (resource.data.hostUid == request.auth.uid || isAdmin());
