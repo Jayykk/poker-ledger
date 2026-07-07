@@ -171,8 +171,22 @@ describe('formatDate', () => {
     expect(result).toMatch(/13:05:09/);
   });
 
-  it('returns "Invalid Date" for unparseable input', () => {
-    expect(formatDate('not a date')).toBe('Invalid Date');
+  it('returns an empty string for missing or unparseable input', () => {
+    expect(formatDate('not a date')).toBe('');
+    expect(formatDate(undefined)).toBe('');
+    expect(formatDate(null)).toBe(''); // pending serverTimestamp reads as null
+    expect(formatDate({})).toBe('');
+  });
+
+  it('accepts Firestore Timestamp shapes', () => {
+    const millis = d.getTime();
+    expect(formatDate({ toMillis: () => millis })).toBe(formatDate(d));
+    expect(formatDate({ seconds: Math.floor(millis / 1000) })).toBe(
+      formatDate(new Date(Math.floor(millis / 1000) * 1000))
+    );
+    expect(formatDate({ _seconds: Math.floor(millis / 1000) })).toBe(
+      formatDate(new Date(Math.floor(millis / 1000) * 1000))
+    );
   });
 });
 
@@ -189,8 +203,10 @@ describe('formatShortDate', () => {
     expect(formatShortDate(d.getTime())).toBe(formatShortDate(d));
   });
 
-  it('returns "Invalid Date" for unparseable input', () => {
-    expect(formatShortDate('garbage')).toBe('Invalid Date');
+  it('returns an empty string for missing or unparseable input', () => {
+    expect(formatShortDate('garbage')).toBe('');
+    expect(formatShortDate(undefined)).toBe('');
+    expect(formatShortDate(null)).toBe('');
   });
 });
 

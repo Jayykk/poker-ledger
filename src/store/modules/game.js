@@ -744,7 +744,10 @@ export const useGameStore = defineStore('game', () => {
       
       const rooms = [];
       snapshot.forEach((doc) => {
-        const data = doc.data();
+        // 'estimate' resolves a still-pending serverTimestamp createdAt to the
+        // local estimate instead of null (a just-created room would otherwise
+        // show an empty date until the server ack).
+        const data = doc.data({ serverTimestamps: 'estimate' });
         const isHost = data.hostUid === authStore.user.uid;
         const isPlayer = data.players?.some(p => p.uid === authStore.user.uid);
         
