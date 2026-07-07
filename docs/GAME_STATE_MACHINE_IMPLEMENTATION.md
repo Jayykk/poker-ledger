@@ -1,5 +1,9 @@
 # Game State Machine Implementation Summary
 
+> ⚠️ **歷史快照**：本文件為當時實作的紀錄。文中提到的 `handlers/game.js` 其後已拆分為
+> `gameFlow.js` / `gameActions.js` / `gameControl.js`（`game.js` 僅剩 façade）；
+> `utils/validators.js` 的 deprecated 版本已移除。現況請以根目錄 `README.md` 與 `TODO.md` 為準。
+
 ## Overview
 
 This document summarizes the implementation of the game state machine and comprehensive improvements to the poker game flow, error handling, and UI.

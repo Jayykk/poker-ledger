@@ -11,6 +11,15 @@ A modern, progressive web application for tracking and synchronizing poker game 
 - 👥 **Multi-player Support** - Support up to 10 players per game
 - 🔗 **Invite System** - Share game links to invite players to specific seats
 
+### 🗓️ Live Events (Sessions)
+A scheduling layer above tables — plan a poker night once, and let sign-ups drive the tables:
+- 🕑 **Time-period Model** - An event holds ordered periods (cash / tournament / custom), each with its own RSVP roster and player cap
+- ✋ **Per-period RSVP** - Players sign up or cancel per period via a shared LIFF link; new periods added while editing copy existing sign-ups
+- 📣 **Roster Cards to LINE** - RSVP changes auto-post an updated roster Flex card to the group chat
+- 🔗 **Table Linkage** - Activating a period lazily creates the underlying cash/tournament table and routes participants to it; auto-advances between periods
+- 🧑‍💼 **Host Console** - Manage periods, dissolve/settle linked tables, and return participants to the event page afterward
+- ⚡ **Personal Quick-setup** - Save your usual event configuration for one-tap event creation
+
 ### 🏆 Tournament System
 - 🕐 **Tournament Clock** - Full-screen blind level timer with auto-advance, break periods, and sound alerts
 - 🎛️ **Dealer Clock Mode** - Dedicated dealer view with anonymous auth, shareable via URL
@@ -36,7 +45,7 @@ A modern, progressive web application for tracking and synchronizing poker game 
 
 ### 🃏 Live Texas Hold'em
 - 🃏 **Server-side Dealing** - Fair card dealing handled by Cloud Functions
-- 👥 **Multiplayer** - Up to 6 players per table
+- 👥 **Multiplayer** - Up to 10 players per table
 - 💰 **Integrated Ledger** - Seamless integration with the existing buy-in tracking system
 - 📱 **Mobile Optimized** - Touch-optimized betting controls with slider and quick buttons
 - ⚡ **Real-time Sync** - Firestore real-time listeners for instant game state updates
@@ -91,9 +100,9 @@ A modern, progressive web application for tracking and synchronizing poker game 
 - **State Management**: Pinia
 - **Routing**: Vue Router 4
 - **Internationalization**: vue-i18n
-- **Database**: Firebase Firestore
+- **Database**: Firebase Firestore — named database `poker-tw` (not `(default)`), configured in `firebase.json`
 - **Authentication**: Firebase Auth (Email/Password, Anonymous, LINE Login)
-- **Backend**: Firebase Cloud Functions v2 (Node.js 22, firebase-admin 12)
+- **Backend**: Firebase Cloud Functions v2 (Node.js 22, firebase-admin 12, region `asia-east1`)
 - **Task Scheduling**: Google Cloud Tasks (turn timeouts, auto-close, showdown delays)
 - **Hand Evaluation**: pokersolver
 - **LINE Integration**: LIFF SDK v2
@@ -111,6 +120,7 @@ poker-ledger/
 ├── functions/src/          # Cloud Functions v2 (handlers, game engines, Cloud Tasks utils)
 ├── tests/                  # Vitest test suites
 ├── scripts/                # One-off maintenance/migration scripts
+├── docs/                   # Historical implementation notes (snapshots; see TODO.md for current state)
 ├── public/                 # PWA assets (manifest, service worker, icons)
 ├── firestore.rules         # Firestore security rules (authoritative)
 ├── firestore.indexes.json  # Composite index definitions
@@ -120,7 +130,7 @@ poker-ledger/
 ## 📦 Installation
 
 ### Prerequisites
-- Node.js 18+ and npm/yarn/pnpm
+- Node.js 22 (see `.nvmrc` / `.node-version`; Cloud Functions runtime is `nodejs22`) and npm
 
 ### Development Setup
 
@@ -174,56 +184,50 @@ npm run preview
 
 ## 🚀 Deployment
 
-### 自動部署設定
+部署分成兩條線，push 到 `main` 即自動觸發：
 
-本專案使用 GitHub Actions 自動部署到 Firebase。
+| 對象 | Workflow | 目的地 | 認證 |
+|------|----------|--------|------|
+| 前端 | `.github/workflows/deploy.yml` | GitHub Pages（base `/poker-ledger/`） | GitHub Pages 內建 |
+| Cloud Functions | `.github/workflows/firebase-deploy.yml` | Firebase（`asia-east1`） | Service Account 金鑰 |
 
-#### 首次設定步驟
+### 前端（GitHub Pages）
 
-1. **取得 Firebase Token**
-   ```bash
-   firebase login:ci
-   ```
-   這會給你一個 token
+每次 push `main`：跑測試 → `npm run build`（注入 repository variable `VITE_LIFF_ID`）→ 部署到 GitHub Pages。無需手動操作。
 
-2. **設定 GitHub Secret**
-   - 前往 Repository → Settings → Secrets and variables → Actions
-   - 點擊 "New repository secret"
-   - Name: `FIREBASE_TOKEN`
-   - Value: 貼上剛才取得的 token
+### Cloud Functions（Firebase）
 
-3. **完成！**
-   之後每次 push 到 main 分支，就會自動部署
+push `main` 且變更觸及 `functions/**`、`firestore.rules`、`src/**` 等路徑時觸發：先跑測試 + functions lint，通過後 `firebase deploy --only functions`。
 
-#### 手動部署
+必要的 Repository 設定（Settings → Secrets and variables → Actions）：
 
-如果需要手動部署：
+- **Secret `FIREBASE_SERVICE_ACCOUNT`**：Service Account 金鑰 JSON 全文（`google-github-actions/auth@v2` 的 `credentials_json`）。
+  註：曾嘗試 WIF（Workload Identity Federation），但 `firebase deploy` 不支援 external_account 憑證，故採 SA 金鑰。
+- **Secret `POKER_TASKS_SECRET`**（建議設定）：Cloud Tasks HMAC 簽章密鑰，部署時寫入 `functions/.env`；未設定時 task endpoint 會跳過驗證（向後相容，但較不安全）。
+- **Variable `VITE_LIFF_ID`**：LIFF App ID，前端建置時注入。
+
+### ⚠️ Firestore Rules / Indexes（CI 不會部署）
+
+CI 只會「測試」rules（emulator），**不會部署**。修改 `firestore.rules` 或 `firestore.indexes.json` 後需手動執行：
+
 ```bash
-# 部署 Functions
-cd functions && npm install
-firebase deploy --only functions
-
-# 部署 Hosting
-npm run build
-firebase deploy --only hosting
-
-# 部署全部
-firebase deploy
+firebase deploy --only firestore:rules,firestore:indexes --project poker-ledger-a0e06
 ```
 
-### GitHub Pages Deployment
+部署前建議先比對 production 現行 rules 與 repo 版本的差異，避免互相覆蓋。
 
-The app is also configured for deployment to GitHub Pages at `/poker-ledger/`.
+### 手動部署
 
-1. Build the project:
 ```bash
-npm run build
+# Functions
+cd functions && npm ci && cd ..
+firebase deploy --only functions --project poker-ledger-a0e06
+
+# Rules + Indexes（見上方警告）
+firebase deploy --only firestore:rules,firestore:indexes --project poker-ledger-a0e06
 ```
 
-2. Deploy to GitHub Pages:
-```bash
-# The built files in dist/ folder should be deployed to gh-pages branch
-```
+前端不需手動部署（GitHub Pages 自動化）；`firebase.json` 的 hosting 設定僅供本機 emulator/preview 使用。
 
 ## 📱 PWA Installation
 
@@ -234,7 +238,7 @@ npm run build
 
 ## 🔒 Firebase Security Rules
 
-The authoritative Firestore security rules live in [`firestore.rules`](firestore.rules) and are deployed via `firebase deploy --only firestore:rules` (also covered by CI). Key principles:
+The authoritative Firestore security rules live in [`firestore.rules`](firestore.rules). CI runs the emulator rules tests on every PR (`tests/rules/`), but **does not deploy rules** — deploy manually via `firebase deploy --only firestore:rules,firestore:indexes` (see Deployment above). Key principles:
 
 - **Hole cards** (`pokerGames/{gameId}/private/{userId}`) are readable only by the owner and writable only by Cloud Functions
 - **Game meta/config** cannot be modified by players (only by Cloud Functions or admins)
@@ -306,5 +310,5 @@ For issues, questions, or suggestions, please open an issue on GitHub.
 ---
 
 **Version**: 10.0.0  
-**Last Updated**: June 2026  
+**Last Updated**: July 2026  
 **Author**: Jayykk

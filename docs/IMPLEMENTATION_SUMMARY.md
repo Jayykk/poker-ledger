@@ -1,5 +1,10 @@
 # Poker Ledger Major Refactoring - Implementation Summary
 
+> ⚠️ **歷史快照（Vue 2 → Vue 3 大改版時期）**：本文件的數字與限制早已過時——
+> 現況為 23 views / ~53 components / 25 composables / 8 store modules；
+> 「Known Limitations」中的排行榜假資料其後已改為真實資料（`Leaderboard.vue`）；
+> 文中的 `useGame.js` 已於 2026-06 移除。現況請以根目錄 `README.md` 與 `TODO.md` 為準。
+
 ## Project Overview
 
 This document summarizes the complete refactoring of the Poker Ledger (Poker Sync Pro) application from a simple Vue 2 app to a comprehensive, modern Vue 3 application with extensive new features.

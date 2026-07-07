@@ -1,5 +1,10 @@
 # Poker Game Enhancements - Implementation Summary
 
+> ⚠️ **歷史快照（2024-12-16）**：本文件為當時實作的紀錄。「待完成項目」中的斷線重連、
+> i18n keys、PokerTable/GameChat 整合其後皆已完成；**唯 Run It Twice 至今仍未接線**
+> （Modal 與引擎函式皆為死碼，且引擎版有同板 bug，見 TODO.md 2026-07-07 review）。
+> 現況請以根目錄 `README.md` 與 `TODO.md` 為準。
+
 ## 完成時間
 2024-12-16
 
@@ -467,6 +472,10 @@ await leaveSpectator(gameId);
 ---
 
 ## ⚠️ 待完成項目
+
+> 2026-07-07 更新：第 2 項（斷線重連）與第 3 項（i18n keys）已完成；
+> 第 1 項 Run it Twice 整合**仍未完成**——`RunItTwiceModal.vue` 無引用、
+> 引擎 `runItTwice()` 無呼叫點，且兩次 runout 會發出相同的牌（同板 bug）。
 
 ### 1. Run it Twice 完整整合
 - [ ] 玩家同意追蹤系統
