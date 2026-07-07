@@ -45,13 +45,31 @@ export const formatCurrency = (amount, currencyCode = 'TWD') => {
 };
 
 /**
+ * Normalize any timestamp-ish value (epoch millis, Firestore Timestamp,
+ * {seconds} shape, Date, parseable string) to epoch millis. Returns 0 when
+ * the value can't be interpreted.
+ * @param {*} value - Timestamp-like value
+ * @returns {number} Epoch milliseconds (0 if unparseable)
+ */
+export const timestampToMillis = (value) => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') return value;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.seconds === 'number') return value.seconds * 1000;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+/**
  * Format date to localized string
- * @param {Date|string|number} date - Date to format
+ * @param {Date|string|number|import('firebase/firestore').Timestamp} date - Date to format
  * @param {string} locale - Locale code
  * @returns {string} Formatted date string
  */
 export const formatDate = (date, locale = 'zh-TW') => {
-  const dateObj = date instanceof Date ? date : new Date(date);
+  const millis = timestampToMillis(date);
+  const dateObj = millis ? new Date(millis) : new Date(date);
   return dateObj.toLocaleString(locale, {
     year: 'numeric',
     month: '2-digit',

@@ -15,6 +15,7 @@ import {
 import { db, functions } from '../firebase-init.js';
 import { useAuthStore } from '../store/modules/auth.js';
 import { createSyncRequestToken } from '../utils/historyProjection.js';
+import { buildCashSettlement } from '../utils/settlementMath.js';
 
 /**
  * Composable for saving game / tournament config with version history.
@@ -132,16 +133,6 @@ export function useConfigEditor() {
     }
   }
 
-  function _buildCashSettlement(players) {
-    return players.map((player) => ({
-      odId: player.uid || null,
-      name: player.name,
-      buyIn: player.buyIn,
-      stack: player.stack || 0,
-      profit: (player.stack || 0) - player.buyIn,
-    }));
-  }
-
   function _buildTournamentSettlement(players) {
     return players
       .map((player) => ({
@@ -181,12 +172,7 @@ export function useConfigEditor() {
       const gameRef = doc(db, 'games', gameId);
       const nowMs = Date.now();
       const syncToken = createSyncRequestToken('correction');
-      const settlementSnapshot = _buildCashSettlement(correctedPlayers).map((player) => ({
-        ...player,
-        buyIn: Math.round(player.buyIn || 0),
-        stack: Math.round(player.stack || 0),
-        profit: Math.round(player.profit || 0),
-      }));
+      const settlementSnapshot = buildCashSettlement(correctedPlayers);
 
       await updateDoc(gameRef, {
         players: correctedPlayers,
@@ -197,7 +183,7 @@ export function useConfigEditor() {
         lastCorrectedBy: authStore.user?.uid || 'anonymous',
         lastCorrectedByName: authStore.displayName || 'anonymous',
         'historyProjection.requestToken': syncToken,
-        'historyProjection.requestedAt': nowMs,
+        'historyProjection.requestedAt': serverTimestamp(),
       });
 
       await _writeVersion(
@@ -274,7 +260,7 @@ export function useConfigEditor() {
         lastCorrectedBy: authStore.user?.uid || 'anonymous',
         lastCorrectedByName: authStore.displayName || 'anonymous',
         'historyProjection.requestToken': syncToken,
-        'historyProjection.requestedAt': nowMs,
+        'historyProjection.requestedAt': serverTimestamp(),
       });
 
       await _writeVersion(

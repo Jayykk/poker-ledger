@@ -12,8 +12,8 @@
       <LoadingSpinner fullScreen />
     </div>
 
-    <!-- Debug panel: always visible when logs exist (independent of loading state) -->
-    <div v-if="showDebugPanel && debugLogs.length" class="fixed bottom-0 left-0 right-0 max-h-[40vh] overflow-y-auto bg-black/90 text-xs text-green-400 font-mono p-3 z-[9999]">
+    <!-- Debug panel (dev only): visible when logs exist (independent of loading state) -->
+    <div v-if="isDev && showDebugPanel && debugLogs.length" class="fixed bottom-0 left-0 right-0 max-h-[40vh] overflow-y-auto bg-black/90 text-xs text-green-400 font-mono p-3 z-[9999]">
       <div class="flex justify-between items-center mb-1">
         <span class="text-yellow-400 font-bold">🔧 LIFF Debug</span>
         <div class="flex items-center gap-2">
@@ -186,6 +186,9 @@ const { error: showError } = useNotification();
 const { isInLineClient, isLoggedIn: liffLoggedIn, initLiff, getAccessToken, closeLiff } = useLiff();
 
 const loading = ref(true);
+// LIFF debug overlay — dev builds only; in production the logs aren't
+// collected and the panel markup never renders.
+const isDev = import.meta.env.DEV;
 const debugLogs = ref([]);
 const showDebugPanel = ref(false);
 const theme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
@@ -295,8 +298,9 @@ const processPendingInvite = async () => {
   return false;
 };
 
-// Debug logging helper (shows on LIFF debug overlay)
+// Debug logging helper (shows on LIFF debug overlay; no-op in production)
 const dbg = (msg) => {
+  if (!isDev) return;
   const ts = new Date().toLocaleTimeString('en', { hour12: false, fractionalSecondDigits: 1 });
   debugLogs.value.push(`[${ts}] ${msg}`);
   logger.debug(`[DBG] ${msg}`);

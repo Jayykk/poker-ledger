@@ -189,6 +189,31 @@ import { logger } from "./utils/logger.js";
   app.use(i18n);
   app.use(router);
 
+  // ── Global error handling ─────────────────────────────────────────
+  // Render/lifecycle errors and unhandled promise rejections previously
+  // vanished into the console; surface them with a toast so users aren't
+  // stuck on a silently-broken screen, and keep the full error in the log.
+  const reportGlobalError = (err, context) => {
+    logger.error(`[global:${context}]`, err);
+    try {
+      useNotificationStore().error(
+        i18n.global.t('common.unexpectedError'),
+        5000
+      );
+    } catch (notifyErr) {
+      // Pinia/notification not ready (very early failure) — log only.
+      logger.error('[global] toast failed:', notifyErr);
+    }
+  };
+
+  app.config.errorHandler = (err, _instance, info) => {
+    reportGlobalError(err, `vue:${info}`);
+  };
+
+  window.addEventListener('unhandledrejection', (event) => {
+    reportGlobalError(event.reason, 'unhandledrejection');
+  });
+
   app.mount('#app');
 
   // Initialize LIFF for non-callback cases (skips if already done above)
