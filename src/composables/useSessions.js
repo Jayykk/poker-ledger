@@ -545,6 +545,8 @@ export function useSessions() {
     listenSession,
     listenMySessions,
     listenJoinedSessions,
+    myHostedSessions,
+    myJoinedSessions,
     listenGameStatus,
     isGameLive,
     hasNextSlot,
