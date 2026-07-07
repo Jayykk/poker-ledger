@@ -42,6 +42,23 @@ export function sortSessions(list) {
   });
 }
 
+// Module-level cache of the lobby's "my events" lists. These were previously
+// component-local in LobbyView, so every navigation back to the lobby reset
+// them to [] — the section vanished, then popped back in when the first
+// snapshot arrived (a visible layout jump). Keeping the last snapshot here
+// lets the lobby render it instantly and refresh silently.
+const myHostedSessions = ref([]);
+const myJoinedSessions = ref([]);
+let mySessionsCacheUid = null;
+
+/** Drop the cached lists when a different user signs in. */
+function syncMySessionsCacheUser(uid) {
+  if (mySessionsCacheUid === uid) return;
+  mySessionsCacheUid = uid;
+  myHostedSessions.value = [];
+  myJoinedSessions.value = [];
+}
+
 export function useSessions() {
   const authStore = useAuthStore();
   const gameStore = useGameStore();
@@ -198,20 +215,36 @@ export function useSessions() {
     );
   }
 
-  /** Sessions this user hosts (raw, unsorted). */
+  /**
+   * Sessions this user hosts (raw, unsorted). Snapshots land in the shared
+   * `myHostedSessions` ref (module-level cache); `callback` is optional.
+   */
   function listenMySessions(callback) {
     const u = authStore.user;
     if (!u) return () => {};
+    syncMySessionsCacheUser(u.uid);
     const q = query(collection(db, 'sessions'), where('hostUid', '==', u.uid));
-    return onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+    return onSnapshot(q, (snap) => {
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      myHostedSessions.value = list;
+      if (callback) callback(list);
+    });
   }
 
-  /** Sessions this user has RSVP'd to any period of (raw, unsorted). */
+  /**
+   * Sessions this user has RSVP'd to any period of (raw, unsorted). Snapshots
+   * land in the shared `myJoinedSessions` ref; `callback` is optional.
+   */
   function listenJoinedSessions(callback) {
     const u = authStore.user;
     if (!u) return () => {};
+    syncMySessionsCacheUser(u.uid);
     const q = query(collection(db, 'sessions'), where('participantUids', 'array-contains', u.uid));
-    return onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+    return onSnapshot(q, (snap) => {
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      myJoinedSessions.value = list;
+      if (callback) callback(list);
+    });
   }
 
   /** A table's game status (for host-side auto-advance). */

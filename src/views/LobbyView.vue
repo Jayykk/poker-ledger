@@ -146,6 +146,7 @@
     </div>
 
     <!-- My Live Events (Session layer) -->
+    <Transition name="section-expand">
     <div v-if="mySessions.length > 0" class="mb-6">
       <h3 class="text-lg font-bold text-white mb-3">{{ $t('session.myEvents') }}</h3>
       <div class="space-y-2">
@@ -183,6 +184,7 @@
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- Quick Actions -->
     <div class="grid gap-4">
@@ -607,14 +609,15 @@ const userPresets = ref([]);
 
 const { createSession: createTournamentSession, listenPresets } = useTournamentClock();
 const { listenPresets: listenCashPresets } = useCashPresets();
-const { listenMySessions, listenJoinedSessions } = useSessions();
+const { listenMySessions, listenJoinedSessions, myHostedSessions, myJoinedSessions } = useSessions();
 
 // Live events (Session layer): both the ones I host and the ones I've joined.
-const hostedSessions = ref([]);
-const joinedSessions = ref([]);
+// The lists live in useSessions' module-level cache so revisiting the lobby
+// renders the previous data instantly instead of popping the section in after
+// the first snapshot (which shoved the layout — the "lobby flash").
 const mySessions = computed(() => {
   const byId = new Map();
-  for (const s of [...hostedSessions.value, ...joinedSessions.value]) byId.set(s.id, s);
+  for (const s of [...myHostedSessions.value, ...myJoinedSessions.value]) byId.set(s.id, s);
   return sortSessions([...byId.values()]).slice(0, MY_SESSIONS_LIMIT);
 });
 let unsubMySessions = null;
@@ -890,15 +893,17 @@ const handleRejectInvitation = async (invitation) => {
 };
 
 onMounted(async () => {
-  // Load rooms first
-  await gameStore.loadMyRooms();
-
-  // Subscribe to live events this user hosts AND has joined (merged in mySessions).
-  unsubMySessions = listenMySessions((list) => { hostedSessions.value = list; });
-  unsubJoinedSessions = listenJoinedSessions((list) => { joinedSessions.value = list; });
+  // Attach the live-event listeners BEFORE any awaited work: they render from
+  // useSessions' module-level cache immediately, and waiting on loadMyRooms
+  // first delayed the first snapshot — the events section then popped in late
+  // and shoved the layout.
+  unsubMySessions = listenMySessions();
+  unsubJoinedSessions = listenJoinedSessions();
 
   // Load invitations and mark existing ones as seen
   loadInvitations();
+
+  await gameStore.loadMyRooms();
 
   // Auto-open the create-game modal when navigated with ?create=1|cash|tournament
   // (used by App.vue's bottom 「+」 · 「現場記帳」 to share this UI)
@@ -959,3 +964,27 @@ onUnmounted(() => {
   }
 });
 </script>
+
+<style scoped>
+/* Smooth expansion for sections that appear after async data arrives (e.g.
+   "My events"): animate height + opacity so the content below slides down
+   instead of being shoved in a single frame. */
+.section-expand-enter-active {
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  max-height: 1000px;
+  overflow: hidden;
+}
+.section-expand-enter-from {
+  max-height: 0;
+  opacity: 0;
+}
+.section-expand-leave-active {
+  transition: max-height 0.2s ease, opacity 0.2s ease;
+  max-height: 1000px;
+  overflow: hidden;
+}
+.section-expand-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+</style>
