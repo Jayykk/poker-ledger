@@ -110,18 +110,15 @@
 
 ## 🔵 新功能待辦（2026-07-20 提議）
 
-- [ ] **錦標賽協議結算（Deal）**：剩餘人數 ≤ 錢圈人數（payoutRatios 名次數）且
-      re-entry 已截止時，結算 modal 增加「協議結算」入口，三種模式：ICM / Chip Chop / 自訂。
-  - ICM（Malmuth-Harville）與 Chip Chop 需主辦者輸入剩餘玩家目前籌碼
-    （驗證：籌碼總和 = 進場次數 × startingChips）；自訂模式需金額總和 = 剩餘獎池，
-    並手動指定冠軍（與名次順序，供排行榜冠亞軍統計）
-  - 已淘汰但在錢圈的名次獎金不動，協議只分配「第 1 ～ 剩餘人數」的獎池
-  - 純計算加在 `settlementMath.js`（沿用最大餘數法收整數）；store 走 `settleTournament`
-    變體，直接把每人 prize 寫進 `settlementSnapshot`（歷史投影優先讀 snapshot，CF 免改）；
-    game doc 加 `deal` 欄位留痕（模式 / 籌碼快照 / 同意名單）；
-    **協議冠軍即冠軍**——統計照常計入，`dealt` 旗標僅供歷史明細顯示「協議」標記
-  - MVP 同意機制 = 主辦者逐人代勾（口頭同意，勾選紀錄寫進 deal）；
-    玩家 in-app 按同意留待後續（需 rules 開放非主辦者寫入或走 CF，成本高）
+- [x] ~~**錦標賽協議結算（Deal）MVP**~~：已於 feat/tournament-deal 實作——
+      結算 modal 在「剩餘人數 ≤ 錢圈人數且 re-entry 截止」時出現協議入口；
+      ICM（Malmuth-Harville）/ Chip Chop / 自訂三模式，籌碼合計驗證、
+      自訂需總額 = 剩餘獎池並指定冠軍；已淘汰錢圈名次獎金不動；
+      主辦者代勾同意（記錄於 game.deal）；store transaction 內重驗
+      「存活名單一致 + 協議總額 = 剩餘獎池」防 stale 寫入；協議冠軍即冠軍
+  - [ ] 後續（有需要再做）：玩家 in-app 按同意（需 rules 開放非主辦者寫入或走 CF）；
+        歷史明細顯示「協議」badge（game doc 已有 `dealt: true`，
+        但投影 `normalizeSettlementRow` 會濾掉未知欄位，需擴充投影欄位）
 - [x] ~~**大廳「我的活動」隱藏已結束**~~：已於 feat/lobby-history 實作——
       大廳過濾 `status === 'completed'`，標題右側「歷史活動」連結 →
       新頁 `/session-history`（SessionHistoryView，重用 useSessions 快取）

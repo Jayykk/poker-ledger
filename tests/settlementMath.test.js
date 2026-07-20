@@ -3,6 +3,9 @@ import {
   buildTournamentPrizeMap,
   buildTournamentSettlement,
   buildCashSettlement,
+  computeIcmPayouts,
+  computeChipChopPayouts,
+  buildDealSettlement,
 } from '../src/utils/settlementMath.js';
 
 describe('buildTournamentPrizeMap', () => {
@@ -92,5 +95,82 @@ describe('buildCashSettlement', () => {
     ]);
     expect(snapshot[0]).toEqual({ odId: 'u1', name: 'A', buyIn: 1000, stack: 1500, profit: 500 });
     expect(snapshot[1]).toEqual({ odId: null, name: 'B', buyIn: 0, stack: 0, profit: 0 });
+  });
+});
+
+describe('computeIcmPayouts', () => {
+  it('two players: equity is the exact stack-weighted blend of 1st/2nd prizes', () => {
+    // EV_i = share_i × prize1 + (1 − share_i) × prize2 (exact for heads-up)
+    // shares .75/.25 → 75+12.5=87.5 and 25+37.5=62.5 → rounds to 88/62 (150 total)
+    expect(computeIcmPayouts([7500, 2500], [100, 50])).toEqual([88, 62]);
+  });
+
+  it('equal stacks split the pool equally', () => {
+    expect(computeIcmPayouts([5000, 5000, 5000], [50, 30, 20])).toEqual([34, 33, 33]);
+  });
+
+  it('three players: matches hand-computed Malmuth-Harville values', () => {
+    // stacks 50/30/20, prizes 70/30/0:
+    // EV_A=45.1786, EV_B=32.25, EV_C=22.5714 → largest remainder → 45/32/23
+    expect(computeIcmPayouts([50, 30, 20], [70, 30, 0])).toEqual([45, 32, 23]);
+  });
+
+  it('always sums exactly to the prize total and preserves stack ordering', () => {
+    const payouts = computeIcmPayouts([9100, 5300, 3100, 1500], [500, 300, 200, 100]);
+    expect(payouts.reduce((a, b) => a + b, 0)).toBe(1100);
+    expect([...payouts].sort((a, b) => b - a)).toEqual(payouts);
+  });
+
+  it('handles empty input', () => {
+    expect(computeIcmPayouts([], [])).toEqual([]);
+  });
+});
+
+describe('computeChipChopPayouts', () => {
+  it('splits proportionally to stacks', () => {
+    expect(computeChipChopPayouts([50, 30, 20], 100)).toEqual([50, 30, 20]);
+  });
+
+  it('reconciles rounding so the total always equals the pool', () => {
+    const payouts = computeChipChopPayouts([1, 1, 1], 100);
+    expect(payouts).toEqual([34, 33, 33]);
+    expect(payouts.reduce((a, b) => a + b, 0)).toBe(100);
+  });
+
+  it('returns zeros when stacks are empty or all zero', () => {
+    expect(computeChipChopPayouts([0, 0], 100)).toEqual([0, 0]);
+    expect(computeChipChopPayouts([], 100)).toEqual([]);
+  });
+});
+
+describe('buildDealSettlement', () => {
+  const payoutRatios = [
+    { place: 1, percentage: 50 },
+    { place: 2, percentage: 30 },
+    { place: 3, percentage: 20 },
+  ];
+  // 4 players × 250 buy-in = 1000 pool → prizes 500/300/200
+  const players = [
+    { id: 'a', uid: 'ua', name: 'A', buyIn: 250, placement: null },
+    { id: 'b', uid: 'ub', name: 'B', buyIn: 250, placement: null },
+    { id: 'c', uid: 'uc', name: 'C', buyIn: 250, placement: 3 },  // eliminated in the money
+    { id: 'd', uid: null, name: 'D', buyIn: 250, placement: 4 },  // eliminated out of the money
+  ];
+
+  it('remaining players get deal allocations; eliminated keep placement prizes', () => {
+    // A and B chop places 1–2 (pool 800) as 450/350
+    const settlement = buildDealSettlement(players, payoutRatios, [
+      { playerId: 'a', prize: 450, placement: 1 },
+      { playerId: 'b', prize: 350, placement: 2 },
+    ]);
+
+    expect(settlement.map((r) => [r.playerId, r.placement, r.prize, r.profit])).toEqual([
+      ['a', 1, 450, 200],
+      ['b', 2, 350, 100],
+      ['c', 3, 200, -50],
+      ['d', 4, 0, -250],
+    ]);
+    // Ledger balances: total prizes == total buy-ins share (100%)
+    expect(settlement.reduce((sum, r) => sum + r.prize, 0)).toBe(1000);
   });
 });
