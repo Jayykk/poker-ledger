@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { collection, doc, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
 import { useAuthStore } from './auth.js';
 import { formatDate } from '../../utils/formatters.js';
@@ -135,10 +135,11 @@ export const useUserStore = defineStore('user', () => {
       }
     });
 
+    // No limit: history_sub is becoming the ONLY history source (legacy array is
+    // being migrated then deleted), so this must return the full record set.
     const historySubQuery = query(
       collection(db, 'users', userId, 'history_sub'),
-      orderBy('projectionUpdatedAt', 'desc'),
-      limit(50)
+      orderBy('projectionUpdatedAt', 'desc')
     );
 
     unsubscribeHistorySub = onSnapshot(historySubQuery, (snapshot) => {

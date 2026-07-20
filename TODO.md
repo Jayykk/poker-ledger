@@ -24,12 +24,8 @@
       失敗時重置 `settling:false` 會再觸發。**金流相關，建議近期修復**：
       結算觸發移到 Cloud Functions（status 轉 ended 的 server-side trigger）或改 transaction 搶鎖
 
-## 🟠 P1 — 效能（建議下一輪主力，與 F4 一起做）
+## 🟠 P1 — 效能（建議下一輪主力）
 
-- [ ] **排行榜 N+1 全量讀取**（`src/components/social/Leaderboard.vue:336-375`）：
-      讀整個 `users` 集合 + 每人一次 `history_sub` getDocs（無上限），
-      成本 O(使用者 × 場次)、每次開排行榜都跑。解法與功能評估 **F4** 合併：
-      CF 維護 `leaderboardStats/{uid}` 彙總集合，排行榜改讀單一集合
 - [ ] **`loadMyRooms` 全集合掃描**（`src/store/modules/game.js`）：抓所有 active games
       再前端過濾。加 `playerUids` 陣列欄位 + `array-contains` 查詢
       （需資料遷移 + rules list 條件同步調整）
@@ -60,6 +56,15 @@
 
 - [ ] **執行 `scripts/migrate_entries_to_events.js`**（先 `--dry-run` 驗證，確認後
       `--delete-old`；需 production service account 憑證，須由維護者手動執行）
+- [ ] **執行 `functions/scripts/migrate_legacy_history_to_history_sub.js`**
+      （legacy `users.history` 陣列 → `history_sub` 收斂單一來源；F1~F4 前置）。
+      順序：`--dry-run` → `--uid` 單人試跑並開 app 驗證 → 全量 → `--verify` 零 mismatch
+      → `--delete-legacy`（會先備份 JSON 才刪欄位）。需 production SA 憑證，手動執行
+  - `user.js` 的 `limit(50)` 已於 feat/leaderboard-stats 分支移除，刪 legacy 無此顧慮
+  - 完成後可刪 `user.js` 的 legacy merge 程式碼（排行榜端已改讀 `leaderboardStats`）
+- [ ] **執行 `functions/scripts/backfill_leaderboard_stats.js`**（在上面的 legacy 遷移
+      **之後**跑；重算所有使用者的 `leaderboardStats` 彙總，冪等可重跑。
+      部署 functions + rules 後、排行榜新版上線前執行，否則排行榜是空的）
 - [ ] **LINE Phase 1 人工驗證**：LINE App 內開 LIFF 自動登入進 Lobby、
       外部瀏覽器維持 email/guest 登入、頭像暱稱顯示為 LINE profile
 - [ ] **德撲真機驗收**（§4-5 殘留）：兩支手機點連結到打完一手 ≤ 90 秒、
@@ -94,20 +99,40 @@
 - [ ] **F1 個人戰績深度分析**（ReportView 強化；工作量：小）
   - 星期幾/時段勝率熱圖、連勝連敗記錄、最大單場贏/輸、平均買入 vs 損益（ROI 走勢）
   - 資料現成（history_sub 已有逐場記錄 + 時間戳），純前端聚合，無 schema 變更
-- [ ] **F4 排行榜彙總集合**（工作量：中；**與 P1「排行榜 N+1」一石二鳥**）
-  - CF 在結算/投影更新時同步維護 `leaderboardStats/{uid}`（月/季/年彙總欄位），
-    排行榜從「全 users × history_sub 掃描」改為讀單一集合
-  - 同時解 N+1 效能問題並開啟「歷史期間排行」「全站排行」等新能力
+- [x] ~~**F4 排行榜彙總集合**~~：已於 feat/leaderboard-stats 實作
+      （`leaderboardStats/{uid}_{period}`，週/月/季/年/總五種粒度、Asia/Taipei 切界，
+      投影 CF 結算後全量重算、冪等；排行榜改讀單一 query，N+1 同步解決）
 - [ ] **F2 錦標賽專屬統計**（工作量：小-中）
   - ITM 率、平均名次、錦標賽 ROI（buyIn vs prize）
-  - 前置：確認 `history_sub` 投影是否帶 `placement`/`prize`
-    （`functions/src/handlers/gameHistoryProjection.js`），缺則擴充投影欄位 + 回填既有紀錄
+  - 投影已確認帶 `placement` 與整包 `settlement`（含每人 buyIn/prize），無 schema 前置；
+    `leaderboardStats.tournament` 已有 itm/champion/runnerUp 可直接用
 - [ ] **F3 對手對戰統計**（工作量：中）
   - 同桌次數、同桌時的相對損益（「跟誰打最容易輸」）
   - 需在投影加同場名單（可從 `settlementSnapshot` 回填）；注意隱私——僅限好友間可見
 
 ---
 
-**最後更新**: 2026-07-07（移除已完成項；LINE Bot 完全排除）
+## 🔵 新功能待辦（2026-07-20 提議）
+
+- [ ] **錦標賽協議結算（Deal）**：剩餘人數 ≤ 錢圈人數（payoutRatios 名次數）且
+      re-entry 已截止時，結算 modal 增加「協議結算」入口，三種模式：ICM / Chip Chop / 自訂。
+  - ICM（Malmuth-Harville）與 Chip Chop 需主辦者輸入剩餘玩家目前籌碼
+    （驗證：籌碼總和 = 進場次數 × startingChips）；自訂模式需金額總和 = 剩餘獎池，
+    並手動指定冠軍（與名次順序，供排行榜冠亞軍統計）
+  - 已淘汰但在錢圈的名次獎金不動，協議只分配「第 1 ～ 剩餘人數」的獎池
+  - 純計算加在 `settlementMath.js`（沿用最大餘數法收整數）；store 走 `settleTournament`
+    變體，直接把每人 prize 寫進 `settlementSnapshot`（歷史投影優先讀 snapshot，CF 免改）；
+    game doc 加 `deal` 欄位留痕（模式 / 籌碼快照 / 同意名單）；
+    **協議冠軍即冠軍**——統計照常計入，`dealt` 旗標僅供歷史明細顯示「協議」標記
+  - MVP 同意機制 = 主辦者逐人代勾（口頭同意，勾選紀錄寫進 deal）；
+    玩家 in-app 按同意留待後續（需 rules 開放非主辦者寫入或走 CF，成本高）
+- [ ] **大廳「我的活動」隱藏已結束**：我的活動列表過濾已結束場次，
+      區塊右側加「歷史活動」連結（新頁或既有列表帶 filter；資料源 `useSessions`）
+- [x] ~~**排行榜賽制 filter + 冠亞軍次數**~~：已於 feat/leaderboard-stats 實作
+      （賽制切換 全部/限時賽/錦標賽 + 錦標賽限定「冠亞軍」排序，🏆/🥈 次數顯示）
+
+---
+
+**最後更新**: 2026-07-20（新增協議結算 / 大廳歷史活動 / 排行榜 filter 待辦）
 **負責人**: Jayykk
 **專案版本**: 10.0.0
