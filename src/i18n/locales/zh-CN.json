@@ -624,6 +624,8 @@
     "create": "创建现场活动",
     "edit": "编辑活动",
     "myEvents": "我的活动",
+    "historyEvents": "历史活动",
+    "noHistoryEvents": "还没有已结束的活动",
     "noEvents": "暂无活动",
     "name": "活动名称",
     "dateTime": "日期与时间",

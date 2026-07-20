@@ -624,6 +624,8 @@
     "create": "建立現場活動",
     "edit": "編輯活動",
     "myEvents": "我的活動",
+    "historyEvents": "歷史活動",
+    "noHistoryEvents": "還沒有已結束的活動",
     "noEvents": "尚無活動",
     "name": "活動名稱",
     "dateTime": "日期與時間",

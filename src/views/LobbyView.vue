@@ -145,10 +145,19 @@
       </div>
     </div>
 
-    <!-- My Live Events (Session layer) -->
+    <!-- My Live Events (Session layer) — ended events live in /session-history -->
     <Transition name="section-expand">
-    <div v-if="mySessions.length > 0" class="mb-6">
-      <h3 class="text-lg font-bold text-white mb-3">{{ $t('session.myEvents') }}</h3>
+    <div v-if="mySessions.length > 0 || endedSessionsCount > 0" class="mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-bold text-white">{{ $t('session.myEvents') }}</h3>
+        <button
+          v-if="endedSessionsCount > 0"
+          @click="$router.push('/session-history')"
+          class="text-sm text-emerald-400 hover:text-emerald-300 transition"
+        >
+          {{ $t('session.historyEvents') }} <i class="fas fa-chevron-right text-xs"></i>
+        </button>
+      </div>
       <div class="space-y-2">
         <div
           v-for="evt in mySessions"
@@ -615,11 +624,18 @@ const { listenMySessions, listenJoinedSessions, myHostedSessions, myJoinedSessio
 // The lists live in useSessions' module-level cache so revisiting the lobby
 // renders the previous data instantly instead of popping the section in after
 // the first snapshot (which shoved the layout — the "lobby flash").
-const mySessions = computed(() => {
+const allMySessions = computed(() => {
   const byId = new Map();
   for (const s of [...myHostedSessions.value, ...myJoinedSessions.value]) byId.set(s.id, s);
-  return sortSessions([...byId.values()]).slice(0, MY_SESSIONS_LIMIT);
+  return [...byId.values()];
 });
+// Ended events are hidden here — they live in /session-history instead.
+const mySessions = computed(() =>
+  sortSessions(allMySessions.value.filter((s) => s.status !== 'completed')).slice(0, MY_SESSIONS_LIMIT)
+);
+const endedSessionsCount = computed(() =>
+  allMySessions.value.filter((s) => s.status === 'completed').length
+);
 let unsubMySessions = null;
 let unsubJoinedSessions = null;
 

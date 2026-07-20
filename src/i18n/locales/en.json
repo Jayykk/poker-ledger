@@ -624,6 +624,8 @@
     "create": "Create Live Event",
     "edit": "Edit Event",
     "myEvents": "My Events",
+    "historyEvents": "Past Events",
+    "noHistoryEvents": "No finished events yet",
     "noEvents": "No events yet",
     "name": "Event Name",
     "dateTime": "Date & Time",

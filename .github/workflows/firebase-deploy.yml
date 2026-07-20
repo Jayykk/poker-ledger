@@ -116,8 +116,11 @@ jobs:
         env:
           POKER_TASKS_SECRET: ${{ secrets.POKER_TASKS_SECRET }}
 
-      - name: Deploy to Firebase Functions
-        run: firebase deploy --only functions --force --project poker-ledger-a0e06
+      # rules/indexes 一併部署：production 與 repo 已於 2026-07-20 人工比對並
+      # 同步（TODO P0「rules 自動部署」前置條件解除）。emulator rules 測試在
+      # 部署前的 test job 把關。
+      - name: Deploy to Firebase Functions + Firestore rules/indexes
+        run: firebase deploy --only functions,firestore --force --project poker-ledger-a0e06
 
   # 前端部署在 GitHub Pages（deploy.yml，base: '/poker-ledger/'），不是 Firebase
   # Hosting，所以這裡不再部 hosting，避免「current active version」重複發版錯誤。
