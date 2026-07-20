@@ -828,6 +828,7 @@ export const useGameStore = defineStore('game', () => {
           deal: {
             mode: deal.mode || 'custom',
             stacks: deal.stacks || null,
+            deadChips: Number(deal.deadChips) || 0,
             allocations,
             approvals: deal.approvals || [],
             dealtAt: serverTimestamp(),
