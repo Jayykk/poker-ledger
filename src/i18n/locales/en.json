@@ -519,6 +519,8 @@
     "dealChipsTotal": "Chips total",
     "dealChipsExpected": "Expected",
     "dealChipsMismatch": "Chip total doesn't match the chips in play",
+    "dealDeadChips": "Dead chips (removed from play)",
+    "dealDeadChipsHint": "If a player left and their chips were taken off the table, enter the removed amount — the expected total adjusts down",
     "dealCustom": "Custom",
     "dealCustomAmount": "Enter each player's share",
     "dealAmountSum": "Allocated total",

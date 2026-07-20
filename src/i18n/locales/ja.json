@@ -519,6 +519,8 @@
     "dealChipsTotal": "チップ合計",
     "dealChipsExpected": "想定",
     "dealChipsMismatch": "チップ合計が場の総チップ数と一致しません",
+    "dealDeadChips": "デッドチップ（場から除外）",
+    "dealDeadChipsHint": "途中退場でチップが場から除外された場合、除外分を入力すると「想定」が自動的に差し引かれます",
     "dealCustom": "カスタム",
     "dealCustomAmount": "各プレイヤーの配分額を入力してください",
     "dealAmountSum": "配分合計",

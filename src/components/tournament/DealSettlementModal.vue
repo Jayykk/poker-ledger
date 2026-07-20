@@ -37,10 +37,29 @@
           />
         </div>
       </div>
+      <!-- Abandoned/dead chips: when a player left and their chips were removed
+           from play, the survivors' total is less than entries × startingChips.
+           Subtracting this makes the sanity check match reality. -->
+      <div v-if="expectedChips > 0" class="flex items-center gap-3 mt-3 pt-3 border-t border-slate-700">
+        <span class="text-white text-sm flex-1">
+          {{ $t('tournament.dealDeadChips') }}
+        </span>
+        <input
+          v-model.number="deadChips"
+          type="number"
+          min="0"
+          inputmode="numeric"
+          class="w-28 bg-slate-700 text-white text-sm rounded px-2 py-1.5 border border-slate-600 focus:outline-none focus:border-amber-500 text-right font-mono"
+        />
+      </div>
+      <div v-if="expectedChips > 0" class="text-[11px] text-gray-500 mt-1">
+        {{ $t('tournament.dealDeadChipsHint') }}
+      </div>
+
       <div class="flex justify-between text-xs mt-2" :class="chipsMatch ? 'text-gray-400' : 'text-rose-400'">
         <span>{{ $t('tournament.dealChipsTotal') }}: {{ formatNumber(stacksTotal) }}</span>
         <span v-if="expectedChips > 0">
-          {{ $t('tournament.dealChipsExpected') }}: {{ formatNumber(expectedChips) }}
+          {{ $t('tournament.dealChipsExpected') }}: {{ formatNumber(effectiveExpectedChips) }}
         </span>
       </div>
     </div>
@@ -157,12 +176,14 @@ const stacks = reactive({});
 const amounts = reactive({});
 const championId = ref(null);
 const approvals = reactive({});
+const deadChips = ref(0);
 
 // Reset all inputs each time the modal opens (player set may have changed)
 watch(() => props.modelValue, (open) => {
   if (!open) return;
   mode.value = 'icm';
   championId.value = null;
+  deadChips.value = 0;
   for (const key of Object.keys(stacks)) delete stacks[key];
   for (const key of Object.keys(amounts)) delete amounts[key];
   for (const key of Object.keys(approvals)) delete approvals[key];
@@ -172,6 +193,12 @@ watch(() => props.modelValue, (open) => {
     approvals[p.id] = false;
   }
 });
+
+// Expected chips still on the table = entries × startingChips minus any chips
+// that left play (abandoned / dead chips the host entered).
+const effectiveExpectedChips = computed(() =>
+  Math.max(0, props.expectedChips - (Number(deadChips.value) || 0))
+);
 
 const remainingPool = computed(() =>
   props.prizes.reduce((sum, p) => sum + (Number(p.prize) || 0), 0)
@@ -184,7 +211,7 @@ const stacksAllPositive = computed(() =>
   props.players.every((p) => (Number(stacks[p.id]) || 0) > 0)
 );
 const chipsMatch = computed(() =>
-  props.expectedChips <= 0 || stacksTotal.value === props.expectedChips
+  props.expectedChips <= 0 || stacksTotal.value === effectiveExpectedChips.value
 );
 
 const amountsTotal = computed(() =>
@@ -264,6 +291,7 @@ const handleConfirm = () => {
     stacks: mode.value === 'custom'
       ? null
       : Object.fromEntries(props.players.map((p) => [p.id, Number(stacks[p.id]) || 0])),
+    deadChips: mode.value === 'custom' ? 0 : (Number(deadChips.value) || 0),
     allocations: allocations.value.map(({ playerId, prize, placement }) => ({ playerId, prize, placement })),
     approvals: props.players.map((p) => ({ playerId: p.id, name: p.name })),
   });

@@ -437,14 +437,15 @@ const dealPrizes = computed(() => {
 });
 
 // Total chips in play = total entries ever made × starting stack — used to
-// sanity-check the host's chip-count inputs (0 = config unknown, check skipped)
+// sanity-check the host's chip-count inputs (0 = config unknown, check skipped).
+// Entries are derived from the WHOLE prize pool (every buy-in + re-entry across
+// all players, eliminated included) ÷ base buy-in, so re-entries are counted.
 const expectedChips = computed(() => {
   const startingChips = tournamentConfig.value?.startingChips || 0;
-  if (!startingChips) return 0;
   const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
-  const totalEntries = (game.value?.players || []).reduce(
-    (sum, p) => sum + Math.max(1, Math.round((p.buyIn || 0) / baseBuyIn)), 0
-  );
+  if (!startingChips || baseBuyIn <= 0) return 0;
+  const totalBuyIns = (game.value?.players || []).reduce((sum, p) => sum + (p.buyIn || 0), 0);
+  const totalEntries = Math.round(totalBuyIns / baseBuyIn);
   return totalEntries * startingChips;
 });
 

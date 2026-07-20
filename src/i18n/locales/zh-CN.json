@@ -519,6 +519,8 @@
     "dealChipsTotal": "筹码合计",
     "dealChipsExpected": "应为",
     "dealChipsMismatch": "筹码合计与场上总筹码不符",
+    "dealDeadChips": "弃码（已离场筹码）",
+    "dealDeadChipsHint": "若有玩家中途离场且筹码已移出台面，填入被移除的筹码数，“应为”会自动扣除",
     "dealCustom": "自定义",
     "dealCustomAmount": "输入各玩家分配金额",
     "dealAmountSum": "分配合计",
