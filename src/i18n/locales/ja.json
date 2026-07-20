@@ -624,6 +624,8 @@
     "create": "ライブイベントを作成",
     "edit": "イベントを編集",
     "myEvents": "マイイベント",
+    "historyEvents": "過去のイベント",
+    "noHistoryEvents": "終了したイベントはまだありません",
     "noEvents": "イベントはまだありません",
     "name": "イベント名",
     "dateTime": "日付と時刻",

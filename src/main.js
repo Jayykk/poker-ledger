@@ -123,6 +123,7 @@ import DealerClockDemoView from './views/DealerClockDemoView.vue';
 import TournamentGameView from './views/TournamentGameView.vue';
 import SessionView from './views/SessionView.vue';
 import SessionSetupView from './views/SessionSetupView.vue';
+import SessionHistoryView from './views/SessionHistoryView.vue';
 import TableManagementView from './views/admin/TableManagementView.vue';
 import CashTableEditView from './views/admin/CashTableEditView.vue';
 import TournamentEditView from './views/admin/TournamentEditView.vue';
@@ -181,6 +182,7 @@ import { logger } from "./utils/logger.js";
       { path: '/session-setup', name: 'SessionSetup', component: SessionSetupView, meta: { requiresAuth: true } },
       { path: '/session-setup/:sessionId', name: 'SessionSetupEdit', component: SessionSetupView, meta: { requiresAuth: true } },
       { path: '/session/:sessionId', name: 'Session', component: SessionView, meta: { requiresAuth: true } },
+      { path: '/session-history', name: 'SessionHistory', component: SessionHistoryView, meta: { requiresAuth: true } },
       { path: '/admin/tables', name: 'AdminTables', component: TableManagementView, meta: { requiresAuth: true } },
       { path: '/admin/cash/:gameId', name: 'AdminCashEdit', component: CashTableEditView, meta: { requiresAuth: true } },
       { path: '/admin/tournament/:sessionId', name: 'AdminTournamentEdit', component: TournamentEditView, meta: { requiresAuth: true } }

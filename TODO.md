@@ -16,9 +16,10 @@
 - [ ] **sessions `periods` 深層驗證需 CF**：rules 已限制非主辦者只能動
       periods/participantUids、不得增減時段、participantUids 只能加減自己；
       但 periods 內各時段的 roster「內容」仍可被整包改寫——完整防護需把 RSVP 改走 Cloud Functions
-- [ ] **rules 自動部署**：CI 目前只測試不部署（firebase-deploy 部署前已加 emulator 測試 gate）。
-      待辦：人工比對 production rules 與 repo 版本一致後，評估把
-      `firebase deploy --only firestore:rules,firestore:indexes` 納入 firebase-deploy.yml
+- [x] ~~**rules 自動部署**~~：2026-07-20 完成。人工比對後（production 落後 repo，
+      缺 7 月收緊 + leaderboardStats）已用 Rules REST API 部署至 poker-tw
+      （ruleset 4d588a81），並把 firebase-deploy.yml 改為
+      `--only functions,firestore` 自動部署 rules/indexes
 - [ ] **（德撲）客戶端自動結算 double-settle 競態**（`src/store/modules/poker.js:446-472`）：
       每個連線客戶端的 onSnapshot 都跑非原子 check-then-act，多客戶端可同時觸發結算；
       失敗時重置 `settling:false` 會再觸發。**金流相關，建議近期修復**：
@@ -56,15 +57,10 @@
 
 - [ ] **執行 `scripts/migrate_entries_to_events.js`**（先 `--dry-run` 驗證，確認後
       `--delete-old`；需 production service account 憑證，須由維護者手動執行）
-- [ ] **執行 `functions/scripts/migrate_legacy_history_to_history_sub.js`**
-      （legacy `users.history` 陣列 → `history_sub` 收斂單一來源；F1~F4 前置）。
-      順序：`--dry-run` → `--uid` 單人試跑並開 app 驗證 → 全量 → `--verify` 零 mismatch
-      → `--delete-legacy`（會先備份 JSON 才刪欄位）。需 production SA 憑證，手動執行
-  - `user.js` 的 `limit(50)` 已於 feat/leaderboard-stats 分支移除，刪 legacy 無此顧慮
-  - 完成後可刪 `user.js` 的 legacy merge 程式碼（排行榜端已改讀 `leaderboardStats`）
-- [ ] **執行 `functions/scripts/backfill_leaderboard_stats.js`**（在上面的 legacy 遷移
-      **之後**跑；重算所有使用者的 `leaderboardStats` 彙總，冪等可重跑。
-      部署 functions + rules 後、排行榜新版上線前執行，否則排行榜是空的）
+- [x] ~~**legacy history 遷移**~~：2026-07-20 全流程完成——正式遷移 133 筆、
+      `--verify` 33/33 通過、backfill 重算 42 人 / 382 份、`--delete-legacy`
+      逐人驗證後刪除 33 人的 `users.history`（備份於本機 scripts-output/，已 gitignore）。
+      `user.js` 的 legacy merge 程式碼已移除，`history_sub` 為唯一歷史來源
 - [ ] **LINE Phase 1 人工驗證**：LINE App 內開 LIFF 自動登入進 Lobby、
       外部瀏覽器維持 email/guest 登入、頭像暱稱顯示為 LINE profile
 - [ ] **德撲真機驗收**（§4-5 殘留）：兩支手機點連結到打完一手 ≤ 90 秒、
@@ -126,8 +122,9 @@
     **協議冠軍即冠軍**——統計照常計入，`dealt` 旗標僅供歷史明細顯示「協議」標記
   - MVP 同意機制 = 主辦者逐人代勾（口頭同意，勾選紀錄寫進 deal）；
     玩家 in-app 按同意留待後續（需 rules 開放非主辦者寫入或走 CF，成本高）
-- [ ] **大廳「我的活動」隱藏已結束**：我的活動列表過濾已結束場次，
-      區塊右側加「歷史活動」連結（新頁或既有列表帶 filter；資料源 `useSessions`）
+- [x] ~~**大廳「我的活動」隱藏已結束**~~：已於 feat/lobby-history 實作——
+      大廳過濾 `status === 'completed'`，標題右側「歷史活動」連結 →
+      新頁 `/session-history`（SessionHistoryView，重用 useSessions 快取）
 - [x] ~~**排行榜賽制 filter + 冠亞軍次數**~~：已於 feat/leaderboard-stats 實作
       （賽制切換 全部/限時賽/錦標賽 + 錦標賽限定「冠亞軍」排序，🏆/🥈 次數顯示）
 
