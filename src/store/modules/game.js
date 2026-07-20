@@ -21,7 +21,12 @@ import { useAuthStore } from './auth.js';
 import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';
 import { createSyncRequestToken } from '../../utils/historyProjection.js';
 import { timestampToMillis } from '../../utils/formatters.js';
-import { buildCashSettlement, buildTournamentSettlement } from '../../utils/settlementMath.js';
+import {
+  buildCashSettlement,
+  buildTournamentSettlement,
+  buildTournamentPrizeMap,
+  buildDealSettlement,
+} from '../../utils/settlementMath.js';
 
 function getEffectiveTournamentLevel(levels = [], currentLevelIndex = 0) {
   const normalizedIndex = Number.isFinite(Number(currentLevelIndex))
@@ -727,6 +732,135 @@ export const useGameStore = defineStore('game', () => {
   };
 
   /**
+   * Settle a tournament via a negotiated deal (協議結算).
+   *
+   * The remaining in-the-money players receive their negotiated prizes and
+   * placements; already-eliminated players keep their normal placement prizes.
+   * Because the game ends with 2+ players still alive, eliminatePlayer's
+   * auto-end path never fires — so this also ends the linked tournament
+   * session (clock) itself.
+   *
+   * @param {Array<{place: number, percentage: number}>} payoutRatios
+   * @param {object} deal - { mode: 'icm'|'chipchop'|'custom',
+   *   stacks: Object<playerId, chips>|null,
+   *   allocations: Array<{playerId, prize, placement}>,
+   *   approvals: Array<{playerId, name}> }
+   */
+  const settleTournamentWithDeal = async (payoutRatios = [], deal = {}) => {
+    if (!gameId.value) return false;
+
+    loading.value = true;
+    try {
+      const settledGameId = gameId.value;
+      const syncToken = createSyncRequestToken('settle-tournament');
+      let settlementResult = [];
+
+      await runTransaction(db, async (t) => {
+        const gameRef = doc(db, 'games', settledGameId);
+        const gameDoc = await t.get(gameRef);
+        if (!gameDoc.exists()) throw new Error('Game not found');
+
+        const gameData = gameDoc.data();
+        const players = gameData.players || [];
+        const allocations = deal.allocations || [];
+
+        // All reads before writes (Firestore transaction rule).
+        const sessionId = gameData.tournamentSessionId;
+        let sessionRef = null;
+        if (sessionId) {
+          sessionRef = doc(db, 'tournamentSessions', sessionId);
+          const sessionSnap = await t.get(sessionRef);
+          if (!sessionSnap.exists()) sessionRef = null;
+        }
+
+        // The deal must cover EXACTLY the currently-alive players. If an
+        // elimination or re-entry landed while the deal modal was open, the
+        // negotiated numbers are stale — abort instead of writing bad money.
+        const aliveIds = players.filter((p) => !p.eliminated).map((p) => p.id).sort();
+        const dealIds = allocations.map((a) => a.playerId).sort();
+        if (
+          aliveIds.length !== dealIds.length ||
+          aliveIds.some((id, i) => id !== dealIds[i])
+        ) {
+          throw new Error('DEAL_STATE_CHANGED');
+        }
+
+        // Integrity: the negotiated total must equal the undecided share of
+        // the pool (places 1..aliveCount) — recomputed here from the LATEST
+        // buy-ins, not trusted from the client modal.
+        const totalBuyIns = players.reduce((sum, p) => sum + (p.buyIn || 0), 0);
+        const prizeMap = buildTournamentPrizeMap(totalBuyIns, payoutRatios);
+        let remainingPool = 0;
+        for (let place = 1; place <= aliveIds.length; place += 1) {
+          remainingPool += prizeMap[place] || 0;
+        }
+        const dealTotal = allocations.reduce((sum, a) => sum + (Number(a.prize) || 0), 0);
+        if (dealTotal !== remainingPool) throw new Error('DEAL_TOTAL_MISMATCH');
+
+        const allocMap = new Map(allocations.map((a) => [a.playerId, a]));
+        const updatedPlayers = players.map((p) => {
+          const alloc = allocMap.get(p.id);
+          return alloc ? { ...p, placement: alloc.placement } : p;
+        });
+
+        const settlement = buildDealSettlement(updatedPlayers, payoutRatios, allocations);
+        settlementResult = settlement;
+
+        if (sessionRef) {
+          t.update(sessionRef, {
+            'state.status': 'ended',
+            'state.timeLeftSeconds': 0,
+            'state.lastTickAt': null,
+            updatedAt: serverTimestamp(),
+          });
+        }
+
+        t.update(gameRef, {
+          players: updatedPlayers,
+          status: GAME_STATUS.COMPLETED,
+          rate: 1,
+          payoutRatios,
+          settlementSnapshot: settlement,
+          // Audit trail: how the money was agreed on. `dealt` marks the game
+          // for history/detail views ("協議" badge); stats count deal champions
+          // as champions like any other.
+          dealt: true,
+          deal: {
+            mode: deal.mode || 'custom',
+            stacks: deal.stacks || null,
+            allocations,
+            approvals: deal.approvals || [],
+            dealtAt: serverTimestamp(),
+          },
+          completedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          'historyProjection.requestToken': syncToken,
+          'historyProjection.requestedAt': serverTimestamp(),
+        });
+      });
+
+      return {
+        success: true,
+        settlement: settlementResult,
+        gameId: settledGameId,
+        syncToken,
+      };
+    } catch (err) {
+      console.error('Settle tournament deal error:', err);
+      if (err.message === 'DEAL_STATE_CHANGED') {
+        error.value = 'DEAL_STATE_CHANGED';
+      } else if (err.message === 'DEAL_TOTAL_MISMATCH') {
+        error.value = 'DEAL_TOTAL_MISMATCH';
+      } else {
+        error.value = 'Failed to settle tournament deal: ' + err.message;
+      }
+      return false;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  /**
    * Load my rooms (active rooms created or joined by user)
    * Note: For better performance with many active games, consider:
    * - Using a compound query with an array-contains filter
@@ -814,6 +948,7 @@ export const useGameStore = defineStore('game', () => {
     eliminatePlayer,
     reentryPlayer,
     settleTournament,
+    settleTournamentWithDeal,
     clearCurrentGame,
     loadMyRooms,
     cleanup
