@@ -13,6 +13,22 @@
       </button>
     </div>
 
+    <!-- Game format filter (hidden for special hands: those are online-poker global) -->
+    <div v-if="selectedSort !== 'specialHands'" class="mb-3">
+      <div class="text-xs text-gray-400 mb-2">{{ $t('friends.gameType') }}</div>
+      <div class="flex gap-2 flex-wrap">
+        <button
+          v-for="gt in gameTypeOptions"
+          :key="gt.value"
+          @click="selectedGameType = gt.value"
+          class="px-3 py-1 rounded-lg text-sm transition"
+          :class="selectedGameType === gt.value ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300 hover:bg-slate-600'"
+        >
+          {{ $t(`friends.${gt.label}`) }}
+        </button>
+      </div>
+    </div>
+
     <!-- Sort selector -->
     <div class="mb-3">
       <div class="text-xs text-gray-400 mb-2">{{ $t('friends.sortBy') }}</div>
@@ -112,6 +128,11 @@
           >
             {{ entry.winRate }}%
           </div>
+          <div v-else-if="selectedSort === 'champion'"
+            class="text-xl font-mono font-bold text-amber-400"
+          >
+            🏆 {{ entry.champion }}
+          </div>
           <div v-else-if="selectedSort === 'specialHands'"
             class="text-xl font-mono font-bold text-amber-400"
           >
@@ -120,6 +141,7 @@
           <div class="text-xs text-gray-400">
             <span v-if="selectedSort === 'profit'">{{ entry.winRate }}% {{ $t('friends.winRateLabel') }}</span>
             <span v-else-if="selectedSort === 'winRate'">{{ formatNumber(entry.profit) }} {{ $t('friends.profitLabel') }}</span>
+            <span v-else-if="selectedSort === 'champion'">🥈 {{ entry.runnerUp }}</span>
             <span v-else-if="selectedSort === 'specialHands'">{{ entry.winRate }}% {{ $t('friends.winRateLabel') }}</span>
           </div>
         </div>
@@ -155,6 +177,11 @@
             >
               {{ myRankInfo.winRate }}%
             </div>
+            <div v-else-if="selectedSort === 'champion'"
+              class="text-xl font-mono font-bold text-amber-400"
+            >
+              🏆 {{ myRankInfo.champion }}
+            </div>
             <div v-else-if="selectedSort === 'specialHands'"
               class="text-xl font-mono font-bold text-amber-400"
             >
@@ -181,24 +208,29 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { collection, getDocs, query, collectionGroup, doc, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where, collectionGroup, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
 import { useAuth } from '../../composables/useAuth.js';
 import BaseCard from '../common/BaseCard.vue';
 import HandDetailsModal from './HandDetailsModal.vue';
 import { formatNumber } from '../../utils/formatters.js';
 import { HAND_TYPES } from '../../utils/constants.js';
+// Shared with the Cloud Function recompute so period boundaries always agree.
+// (Vite bundles across functions/; the reverse import direction would not
+// survive `firebase deploy`, which uploads the functions folder only.)
+import { periodKeysForMillis } from '../../../functions/src/utils/leaderboardStatsMath.js';
 
 const { t } = useI18n();
 const { user } = useAuth();
 
 const selectedPeriod = ref('thisMonth');
+const selectedGameType = ref('all');
 const selectedSort = ref('profit');
 const selectedHandType = ref('total'); // Filter for special hands - use 'total' instead of 'all'
 const minGames = ref(3); // Minimum games threshold for win-rate sort
-const leaderboardData = ref([]);
+const statsRows = ref([]);
 const specialHandsData = ref({});
 const showHandDetailsModal = ref(false);
 const selectedUserId = ref('');
@@ -213,11 +245,24 @@ const periods = [
   { value: 'allTime', label: 'allTime' }
 ];
 
-const sortOptions = [
-  { value: 'profit', label: 'sortByProfit' },
-  { value: 'winRate', label: 'sortByWinRate' },
-  { value: 'specialHands', label: 'sortBySpecialHands' }
+const gameTypeOptions = [
+  { value: 'all', label: 'typeAll' },
+  { value: 'cash', label: 'typeCash' },
+  { value: 'tournament', label: 'typeTournament' }
 ];
+
+// Champion sort only makes sense within the tournament format
+const sortOptions = computed(() => {
+  const options = [
+    { value: 'profit', label: 'sortByProfit' },
+    { value: 'winRate', label: 'sortByWinRate' },
+  ];
+  if (selectedGameType.value === 'tournament') {
+    options.push({ value: 'champion', label: 'sortByChampion' });
+  }
+  options.push({ value: 'specialHands', label: 'sortBySpecialHands' });
+  return options;
+});
 
 const handTypeOptions = [
   { value: 'royalFlush', label: 'royalFlush' },
@@ -244,75 +289,47 @@ const myRankInfo = computed(() => {
 });
 
 const rankedEntries = computed(() => {
-  // Filter by selected period using actual calendar boundaries
-  const now = new Date();
-  let cutoffTime = 0;
+  // Special hands are an online-poker tally, orthogonal to the ledger game
+  // format — always rank them against the overall (total) bucket.
+  const bucketKey = selectedSort.value === 'specialHands' ? 'all' : selectedGameType.value;
 
-  if (selectedPeriod.value === 'thisWeek') {
-    // Start of current week (Monday 00:00:00)
-    const dayOfWeek = now.getDay(); // 0 = Sunday
-    const daysSinceMonday = (dayOfWeek + 6) % 7;
-    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday);
-    cutoffTime = monday.getTime();
-  } else if (selectedPeriod.value === 'thisMonth') {
-    cutoffTime = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  } else if (selectedPeriod.value === 'thisQuarter') {
-    const quarterMonth = Math.floor(now.getMonth() / 3) * 3;
-    cutoffTime = new Date(now.getFullYear(), quarterMonth, 1).getTime();
-  } else if (selectedPeriod.value === 'thisYear') {
-    cutoffTime = new Date(now.getFullYear(), 0, 1).getTime();
-  } else {
-    cutoffTime = 0; // allTime
-  }
-  
-  // Filter data by selected period
-  const filteredData = leaderboardData.value.map(entry => {
-    const periodHistory = cutoffTime === 0
-      ? entry.history.filter(h => (typeof h.createdAt === 'number' ? h.createdAt : 0) > 0)
-      : entry.history.filter(h => {
-          const timestamp = typeof h.createdAt === 'number' ? h.createdAt : 0;
-          return timestamp > 0 && timestamp >= cutoffTime;
-        });
-    
-    if (periodHistory.length === 0) return null;
-    
-    const totalProfit = periodHistory.reduce((sum, h) => {
-      const rate = h.rate || 1;
-      return sum + (h.profit / rate);
-    }, 0);
-    const games = periodHistory.length;
-    const winningGames = periodHistory.filter(h => h.profit > 0).length;
-    const winRate = games > 0 ? Math.round((winningGames / games) * 100) : 0;
-    
-    const userSpecialHands = specialHandsData.value[entry.uid] || {};
-    const specialHandsCount = userSpecialHands[selectedHandType.value] || 0;
-    
+  const entries = statsRows.value.map((row) => {
+    const bucket = bucketKey === 'all' ? row.total : row[bucketKey];
+    if (!bucket || bucket.games <= 0) return null;
+
+    const userSpecialHands = specialHandsData.value[row.uid] || {};
+
     return {
-      uid: entry.uid,
-      name: entry.name,
-      games,
-      profit: Math.round(totalProfit),
-      winRate,
-      specialHands: specialHandsCount
+      uid: row.uid,
+      name: row.name,
+      games: bucket.games,
+      profit: Math.round(bucket.profit),
+      winRate: Math.round((bucket.wins / bucket.games) * 100),
+      champion: row.tournament?.champion || 0,
+      runnerUp: row.tournament?.runnerUp || 0,
+      specialHands: userSpecialHands[selectedHandType.value] || 0
     };
   }).filter(entry => entry !== null);
-  
-  // Filter out entries with games === 0
-  let validEntries = filteredData.filter(entry => entry.games > 0);
-  
+
   // Sort based on selected mode
   if (selectedSort.value === 'profit') {
-    validEntries.sort((a, b) => b.profit - a.profit);
-  } else if (selectedSort.value === 'winRate') {
-    // Apply min games threshold so flukes don't dominate
-    validEntries = validEntries.filter(entry => entry.games >= minGames.value);
-    validEntries.sort((a, b) => b.winRate - a.winRate || b.games - a.games);
-  } else if (selectedSort.value === 'specialHands') {
-    validEntries = validEntries.filter(entry => entry.specialHands > 0);
-    validEntries.sort((a, b) => b.specialHands - a.specialHands);
+    return [...entries].sort((a, b) => b.profit - a.profit);
   }
-  
-  return validEntries;
+  if (selectedSort.value === 'winRate') {
+    // Apply min games threshold so flukes don't dominate
+    return entries
+      .filter(entry => entry.games >= minGames.value)
+      .sort((a, b) => b.winRate - a.winRate || b.games - a.games);
+  }
+  if (selectedSort.value === 'champion') {
+    return entries
+      .filter(entry => entry.champion + entry.runnerUp > 0)
+      .sort((a, b) => b.champion - a.champion || b.runnerUp - a.runnerUp || b.profit - a.profit);
+  }
+  // specialHands
+  return entries
+    .filter(entry => entry.specialHands > 0)
+    .sort((a, b) => b.specialHands - a.specialHands);
 });
 
 const getRankClass = (index) => {
@@ -320,95 +337,56 @@ const getRankClass = (index) => {
   return 'bg-slate-600 text-gray-300';
 };
 
-// Convert a Firestore Timestamp / number / ISO string to a millisecond number
-const toMillis = (value) => {
-  if (!value) return 0;
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') {
-    const parsed = Date.parse(value);
-    return Number.isNaN(parsed) ? 0 : parsed;
-  }
-  if (typeof value.toMillis === 'function') return value.toMillis();
-  if (typeof value.seconds === 'number') return value.seconds * 1000;
-  return 0;
+// Map a UI period tab to its leaderboardStats period key (Asia/Taipei calendar,
+// same helper the Cloud Function recompute uses — see leaderboardStatsMath.js).
+const currentPeriodKey = (periodValue) => {
+  const keys = periodKeysForMillis(Date.now());
+  return {
+    thisWeek: keys.week,
+    thisMonth: keys.month,
+    thisQuarter: keys.quarter,
+    thisYear: keys.year,
+    allTime: keys.all,
+  }[periodValue] || keys.all;
 };
 
-const loadLeaderboard = async () => {
+// One query per period tab, cached for the component's lifetime. Replaces the
+// old O(users × games) full scan (every user doc + every history_sub subcollection).
+const statsCache = new Map();
+
+const loadStats = async () => {
+  const key = currentPeriodKey(selectedPeriod.value);
+  if (statsCache.has(key)) {
+    statsRows.value = statsCache.get(key);
+    return;
+  }
+
+  isLoading.value = true;
   try {
-    // Fetch all users from Firestore
-    const usersRef = collection(db, 'users');
-    const snapshot = await getDocs(usersRef);
-
-    const candidates = [];
-
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      // Exclude anonymous users
-      if (data.isAnonymous) return;
-
-      // Priority: name > displayName
-      const name = data.name || data.displayName || null;
-      if (!name) return;
-
-      candidates.push({
-        uid: doc.id,
-        name,
-        legacyHistory: Array.isArray(data.history) ? data.history : [],
-      });
-    });
-
-    // For every candidate, also fetch history_sub (projected per-game records).
-    // Merge legacy + projected, deduped by gameId. This mirrors the merge logic
-    // used by the user store (src/store/modules/user.js).
-    const merged = await Promise.all(
-      candidates.map(async (entry) => {
-        let projected = [];
-        try {
-          const historySubRef = collection(db, 'users', entry.uid, 'history_sub');
-          const historySubSnapshot = await getDocs(historySubRef);
-          projected = historySubSnapshot.docs.map((d) => ({
-            ...d.data(),
-            gameId: d.id,
-          }));
-        } catch (err) {
-          console.error(`Error loading history_sub for user ${entry.uid}:`, err);
-        }
-
-        const byGameId = new Map();
-
-        // Legacy first; projected overwrites if same gameId (projection is canonical)
-        entry.legacyHistory.forEach((record, index) => {
-          const key = record.gameId || `legacy-${index}`;
-          byGameId.set(key, {
-            ...record,
-            createdAt: toMillis(record.createdAt) || toMillis(record.completedAt) || toMillis(record.date),
-          });
-        });
-
-        projected.forEach((record, index) => {
-          const key = record.gameId || `projected-${index}`;
-          byGameId.set(key, {
-            ...record,
-            createdAt: toMillis(record.createdAt) || toMillis(record.completedAt) || toMillis(record.date),
-          });
-        });
-
-        const history = Array.from(byGameId.values());
-        if (history.length === 0) return null;
-
-        return {
-          uid: entry.uid,
-          name: entry.name,
-          history,
-        };
-      })
-    );
-
-    leaderboardData.value = merged.filter((entry) => entry !== null);
+    const statsQuery = query(collection(db, 'leaderboardStats'), where('period', '==', key));
+    const snapshot = await getDocs(statsQuery);
+    // Anonymous / nameless accounts are flagged server-side and never rank
+    const rows = snapshot.docs
+      .map((docSnap) => docSnap.data())
+      .filter((row) => !row.hidden && row.name);
+    statsCache.set(key, rows);
+    statsRows.value = rows;
   } catch (err) {
-    console.error('Load leaderboard error:', err);
+    console.error('Load leaderboard stats error:', err);
+    statsRows.value = [];
+  } finally {
+    isLoading.value = false;
   }
 };
+
+watch(selectedPeriod, loadStats);
+
+// Leaving the tournament format invalidates the champion sort
+watch(selectedGameType, (gameType) => {
+  if (gameType !== 'tournament' && selectedSort.value === 'champion') {
+    selectedSort.value = 'profit';
+  }
+});
 
 const loadSpecialHands = async () => {
   try {
@@ -480,7 +458,7 @@ const handleViewHandDetails = (entry) => {
 onMounted(async () => {
   isLoading.value = true;
   try {
-    await Promise.all([loadLeaderboard(), loadSpecialHands()]);
+    await Promise.all([loadStats(), loadSpecialHands()]);
   } finally {
     isLoading.value = false;
   }

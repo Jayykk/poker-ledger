@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getFirestore } from '../utils/db.js';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { roundNumber, toMillis } from '../utils/numbers.js';
+import { recomputeLeaderboardStatsForUser } from './leaderboardStats.js';
 
 const HISTORY_SUBCOLLECTION = 'history_sub';
 const PROJECTION_VERSION = 1;
@@ -380,6 +381,19 @@ export async function syncCompletedGameHistoryProjection(gameId, options = {}) {
   );
 
   await batch.commit();
+
+  // Refresh leaderboard aggregates for every user whose history changed.
+  // Runs AFTER the projection commit and never throws: the projection is the
+  // source of truth and must not be rolled back by an aggregation failure —
+  // a missed refresh self-heals on the next sync or via the backfill script.
+  const statsUserIds = [...new Set([...nextUserIds, ...staleUserIds])];
+  for (const uid of statsUserIds) {
+    try {
+      await recomputeLeaderboardStatsForUser(db, uid);
+    } catch (statsError) {
+      console.error(`leaderboardStats recompute failed for user ${uid}:`, statsError);
+    }
+  }
 
   return {
     gameId,
