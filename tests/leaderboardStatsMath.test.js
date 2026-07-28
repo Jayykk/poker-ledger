@@ -107,6 +107,38 @@ describe('aggregateHistoryRecords', () => {
     expect(t.itm).toBe(2);
   });
 
+  it('aggregates tournament ROI inputs and known rebuy snapshots', () => {
+    const records = [{
+      type: 'tournament', profit: 1000, baseBuyIn: 1000, createdAt: at,
+      settlement: [{
+        odId: uid, buyIn: 3000, prize: 4000, profit: 1000,
+        entryCount: 3, rebuyCount: 2,
+      }],
+    }];
+
+    expect(aggregateHistoryRecords(uid, records).get('all').tournament).toMatchObject({
+      games: 1,
+      totalBuyIn: 3000,
+      totalPrize: 4000,
+      rebuyCount: 2,
+      rebuyKnownGames: 1,
+    });
+  });
+
+  it('keeps ROI inputs without guessing legacy rebuy counts', () => {
+    const records = [{
+      type: 'tournament', profit: 500, createdAt: at,
+      settlement: [{ odId: uid, buyIn: 1000, prize: 1500, profit: 500 }],
+    }];
+
+    expect(aggregateHistoryRecords(uid, records).get('all').tournament).toMatchObject({
+      totalBuyIn: 1000,
+      totalPrize: 1500,
+      rebuyCount: 0,
+      rebuyKnownGames: 0,
+    });
+  });
+
   it('counts unknown-type records in totals only', () => {
     const records = [{ profit: 100, createdAt: at }];
     const monthly = aggregateHistoryRecords(uid, records).get('2026-07');

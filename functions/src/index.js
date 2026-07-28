@@ -53,6 +53,11 @@ import {
   shouldSyncCompletedGame,
   syncCompletedGameHistoryProjection,
 } from './handlers/gameHistoryProjection.js';
+import { getFirestore } from './utils/db.js';
+import {
+  settleTournamentDeal as settleTournamentDealHandler,
+  settleTournamentGame as settleTournamentGameHandler,
+} from './handlers/tournamentSettlement.js';
 
 // Initialize Firebase Admin
 initializeApp();
@@ -67,6 +72,22 @@ const HOT_CALLABLE_OPTS = { minInstances: POKER_ACTION_MIN_INSTANCES };
 
 // Shared options for the Cloud Tasks HTTP endpoints (signed-task callers).
 const TASK_HTTP_OPTS = { cors: true, region: FUNCTIONS_REGION };
+
+export const settleTournamentGame = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
+  const gameId = request.data?.gameId;
+  if (!gameId) throw new HttpsError('invalid-argument', 'Missing gameId');
+  return settleTournamentGameHandler({ gameId, callerUid: request.auth.uid, db: getFirestore() });
+});
+
+export const settleTournamentDeal = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
+  const { gameId, deal } = request.data || {};
+  if (!gameId || !deal) throw new HttpsError('invalid-argument', 'Missing gameId or deal');
+  return settleTournamentDealHandler({
+    gameId, callerUid: request.auth.uid, deal, db: getFirestore(),
+  });
+});
 
 /**
  * Create a new poker game room

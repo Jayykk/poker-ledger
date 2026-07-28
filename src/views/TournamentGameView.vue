@@ -69,7 +69,7 @@
       >
         <i class="fas fa-trophy mr-1 text-amber-400"></i>{{ $t('tournament.viewClock') }}
       </BaseButton>
-      <BaseButton @click="showSettlement = true" variant="secondary">
+      <BaseButton v-if="isParticipant" @click="showSettlement = true" variant="secondary">
         {{ $t('tournament.settleTournament') }}
       </BaseButton>
     </div>
@@ -394,6 +394,10 @@ const isChampion = (player) => {
 
 const playersStillInPlay = computed(() =>
   activePlayers.value.filter(player => !isChampion(player))
+);
+
+const isParticipant = computed(() =>
+  (game.value?.players || []).some(player => player.uid === user.value?.uid)
 );
 
 const sortedPlayers = computed(() => {
@@ -738,9 +742,11 @@ const handleSettle = async () => {
   });
   if (shouldSettle) {
     await withLoading(async () => {
-      const settleResult = await settleTournament(payoutRatios.value);
+      const settleResult = await settleTournament();
       if (settleResult?.success) {
         await finalizeSettlement(settleResult);
+      } else {
+        showError(t(gameError.value || 'tournament.settlementFailed'));
       }
     }, t('loading.settling'));
   }
@@ -754,7 +760,7 @@ const handleDealConfirm = async (deal) => {
   if (!shouldSettle) return;
 
   await withLoading(async () => {
-    const settleResult = await settleTournamentWithDeal(payoutRatios.value, deal);
+    const settleResult = await settleTournamentWithDeal(deal);
     if (settleResult?.success) {
       await finalizeSettlement(settleResult);
       return;
@@ -766,7 +772,7 @@ const handleDealConfirm = async (deal) => {
     } else if (gameError.value === 'DEAL_TOTAL_MISMATCH') {
       showError(t('tournament.dealMismatch'));
     } else {
-      showError(gameError.value || 'Failed to settle deal');
+      showError(t(gameError.value || 'tournament.settlementFailed'));
     }
   }, t('loading.settling'));
 };

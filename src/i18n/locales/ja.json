@@ -255,6 +255,8 @@
     "sortByWinRate": "勝率",
     "sortBySpecialHands": "特殊役",
     "sortByChampion": "優勝・準優勝",
+    "sortByItm": "ITM",
+    "sortByRoi": "ROI",
     "gameType": "種目",
     "typeAll": "すべて",
     "typeCash": "キャッシュゲーム",
@@ -270,6 +272,8 @@
     "gamesCount": "{n} ゲーム",
     "winRateLabel": "勝率",
     "profitLabel": "収益",
+    "itmCount": "ITM {n} 回",
+    "rebuyCount": "Rebuy {n} 回",
     "minGames": "最小ゲーム数",
     "noLeaderboardData": "データがありません"
   },
@@ -537,6 +541,10 @@
     "playerName": "プレイヤー名",
     "prize": "賞金",
     "payoutRatiosNotLoaded": "賞金配分がまだ読み込まれていません。しばらくしてからもう一度お試しください"
+    ,"settlementPermissionDenied": "ルーム参加者のみ精算できます",
+    "settlementStateChanged": "トーナメントの状態が変更されました。更新して再試行してください",
+    "settlementUnavailable": "精算サービスを一時的に利用できません。後でもう一度お試しください",
+    "settlementFailed": "精算に失敗しました。後でもう一度お試しください"
   },
   "timeBank": {
     "title": "Time Bank",

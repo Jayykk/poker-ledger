@@ -17,16 +17,14 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
+import { functions } from '../../firebase-init.js';
+import { httpsCallable } from 'firebase/functions';
 import { useAuthStore } from './auth.js';
 import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';
 import { createSyncRequestToken } from '../../utils/historyProjection.js';
 import { timestampToMillis } from '../../utils/formatters.js';
-import {
-  buildCashSettlement,
-  buildTournamentSettlement,
-  buildTournamentPrizeMap,
-  buildDealSettlement,
-} from '../../utils/settlementMath.js';
+import { buildCashSettlement } from '../../utils/settlementMath.js';
+import { tournamentSettlementErrorKey } from '../../utils/tournamentSettlementErrors.js';
 
 function getEffectiveTournamentLevel(levels = [], currentLevelIndex = 0) {
   const normalizedIndex = Number.isFinite(Number(currentLevelIndex))
@@ -673,58 +671,17 @@ export const useGameStore = defineStore('game', () => {
    * Uses payoutRatios from the tournament session config to distribute the prize pool.
    * No exchange rate — buy-in is real money, profit = prize won − total buy-in paid.
    */
-  const settleTournament = async (payoutRatios = []) => {
+  const settleTournament = async () => {
     if (!gameId.value) return false;
 
     loading.value = true;
     try {
-      const settledGameId = gameId.value;
-      const syncToken = createSyncRequestToken('settle-tournament');
-      let settlementResult = [];
-
-      await runTransaction(db, async (t) => {
-        const gameRef = doc(db, 'games', settledGameId);
-        const gameDoc = await t.get(gameRef);
-        if (!gameDoc.exists()) throw new Error('Game not found');
-
-        const gameData = gameDoc.data();
-        const players = gameData.players;
-
-        // Auto-crown last alive player as champion (placement=1) if not already set
-        const alive = players.filter(p => !p.eliminated);
-        if (alive.length === 1 && !alive[0].placement) {
-          const champIdx = players.findIndex(p => p.id === alive[0].id);
-          players[champIdx] = { ...players[champIdx], placement: 1 };
-        }
-
-        // Settlement records include ALL players so even eliminated participants
-        // (no prize) get a history record; prize rounding is reconciled against
-        // the pool with the largest-remainder method (see settlementMath.js).
-        const settlement = buildTournamentSettlement(players, payoutRatios);
-        settlementResult = settlement;
-
-        t.update(gameRef, {
-          players,
-          status: GAME_STATUS.COMPLETED,
-          rate: 1,
-          payoutRatios,
-          settlementSnapshot: settlement,
-          completedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          'historyProjection.requestToken': syncToken,
-          'historyProjection.requestedAt': serverTimestamp(),
-        });
-      });
-
-      return {
-        success: true,
-        settlement: settlementResult,
-        gameId: settledGameId,
-        syncToken,
-      };
+      const callable = httpsCallable(functions, 'settleTournamentGame');
+      const response = await callable({ gameId: gameId.value });
+      return response.data;
     } catch (err) {
       console.error('Settle tournament error:', err);
-      error.value = 'Failed to settle tournament: ' + err.message;
+      error.value = tournamentSettlementErrorKey(err);
       return false;
     } finally {
       loading.value = false;
@@ -746,114 +703,22 @@ export const useGameStore = defineStore('game', () => {
    *   allocations: Array<{playerId, prize, placement}>,
    *   approvals: Array<{playerId, name}> }
    */
-  const settleTournamentWithDeal = async (payoutRatios = [], deal = {}) => {
+  const settleTournamentWithDeal = async (deal = {}) => {
     if (!gameId.value) return false;
 
     loading.value = true;
     try {
-      const settledGameId = gameId.value;
-      const syncToken = createSyncRequestToken('settle-tournament');
-      let settlementResult = [];
-
-      await runTransaction(db, async (t) => {
-        const gameRef = doc(db, 'games', settledGameId);
-        const gameDoc = await t.get(gameRef);
-        if (!gameDoc.exists()) throw new Error('Game not found');
-
-        const gameData = gameDoc.data();
-        const players = gameData.players || [];
-        const allocations = deal.allocations || [];
-
-        // All reads before writes (Firestore transaction rule).
-        const sessionId = gameData.tournamentSessionId;
-        let sessionRef = null;
-        if (sessionId) {
-          sessionRef = doc(db, 'tournamentSessions', sessionId);
-          const sessionSnap = await t.get(sessionRef);
-          if (!sessionSnap.exists()) sessionRef = null;
-        }
-
-        // The deal must cover EXACTLY the currently-alive players. If an
-        // elimination or re-entry landed while the deal modal was open, the
-        // negotiated numbers are stale — abort instead of writing bad money.
-        const aliveIds = players.filter((p) => !p.eliminated).map((p) => p.id).sort();
-        const dealIds = allocations.map((a) => a.playerId).sort();
-        if (
-          aliveIds.length !== dealIds.length ||
-          aliveIds.some((id, i) => id !== dealIds[i])
-        ) {
-          throw new Error('DEAL_STATE_CHANGED');
-        }
-
-        // Integrity: the negotiated total must equal the undecided share of
-        // the pool (places 1..aliveCount) — recomputed here from the LATEST
-        // buy-ins, not trusted from the client modal.
-        const totalBuyIns = players.reduce((sum, p) => sum + (p.buyIn || 0), 0);
-        const prizeMap = buildTournamentPrizeMap(totalBuyIns, payoutRatios);
-        let remainingPool = 0;
-        for (let place = 1; place <= aliveIds.length; place += 1) {
-          remainingPool += prizeMap[place] || 0;
-        }
-        const dealTotal = allocations.reduce((sum, a) => sum + (Number(a.prize) || 0), 0);
-        if (dealTotal !== remainingPool) throw new Error('DEAL_TOTAL_MISMATCH');
-
-        const allocMap = new Map(allocations.map((a) => [a.playerId, a]));
-        const updatedPlayers = players.map((p) => {
-          const alloc = allocMap.get(p.id);
-          return alloc ? { ...p, placement: alloc.placement } : p;
-        });
-
-        const settlement = buildDealSettlement(updatedPlayers, payoutRatios, allocations);
-        settlementResult = settlement;
-
-        if (sessionRef) {
-          t.update(sessionRef, {
-            'state.status': 'ended',
-            'state.timeLeftSeconds': 0,
-            'state.lastTickAt': null,
-            updatedAt: serverTimestamp(),
-          });
-        }
-
-        t.update(gameRef, {
-          players: updatedPlayers,
-          status: GAME_STATUS.COMPLETED,
-          rate: 1,
-          payoutRatios,
-          settlementSnapshot: settlement,
-          // Audit trail: how the money was agreed on. `dealt` marks the game
-          // for history/detail views ("協議" badge); stats count deal champions
-          // as champions like any other.
-          dealt: true,
-          deal: {
-            mode: deal.mode || 'custom',
-            stacks: deal.stacks || null,
-            deadChips: Number(deal.deadChips) || 0,
-            allocations,
-            approvals: deal.approvals || [],
-            dealtAt: serverTimestamp(),
-          },
-          completedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          'historyProjection.requestToken': syncToken,
-          'historyProjection.requestedAt': serverTimestamp(),
-        });
-      });
-
-      return {
-        success: true,
-        settlement: settlementResult,
-        gameId: settledGameId,
-        syncToken,
-      };
+      const callable = httpsCallable(functions, 'settleTournamentDeal');
+      const response = await callable({ gameId: gameId.value, deal });
+      return response.data;
     } catch (err) {
       console.error('Settle tournament deal error:', err);
-      if (err.message === 'DEAL_STATE_CHANGED') {
+      if (err.message?.includes('DEAL_STATE_CHANGED')) {
         error.value = 'DEAL_STATE_CHANGED';
-      } else if (err.message === 'DEAL_TOTAL_MISMATCH') {
+      } else if (err.message?.includes('DEAL_TOTAL_MISMATCH')) {
         error.value = 'DEAL_TOTAL_MISMATCH';
       } else {
-        error.value = 'Failed to settle tournament deal: ' + err.message;
+        error.value = tournamentSettlementErrorKey(err);
       }
       return false;
     } finally {
