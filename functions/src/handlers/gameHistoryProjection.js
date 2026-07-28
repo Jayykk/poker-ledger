@@ -3,6 +3,7 @@ import { getFirestore } from '../utils/db.js';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { roundNumber, toMillis } from '../utils/numbers.js';
 import { recomputeLeaderboardStatsForUser } from './leaderboardStats.js';
+import { deriveTournamentEntryMetrics } from '../utils/tournamentSettlementMath.js';
 
 const HISTORY_SUBCOLLECTION = 'history_sub';
 const PROJECTION_VERSION = 1;
@@ -64,7 +65,7 @@ function normalizePlayers(players) {
  * @return {object} Normalized settlement row.
  */
 function normalizeSettlementRow(row) {
-  return {
+  const normalized = {
     odId: row.odId || row.uid || null,
     name: row.name || '',
     buyIn: roundNumber(row.buyIn),
@@ -73,6 +74,9 @@ function normalizeSettlementRow(row) {
     prize: roundNumber(row.prize),
     profit: roundNumber(row.profit),
   };
+  if (Number.isInteger(row.entryCount)) normalized.entryCount = row.entryCount;
+  if (Number.isInteger(row.rebuyCount)) normalized.rebuyCount = row.rebuyCount;
+  return normalized;
 }
 
 /**
@@ -124,7 +128,7 @@ function buildTournamentSettlement(game) {
   return players
     .map((player) => {
       const prize = roundNumber(prizeMap[player.placement] || 0);
-      return {
+      const normalized = {
         odId: player.uid,
         name: player.name,
         placement: player.placement,
@@ -132,6 +136,8 @@ function buildTournamentSettlement(game) {
         prize,
         profit: roundNumber(prize - player.buyIn),
       };
+      const metrics = deriveTournamentEntryMetrics(player.buyIn, game.baseBuyIn);
+      return metrics ? { ...normalized, ...metrics } : normalized;
     })
     .sort((a, b) => (a.placement || 999) - (b.placement || 999));
 }
@@ -166,6 +172,7 @@ function buildProjectionSource(game) {
     type: game.type || 'live',
     name: game.name || '',
     rate: Number(game.rate) || 1,
+    baseBuyIn: roundNumber(game.baseBuyIn),
     createdAt: toMillis(game.createdAt),
     // updatedAt intentionally omitted: every saveGameConfig call bumps updatedAt, which
     // would cause a spurious re-sync even when no settlement-relevant data changed.
@@ -198,7 +205,7 @@ function extractProjectedUserIds(game) {
  * @param {object} game Source game document.
  * @return {Array<object>} Projection writes grouped by user id.
  */
-function buildUserProjectionDocs(gameId, game) {
+export function buildUserProjectionDocs(gameId, game) {
   const settlement = buildSettlementSnapshot(game);
   const rate = Number(game.rate) || 1;
   const syncToken = game.historyProjection?.requestToken || null;
@@ -223,6 +230,7 @@ function buildUserProjectionDocs(gameId, game) {
         completedAt: roundNumber(completedAt),
         profit: roundNumber(row.profit),
         rate,
+        baseBuyIn: roundNumber(game.baseBuyIn),
         placement: row.placement ?? null,
         settlement,
         sourceCollection: 'games',

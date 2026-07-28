@@ -255,6 +255,8 @@
     "sortByWinRate": "胜率",
     "sortBySpecialHands": "特殊牌型",
     "sortByChampion": "冠亚军",
+    "sortByItm": "ITM",
+    "sortByRoi": "ROI",
     "gameType": "赛制",
     "typeAll": "全部",
     "typeCash": "现金桌",
@@ -270,6 +272,8 @@
     "gamesCount": "{n} 场",
     "winRateLabel": "胜率",
     "profitLabel": "盈亏",
+    "itmCount": "ITM {n} 次",
+    "rebuyCount": "Rebuy {n} 次",
     "minGames": "最少场次",
     "noLeaderboardData": "目前无数据"
   },
@@ -537,6 +541,10 @@
     "playerName": "玩家名称",
     "prize": "奖金",
     "payoutRatiosNotLoaded": "奖金分配尚未加载，请稍候再试"
+    ,"settlementPermissionDenied": "只有房间参与者可以结算",
+    "settlementStateChanged": "牌局状态已变更，请刷新后重试",
+    "settlementUnavailable": "结算服务暂时无法使用，请稍后重试",
+    "settlementFailed": "结算失败，请稍后重试"
   },
   "timeBank": {
     "title": "Time Bank",

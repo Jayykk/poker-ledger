@@ -255,6 +255,8 @@
     "sortByWinRate": "勝率",
     "sortBySpecialHands": "特殊牌型",
     "sortByChampion": "冠亞軍",
+    "sortByItm": "ITM",
+    "sortByRoi": "ROI",
     "gameType": "賽制",
     "typeAll": "全部",
     "typeCash": "限時賽",
@@ -270,6 +272,8 @@
     "gamesCount": "{n} 場",
     "winRateLabel": "勝率",
     "profitLabel": "盈虧",
+    "itmCount": "ITM {n} 次",
+    "rebuyCount": "Rebuy {n} 次",
     "minGames": "最少場次",
     "noLeaderboardData": "目前無資料"
   },
@@ -534,6 +538,10 @@
     "dealStateChanged": "場上玩家已變動，協議數字已失效，請重新協議",
     "confirmSettle": "確定要結算此錦標賽嗎？",
     "payoutRatiosNotLoaded": "獎金分配尚未載入，請稍候再試",
+    "settlementPermissionDenied": "只有房間參與者可以結算",
+    "settlementStateChanged": "牌局狀態已變更，請重新整理後再試",
+    "settlementUnavailable": "結算服務暫時無法使用，請稍後再試",
+    "settlementFailed": "結算失敗，請稍後再試",
     "addPlayer": "新增玩家",
     "playerName": "玩家名稱",
     "prize": "獎金"

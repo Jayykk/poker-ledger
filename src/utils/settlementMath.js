@@ -1,6 +1,13 @@
 // Pure settlement math — extracted from store/modules/game.js so the money
 // logic is unit-testable without Firebase.
 
+export {
+  buildDealSettlement,
+  buildTournamentPrizeMap,
+  buildTournamentSettlement,
+  deriveTournamentEntryMetrics,
+} from '../../functions/src/utils/tournamentSettlementMath.js';
+
 /**
  * Build the per-placement prize map for a tournament.
  *
@@ -14,61 +21,6 @@
  * @param {Array<{place: number, percentage: number}>} payoutRatios
  * @returns {Object<number, number>} placement → prize (whole chips)
  */
-export function buildTournamentPrizeMap(totalBuyIns, payoutRatios = []) {
-  const pool = Number(totalBuyIns) || 0;
-  const entries = payoutRatios
-    .filter((r) => r && Number.isFinite(Number(r.percentage)) && Number(r.percentage) > 0)
-    .map((r) => ({ place: r.place, exact: (pool * Number(r.percentage)) / 100 }));
-  if (!entries.length) return {};
-
-  const totalExact = Math.round(entries.reduce((sum, e) => sum + e.exact, 0));
-  let distributed = 0;
-  const floored = entries.map((e) => {
-    const base = Math.floor(e.exact);
-    distributed += base;
-    return { ...e, base, remainder: e.exact - base };
-  });
-
-  // Hand the leftover chips to the largest remainders (ties: better placement first).
-  let leftover = totalExact - distributed;
-  const byRemainder = [...floored].sort(
-    (a, b) => b.remainder - a.remainder || a.place - b.place
-  );
-  for (const entry of byRemainder) {
-    if (leftover <= 0) break;
-    entry.base += 1;
-    leftover -= 1;
-  }
-
-  const prizeMap = {};
-  for (const e of floored) prizeMap[e.place] = e.base;
-  return prizeMap;
-}
-
-/**
- * Build tournament settlement records for all players (eliminated players get
- * a record too, with no prize). Sorted by placement, unplaced last.
- *
- * @param {Array} players - Game players ({id, uid, name, placement, buyIn})
- * @param {Array<{place: number, percentage: number}>} payoutRatios
- * @returns {Array} settlement records ({playerId, odId, name, placement, buyIn, prize, profit})
- */
-export function buildTournamentSettlement(players = [], payoutRatios = []) {
-  const totalBuyIns = players.reduce((sum, p) => sum + (p.buyIn || 0), 0);
-  const prizeMap = buildTournamentPrizeMap(totalBuyIns, payoutRatios);
-
-  return players
-    .map((p) => ({
-      playerId: p.id || null,
-      odId: p.uid || null,
-      name: p.name,
-      placement: p.placement || null,
-      buyIn: p.buyIn || 0,
-      prize: prizeMap[p.placement] || 0,
-      profit: (prizeMap[p.placement] || 0) - (p.buyIn || 0),
-    }))
-    .sort((a, b) => (a.placement || 999) - (b.placement || 999));
-}
 
 /**
  * Round a list of exact (fractional) amounts to whole numbers so they sum to
@@ -163,29 +115,6 @@ export function computeChipChopPayouts(stacks = [], pool = 0) {
  * @param {Array<{playerId: string, prize: number, placement: number}>} allocations
  * @returns {Array} settlement records ({playerId, odId, name, placement, buyIn, prize, profit})
  */
-export function buildDealSettlement(players = [], payoutRatios = [], allocations = []) {
-  const totalBuyIns = players.reduce((sum, p) => sum + (p.buyIn || 0), 0);
-  const prizeMap = buildTournamentPrizeMap(totalBuyIns, payoutRatios);
-  const allocMap = new Map(allocations.map((a) => [a.playerId, a]));
-
-  return players
-    .map((p) => {
-      const alloc = allocMap.get(p.id);
-      const placement = alloc ? alloc.placement : (p.placement || null);
-      const prize = alloc ? (Number(alloc.prize) || 0) : (prizeMap[p.placement] || 0);
-      return {
-        playerId: p.id || null,
-        odId: p.uid || null,
-        name: p.name,
-        placement,
-        buyIn: p.buyIn || 0,
-        prize,
-        profit: prize - (p.buyIn || 0),
-      };
-    })
-    .sort((a, b) => (a.placement || 999) - (b.placement || 999));
-}
-
 /**
  * Build cash-game settlement snapshot records (profit = stack − buyIn).
  *

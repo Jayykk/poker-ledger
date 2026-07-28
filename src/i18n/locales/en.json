@@ -255,6 +255,8 @@
     "sortByWinRate": "Win Rate",
     "sortBySpecialHands": "Special Hands",
     "sortByChampion": "Titles",
+    "sortByItm": "ITM",
+    "sortByRoi": "ROI",
     "gameType": "Format",
     "typeAll": "All",
     "typeCash": "Cash Game",
@@ -270,6 +272,8 @@
     "gamesCount": "{n} game(s)",
     "winRateLabel": "win rate",
     "profitLabel": "profit",
+    "itmCount": "ITM {n}",
+    "rebuyCount": "Rebuy {n}",
     "minGames": "Min games",
     "noLeaderboardData": "No data available"
   },
@@ -534,6 +538,10 @@
     "dealStateChanged": "Players changed during negotiation — the deal is stale, please renegotiate",
     "confirmSettle": "Settle this tournament?",
     "payoutRatiosNotLoaded": "Prize ratios are not loaded yet. Please wait a moment and try again.",
+    "settlementPermissionDenied": "Only room participants can settle this tournament",
+    "settlementStateChanged": "The tournament state changed. Refresh and try again",
+    "settlementUnavailable": "Settlement is temporarily unavailable. Try again later",
+    "settlementFailed": "Settlement failed. Try again later",
     "addPlayer": "Add Player",
     "playerName": "Player Name",
     "prize": "Prize"

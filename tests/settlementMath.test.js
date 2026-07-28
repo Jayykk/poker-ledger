@@ -6,7 +6,19 @@ import {
   computeIcmPayouts,
   computeChipChopPayouts,
   buildDealSettlement,
+  deriveTournamentEntryMetrics,
 } from '../src/utils/settlementMath.js';
+
+describe('deriveTournamentEntryMetrics', () => {
+  it('derives entries and rebuys from a fixed base buy-in', () => {
+    expect(deriveTournamentEntryMetrics(3000, 1000)).toEqual({ entryCount: 3, rebuyCount: 2 });
+  });
+
+  it('does not guess when buy-in values are inconsistent', () => {
+    expect(deriveTournamentEntryMetrics(2500, 1000)).toBeNull();
+    expect(deriveTournamentEntryMetrics(1000, 0)).toBeNull();
+  });
+});
 
 describe('buildTournamentPrizeMap', () => {
   it('distributes simple percentages exactly', () => {
@@ -84,6 +96,15 @@ describe('buildTournamentSettlement', () => {
     ]);
     const totalProfit = settlement.reduce((s, p) => s + p.profit, 0);
     expect(totalProfit).toBe(0);
+  });
+
+  it('snapshots entry and rebuy counts when base buy-in is known', () => {
+    const settlement = buildTournamentSettlement(players, [
+      { place: 1, percentage: 70 },
+      { place: 2, percentage: 30 },
+    ], 100);
+
+    expect(settlement[0]).toMatchObject({ entryCount: 3, rebuyCount: 2 });
   });
 });
 

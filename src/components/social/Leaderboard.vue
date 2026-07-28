@@ -61,8 +61,8 @@
       </div>
     </div>
 
-    <!-- Min games filter (only visible when sorting by winRate) -->
-    <div v-if="selectedSort === 'winRate'" class="mb-3 flex items-center gap-2 text-xs text-gray-400">
+    <!-- Min games filter for percentage-based rankings -->
+    <div v-if="['winRate', 'itm', 'roi'].includes(selectedSort)" class="mb-3 flex items-center gap-2 text-xs text-gray-400">
       <i class="fas fa-filter"></i>
       <span>{{ $t('friends.minGames') }}</span>
       <select
@@ -133,6 +133,12 @@
           >
             🏆 {{ entry.champion }}
           </div>
+          <div v-else-if="selectedSort === 'itm'" class="text-xl font-mono font-bold text-emerald-400">
+            {{ entry.itmRate.toFixed(1) }}%
+          </div>
+          <div v-else-if="selectedSort === 'roi'" class="text-xl font-mono font-bold" :class="roiClass(entry.roi)">
+            {{ entry.roi > 0 ? '+' : '' }}{{ entry.roi.toFixed(1) }}%
+          </div>
           <div v-else-if="selectedSort === 'specialHands'"
             class="text-xl font-mono font-bold text-amber-400"
           >
@@ -142,6 +148,10 @@
             <span v-if="selectedSort === 'profit'">{{ entry.winRate }}% {{ $t('friends.winRateLabel') }}</span>
             <span v-else-if="selectedSort === 'winRate'">{{ formatNumber(entry.profit) }} {{ $t('friends.profitLabel') }}</span>
             <span v-else-if="selectedSort === 'champion'">🥈 {{ entry.runnerUp }}</span>
+            <span v-else-if="selectedSort === 'itm'">{{ $t('friends.itmCount', { n: entry.itmCount }) }}</span>
+            <span v-else-if="selectedSort === 'roi'">
+              {{ entry.rebuyComplete ? $t('friends.rebuyCount', { n: entry.rebuyCount }) : $t('common.unknown') }}
+            </span>
             <span v-else-if="selectedSort === 'specialHands'">{{ entry.winRate }}% {{ $t('friends.winRateLabel') }}</span>
           </div>
         </div>
@@ -182,10 +192,22 @@
             >
               🏆 {{ myRankInfo.champion }}
             </div>
+            <div v-else-if="selectedSort === 'itm'" class="text-xl font-mono font-bold text-emerald-400">
+              {{ myRankInfo.itmRate.toFixed(1) }}%
+            </div>
+            <div v-else-if="selectedSort === 'roi'" class="text-xl font-mono font-bold" :class="roiClass(myRankInfo.roi)">
+              {{ myRankInfo.roi > 0 ? '+' : '' }}{{ myRankInfo.roi.toFixed(1) }}%
+            </div>
             <div v-else-if="selectedSort === 'specialHands'"
               class="text-xl font-mono font-bold text-amber-400"
             >
               {{ myRankInfo.specialHands }}
+            </div>
+            <div v-if="selectedSort === 'itm'" class="text-xs text-gray-400">
+              {{ $t('friends.itmCount', { n: myRankInfo.itmCount }) }}
+            </div>
+            <div v-else-if="selectedSort === 'roi'" class="text-xs text-gray-400">
+              {{ myRankInfo.rebuyComplete ? $t('friends.rebuyCount', { n: myRankInfo.rebuyCount }) : $t('common.unknown') }}
             </div>
           </div>
         </div>
@@ -221,6 +243,7 @@ import { HAND_TYPES } from '../../utils/constants.js';
 // (Vite bundles across functions/; the reverse import direction would not
 // survive `firebase deploy`, which uploads the functions folder only.)
 import { periodKeysForMillis } from '../../../functions/src/utils/leaderboardStatsMath.js';
+import { buildTournamentLeaderboardEntry, rankLeaderboardEntries } from '../../utils/leaderboardRanking.js';
 
 const { t } = useI18n();
 const { user } = useAuth();
@@ -258,7 +281,11 @@ const sortOptions = computed(() => {
     { value: 'winRate', label: 'sortByWinRate' },
   ];
   if (selectedGameType.value === 'tournament') {
-    options.push({ value: 'champion', label: 'sortByChampion' });
+    options.push(
+      { value: 'champion', label: 'sortByChampion' },
+      { value: 'itm', label: 'sortByItm' },
+      { value: 'roi', label: 'sortByRoi' },
+    );
   }
   options.push({ value: 'specialHands', label: 'sortBySpecialHands' });
   return options;
@@ -299,7 +326,7 @@ const rankedEntries = computed(() => {
 
     const userSpecialHands = specialHandsData.value[row.uid] || {};
 
-    return {
+    const baseEntry = {
       uid: row.uid,
       name: row.name,
       games: bucket.games,
@@ -309,6 +336,9 @@ const rankedEntries = computed(() => {
       runnerUp: row.tournament?.runnerUp || 0,
       specialHands: userSpecialHands[selectedHandType.value] || 0
     };
+    return bucketKey === 'tournament'
+      ? { ...baseEntry, ...buildTournamentLeaderboardEntry(row), specialHands: baseEntry.specialHands }
+      : baseEntry;
   }).filter(entry => entry !== null);
 
   // Sort based on selected mode
@@ -326,6 +356,9 @@ const rankedEntries = computed(() => {
       .filter(entry => entry.champion + entry.runnerUp > 0)
       .sort((a, b) => b.champion - a.champion || b.runnerUp - a.runnerUp || b.profit - a.profit);
   }
+  if (selectedSort.value === 'itm' || selectedSort.value === 'roi') {
+    return rankLeaderboardEntries(entries, selectedSort.value, minGames.value);
+  }
   // specialHands
   return entries
     .filter(entry => entry.specialHands > 0)
@@ -336,6 +369,8 @@ const getRankClass = (index) => {
   if (index <= 2) return 'bg-transparent'; // Medal emojis carry their own colors
   return 'bg-slate-600 text-gray-300';
 };
+
+const roiClass = (roi) => roi > 0 ? 'text-emerald-400' : roi < 0 ? 'text-rose-400' : 'text-gray-300';
 
 // Map a UI period tab to its leaderboardStats period key (Asia/Taipei calendar,
 // same helper the Cloud Function recompute uses — see leaderboardStatsMath.js).
@@ -383,7 +418,7 @@ watch(selectedPeriod, loadStats);
 
 // Leaving the tournament format invalidates the champion sort
 watch(selectedGameType, (gameType) => {
-  if (gameType !== 'tournament' && selectedSort.value === 'champion') {
+  if (gameType !== 'tournament' && ['champion', 'itm', 'roi'].includes(selectedSort.value)) {
     selectedSort.value = 'profit';
   }
 });

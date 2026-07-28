@@ -11,6 +11,8 @@
 // One doc per user per period:  leaderboardStats/{uid}_{periodKey}
 // periodKey: 'all' | '2026' | '2026-Q3' | '2026-07' | 'week-2026-07-20' (Monday date)
 
+import { deriveTournamentEntryMetrics } from './tournamentSettlementMath.js';
+
 // All period boundaries use Asia/Taipei. Taiwan has no DST, so a fixed +8h shift
 // followed by UTC getters is exact. Keep this the ONLY place that decides which
 // calendar day a game belongs to — CF, backfill and frontend must agree.
@@ -75,7 +77,16 @@ export function recordMillis(record) {
 }
 
 const emptyBucket = () => ({ games: 0, wins: 0, profit: 0 });
-const emptyTournamentBucket = () => ({ ...emptyBucket(), itm: 0, champion: 0, runnerUp: 0 });
+const emptyTournamentBucket = () => ({
+  ...emptyBucket(),
+  itm: 0,
+  champion: 0,
+  runnerUp: 0,
+  totalBuyIn: 0,
+  totalPrize: 0,
+  rebuyCount: 0,
+  rebuyKnownGames: 0,
+});
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -145,6 +156,22 @@ export function aggregateHistoryRecords(uid, records) {
         if (isWin) bucket.wins += 1;
 
         if (bucketType === 'tournament') {
+          const buyIn = Number(ownRow?.buyIn) || 0;
+          const prize = Number(ownRow?.prize) || 0;
+          const explicitRebuy = Number.isInteger(ownRow?.rebuyCount) && ownRow.rebuyCount >= 0
+            ? ownRow.rebuyCount
+            : null;
+          const derived = explicitRebuy == null
+            ? deriveTournamentEntryMetrics(buyIn, record.baseBuyIn)
+            : null;
+          const rebuyCount = explicitRebuy ?? derived?.rebuyCount ?? null;
+
+          bucket.totalBuyIn += buyIn;
+          bucket.totalPrize += prize;
+          if (rebuyCount != null) {
+            bucket.rebuyCount += rebuyCount;
+            bucket.rebuyKnownGames += 1;
+          }
           if (isItm) bucket.itm += 1;
           if (isChampion) bucket.champion += 1;
           if (isRunnerUp) bucket.runnerUp += 1;
@@ -157,12 +184,14 @@ export function aggregateHistoryRecords(uid, records) {
     entry.total.profit = round2(entry.total.profit);
     entry.cash.profit = round2(entry.cash.profit);
     entry.tournament.profit = round2(entry.tournament.profit);
+    entry.tournament.totalBuyIn = round2(entry.tournament.totalBuyIn);
+    entry.tournament.totalPrize = round2(entry.tournament.totalPrize);
   }
 
   return periods;
 }
 
-export const LEADERBOARD_STATS_VERSION = 1;
+export const LEADERBOARD_STATS_VERSION = 2;
 
 /**
  * Build the full leaderboardStats doc set for a user (Firestore payloads).
