@@ -186,7 +186,7 @@
       </div>
       
       <div v-if="gap !== 0" class="text-rose-400 text-center text-xs mb-4">
-        {{ $t('game.gap') }}: {{ formatNumber(gap) }}
+        {{ $t('game.gap') }}: {{ formatSignedNumber(gap) }}
       </div>
       
       <div class="grid gap-3">
@@ -239,7 +239,7 @@ import TransactionLog from '../components/game/TransactionLog.vue';
 import HandRecordSheet from '../components/game/HandRecordSheet.vue';
 import HandHistoryList from '../components/game/HandHistoryList.vue';
 import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
-import { formatNumber, formatCash, calculateNet } from '../utils/formatters.js';
+import { formatNumber, formatSignedNumber, formatCash, calculateNet } from '../utils/formatters.js';
 import { generateTextReport } from '../utils/exportReport.js';
 import { DEFAULT_EXCHANGE_RATE, DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from '../utils/constants.js';
 import { consumeSessionReturn } from '../utils/sessionReturn.js';
@@ -569,7 +569,7 @@ const handleSettle = async () => {
   // permanently — make the host acknowledge it explicitly.
   const shouldSettle = await confirm({
     message: gap.value !== 0
-      ? t('game.confirmSettlementGap', { gap: formatNumber(gap.value) })
+      ? t('game.confirmSettlementGap', { gap: formatSignedNumber(gap.value) })
       : t('game.confirmSettlement'),
     type: gap.value !== 0 ? 'danger' : 'warning'
   });

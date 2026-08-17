@@ -51,4 +51,12 @@ describe('cash settlement client contract', () => {
     expect(handleSettleSource).toContain('void userStore.waitForHistorySync');
     expect(handleSettleSource).not.toContain('await userStore.waitForHistorySync');
   });
+
+  it('shows signed non-zero gaps while keeping zero gaps hidden', () => {
+    expect(viewSource).toContain('v-if="gap !== 0"');
+    expect(viewSource).toContain("{{ $t('game.gap') }}: {{ formatSignedNumber(gap) }}");
+    expect(handleSettleSource).toContain(
+      "t('game.confirmSettlementGap', { gap: formatSignedNumber(gap.value) })",
+    );
+  });
 });

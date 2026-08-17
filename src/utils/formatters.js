@@ -15,6 +15,16 @@ export const formatNumber = (n) => {
 };
 
 /**
+ * Format a number with an explicit sign when positive
+ * @param {number} n - Number to format
+ * @returns {string} Signed formatted number string
+ */
+export const formatSignedNumber = (n) => {
+  const formatted = formatNumber(n);
+  return Number(n) > 0 ? `+${formatted}` : formatted;
+};
+
+/**
  * Format cash value with exchange rate
  * @param {number} chips - Chip amount
  * @param {number} rate - Exchange rate
