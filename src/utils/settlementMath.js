@@ -8,6 +8,8 @@ export {
   deriveTournamentEntryMetrics,
 } from '../../functions/src/utils/tournamentSettlementMath.js';
 
+export { buildCashSettlement } from '../../functions/src/utils/cashSettlementMath.js';
+
 /**
  * Build the per-placement prize map for a tournament.
  *
@@ -115,18 +117,3 @@ export function computeChipChopPayouts(stacks = [], pool = 0) {
  * @param {Array<{playerId: string, prize: number, placement: number}>} allocations
  * @returns {Array} settlement records ({playerId, odId, name, placement, buyIn, prize, profit})
  */
-/**
- * Build cash-game settlement snapshot records (profit = stack − buyIn).
- *
- * @param {Array} players - Game players ({uid, name, buyIn, stack})
- * @returns {Array} snapshot records ({odId, name, buyIn, stack, profit})
- */
-export function buildCashSettlement(players = []) {
-  return players.map((player) => ({
-    odId: player.uid || null,
-    name: player.name,
-    buyIn: Math.round(player.buyIn || 0),
-    stack: Math.round(player.stack || 0),
-    profit: Math.round((player.stack || 0) - (player.buyIn || 0)),
-  }));
-}

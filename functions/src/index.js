@@ -58,6 +58,7 @@ import {
   settleTournamentDeal as settleTournamentDealHandler,
   settleTournamentGame as settleTournamentGameHandler,
 } from './handlers/tournamentSettlement.js';
+import { settleCashGame as settleCashGameHandler } from './handlers/cashSettlement.js';
 
 // Initialize Firebase Admin
 initializeApp();
@@ -72,6 +73,15 @@ const HOT_CALLABLE_OPTS = { minInstances: POKER_ACTION_MIN_INSTANCES };
 
 // Shared options for the Cloud Tasks HTTP endpoints (signed-task callers).
 const TASK_HTTP_OPTS = { cors: true, region: FUNCTIONS_REGION };
+
+export const settleCashGame = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
+  const { gameId, exchangeRate } = request.data || {};
+  if (!gameId) throw new HttpsError('invalid-argument', 'Missing gameId');
+  return settleCashGameHandler({
+    gameId, callerUid: request.auth.uid, exchangeRate, db: getFirestore(),
+  });
+});
 
 export const settleTournamentGame = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');

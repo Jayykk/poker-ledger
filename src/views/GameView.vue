@@ -11,13 +11,6 @@
   </div>
   
   <div v-else class="pt-16 px-4 pb-24">
-    <div v-if="isSyncingHistory" class="mb-3 rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
-      <div class="flex items-center gap-2">
-        <i class="fas fa-spinner fa-spin"></i>
-        <span>{{ syncStatusMessage }}</span>
-      </div>
-    </div>
-
     <!-- Fixed header -->
     <div class="fixed top-0 inset-x-0 z-30 bg-slate-800/90 backdrop-blur px-4 py-3 border-b border-slate-700 flex justify-between items-center max-w-md mx-auto">
       <div>
@@ -250,6 +243,7 @@ import { formatNumber, formatCash, calculateNet } from '../utils/formatters.js';
 import { generateTextReport } from '../utils/exportReport.js';
 import { DEFAULT_EXCHANGE_RATE, DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from '../utils/constants.js';
 import { consumeSessionReturn } from '../utils/sessionReturn.js';
+import { buildCashSettlementReport } from '../utils/cashSettlementFlow.js';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -257,12 +251,15 @@ const route = useRoute();
 const { user, displayName } = useAuth();
 const userStore = useUserStore();
 const gameStore = useGameStore();
-const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer } = storeToRefs(gameStore);
+const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer, error: gameError } = storeToRefs(gameStore);
 const { addPlayer, updatePlayer, removePlayer, bindSeat, settleGame, closeGame, checkGameStatus, joinAsNewPlayer, joinGameListener, clearCurrentGame } = gameStore;
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
 const { transactions, txLoading, txError, listenerReady, startListening: startTxListening, stopListening: stopTxListening, recordBuyIn, recordAction, recordDirect, undoBuyIn } = useTransactions(gameId);
-const { sendBuyInMessage, sendUndoMessage, sendSettlementMessage, shareGameInvite, isInLineClient, isInitialized: liffReady } = useLiff();
-const { success, warning, copyWithNotification } = useNotification();
+const {
+  sendBuyInMessage, sendUndoMessage, sendSettlementMessage, shareGameInvite,
+  lineNotifyEnabled, isInLineClient, isInitialized: liffReady,
+} = useLiff();
+const { success, warning, error: showError, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
 
@@ -278,8 +275,6 @@ const exchangeRate = ref(DEFAULT_EXCHANGE_RATE);
 const selectedHand = ref(null);
 const autoJoinLoading = ref(false);
 const buyInProcessing = ref(new Set());
-const isSyncingHistory = ref(false);
-const syncStatusMessage = ref('');
 
 /**
  * Auto-join flow: when opened via /game/:gameId (e.g. LIFF deep link)
@@ -579,36 +574,33 @@ const handleSettle = async () => {
     type: gap.value !== 0 ? 'danger' : 'warning'
   });
   if (shouldSettle) {
-    await withLoading(async () => {
-      // Capture game data before settling (game state gets cleared)
-      const gameName = game.value?.name;
-      const gId = game.value?.id;
-      const rate = exchangeRate.value;
-      const players = (game.value?.players || []).map((p) => ({
-        name: p.name,
-        buyIn: p.buyIn || 0,
-        profit: calculateNet(p),
-      }));
-      const settleResult = await settleGame(exchangeRate.value);
-      if (settleResult?.success) {
-        showSettlement.value = false;
-        isSyncingHistory.value = true;
-        syncStatusMessage.value = t('loading.syncingHistory');
-        const syncResult = await userStore.waitForHistorySync(settleResult.gameId, settleResult.syncToken, {
-          timeoutMs: 20000,
-          fallbackToGameProjection: true,
-        });
-        isSyncingHistory.value = false;
-        if (syncResult.source === 'timeout') {
-          warning(t('loading.syncingPending'));
-        }
-        // Send settlement report to LINE chat (user's own name, free)
-        sendSettlementMessage({ gameName, gameId: gId, rate, players });
-        const back = consumeSessionReturn(gId);
-        clearCurrentGame();
-        router.push(back || '/report');
-      }
-    }, t('loading.settling'));
+    const settleResult = await withLoading(
+      () => settleGame(exchangeRate.value),
+      t('loading.settling'),
+    );
+    if (!settleResult?.success) {
+      showError(t(gameError.value || 'game.settlementFailed'));
+      return;
+    }
+
+    showSettlement.value = false;
+    const reportSent = await sendSettlementMessage(
+      buildCashSettlementReport(settleResult),
+    );
+    if (lineNotifyEnabled.value && isInLineClient.value && !reportSent) {
+      warning(t('game.settlementReportFailed'));
+    }
+
+    void userStore.waitForHistorySync(settleResult.gameId, settleResult.syncToken, {
+      timeoutMs: 20000,
+      fallbackToGameProjection: true,
+    }).then((syncResult) => {
+      if (syncResult.source === 'timeout') warning(t('loading.syncingPending'));
+    }).catch(() => warning(t('loading.syncingPending')));
+
+    const back = consumeSessionReturn(settleResult.gameId);
+    clearCurrentGame();
+    router.push(back || '/report');
   }
 };
 
