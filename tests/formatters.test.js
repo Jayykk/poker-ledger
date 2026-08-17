@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   formatNumber,
+  formatSignedNumber,
   formatCash,
   formatCurrency,
   formatDate,
@@ -75,6 +76,17 @@ describe('formatNumber', () => {
 
   it('accepts numeric strings', () => {
     expect(formatNumber('12345')).toBe('12,345');
+  });
+});
+
+describe('formatSignedNumber', () => {
+  it('adds an explicit sign to non-zero values', () => {
+    expect(formatSignedNumber(1000)).toBe('+1,000');
+    expect(formatSignedNumber(-1000)).toBe('-1,000');
+  });
+
+  it('formats zero without a sign', () => {
+    expect(formatSignedNumber(0)).toBe('0');
   });
 });
 
