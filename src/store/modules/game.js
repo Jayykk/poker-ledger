@@ -21,10 +21,9 @@ import { functions } from '../../firebase-init.js';
 import { httpsCallable } from 'firebase/functions';
 import { useAuthStore } from './auth.js';
 import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';
-import { createSyncRequestToken } from '../../utils/historyProjection.js';
 import { timestampToMillis } from '../../utils/formatters.js';
-import { buildCashSettlement } from '../../utils/settlementMath.js';
 import { tournamentSettlementErrorKey } from '../../utils/tournamentSettlementErrors.js';
+import { cashSettlementErrorKey } from '../../utils/cashSettlementErrors.js';
 
 function getEffectiveTournamentLevel(levels = [], currentLevelIndex = 0) {
   const normalizedIndex = Number.isFinite(Number(currentLevelIndex))
@@ -422,37 +421,15 @@ export const useGameStore = defineStore('game', () => {
     
     loading.value = true;
     try {
-      const settledGameId = gameId.value;
-      const syncToken = createSyncRequestToken('settle');
-
-      await runTransaction(db, async (t) => {
-        const gameRef = doc(db, 'games', settledGameId);
-        const gameDoc = await t.get(gameRef);
-
-        if (!gameDoc.exists()) throw new Error('Game not found');
-
-        const gameData = gameDoc.data();
-        const settlementSnapshot = buildCashSettlement(gameData.players);
-
-        t.update(gameRef, {
-          status: GAME_STATUS.COMPLETED,
-          rate: Number(exchangeRate) || 1,
-          completedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          settlementSnapshot,
-          'historyProjection.requestToken': syncToken,
-          'historyProjection.requestedAt': serverTimestamp(),
-        });
+      const callable = httpsCallable(functions, 'settleCashGame');
+      const response = await callable({
+        gameId: gameId.value,
+        exchangeRate: Number(exchangeRate),
       });
-
-      return {
-        success: true,
-        gameId: settledGameId,
-        syncToken,
-      };
+      return response.data;
     } catch (err) {
       console.error('Settle game error:', err);
-      error.value = 'Failed to settle game: ' + err.message;
+      error.value = cashSettlementErrorKey(err);
       return false;
     } finally {
       loading.value = false;
