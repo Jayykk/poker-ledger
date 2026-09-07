@@ -226,9 +226,9 @@ describe('ActionModal integration', () => {
     expect(content).not.toContain('time-bank');
   });
 
-  it('should have live track and online actions', () => {
+  it('should have live track and join-room actions (online create removed)', () => {
     expect(content).toContain("$t('action.liveTrack')");
-    expect(content).toContain("$t('action.createOnline')");
+    expect(content).not.toContain("$t('action.createOnline')");
     expect(content).toContain("$t('action.joinOnline')");
   });
 });
