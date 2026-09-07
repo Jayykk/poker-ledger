@@ -113,7 +113,6 @@
     <ActionModal
       v-model="showActionModal"
       @create-live="handleCreateLive"
-      @create-online="handleCreateOnline"
       @join-online="handleJoinOnline"
     />
 
@@ -246,12 +245,6 @@ const handleCreateLive = () => {
   // Navigate to lobby and auto-open the unified create-game modal at step 1
   // (game type selection: cash or tournament), same as the lobby’s 「開新局」 button.
   router.push({ path: '/lobby', query: { create: '1' } });
-};
-
-const handleCreateOnline = () => {
-  // Open the unified lobby's create flow with "online" pre-selected, so online
-  // poker shares the same one-touch create as cash/tournament.
-  router.push({ path: '/lobby', query: { create: 'online' } });
 };
 
 const handleJoinOnline = () => {
