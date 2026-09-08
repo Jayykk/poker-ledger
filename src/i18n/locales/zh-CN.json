@@ -349,6 +349,30 @@
     "participants": "参与玩家",
     "noHandRecords": "暂无牌局记录",
     "viewDetails": "查看详情",
+    "recognition": {
+      "button": "拍照识别",
+      "takePhoto": "拍照",
+      "chooseImage": "选择图片",
+      "hint": "拍一张整桌牌面的照片，AI 会识别正面朝上的牌，再由你指定归属。请尽量靠近、俯拍。",
+      "analyzing": "识别中…",
+      "recognizedCards": "识别结果",
+      "tapToAssign": "点选一张牌，再选择要放到哪里",
+      "unassigned": "未指定",
+      "alreadyInForm": "已在表单中",
+      "apply": "确认填入",
+      "retake": "重拍",
+      "applied": "已填入 {count} 张牌",
+      "errors": {
+        "noCards": "没有识别到任何牌，请靠近一点重拍",
+        "parseFailed": "AI 回应无法解析，请再试一次",
+        "appCheck": "App Check 验证失败，请刷新后再试",
+        "quota": "AI 识别次数已达上限，请稍后再试",
+        "apiNotEnabled": "尚未启用 Firebase AI Logic",
+        "network": "网络错误，请确认连接",
+        "image": "无法读取图片，请改用 JPG 或 PNG",
+        "unknown": "识别失败，请再试一次"
+      }
+    },
     "errors": {
       "chipsNotBalanced": "筹码总和必须为 0",
       "duplicateCards": "有重复的牌",

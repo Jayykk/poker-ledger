@@ -349,6 +349,30 @@
     "participants": "参加者",
     "noHandRecords": "ハンド記録がありません",
     "viewDetails": "詳細を表示",
+    "recognition": {
+      "button": "写真で読み取り",
+      "takePhoto": "撮影",
+      "chooseImage": "画像を選択",
+      "hint": "テーブル全体を撮影してください。AIが表向きのカードを読み取り、あなたが割り当てます。近づいて真上から撮ると精度が上がります。",
+      "analyzing": "読み取り中…",
+      "recognizedCards": "読み取り結果",
+      "tapToAssign": "カードをタップして、割り当て先を選んでください",
+      "unassigned": "未割り当て",
+      "alreadyInForm": "すでに入力済み",
+      "apply": "確定して入力",
+      "retake": "撮り直す",
+      "applied": "{count}枚のカードを入力しました",
+      "errors": {
+        "noCards": "カードを読み取れませんでした。近づいて撮り直してください",
+        "parseFailed": "AIの応答を解析できませんでした。もう一度お試しください",
+        "appCheck": "App Check の検証に失敗しました。再読み込みしてお試しください",
+        "quota": "AI読み取りの上限に達しました。しばらくしてからお試しください",
+        "apiNotEnabled": "Firebase AI Logic が有効になっていません",
+        "network": "ネットワークエラーです。接続を確認してください",
+        "image": "画像を読み込めません。JPG または PNG をご利用ください",
+        "unknown": "読み取りに失敗しました。もう一度お試しください"
+      }
+    },
     "errors": {
       "chipsNotBalanced": "チップの合計は0である必要があります",
       "duplicateCards": "重複するカードがあります",

@@ -124,9 +124,16 @@
       新頁 `/session-history`（SessionHistoryView，重用 useSessions 快取）
 - [x] ~~**排行榜賽制 filter + 冠亞軍次數**~~：已於 feat/leaderboard-stats 實作
       （賽制切換 全部/限時賽/錦標賽 + 錦標賽限定「冠亞軍」排序，🏆/🥈 次數顯示）
+- [x] ~~**拍照 AI 辨識牌面**~~：已於 feat/ai-card-recognition 實作——
+      HandRecordSheet 頂部 CardRecognitionPanel，前端直接呼叫 Firebase AI Logic（Gemini）；
+      整桌一張照片 → 辨識 → 使用者逐張指定公共牌 / 玩家 → 確認填入；
+      App Check（reCAPTCHA Enterprise）lazy 初始化，Console 設定步驟見 README
+  - [ ] 後續（有需要再做）：自動分配啟發式（例：連續 3-5 張橫排視為公共牌）；
+        單區拍照模式（只拍某位玩家的兩張手牌直接填入）；
+        若日後 Firestore 也開 App Check 強制，改成在 main.js 立即呼叫 `ensureAppCheck()`
 
 ---
 
-**最後更新**: 2026-07-20（新增協議結算 / 大廳歷史活動 / 排行榜 filter 待辦）
+**最後更新**: 2026-09-07（新增拍照 AI 辨識牌面）
 **負責人**: Jayykk
 **專案版本**: 10.0.0

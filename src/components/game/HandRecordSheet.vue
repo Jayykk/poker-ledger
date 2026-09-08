@@ -6,6 +6,14 @@
     :close-on-click-outside="false"
   >
     <div class="space-y-4 max-h-[70vh] overflow-y-auto">
+      <!-- Photo → AI card recognition -->
+      <CardRecognitionPanel
+        ref="recognitionPanel"
+        :community-cards="handRecord.communityCards"
+        :players="handRecord.players"
+        @apply="handleRecognitionApply"
+      />
+
       <!-- Community Cards -->
       <div class="bg-slate-900 rounded-lg p-3">
         <div class="text-xs text-gray-400 mb-2">{{ $t('hand.communityCards') }}</div>
@@ -116,10 +124,12 @@ import { useHand } from '../../composables/useHand.js';
 import { useNotification } from '../../composables/useNotification.js';
 import { HAND_TYPES, CARD_LIMITS, DEFAULT_BUY_IN } from '../../utils/constants.js';
 import { evaluateHand } from '../../utils/pokerHandEvaluator.js';
+import { applyAssignments } from '../../utils/cardRecognition.js';
 import BaseModal from '../common/BaseModal.vue';
 import BaseButton from '../common/BaseButton.vue';
 import CardPicker from './CardPicker.vue';
 import ChipsInput from './ChipsInput.vue';
+import CardRecognitionPanel from './CardRecognitionPanel.vue';
 
 const props = defineProps({
   modelValue: {
@@ -150,6 +160,20 @@ const handRecord = ref({
   communityCards: [],
   players: []
 });
+
+const recognitionPanel = ref(null);
+
+// Merge cards recognised from a photo (already assigned by the user) into the form.
+// applyAssignments() dedupes and enforces the 5 / 2 card limits; the existing
+// watchers below then auto-fill handType.
+const handleRecognitionApply = (assignments) => {
+  const { communityCards, players, appliedCount } = applyAssignments(handRecord.value, assignments);
+  handRecord.value.communityCards = communityCards;
+  players.forEach((p, i) => {
+    handRecord.value.players[i].cards = p.cards;
+  });
+  success(t('hand.recognition.applied', { count: appliedCount }));
+};
 
 // Initialize player records when players prop changes
 watch(() => props.players, (newPlayers) => {
@@ -318,6 +342,7 @@ const handleSave = async () => {
     emit('saved');
     
     // Reset form
+    recognitionPanel.value?.reset();
     handRecord.value.communityCards = [];
     handRecord.value.players.forEach(p => {
       p.cards = [];
