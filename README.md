@@ -57,7 +57,7 @@ A scheduling layer above tables — plan a poker night once, and let sign-ups dr
 - 💱 **Multi-currency Support** - Track in TWD, USD, CNY, or JPY
 - 📜 **Rebuy History** - Complete tracking of all rebuys during a session
 - 📝 **Hand Records** - View, create, and manage individual hand histories
-- 📷 **AI Card Recognition** - Photograph the table, Gemini (Firebase AI Logic) reads the face-up cards, you assign them to community / players before they are written into the hand record (see [AI Card Recognition Setup](#-ai-card-recognition-setup))
+- 📷 **AI Card Recognition** - Photograph the table, Gemini (Firebase AI Logic) reads the face-up cards and groups them by placement; the 3–5 card row is pre-assigned to the board, the rest you multi-select and assign to players before anything is written into the hand record (see [AI Card Recognition Setup](#-ai-card-recognition-setup))
 - 🎚️ **Cash Table Presets** - Save and reuse cash game configurations with a unified create-game flow
 
 ### Admin Tools

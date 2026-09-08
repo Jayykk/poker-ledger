@@ -128,8 +128,9 @@
       HandRecordSheet 頂部 CardRecognitionPanel，前端直接呼叫 Firebase AI Logic（Gemini）；
       整桌一張照片 → 辨識 → 使用者逐張指定公共牌 / 玩家 → 確認填入；
       App Check（reCAPTCHA Enterprise）lazy 初始化，Console 設定步驟見 README
-  - [ ] 後續（有需要再做）：自動分配啟發式（例：連續 3-5 張橫排視為公共牌）；
-        單區拍照模式（只拍某位玩家的兩張手牌直接填入）；
+  - [x] ~~自動分配啟發式~~：feat/card-recognition-grouping — Gemini 回傳每張牌的
+        物理分組 + communityGroup，3-5 張成列者預設為公共牌；多選 / 整組選取再指派
+  - [ ] 後續（有需要再做）：單區拍照模式（只拍某位玩家的兩張手牌直接填入）；
         若日後 Firestore 也開 App Check 強制，改成在 main.js 立即呼叫 `ensureAppCheck()`
 
 ---

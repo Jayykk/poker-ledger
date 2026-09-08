@@ -50,7 +50,7 @@
       </div>
     </div>
 
-    <!-- Results: assign each card -->
+    <!-- Results: select cards (multi) then assign -->
     <div v-if="!loading && hasResults" class="space-y-3">
       <div class="flex items-center gap-3">
         <img
@@ -67,61 +67,100 @@
         </div>
       </div>
 
-      <!-- Card chips -->
-      <div class="flex gap-2 flex-wrap">
+      <div
+        v-if="autoAssignedCount > 0"
+        class="text-xs text-amber-300 bg-amber-900/30 border border-amber-800 rounded-lg px-2 py-1.5"
+      >
+        <i class="fas fa-magic mr-1"></i>{{ $t('hand.recognition.autoAssigned', { count: autoAssignedCount }) }}
+      </div>
+
+      <!-- Groups of cards (grouped by physical placement on the table) -->
+      <div class="space-y-2">
         <div
-          v-for="(item, idx) in items"
-          :key="item.card"
-          role="button"
-          :tabindex="isInForm(item.card) ? -1 : 0"
-          @click="selectItem(idx)"
-          @keydown.enter.prevent="selectItem(idx)"
-          :class="[
-            'inline-flex items-center gap-2 pl-2 pr-1 py-1 rounded-lg border transition select-none',
-            isInForm(item.card)
-              ? 'bg-slate-800 border-slate-700 opacity-50 cursor-not-allowed'
-              : selectedIdx === idx
-                ? 'bg-amber-900/40 border-amber-500 cursor-pointer'
-                : item.target
-                  ? 'bg-emerald-900/30 border-emerald-700 cursor-pointer'
-                  : 'bg-slate-700 border-slate-600 cursor-pointer hover:bg-slate-600'
-          ]"
+          v-for="group in groups"
+          :key="group.id"
+          class="flex items-start gap-2 flex-wrap rounded-lg border border-slate-800 p-2"
         >
-          <div class="flex flex-col leading-tight">
-            <span :class="['font-bold', getCardColor(item.card)]">{{ item.card }}</span>
-            <span class="text-[10px] text-gray-400 whitespace-nowrap">{{ targetLabel(item) }}</span>
-          </div>
           <button
-            @click.stop="removeItem(idx)"
+            v-if="group.selectable.length > 0"
+            @click="toggleGroup(group)"
             type="button"
-            class="text-gray-400 hover:text-white text-xs px-1"
-            :aria-label="$t('common.delete')"
+            :class="[
+              'flex-shrink-0 self-center px-2 py-1 rounded-md text-[11px] font-bold transition',
+              isGroupSelected(group)
+                ? 'bg-amber-600 text-white'
+                : 'bg-slate-800 text-gray-300 hover:bg-slate-700'
+            ]"
+            :title="$t('hand.recognition.selectGroup')"
           >
-            <i class="fas fa-times"></i>
+            <i class="fas fa-object-group mr-1"></i>{{ group.items.length }}
           </button>
+
+          <div
+            v-for="item in group.items"
+            :key="item.card"
+            role="button"
+            :tabindex="isInForm(item.card) ? -1 : 0"
+            @click="toggleCard(item.card)"
+            @keydown.enter.prevent="toggleCard(item.card)"
+            :class="[
+              'inline-flex items-center gap-2 pl-2 pr-1 py-1 rounded-lg border transition select-none',
+              isInForm(item.card)
+                ? 'bg-slate-800 border-slate-700 opacity-50 cursor-not-allowed'
+                : isSelected(item.card)
+                  ? 'bg-amber-900/40 border-amber-500 cursor-pointer'
+                  : item.target
+                    ? 'bg-emerald-900/30 border-emerald-700 cursor-pointer'
+                    : 'bg-slate-700 border-slate-600 cursor-pointer hover:bg-slate-600'
+            ]"
+          >
+            <div class="flex flex-col leading-tight">
+              <span :class="['font-bold', getCardColor(item.card)]">{{ item.card }}</span>
+              <span class="text-[10px] text-gray-400 whitespace-nowrap">{{ targetLabel(item) }}</span>
+            </div>
+            <button
+              @click.stop="removeItem(item.card)"
+              type="button"
+              class="text-gray-400 hover:text-white text-xs px-1"
+              :aria-label="$t('common.delete')"
+            >
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Target row (shown while a chip is selected) -->
-      <div v-if="selectedIdx !== null" class="flex gap-2 overflow-x-auto pb-1">
-        <button
-          v-for="target in targets"
-          :key="target.id"
-          @click="assign(target.id)"
-          :disabled="isTargetFull(target) && items[selectedIdx]?.target !== target.id"
-          type="button"
-          :class="[
-            'flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold transition',
-            items[selectedIdx]?.target === target.id
-              ? 'bg-amber-600 text-white'
-              : isTargetFull(target)
-                ? 'bg-slate-800 text-gray-600 cursor-not-allowed'
-                : 'bg-slate-700 text-gray-200 hover:bg-slate-600'
-          ]"
-        >
-          {{ target.label }}
-          <span class="ml-1 text-[10px] font-normal opacity-80">{{ targetCount(target) }}/{{ target.max }}</span>
-        </button>
+      <!-- Target row (shown while cards are selected) -->
+      <div v-if="selected.length > 0" class="space-y-2">
+        <div class="flex items-center justify-between text-xs text-gray-400">
+          <span>{{ $t('hand.recognition.selectedCount', { count: selected.length }) }}</span>
+          <button
+            v-if="selectedHasTarget"
+            @click="clearAssignment"
+            type="button"
+            class="text-rose-300 hover:text-rose-200"
+          >
+            <i class="fas fa-eraser mr-1"></i>{{ $t('hand.recognition.clearAssignment') }}
+          </button>
+        </div>
+        <div class="flex gap-2 overflow-x-auto pb-1">
+          <button
+            v-for="target in targets"
+            :key="target.id"
+            @click="assign(target.id)"
+            :disabled="!canAssign(target)"
+            type="button"
+            :class="[
+              'flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold transition',
+              canAssign(target)
+                ? 'bg-slate-700 text-gray-200 hover:bg-amber-600 hover:text-white'
+                : 'bg-slate-800 text-gray-600 cursor-not-allowed'
+            ]"
+          >
+            {{ target.label }}
+            <span class="ml-1 text-[10px] font-normal opacity-80">{{ targetCount(target) }}/{{ target.max }}</span>
+          </button>
+        </div>
       </div>
 
       <BaseButton
@@ -160,6 +199,7 @@ import { useI18n } from 'vue-i18n';
 import { useCardRecognition } from '../../composables/useCardRecognition.js';
 import { useNotification } from '../../composables/useNotification.js';
 import { CARD_LIMITS } from '../../utils/constants.js';
+import { suggestCommunityGroup } from '../../utils/cardRecognition.js';
 import { getCardColor } from '../../utils/cards.js';
 import BaseButton from '../common/BaseButton.vue';
 
@@ -187,9 +227,11 @@ const { error } = useNotification();
 const cameraInput = ref(null);
 const fileInput = ref(null);
 const previewUrl = ref(null);
-/** @type {import('vue').Ref<Array<{ card: string, target: string | null }>>} */
+/** @type {import('vue').Ref<Array<{ card: string, group: number, target: string | null }>>} */
 const items = ref([]);
-const selectedIdx = ref(null);
+/** Currently selected card strings (multi-select) */
+const selected = ref([]);
+const autoAssignedCount = ref(0);
 
 const hasResults = computed(() => items.value.length > 0);
 
@@ -214,12 +256,37 @@ const cardsInForm = computed(() => {
 });
 
 const isInForm = (card) => cardsInForm.value.has(card);
+const isSelected = (card) => selected.value.includes(card);
 
-const assignedInPanel = (targetId) => items.value.filter((i) => i.target === targetId).length;
-const targetCount = (target) => target.existing + assignedInPanel(target.id);
-const isTargetFull = (target) => targetCount(target) >= target.max;
+/** Items grouped by the physical placement group the model returned. */
+const groups = computed(() => {
+  const map = new Map();
+  for (const item of items.value) {
+    if (!map.has(item.group)) map.set(item.group, { id: item.group, items: [], selectable: [] });
+    const g = map.get(item.group);
+    g.items.push(item);
+    if (!isInForm(item.card)) g.selectable.push(item.card);
+  }
+  return [...map.values()];
+});
+
+const isGroupSelected = (group) =>
+  group.selectable.length > 0 && group.selectable.every((c) => isSelected(c));
+
+/** Cards already assigned to `targetId` in the panel, excluding the current selection. */
+const assignedOutsideSelection = (targetId) =>
+  items.value.filter((i) => i.target === targetId && !isSelected(i.card) && !isInForm(i.card)).length;
+
+const targetCount = (target) => target.existing + assignedOutsideSelection(target.id);
+
+const canAssign = (target) => {
+  const n = selected.value.length;
+  if (n === 0) return false;
+  return n <= target.max - target.existing - assignedOutsideSelection(target.id);
+};
 
 const assignedCount = computed(() => items.value.filter((i) => i.target && !isInForm(i.card)).length);
+const selectedHasTarget = computed(() => items.value.some((i) => i.target && isSelected(i.card)));
 
 const targetLabel = (item) => {
   if (isInForm(item.card)) return t('hand.recognition.alreadyInForm');
@@ -237,13 +304,30 @@ const revokePreview = () => {
 
 const reset = () => {
   items.value = [];
-  selectedIdx.value = null;
+  selected.value = [];
+  autoAssignedCount.value = 0;
   revokePreview();
 };
 
 const openPicker = (input) => {
   if (loading.value || !input) return;
   input.click();
+};
+
+/** Pre-assign the board group (3-5 cards in a row) to community when the form's board is still empty. */
+const autoAssignCommunity = (recognition) => {
+  autoAssignedCount.value = 0;
+  if (props.communityCards.length > 0) return;
+  const group = suggestCommunityGroup(recognition);
+  if (group === null) return;
+  let count = 0;
+  for (const item of items.value) {
+    if (item.group !== group || isInForm(item.card)) continue;
+    if (count >= CARD_LIMITS.COMMUNITY_MAX) break;
+    item.target = COMMUNITY_TARGET;
+    count += 1;
+  }
+  autoAssignedCount.value = count;
 };
 
 const handleFileChange = async (event) => {
@@ -255,40 +339,56 @@ const handleFileChange = async (event) => {
   revokePreview();
   previewUrl.value = URL.createObjectURL(file);
   items.value = [];
-  selectedIdx.value = null;
+  selected.value = [];
+  autoAssignedCount.value = 0;
 
   try {
-    const cards = await recognizeCards(file);
-    items.value = cards.map((card) => ({ card, target: null }));
+    const recognition = await recognizeCards(file);
+    items.value = recognition.cards.map(({ card, group }) => ({ card, group, target: null }));
+    autoAssignCommunity(recognition);
   } catch (e) {
     const code = e?.code || 'unknown';
     error(t(`hand.recognition.errors.${code}`));
   }
 };
 
-const selectItem = (idx) => {
-  if (isInForm(items.value[idx].card)) return;
-  selectedIdx.value = selectedIdx.value === idx ? null : idx;
+const toggleCard = (card) => {
+  if (isInForm(card)) return;
+  if (isSelected(card)) {
+    selected.value = selected.value.filter((c) => c !== card);
+  } else {
+    selected.value = [...selected.value, card];
+  }
 };
 
-const removeItem = (idx) => {
-  items.value.splice(idx, 1);
-  if (selectedIdx.value === null) return;
-  if (selectedIdx.value === idx) selectedIdx.value = null;
-  else if (selectedIdx.value > idx) selectedIdx.value -= 1;
+const toggleGroup = (group) => {
+  if (isGroupSelected(group)) {
+    selected.value = selected.value.filter((c) => !group.selectable.includes(c));
+  } else {
+    const missing = group.selectable.filter((c) => !isSelected(c));
+    selected.value = [...selected.value, ...missing];
+  }
+};
+
+const removeItem = (card) => {
+  items.value = items.value.filter((i) => i.card !== card);
+  selected.value = selected.value.filter((c) => c !== card);
 };
 
 const assign = (targetId) => {
-  if (selectedIdx.value === null) return;
-  const item = items.value[selectedIdx.value];
-  if (item.target === targetId) {
-    item.target = null; // toggle off
-    return;
-  }
   const target = targets.value.find((x) => x.id === targetId);
-  if (!target || isTargetFull(target)) return;
-  item.target = targetId;
-  selectedIdx.value = null;
+  if (!target || !canAssign(target)) return;
+  for (const item of items.value) {
+    if (isSelected(item.card)) item.target = targetId;
+  }
+  selected.value = [];
+};
+
+const clearAssignment = () => {
+  for (const item of items.value) {
+    if (isSelected(item.card)) item.target = null;
+  }
+  selected.value = [];
 };
 
 const apply = () => {
