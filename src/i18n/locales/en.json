@@ -349,6 +349,30 @@
     "participants": "Participants",
     "noHandRecords": "No hand records",
     "viewDetails": "View Details",
+    "recognition": {
+      "button": "Scan Cards",
+      "takePhoto": "Take Photo",
+      "chooseImage": "Choose Image",
+      "hint": "Photograph the whole table. AI reads the face-up cards, then you assign each one. Get close and shoot top-down for best results.",
+      "analyzing": "Analyzing…",
+      "recognizedCards": "Recognized cards",
+      "tapToAssign": "Tap a card, then choose where it goes",
+      "unassigned": "Unassigned",
+      "alreadyInForm": "Already in form",
+      "apply": "Apply",
+      "retake": "Retake",
+      "applied": "Added {count} card(s)",
+      "errors": {
+        "noCards": "No cards recognized. Move closer and try again",
+        "parseFailed": "Could not parse the AI response. Please try again",
+        "appCheck": "App Check verification failed. Refresh and try again",
+        "quota": "AI recognition limit reached. Please try again later",
+        "apiNotEnabled": "Firebase AI Logic is not enabled",
+        "network": "Network error. Check your connection",
+        "image": "Could not read the image. Use JPG or PNG",
+        "unknown": "Recognition failed. Please try again"
+      }
+    },
     "errors": {
       "chipsNotBalanced": "Chips must sum to 0",
       "duplicateCards": "Duplicate cards found",
