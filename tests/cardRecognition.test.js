@@ -12,6 +12,8 @@ import {
   RECOGNITION_ERROR,
   parseGeminiJson,
   normalizeRecognizedCards,
+  normalizeRecognition,
+  suggestCommunityGroup,
   mapAiError,
   applyAssignments,
 } from '../src/utils/cardRecognition.js';
@@ -119,9 +121,108 @@ describe('normalizeRecognizedCards', () => {
   });
 });
 
+// ── normalizeRecognition (groups) ─────────────────────
+
+describe('normalizeRecognition', () => {
+  it('keeps group ids and renumbers them in order of first appearance', () => {
+    const result = normalizeRecognition({
+      communityGroup: 7,
+      cards: [
+        { rank: 'A', suit: 'spades', group: 3 },
+        { rank: 'K', suit: 'clubs', group: 3 },
+        { rank: 'J', suit: 'spades', group: 7 },
+        { rank: 'Q', suit: 'clubs', group: 7 },
+        { rank: '3', suit: 'clubs', group: 7 },
+      ],
+    });
+    expect(result.cards).toEqual([
+      { card: 'A♠', group: 1 },
+      { card: 'K♣', group: 1 },
+      { card: 'J♠', group: 2 },
+      { card: 'Q♣', group: 2 },
+      { card: '3♣', group: 2 },
+    ]);
+    expect(result.communityGroup).toBe(2);
+  });
+
+  it('gives ungrouped cards their own groups', () => {
+    const result = normalizeRecognition([
+      { rank: 'A', suit: 'spades' },
+      { rank: 'K', suit: 'clubs', group: 1 },
+      { rank: 'Q', suit: 'clubs', group: 'x' },
+    ]);
+    expect(result.cards.map((c) => c.group)).toEqual([1, 2, 3]);
+    expect(result.communityGroup).toBeNull();
+  });
+
+  it('drops a communityGroup that points at no card', () => {
+    const result = normalizeRecognition({
+      communityGroup: 9,
+      cards: [{ rank: 'A', suit: 'spades', group: 1 }],
+    });
+    expect(result.communityGroup).toBeNull();
+  });
+
+  it('dedupes cards across groups and returns empty for bad input', () => {
+    const result = normalizeRecognition({
+      cards: [
+        { rank: 'A', suit: 'spades', group: 1 },
+        { rank: 'A', suit: 'spades', group: 2 },
+      ],
+    });
+    expect(result.cards).toEqual([{ card: 'A♠', group: 1 }]);
+    expect(normalizeRecognition(null)).toEqual({ cards: [], communityGroup: null });
+    expect(normalizeRecognition('nope')).toEqual({ cards: [], communityGroup: null });
+  });
+});
+
+// ── suggestCommunityGroup ─────────────────────────────
+
+const rec = (groupSizes, communityGroup = null) => {
+  const cards = [];
+  let i = 0;
+  groupSizes.forEach((size, idx) => {
+    for (let k = 0; k < size; k++) cards.push({ card: `c${i++}`, group: idx + 1 });
+  });
+  return { cards, communityGroup };
+};
+
+describe('suggestCommunityGroup', () => {
+  it('uses the model hint when it is board-sized (3-5 cards)', () => {
+    expect(suggestCommunityGroup(rec([2, 5, 2], 2))).toBe(2);
+    expect(suggestCommunityGroup(rec([2, 3, 2], 2))).toBe(2);
+  });
+
+  it('ignores a hint that is not board-sized and falls back to the heuristic', () => {
+    // Hint points at a 2-card group; the only 3-5 group is group 2.
+    expect(suggestCommunityGroup(rec([2, 4, 2], 1))).toBe(2);
+    // Hint points at a 6-card group; no valid fallback.
+    expect(suggestCommunityGroup(rec([6, 2], 1))).toBeNull();
+  });
+
+  it('picks the single 3-5 card group when all others are pairs or singles', () => {
+    expect(suggestCommunityGroup(rec([2, 2, 5, 1]))).toBe(3);
+  });
+
+  it('returns null when ambiguous', () => {
+    expect(suggestCommunityGroup(rec([3, 3]))).toBeNull(); // two board-sized groups
+    expect(suggestCommunityGroup(rec([2, 2]))).toBeNull(); // no board-sized group
+    expect(suggestCommunityGroup(rec([5, 3, 2], null))).toBeNull(); // 3-card group is not a hand
+    expect(suggestCommunityGroup({ cards: [], communityGroup: null })).toBeNull();
+    expect(suggestCommunityGroup(null)).toBeNull();
+  });
+});
+
 // ── mapAiError ────────────────────────────────────────
 
 describe('mapAiError', () => {
+  it('maps depleted prepay credits to BILLING before QUOTA', () => {
+    expect(mapAiError({
+      customErrorData: { status: 429 },
+      message: 'Your prepayment credits are depleted. Please go to AI Studio ... RESOURCE_EXHAUSTED',
+    })).toBe(RECOGNITION_ERROR.BILLING);
+  });
+
   it('passes through CardRecognitionError codes', () => {
     expect(mapAiError(new CardRecognitionError(RECOGNITION_ERROR.NO_CARDS))).toBe(RECOGNITION_ERROR.NO_CARDS);
     expect(mapAiError(new CardRecognitionError(RECOGNITION_ERROR.IMAGE))).toBe(RECOGNITION_ERROR.IMAGE);
@@ -224,6 +325,12 @@ describe('CARD_RESPONSE_SCHEMA & prompt', () => {
   it('suit enum covers the four suits', () => {
     expect(CARD_RESPONSE_SCHEMA.properties.cards.items.properties.suit.enum)
       .toEqual(['spades', 'hearts', 'diamonds', 'clubs']);
+  });
+
+  it('requires a group per card and allows a nullable communityGroup', () => {
+    expect(CARD_RESPONSE_SCHEMA.properties.cards.items.required).toContain('group');
+    expect(CARD_RESPONSE_SCHEMA.properties.communityGroup).toEqual({ type: 'INTEGER', nullable: true });
+    expect(CARD_RECOGNITION_PROMPT).toContain('communityGroup');
   });
 
   it('prompt insists on "10" rather than "T"', () => {

@@ -6,7 +6,7 @@ import {
   CardRecognitionError,
   RECOGNITION_ERROR,
   parseGeminiJson,
-  normalizeRecognizedCards,
+  normalizeRecognition,
   mapAiError
 } from '../utils/cardRecognition.js';
 import { fileToCompressedBase64 } from '../utils/imageCompression.js';
@@ -50,7 +50,8 @@ export function useCardRecognition() {
 
   /**
    * @param {File|Blob} file Image picked by the user
-   * @returns {Promise<string[]>} Recognised cards in app notation
+   * @returns {Promise<{ cards: Array<{ card: string, group: number }>, communityGroup: number | null }>}
+   *   Recognised cards in app notation, grouped by physical placement
    * @throws {CardRecognitionError} with `.code` from RECOGNITION_ERROR
    */
   const recognizeCards = async (file) => {
@@ -68,11 +69,11 @@ export function useCardRecognition() {
           ]
         }]
       });
-      const cards = normalizeRecognizedCards(parseGeminiJson(result.response.text()));
-      if (cards.length === 0) {
+      const recognition = normalizeRecognition(parseGeminiJson(result.response.text()));
+      if (recognition.cards.length === 0) {
         throw new CardRecognitionError(RECOGNITION_ERROR.NO_CARDS);
       }
-      return cards;
+      return recognition;
     } catch (e) {
       const code = mapAiError(e);
       errorCode.value = code;
