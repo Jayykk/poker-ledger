@@ -403,7 +403,16 @@
     "modified": "modified",
     "modifiedSuffix": "'s data",
     "removed": "removed",
-    "boundSeat": "bound to seat"
+    "boundSeat": "bound to seat",
+    "eliminatedPlayer": "eliminated",
+    "restoreElimination": "Restore",
+    "restoredElimination": "restored",
+    "restoredEliminationSuffix": " from elimination",
+    "undidReentry": "undid",
+    "undidReentrySuffix": "'s re-entry",
+    "confirmRestoreElimination": "Restore {name} from elimination? They return to play and their placement is cleared.",
+    "confirmUndoReentry": "Undo {name}'s re-entry? The buy-in is refunded and the player goes back to eliminated.",
+    "restoreSuccess": "Elimination restored"
   },
   "dailyReport": {
     "title": "Daily Report",

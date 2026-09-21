@@ -288,6 +288,7 @@ const {
   addPlayer, updatePlayer, removePlayer,
   checkGameStatus, joinAsNewPlayer, joinGameListener,
   closeGame, eliminatePlayer, reentryPlayer, settleTournament, settleTournamentWithDeal, clearCurrentGame,
+  undoEliminationTx, undoReentryTx,
 } = gameStore;
 const { sendBuyInMessage, sendUndoMessage, sendTournamentSettlementMessage, shareGameInvite, isInitialized: liffReady } = useLiff();
 const { success, warning, error: showError, copyWithNotification } = useNotification();
@@ -295,7 +296,7 @@ const { confirm } = useConfirm();
 const { withLoading } = useLoading();
 
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
-const { transactions, txLoading, txError, recordAction, recordBuyIn, recordDirect, undoBuyIn } = useTransactions(gameId);
+const { transactions, txLoading, txError, recordAction, recordBuyIn, undoBuyIn } = useTransactions(gameId);
 
 // Tournament session data (for reentryUntilLevel, payoutRatios)
 const {
@@ -558,18 +559,19 @@ const handleReentry = async (player) => {
     await withLoading(async () => {
       const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
       const ok = await reentryPlayer(player.id);
-      if (ok) {
-        // Log-only: reentryPlayer already updated buyIn atomically
-        await recordDirect(player.id, player.uid || null, player.name, 'reentry', baseBuyIn);
-        success(t('tournament.reentryAction'));
-        // Send LINE buy-in notification for re-entry
-        const newTotalBuyIn = (player.buyIn || 0) + baseBuyIn;
-        sendBuyInMessage(displayName.value, player.name, baseBuyIn, game.value?.name, game.value?.id, {
-          totalBuyIn: newTotalBuyIn,
-          baseBuyIn,
-          gameType: 'tournament',
-        });
+      if (!ok) {
+        showError(gameError.value || 'Failed to re-entry player');
+        return;
       }
+      // reentryPlayer updated buyIn and wrote the 'reentry' log record atomically
+      success(t('tournament.reentryAction'));
+      // Send LINE buy-in notification for re-entry
+      const newTotalBuyIn = (player.buyIn || 0) + baseBuyIn;
+      sendBuyInMessage(displayName.value, player.name, baseBuyIn, game.value?.name, game.value?.id, {
+        totalBuyIn: newTotalBuyIn,
+        baseBuyIn,
+        gameType: 'tournament',
+      });
     }, t('loading.saving'));
   }
 };
@@ -634,7 +636,68 @@ const handleShareToLine = async () => {
   }
 };
 
+const findTxPlayer = (tx) => game.value?.players?.find(
+  p => tx.targetId ? p.id === tx.targetId : (tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName)
+);
+
+const notifyUndo = (tx) => {
+  const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
+  const newTotal = findTxPlayer(tx)?.buyIn || 0;
+  sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount), game.value?.name, game.value?.id, {
+    totalBuyIn: newTotal,
+    baseBuyIn,
+    gameType: 'tournament',
+  });
+};
+
+/**
+ * "淘汰復原": revert an elimination from the log. State (eliminated / placement /
+ * playersRemaining / auto-crowned champion) is restored atomically by the store.
+ */
+const handleRestoreElimination = async (tx) => {
+  const shouldRestore = await confirm({
+    message: t('transaction.confirmRestoreElimination', { name: tx.targetName }),
+    type: 'warning',
+  });
+  if (!shouldRestore) return;
+
+  await withLoading(async () => {
+    const ok = await undoEliminationTx(tx.txId);
+    if (!ok) {
+      showError(gameError.value || 'Failed to restore player');
+      return;
+    }
+    success(t('transaction.restoreSuccess'));
+  }, t('loading.saving'));
+};
+
+/**
+ * Undo a re-entry from the log: refunds the buy-in AND puts the player back
+ * into the eliminated state they had before re-entering.
+ */
+const handleUndoReentry = async (tx) => {
+  const shouldUndo = await confirm({
+    message: t('transaction.confirmUndoReentry', { name: tx.targetName }),
+    type: 'warning',
+  });
+  if (!shouldUndo) return;
+
+  await withLoading(async () => {
+    const result = await undoReentryTx(tx.txId);
+    if (!result) {
+      showError(gameError.value || 'Failed to undo re-entry');
+      return;
+    }
+    success(t('transaction.undoSuccess'));
+    notifyUndo(tx);
+  }, t('loading.saving'));
+};
+
 const handleUndoBuyIn = async (tx) => {
+  // Status-changing records have their own atomic undo paths.
+  if (tx.type === 'eliminate') return handleRestoreElimination(tx);
+  if (tx.type === 'reentry') return handleUndoReentry(tx);
+
   const shouldUndo = await confirm({ message: t('transaction.confirmUndo'), type: 'warning' });
   if (shouldUndo) {
     await withLoading(async () => {
@@ -657,36 +720,10 @@ const handleUndoBuyIn = async (tx) => {
           await updateDoc(doc(db, 'games', game.value.id), { players: updatedPlayers });
         }
 
-        // Decrement tournament session reentry counter if applicable.
-        // Only reentries is decremented — playersRegistered tracks unique players
-        // and is unaffected by re-entry undo.
-        const sessionId = game.value?.tournamentSessionId;
-        if (sessionId && tx.type === 'reentry') {
-          const { doc, updateDoc, getDoc } = await import('firebase/firestore');
-          const { db } = await import('../firebase-init.js');
-          const sessionRef = doc(db, 'tournamentSessions', sessionId);
-          const snap = await getDoc(sessionRef);
-          if (snap.exists()) {
-            const st = snap.data().state || {};
-            await updateDoc(sessionRef, {
-              'state.reentries': Math.max(0, (st.reentries || 0) - 1),
-            });
-          }
-        }
-
         success(t('transaction.undoSuccess'));
       }
 
-      const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
-      const player = game.value?.players?.find(
-        p => tx.targetId ? p.id === tx.targetId : (tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName)
-      );
-      const newTotal = player?.buyIn || 0;
-      sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount), game.value?.name, game.value?.id, {
-        totalBuyIn: newTotal,
-        baseBuyIn,
-        gameType: 'tournament',
-      });
+      notifyUndo(tx);
     }, t('loading.saving'));
   }
 };

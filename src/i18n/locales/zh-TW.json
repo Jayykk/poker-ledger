@@ -403,7 +403,16 @@
     "modified": "修改了",
     "modifiedSuffix": " 的資料",
     "removed": "移除了",
-    "boundSeat": "綁定了座位"
+    "boundSeat": "綁定了座位",
+    "eliminatedPlayer": "淘汰了",
+    "restoreElimination": "淘汰復原",
+    "restoredElimination": "復原了",
+    "restoredEliminationSuffix": " 的淘汰",
+    "undidReentry": "撤銷了",
+    "undidReentrySuffix": " 的 Re-entry",
+    "confirmRestoreElimination": "確定要復原 {name} 的淘汰嗎？玩家將回到場上，名次會清除。",
+    "confirmUndoReentry": "確定要撤銷 {name} 的 Re-entry 嗎？買入會退回，玩家將恢復為已淘汰狀態。",
+    "restoreSuccess": "已復原淘汰"
   },
   "dailyReport": {
     "title": "日結報表",
