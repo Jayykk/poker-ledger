@@ -118,7 +118,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../../composables/useAuth.js';
 import { formatNumber } from '../../utils/formatters.js';
-import { STATUS_TX_TYPES, latestStatusTxIds } from '../../utils/tournamentElimination.js';
+import { STATUS_TX_TYPES, latestStatusTxId } from '../../utils/tournamentElimination.js';
 
 const { t } = useI18n();
 const { user } = useAuth();
@@ -145,14 +145,16 @@ const lastModifyTimestamp = computed(() => {
   return map;
 });
 
-// Eliminate / re-entry records must be undone newest-first per player, so
-// only the latest active one for each player gets a button.
-const undoableStatusTxIds = computed(() => latestStatusTxIds(props.transactions));
+// Placements depend on the order of eliminations / re-entries, so status
+// records must be undone in strict reverse order across the whole game: only
+// the single latest active one gets a button (the store enforces the same
+// rule inside its transaction via player statusSeq).
+const undoableStatusTxId = computed(() => latestStatusTxId(props.transactions));
 
 const canUndo = (tx) => {
   if (!user.value) return false;
   if (tx.status !== 'active') return false;
-  if (STATUS_TX_TYPES.includes(tx.type) && !undoableStatusTxIds.value.has(tx.txId)) return false;
+  if (STATUS_TX_TYPES.includes(tx.type) && tx.txId !== undoableStatusTxId.value) return false;
   // If this player has been modified, only allow undo for transactions AFTER the last modify
   if (tx.targetId && lastModifyTimestamp.value.has(tx.targetId)) {
     const modifyTs = lastModifyTimestamp.value.get(tx.targetId);

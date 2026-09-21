@@ -28,10 +28,10 @@ import {
   TX_TYPE_ELIMINATE,
   TX_TYPE_REENTRY,
   applyElimination,
+  applyReentry,
   crownSurvivors,
   snapshotSessionClock,
   buildEliminationRestore,
-  buildReentryRestore,
   buildReopenedSessionUpdates,
   revertElimination,
   revertReentry,
@@ -523,7 +523,9 @@ export const useGameStore = defineStore('game', () => {
         if (target.eliminated) return;
 
         const eliminatedAt = Date.now();
-        const { players: eliminatedPlayers, placement, aliveAfter } = applyElimination(players, playerId, eliminatedAt);
+        const {
+          players: eliminatedPlayers, placement, aliveAfter, seq, prevSeq,
+        } = applyElimination(players, playerId, eliminatedAt);
         let updatedPlayers = eliminatedPlayers;
 
         const hasSingleWinner = aliveAfter === 1;
@@ -570,6 +572,8 @@ export const useGameStore = defineStore('game', () => {
             eliminatedAt,
             endedTournament: shouldEndTournament,
             sessionState: clockBeforeEnd,
+            seq,
+            prevSeq,
           }),
         }));
       });
@@ -773,26 +777,18 @@ export const useGameStore = defineStore('game', () => {
           }
         }
 
-        const updatedPlayers = players.map(p => {
-          if (p.id === playerId) {
-            return {
-              ...p,
-              eliminated: false,
-              eliminatedAt: null,
-              placement: null,
-              buyIn: (p.buyIn || 0) + baseBuyIn,
-            };
-          }
-          return p;
-        });
+        // applyReentry stamps the next global statusSeq on the player and
+        // snapshots the eliminated state (placement / eliminatedAt / seq) so the
+        // log's undo can put them back exactly where they were.
+        const { players: updatedPlayers, aliveAfter, restore } = applyReentry(players, playerId, baseBuyIn);
 
-        aliveAfterReentry = updatedPlayers.filter(p => !p.eliminated).length;
+        aliveAfterReentry = aliveAfter;
         transaction.update(gameRef, { players: updatedPlayers });
         transaction.set(txRef, buildTxRecord({
           target: player,
           type: TX_TYPE_REENTRY,
           amount: baseBuyIn,
-          restore: buildReentryRestore(player),
+          restore,
         }));
       });
 

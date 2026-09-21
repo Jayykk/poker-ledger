@@ -32,7 +32,7 @@ describe('Tournament elimination integration', () => {
     const reentryFn = gameStoreContent.match(/const reentryPlayer = async \(playerId\) => \{[\s\S]*?\n  \};/);
     expect(reentryFn).not.toBeNull();
     expect(reentryFn[0]).toContain('type: TX_TYPE_REENTRY');
-    expect(reentryFn[0]).toContain('buildReentryRestore(player)');
+    expect(reentryFn[0]).toContain('applyReentry(players, playerId, baseBuyIn)');
     // The view must not write a second, non-atomic 'reentry' log record
     expect(tournamentGameViewContent).not.toContain("'reentry', baseBuyIn)");
   });
