@@ -27,16 +27,30 @@
             ? 'bg-rose-950/30 border-rose-900/30'
             : tx.type === 'remove'
               ? 'bg-red-950/20 border-red-900/20'
-              : ['join', 'bind', 'modify'].includes(tx.type)
-                ? 'bg-slate-800/40 border-slate-700/50'
-                : 'bg-slate-800/70 border-slate-700'"
+              : tx.type === 'eliminate'
+                ? 'bg-slate-800/40 border-amber-900/30'
+                : ['join', 'bind', 'modify'].includes(tx.type)
+                  ? 'bg-slate-800/40 border-slate-700/50'
+                  : 'bg-slate-800/70 border-slate-700'"
       >
         <!-- Left: description -->
         <div class="flex-1 min-w-0">
           <div class="text-sm" :class="tx.status === 'undone' ? 'line-through text-gray-600' : 'text-white'">
-            <template v-if="tx.type === 'undo'">
+            <template v-if="tx.type === 'undo' && tx.undoOfType === 'eliminate'">
+              <span class="text-emerald-400">↩️</span>
+              {{ tx.actionName }} {{ $t('transaction.restoredElimination') }} {{ tx.targetName }}{{ $t('transaction.restoredEliminationSuffix') }}
+            </template>
+            <template v-else-if="tx.type === 'undo' && tx.undoOfType === 'reentry'">
+              <span class="text-rose-400">↩️</span>
+              {{ tx.actionName }} {{ $t('transaction.undidReentry') }} {{ tx.targetName }}{{ $t('transaction.undidReentrySuffix') }}
+            </template>
+            <template v-else-if="tx.type === 'undo'">
               <span class="text-rose-400">↩️</span>
               {{ tx.actionName }} {{ $t('transaction.undid') }} {{ tx.targetName }}
+            </template>
+            <template v-else-if="tx.type === 'eliminate'">
+              <span>💀</span>
+              {{ tx.actionName }} {{ $t('transaction.eliminatedPlayer') }} {{ tx.targetName }}
             </template>
             <template v-else-if="tx.type === 'join'">
               <span>👤</span>
@@ -69,16 +83,25 @@
         <!-- Right: amount + undo -->
         <div class="flex items-center gap-2 ml-3">
           <span
-            v-if="tx.type === 'buy_in' || tx.type === 'add_on' || tx.type === 'reentry' || tx.type === 'undo' || (tx.type === 'modify' && tx.amount)"
+            v-if="showAmount(tx)"
             class="font-mono font-bold text-sm"
             :class="tx.type === 'undo' ? 'text-rose-400' : tx.amount < 0 ? 'text-rose-400' : 'text-emerald-400'"
           >
             {{ tx.amount > 0 ? '+' : '' }}{{ formatNumber(tx.amount) }}
           </span>
 
-          <!-- Undo button: only on active buy-in/add-on, and only if current user did it or is host -->
+          <!-- Restore button for an elimination ("淘汰復原") -->
           <button
-            v-if="tx.status === 'active' && (tx.type === 'buy_in' || tx.type === 'add_on' || tx.type === 'reentry') && canUndo(tx)"
+            v-if="tx.type === 'eliminate' && canUndo(tx)"
+            @click="$emit('undo', tx)"
+            class="text-amber-300 hover:text-emerald-400 transition text-xs px-2 py-1 rounded border border-amber-700/60 hover:border-emerald-500 whitespace-nowrap"
+          >
+            <i class="fas fa-undo mr-1"></i>{{ $t('transaction.restoreElimination') }}
+          </button>
+
+          <!-- Undo button: only on active buy-in/add-on/reentry, and only if current user did it or is host -->
+          <button
+            v-else-if="(tx.type === 'buy_in' || tx.type === 'add_on' || tx.type === 'reentry') && canUndo(tx)"
             @click="$emit('undo', tx)"
             class="text-gray-500 hover:text-rose-400 transition text-xs px-2 py-1 rounded border border-slate-700 hover:border-rose-500"
           >
@@ -95,6 +118,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../../composables/useAuth.js';
 import { formatNumber } from '../../utils/formatters.js';
+import { STATUS_TX_TYPES, latestStatusTxIds } from '../../utils/tournamentElimination.js';
 
 const { t } = useI18n();
 const { user } = useAuth();
@@ -121,8 +145,14 @@ const lastModifyTimestamp = computed(() => {
   return map;
 });
 
+// Eliminate / re-entry records must be undone newest-first per player, so
+// only the latest active one for each player gets a button.
+const undoableStatusTxIds = computed(() => latestStatusTxIds(props.transactions));
+
 const canUndo = (tx) => {
   if (!user.value) return false;
+  if (tx.status !== 'active') return false;
+  if (STATUS_TX_TYPES.includes(tx.type) && !undoableStatusTxIds.value.has(tx.txId)) return false;
   // If this player has been modified, only allow undo for transactions AFTER the last modify
   if (tx.targetId && lastModifyTimestamp.value.has(tx.targetId)) {
     const modifyTs = lastModifyTimestamp.value.get(tx.targetId);
@@ -130,6 +160,13 @@ const canUndo = (tx) => {
     if (txTs <= modifyTs) return false;
   }
   return tx.actionUid === user.value.uid || props.hostUid === user.value.uid;
+};
+
+// Money-bearing rows show an amount; elimination and its undo carry none.
+const showAmount = (tx) => {
+  if (['buy_in', 'add_on', 'reentry'].includes(tx.type)) return true;
+  if (tx.type === 'undo' || tx.type === 'modify') return !!tx.amount;
+  return false;
 };
 
 const formatTime = (ts) => {

@@ -360,7 +360,16 @@
     "modified": "が",
     "modifiedSuffix": "のデータを変更しました",
     "removed": "を削除しました",
-    "boundSeat": "が座席をバインドしました："
+    "boundSeat": "が座席をバインドしました：",
+    "eliminatedPlayer": "が脱落させました：",
+    "restoreElimination": "脱落復元",
+    "restoredElimination": "が脱落を取り消しました：",
+    "restoredEliminationSuffix": "",
+    "undidReentry": "がリエントリーを取り消しました：",
+    "undidReentrySuffix": "",
+    "confirmRestoreElimination": "{name} の脱落を取り消しますか？プレイヤーは復帰し、順位はクリアされます。",
+    "confirmUndoReentry": "{name} のリエントリーを取り消しますか？バイインは返金され、脱落状態に戻ります。",
+    "restoreSuccess": "脱落を取り消しました"
   },
   "dailyReport": {
     "title": "日次レポート",

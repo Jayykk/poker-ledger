@@ -22,6 +22,19 @@ import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../util
 import { createSyncRequestToken } from '../../utils/historyProjection.js';
 import { timestampToMillis } from '../../utils/formatters.js';
 import { buildCashSettlement, buildTournamentSettlement } from '../../utils/settlementMath.js';
+import {
+  TX_TYPE_ELIMINATE,
+  TX_TYPE_REENTRY,
+  applyElimination,
+  crownSurvivors,
+  snapshotSessionClock,
+  buildEliminationRestore,
+  buildReentryRestore,
+  buildReopenedSessionUpdates,
+  revertElimination,
+  revertReentry,
+  findTxTarget,
+} from '../../utils/tournamentElimination.js';
 
 function getEffectiveTournamentLevel(levels = [], currentLevelIndex = 0) {
   const normalizedIndex = Number.isFinite(Number(currentLevelIndex))
@@ -492,41 +505,58 @@ export const useGameStore = defineStore('game', () => {
    * If only 1 player remains after elimination and re-entry is closed,
    * auto-crown them as champion (placement=1)
    */
+  /**
+   * Build a transaction-log record signed by the current user.
+   * Shape mirrors useTransactions.js so TransactionLog.vue renders it as-is.
+   */
+  const buildTxRecord = ({ target, type, amount = 0, restore = null, undoOf = null, undoOfType = null }) => ({
+    gameId: gameId.value,
+    targetId: target.id || null,
+    targetUid: target.uid || null,
+    targetName: target.name,
+    actionUid: authStore.user?.uid || null,
+    actionName: authStore.displayName || 'Player',
+    amount: Number(amount) || 0,
+    type,
+    status: 'active',
+    undoneBy: null,
+    undoOf,
+    ...(undoOfType ? { undoOfType } : {}),
+    ...(restore ? { restore } : {}),
+    timestamp: serverTimestamp(),
+  });
+
   const eliminatePlayer = async (playerId) => {
     if (!gameId.value) return false;
 
     try {
       const gameRef = doc(db, 'games', gameId.value);
+      const txRef = doc(collection(db, 'transactions'));
       await runTransaction(db, async (transaction) => {
         const gameSnap = await transaction.get(gameRef);
         if (!gameSnap.exists()) throw new Error('Game not found');
 
         const gameData = gameSnap.data();
         const players = gameData.players || [];
-        const aliveBefore = players.filter(p => !p.eliminated);
         const target = players.find(p => p.id === playerId);
         if (!target) throw new Error('Player not found');
         if (target.eliminated) return;
-        if (aliveBefore.length <= 1) throw new Error('Cannot eliminate the last remaining player');
 
-        const placement = aliveBefore.length; // e.g. 5 alive → eliminated gets 5th
-        let updatedPlayers = players.map(p => {
-          if (p.id === playerId) {
-            return { ...p, eliminated: true, eliminatedAt: Date.now(), placement };
-          }
-          return p;
-        });
+        const eliminatedAt = Date.now();
+        const { players: eliminatedPlayers, placement, aliveAfter } = applyElimination(players, playerId, eliminatedAt);
+        let updatedPlayers = eliminatedPlayers;
 
-        const aliveAfter = updatedPlayers.filter(p => !p.eliminated).length;
         const hasSingleWinner = aliveAfter === 1;
         const sessionId = gameData.tournamentSessionId;
         let shouldEndTournament = hasSingleWinner && !sessionId;
+        let clockBeforeEnd = null;
 
         if (sessionId) {
           const sessionRef = doc(db, 'tournamentSessions', sessionId);
           const sessionSnap = await transaction.get(sessionRef);
           if (sessionSnap.exists()) {
-            shouldEndTournament = hasSingleWinner && isTournamentReentryClosed(sessionSnap.data());
+            const sessionData = sessionSnap.data();
+            shouldEndTournament = hasSingleWinner && isTournamentReentryClosed(sessionData);
 
             const sessionUpdates = {
               'state.playersRemaining': aliveAfter,
@@ -534,6 +564,8 @@ export const useGameStore = defineStore('game', () => {
             };
 
             if (shouldEndTournament) {
+              // Remember the clock so undoing this elimination can reopen it.
+              clockBeforeEnd = snapshotSessionClock(sessionData.state || {});
               sessionUpdates['state.status'] = 'ended';
               sessionUpdates['state.timeLeftSeconds'] = 0;
               sessionUpdates['state.lastTickAt'] = null;
@@ -544,18 +576,155 @@ export const useGameStore = defineStore('game', () => {
         }
 
         if (shouldEndTournament) {
-          updatedPlayers = updatedPlayers.map(p => {
-            if (p.eliminated) return p;
-            return { ...p, placement: 1 };
-          });
+          updatedPlayers = crownSurvivors(updatedPlayers);
         }
 
         transaction.update(gameRef, { players: updatedPlayers });
+
+        // Log the elimination (amount 0) with everything needed to revert it.
+        transaction.set(txRef, buildTxRecord({
+          target,
+          type: TX_TYPE_ELIMINATE,
+          restore: buildEliminationRestore({
+            placement,
+            eliminatedAt,
+            endedTournament: shouldEndTournament,
+            sessionState: clockBeforeEnd,
+          }),
+        }));
       });
       return true;
     } catch (err) {
       console.error('Eliminate player error:', err);
       error.value = 'Failed to eliminate player: ' + err.message;
+      return false;
+    }
+  };
+
+  /**
+   * Undo an elimination recorded in the transaction log (tournament only).
+   * The player returns to play with no placement; if that elimination had
+   * ended the tournament, the provisional champion is un-crowned and the clock
+   * is reopened (paused). Undo order is enforced by the UI (latest first).
+   */
+  const undoEliminationTx = async (txId) => {
+    if (!gameId.value) return false;
+
+    try {
+      const txRef = doc(db, 'transactions', txId);
+      const gameRef = doc(db, 'games', gameId.value);
+      const undoRef = doc(collection(db, 'transactions'));
+
+      await runTransaction(db, async (transaction) => {
+        const txSnap = await transaction.get(txRef);
+        if (!txSnap.exists()) throw new Error('Transaction not found');
+        const tx = txSnap.data();
+        if (tx.type !== TX_TYPE_ELIMINATE) throw new Error('Not an elimination record');
+        if (tx.status !== 'active') throw new Error('Transaction already undone');
+        if (tx.gameId !== gameId.value) throw new Error('Transaction belongs to another game');
+
+        const gameSnap = await transaction.get(gameRef);
+        if (!gameSnap.exists()) throw new Error('Game not found');
+        const gameData = gameSnap.data();
+        const players = gameData.players || [];
+        const target = findTxTarget(players, tx);
+        if (!target) throw new Error('Player not found');
+
+        const { players: updatedPlayers, aliveAfter, reopensTournament } = revertElimination(players, tx);
+
+        const sessionId = gameData.tournamentSessionId;
+        if (sessionId) {
+          const sessionRef = doc(db, 'tournamentSessions', sessionId);
+          const sessionSnap = await transaction.get(sessionRef);
+          if (sessionSnap.exists()) {
+            transaction.update(sessionRef, {
+              'state.playersRemaining': aliveAfter,
+              ...(reopensTournament ? buildReopenedSessionUpdates(tx.restore?.sessionState) : {}),
+              updatedAt: serverTimestamp(),
+            });
+          }
+        }
+
+        transaction.update(gameRef, { players: updatedPlayers });
+        transaction.update(txRef, { status: 'undone' });
+        transaction.set(undoRef, buildTxRecord({
+          target,
+          type: 'undo',
+          amount: 0,
+          undoOf: txId,
+          undoOfType: TX_TYPE_ELIMINATE,
+        }));
+      });
+      return true;
+    } catch (err) {
+      console.error('Undo elimination error:', err);
+      error.value = 'Failed to restore player: ' + err.message;
+      return false;
+    }
+  };
+
+  /**
+   * Undo a re-entry recorded in the transaction log (tournament only).
+   * Refunds the re-entry buy-in AND puts the player back into the eliminated
+   * state they had before re-entering (placement / eliminatedAt from the
+   * record's snapshot), keeping session counters in sync.
+   */
+  const undoReentryTx = async (txId) => {
+    if (!gameId.value) return false;
+
+    try {
+      const txRef = doc(db, 'transactions', txId);
+      const gameRef = doc(db, 'games', gameId.value);
+      const undoRef = doc(collection(db, 'transactions'));
+      let refundedAmount = 0;
+
+      await runTransaction(db, async (transaction) => {
+        const txSnap = await transaction.get(txRef);
+        if (!txSnap.exists()) throw new Error('Transaction not found');
+        const tx = txSnap.data();
+        if (tx.type !== TX_TYPE_REENTRY) throw new Error('Not a re-entry record');
+        if (tx.status !== 'active') throw new Error('Transaction already undone');
+        if (tx.gameId !== gameId.value) throw new Error('Transaction belongs to another game');
+
+        const gameSnap = await transaction.get(gameRef);
+        if (!gameSnap.exists()) throw new Error('Game not found');
+        const gameData = gameSnap.data();
+        const players = gameData.players || [];
+        const target = findTxTarget(players, tx);
+        if (!target) throw new Error('Player not found');
+
+        const { players: updatedPlayers, aliveAfter, refunded } = revertReentry(players, tx, Date.now());
+        refundedAmount = refunded;
+
+        const sessionId = gameData.tournamentSessionId;
+        if (sessionId) {
+          const sessionRef = doc(db, 'tournamentSessions', sessionId);
+          const sessionSnap = await transaction.get(sessionRef);
+          if (sessionSnap.exists()) {
+            const st = sessionSnap.data().state || {};
+            transaction.update(sessionRef, {
+              'state.playersRemaining': aliveAfter,
+              // playersRegistered is untouched: re-entry never added a unique player.
+              'state.reentries': Math.max(0, (st.reentries || 0) - 1),
+              updatedAt: serverTimestamp(),
+            });
+          }
+        }
+
+        transaction.update(gameRef, { players: updatedPlayers });
+        transaction.update(txRef, { status: 'undone' });
+        transaction.set(undoRef, buildTxRecord({
+          target,
+          type: 'undo',
+          amount: -refunded,
+          undoOf: txId,
+          undoOfType: TX_TYPE_REENTRY,
+        }));
+      });
+      return { refunded: refundedAmount };
+    } catch (err) {
+      console.error('Undo re-entry error:', err);
+      error.value = 'Failed to undo re-entry: ' + err.message;
       return false;
     }
   };
@@ -597,13 +766,16 @@ export const useGameStore = defineStore('game', () => {
       const baseBuyIn = game.value.baseBuyIn || DEFAULT_BUY_IN;
       const maxReentries = cfg.maxReentries ?? 0;
       const gameRef = doc(db, 'games', gameId.value);
+      const txRef = doc(collection(db, 'transactions'));
 
       // Track the exact alive count from inside the transaction so we can write
       // an absolute value to the session (avoids increment() race vs startGameSync).
       let aliveAfterReentry = 0;
 
       // Use a Firestore transaction to atomically read the latest data,
-      // validate reentry count, and update both elimination state and buyIn.
+      // validate reentry count, update elimination state + buyIn, and log the
+      // re-entry (with a snapshot of the eliminated state it replaces so the
+      // log's undo can put the player back exactly where they were).
       await runTransaction(db, async (transaction) => {
         const gameSnap = await transaction.get(gameRef);
         if (!gameSnap.exists()) throw new Error('Game not found');
@@ -611,6 +783,7 @@ export const useGameStore = defineStore('game', () => {
         const players = gameSnap.data().players || [];
         const player = players.find(p => p.id === playerId);
         if (!player) throw new Error('Player not found');
+        if (!player.eliminated) throw new Error('Player is not eliminated');
 
         // Validate per-player reentry count from the LATEST server data
         if (maxReentries > 0) {
@@ -635,6 +808,12 @@ export const useGameStore = defineStore('game', () => {
 
         aliveAfterReentry = updatedPlayers.filter(p => !p.eliminated).length;
         transaction.update(gameRef, { players: updatedPlayers });
+        transaction.set(txRef, buildTxRecord({
+          target: player,
+          type: TX_TYPE_REENTRY,
+          amount: baseBuyIn,
+          restore: buildReentryRestore(player),
+        }));
       });
 
       // Sync tournament session counters.
@@ -810,6 +989,8 @@ export const useGameStore = defineStore('game', () => {
     closeGame,
     eliminatePlayer,
     reentryPlayer,
+    undoEliminationTx,
+    undoReentryTx,
     settleTournament,
     clearCurrentGame,
     loadMyRooms,

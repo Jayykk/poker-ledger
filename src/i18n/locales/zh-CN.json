@@ -360,7 +360,16 @@
     "modified": "修改了",
     "modifiedSuffix": " 的资料",
     "removed": "移除了",
-    "boundSeat": "绑定了座位"
+    "boundSeat": "绑定了座位",
+    "eliminatedPlayer": "淘汰了",
+    "restoreElimination": "淘汰复原",
+    "restoredElimination": "恢复了",
+    "restoredEliminationSuffix": " 的淘汰",
+    "undidReentry": "撤销了",
+    "undidReentrySuffix": " 的 Re-entry",
+    "confirmRestoreElimination": "确定要恢复 {name} 的淘汰吗？玩家将回到场上，名次会清除。",
+    "confirmUndoReentry": "确定要撤销 {name} 的 Re-entry 吗？买入会退回，玩家将恢复为已淘汰状态。",
+    "restoreSuccess": "已恢复淘汰"
   },
   "dailyReport": {
     "title": "日结报表",

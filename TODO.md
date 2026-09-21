@@ -30,6 +30,7 @@
 - [x] Time Bank（快捷預設、Firestore 同步）
 - [x] 錦標賽預設（盲注結構、配置儲存）
 - [x] Re-entry 管理（買入次數上限、undo、場次計數同步）
+- [x] 淘汰復原：淘汰寫入操作歷程（含 restore 快照），歷程可一鍵復原誤淘汰（含自動封冠/時鐘結束的回復）；撤銷 Re-entry 會同步退回「已淘汰」狀態與名次
 - [x] 螢幕常亮（Wake Lock，含 iOS fallback）
 - [x] 錦標賽結算（含 active→completed 轉換修正，47d3127）
 

@@ -100,6 +100,12 @@ export async function undoBuyIn(txId, callerUid, callerName) {
     if (!txSnap.exists) throw new Error('Transaction not found');
     const tx = txSnap.data();
     if (tx.status !== 'active') throw new Error('Transaction already undone');
+    // Elimination / re-entry records change a player's alive status and are
+    // reverted by the client store (undoEliminationTx / undoReentryTx), which
+    // restores that status atomically. This handler only knows about money.
+    if (tx.type === 'eliminate' || tx.type === 'reentry') {
+      throw new Error('Elimination and re-entry records must be undone from the tournament view');
+    }
 
     gameRef = db.collection('games').doc(tx.gameId);
     const gameSnap = await transaction.get(gameRef);
