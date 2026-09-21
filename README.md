@@ -57,6 +57,7 @@ A scheduling layer above tables — plan a poker night once, and let sign-ups dr
 - 💱 **Multi-currency Support** - Track in TWD, USD, CNY, or JPY
 - 📜 **Rebuy History** - Complete tracking of all rebuys during a session
 - 📝 **Hand Records** - View, create, and manage individual hand histories
+- 📷 **AI Card Recognition** - Photograph the table, Gemini (Firebase AI Logic) reads the face-up cards and groups them by placement; the 3–5 card row is pre-assigned to the board, the rest you multi-select and assign to players before anything is written into the hand record (see [AI Card Recognition Setup](#-ai-card-recognition-setup))
 - 🎚️ **Cash Table Presets** - Save and reuse cash game configurations with a unified create-game flow
 
 ### Admin Tools
@@ -104,6 +105,7 @@ A scheduling layer above tables — plan a poker night once, and let sign-ups dr
 - **Authentication**: Firebase Auth (Email/Password, Anonymous, LINE Login)
 - **Backend**: Firebase Cloud Functions v2 (Node.js 22, firebase-admin 12, region `asia-east1`)
 - **Task Scheduling**: Google Cloud Tasks (turn timeouts, auto-close, showdown delays)
+- **AI Vision**: Firebase AI Logic (`firebase/ai`, Gemini Developer API) + Firebase App Check (reCAPTCHA Enterprise) — client-side, lazy-loaded
 - **Hand Evaluation**: pokersolver
 - **LINE Integration**: LIFF SDK v2
 - **Charts**: Chart.js 4
@@ -205,6 +207,22 @@ push `main` 且變更觸及 `functions/**`、`firestore.rules`、`src/**` 等路
   註：曾嘗試 WIF（Workload Identity Federation），但 `firebase deploy` 不支援 external_account 憑證，故採 SA 金鑰。
 - **Secret `POKER_TASKS_SECRET`**（建議設定）：Cloud Tasks HMAC 簽章密鑰，部署時寫入 `functions/.env`；未設定時 task endpoint 會跳過驗證（向後相容，但較不安全）。
 - **Variable `VITE_LIFF_ID`**：LIFF App ID，前端建置時注入。
+- **Variable `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY`**：App Check 用的 reCAPTCHA Enterprise site key（AI 辨識牌面需要，見下方）。
+- **Variable `VITE_GEMINI_MODEL`**（選填）：覆寫 Gemini 模型名稱，預設 `gemini-3.7-flash`。
+
+### 🤖 AI Card Recognition Setup
+
+「記錄這手牌」表單的「拍照辨識」直接在前端透過 Firebase AI Logic 呼叫 Gemini，不經過 Cloud Functions。Firebase 對 AI Logic **強制 App Check**（未設定會得到 403 `PERMISSION_DENIED`），所以需要一次性的 Console 設定：
+
+1. **啟用 AI Logic**：Firebase Console → Build → AI Logic → Get started → 選 **Gemini Developer API**（免費額度）。若瀏覽器 API key 有設 API 限制，需放行 *Firebase AI Logic API*。
+2. **建立 reCAPTCHA Enterprise key**：Google Cloud Console → Security → reCAPTCHA Enterprise → Create key → 類型 **Website**，網域加入 `jayykk.github.io` 與 `localhost`。
+3. **註冊 App Check**：Firebase Console → App Check → Apps → 對 web app 選 reCAPTCHA Enterprise，貼上 site key。APIs 分頁 → Firebase AI Logic → **Enforce**。
+4. **設定環境變數**：
+   - 本機 `.env.local`：`VITE_RECAPTCHA_ENTERPRISE_SITE_KEY=<site key>`、`VITE_APPCHECK_DEBUG_TOKEN=true`。第一次按「拍照辨識」時瀏覽器 console 會印出 debug token → Firebase Console → App Check → Apps → ⋮ → Manage debug tokens → 新增。之後可把該 token 直接填進 `VITE_APPCHECK_DEBUG_TOKEN`。
+   - GitHub：Repository variable `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY`（`deploy.yml` 會在 build 時注入）。
+5. **模型**：預設 `gemini-3.7-flash`；若 Console 顯示不可用，以 `VITE_GEMINI_MODEL` 覆寫。
+
+未設定 site key 時，App Check 不會初始化，其他功能不受影響，只有拍照辨識會失敗並顯示對應錯誤提示。圖片會先在瀏覽器縮到最長邊 1280px 的 JPEG 再送出，Gemini Developer API 免費層有每分鐘 / 每日次數上限，超過會顯示「次數已達上限」。
 
 ### ⚠️ Firestore Rules / Indexes（CI 不會部署）
 

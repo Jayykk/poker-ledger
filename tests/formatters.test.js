@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   formatNumber,
+  formatSignedNumber,
   formatCash,
   formatCurrency,
   formatDate,
@@ -75,6 +76,17 @@ describe('formatNumber', () => {
 
   it('accepts numeric strings', () => {
     expect(formatNumber('12345')).toBe('12,345');
+  });
+});
+
+describe('formatSignedNumber', () => {
+  it('adds an explicit sign to non-zero values', () => {
+    expect(formatSignedNumber(1000)).toBe('+1,000');
+    expect(formatSignedNumber(-1000)).toBe('-1,000');
+  });
+
+  it('formats zero without a sign', () => {
+    expect(formatSignedNumber(0)).toBe('0');
   });
 });
 
@@ -171,8 +183,22 @@ describe('formatDate', () => {
     expect(result).toMatch(/13:05:09/);
   });
 
-  it('returns "Invalid Date" for unparseable input', () => {
-    expect(formatDate('not a date')).toBe('Invalid Date');
+  it('returns an empty string for missing or unparseable input', () => {
+    expect(formatDate('not a date')).toBe('');
+    expect(formatDate(undefined)).toBe('');
+    expect(formatDate(null)).toBe(''); // pending serverTimestamp reads as null
+    expect(formatDate({})).toBe('');
+  });
+
+  it('accepts Firestore Timestamp shapes', () => {
+    const millis = d.getTime();
+    expect(formatDate({ toMillis: () => millis })).toBe(formatDate(d));
+    expect(formatDate({ seconds: Math.floor(millis / 1000) })).toBe(
+      formatDate(new Date(Math.floor(millis / 1000) * 1000))
+    );
+    expect(formatDate({ _seconds: Math.floor(millis / 1000) })).toBe(
+      formatDate(new Date(Math.floor(millis / 1000) * 1000))
+    );
   });
 });
 
@@ -189,8 +215,10 @@ describe('formatShortDate', () => {
     expect(formatShortDate(d.getTime())).toBe(formatShortDate(d));
   });
 
-  it('returns "Invalid Date" for unparseable input', () => {
-    expect(formatShortDate('garbage')).toBe('Invalid Date');
+  it('returns an empty string for missing or unparseable input', () => {
+    expect(formatShortDate('garbage')).toBe('');
+    expect(formatShortDate(undefined)).toBe('');
+    expect(formatShortDate(null)).toBe('');
   });
 });
 

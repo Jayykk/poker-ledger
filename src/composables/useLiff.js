@@ -774,7 +774,7 @@ const shareGameInvite = async (gameName, gameId, hostName, isTournament = false)
     const liffUrl = `https://liff.line.me/${LIFF_ID}/${liffPath}`;
     const headerColor = isTournament ? '#A16207' : '#1DB446';
     const headerEmoji = isTournament ? '🏆' : '🃏';
-    const typeText = isTournament ? '錦標賽' : '現金桌';
+    const typeText = isTournament ? '錦標賽' : '限時賽';
     const name = gameName || (isTournament ? '錦標賽' : '牌局');
     const host = hostName || '朋友';
     const altText = `${headerEmoji} ${host} 開了一桌「${name}」！`;
@@ -858,7 +858,7 @@ const sessionLiffUrl = (sessionId) =>
   (sessionId && LIFF_ID ? `https://liff.line.me/${LIFF_ID}/session/${sessionId}` : undefined);
 
 /** Human label for a period type. */
-const periodTypeLabel = (type) => (type === 'tournament' ? '錦標賽' : (type === 'custom' ? '自定義' : '現金桌'));
+const periodTypeLabel = (type) => (type === 'tournament' ? '錦標賽' : (type === 'custom' ? '自定義' : '限時賽'));
 
 /** Meta rows for the live-event cards: time + (optional) location. */
 const sessionMetaRows = (session) => {

@@ -60,6 +60,10 @@ beforeEach(async () => {
     await setDoc(doc(db, 'games', 'settled-game'), {
       status: 'completed', hostUid: ALICE, players: [], name: 'Settled',
     });
+    await setDoc(doc(db, 'games', 'active-tournament'), {
+      status: 'active', type: 'tournament', hostUid: ALICE,
+      players: [{ uid: BOB, name: 'Bob', buyIn: 1000 }], name: 'Tournament',
+    });
     await setDoc(doc(db, 'games', 'active-game', 'hands', 'hand-1'), {
       players: [], createdAt: new Date(),
     });
@@ -185,6 +189,13 @@ describe('games (ledger)', () => {
     }));
     await assertFails(updateDoc(doc(bobDb(), 'games', 'active-game'), {
       players: [], rate: 100,
+    }));
+  });
+
+  it('tournament participants cannot bypass the callable with direct settlement writes', async () => {
+    await assertFails(updateDoc(doc(bobDb(), 'games', 'active-tournament'), {
+      status: 'completed',
+      settlementSnapshot: [{ odId: BOB, prize: 999999, profit: 999999 }],
     }));
   });
 

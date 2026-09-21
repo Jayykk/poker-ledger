@@ -69,7 +69,7 @@
       >
         <i class="fas fa-trophy mr-1 text-amber-400"></i>{{ $t('tournament.viewClock') }}
       </BaseButton>
-      <BaseButton @click="showSettlement = true" variant="secondary">
+      <BaseButton v-if="isParticipant" @click="showSettlement = true" variant="secondary">
         {{ $t('tournament.settleTournament') }}
       </BaseButton>
     </div>
@@ -205,14 +205,29 @@
       <div v-if="playersStillInPlay.length > 0" class="text-amber-400 text-center text-xs mb-4">
         <i class="fas fa-exclamation-triangle mr-1"></i>
         {{ playersStillInPlay.length }} {{ $t('tournament.inPlay') }}
+        <div v-if="canDeal" class="text-emerald-400 mt-1">
+          <i class="fas fa-handshake mr-1"></i>{{ $t('tournament.dealHint') }}
+        </div>
       </div>
 
       <div class="grid gap-3">
         <BaseButton @click="handleSettle" variant="primary" fullWidth :disabled="playersStillInPlay.length > 0">
           {{ $t('common.confirm') }}
         </BaseButton>
+        <BaseButton v-if="canDeal" @click="openDeal" variant="secondary" fullWidth>
+          🤝 {{ $t('tournament.dealTitle') }}
+        </BaseButton>
       </div>
     </BaseModal>
+
+    <!-- Deal Settlement Modal (協議結算) -->
+    <DealSettlementModal
+      v-model="showDeal"
+      :players="activePlayers"
+      :prizes="dealPrizes"
+      :expected-chips="expectedChips"
+      @confirm="handleDealConfirm"
+    />
 
     <!-- Hand Record Sheet -->
     <HandRecordSheet
@@ -252,11 +267,13 @@ import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import TournamentPlayerCard from '../components/game/TournamentPlayerCard.vue';
+import DealSettlementModal from '../components/tournament/DealSettlementModal.vue';
 import TransactionLog from '../components/game/TransactionLog.vue';
 import HandRecordSheet from '../components/game/HandRecordSheet.vue';
 import HandHistoryList from '../components/game/HandHistoryList.vue';
 import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
 import { formatNumber } from '../utils/formatters.js';
+import { buildTournamentPrizeMap } from '../utils/settlementMath.js';
 import { DEFAULT_BUY_IN } from '../utils/constants.js';
 import { consumeSessionReturn } from '../utils/sessionReturn.js';
 
@@ -270,7 +287,7 @@ const { game, gameId, isHost, error: gameError } = storeToRefs(gameStore);
 const {
   addPlayer, updatePlayer, removePlayer,
   checkGameStatus, joinAsNewPlayer, joinGameListener,
-  closeGame, eliminatePlayer, reentryPlayer, settleTournament, clearCurrentGame,
+  closeGame, eliminatePlayer, reentryPlayer, settleTournament, settleTournamentWithDeal, clearCurrentGame,
   undoEliminationTx, undoReentryTx,
 } = gameStore;
 const { sendBuyInMessage, sendUndoMessage, sendTournamentSettlementMessage, shareGameInvite, isInitialized: liffReady } = useLiff();
@@ -292,6 +309,7 @@ const {
 const showAddPlayer = ref(false);
 const showEditPlayer = ref(false);
 const showSettlement = ref(false);
+const showDeal = ref(false);
 const showHandRecord = ref(false);
 const showHandDetail = ref(false);
 const newPlayerName = ref('');
@@ -379,6 +397,10 @@ const playersStillInPlay = computed(() =>
   activePlayers.value.filter(player => !isChampion(player))
 );
 
+const isParticipant = computed(() =>
+  (game.value?.players || []).some(player => player.uid === user.value?.uid)
+);
+
 const sortedPlayers = computed(() => {
   if (!game.value) return [];
   const players = [...game.value.players];
@@ -400,6 +422,42 @@ const payoutDetails = computed(() => {
     return { place: r.place, prize, playerName: winner?.name || null };
   });
 });
+
+// ── Deal settlement (協議結算) ──
+
+// A deal is possible when everyone left is already in the money (alive count
+// ≤ paid places) and re-entry is closed — the pool can no longer change.
+const canDeal = computed(() =>
+  isHost.value &&
+  activePlayers.value.length >= 2 &&
+  payoutRatios.value.length > 0 &&
+  activePlayers.value.length <= payoutRatios.value.length &&
+  !reentriesOpen.value
+);
+
+// The undecided prizes (places 1..aliveCount); eliminated ITM places stay fixed
+const dealPrizes = computed(() => {
+  const prizeMap = buildTournamentPrizeMap(prizePool.value, payoutRatios.value);
+  return activePlayers.value.map((_, i) => ({ place: i + 1, prize: prizeMap[i + 1] || 0 }));
+});
+
+// Total chips in play = total entries ever made × starting stack — used to
+// sanity-check the host's chip-count inputs (0 = config unknown, check skipped).
+// Entries are derived from the WHOLE prize pool (every buy-in + re-entry across
+// all players, eliminated included) ÷ base buy-in, so re-entries are counted.
+const expectedChips = computed(() => {
+  const startingChips = tournamentConfig.value?.startingChips || 0;
+  const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
+  if (!startingChips || baseBuyIn <= 0) return 0;
+  const totalBuyIns = (game.value?.players || []).reduce((sum, p) => sum + (p.buyIn || 0), 0);
+  const totalEntries = Math.round(totalBuyIns / baseBuyIn);
+  return totalEntries * startingChips;
+});
+
+const openDeal = () => {
+  showSettlement.value = false;
+  showDeal.value = true;
+};
 
 const settlementPlayers = computed(() => {
   if (!game.value) return [];
@@ -679,6 +737,33 @@ const handleHandRecordSaved = () => {
   showHandRecord.value = false;
 };
 
+// Shared post-settlement flow (normal settle + deal settle): close modals,
+// wait for the history projection, send the LINE summary, then leave the room.
+const finalizeSettlement = async (settleResult) => {
+  const gameName = game.value?.name;
+  const gId = game.value?.id;
+  showSettlement.value = false;
+  showDeal.value = false;
+  isSyncingHistory.value = true;
+  syncStatusMessage.value = t('loading.syncingHistory');
+  const syncResult = await userStore.waitForHistorySync(settleResult.gameId, settleResult.syncToken, {
+    timeoutMs: 20000,
+    fallbackToGameProjection: true,
+  });
+  isSyncingHistory.value = false;
+  if (syncResult.source === 'timeout') {
+    warning(t('loading.syncingPending'));
+  }
+  sendTournamentSettlementMessage({
+    gameName,
+    gameId: gId,
+    players: settleResult.settlement,
+  });
+  const back = consumeSessionReturn(gId);
+  clearCurrentGame();
+  router.push(back || '/report');
+};
+
 const handleSettle = async () => {
   // Guard: payoutRatios are loaded from the tournament session asynchronously.
   // If the session hasn't loaded yet, payoutRatios would be empty and write
@@ -694,32 +779,39 @@ const handleSettle = async () => {
   });
   if (shouldSettle) {
     await withLoading(async () => {
-      const gameName = game.value?.name;
-      const gId = game.value?.id;
-      const settleResult = await settleTournament(payoutRatios.value);
+      const settleResult = await settleTournament();
       if (settleResult?.success) {
-        showSettlement.value = false;
-        isSyncingHistory.value = true;
-        syncStatusMessage.value = t('loading.syncingHistory');
-        const syncResult = await userStore.waitForHistorySync(settleResult.gameId, settleResult.syncToken, {
-          timeoutMs: 20000,
-          fallbackToGameProjection: true,
-        });
-        isSyncingHistory.value = false;
-        if (syncResult.source === 'timeout') {
-          warning(t('loading.syncingPending'));
-        }
-        sendTournamentSettlementMessage({
-          gameName,
-          gameId: gId,
-          players: settleResult.settlement,
-        });
-        const back = consumeSessionReturn(gId);
-        clearCurrentGame();
-        router.push(back || '/report');
+        await finalizeSettlement(settleResult);
+      } else {
+        showError(t(gameError.value || 'tournament.settlementFailed'));
       }
     }, t('loading.settling'));
   }
+};
+
+const handleDealConfirm = async (deal) => {
+  const shouldSettle = await confirm({
+    message: t('tournament.dealConfirmMessage'),
+    type: 'warning',
+  });
+  if (!shouldSettle) return;
+
+  await withLoading(async () => {
+    const settleResult = await settleTournamentWithDeal(deal);
+    if (settleResult?.success) {
+      await finalizeSettlement(settleResult);
+      return;
+    }
+    // Someone was eliminated / re-entered while negotiating → numbers are stale
+    if (gameError.value === 'DEAL_STATE_CHANGED') {
+      showDeal.value = false;
+      showError(t('tournament.dealStateChanged'));
+    } else if (gameError.value === 'DEAL_TOTAL_MISMATCH') {
+      showError(t('tournament.dealMismatch'));
+    } else {
+      showError(t(gameError.value || 'tournament.settlementFailed'));
+    }
+  }, t('loading.settling'));
 };
 
 const handleCloseGame = async () => {

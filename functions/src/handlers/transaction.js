@@ -87,7 +87,8 @@ export async function recordBuyIn({ gameId, targetId, targetUid, targetName, amo
  * @param {string} txId - transaction ID to undo
  * @param {string} callerUid - who is requesting the undo
  * @param {string} callerName - display name
- * @return {{ undoTxId: string }}
+ * @return {{ undoTxId: string, totalBuyIn: (number|null) }} totalBuyIn is the
+ *   target player's buy-in after the undo (null if the game/player wasn't found)
  */
 export async function undoBuyIn(txId, callerUid, callerName) {
   const db = getFirestore();
@@ -95,7 +96,7 @@ export async function undoBuyIn(txId, callerUid, callerName) {
   const undoRef = db.collection('transactions').doc();
   let gameRef;
 
-  await db.runTransaction(async (transaction) => {
+  const totalBuyIn = await db.runTransaction(async (transaction) => {
     const txSnap = await transaction.get(txRef);
     if (!txSnap.exists) throw new Error('Transaction not found');
     const tx = txSnap.data();
@@ -118,19 +119,23 @@ export async function undoBuyIn(txId, callerUid, callerName) {
       type: 'undo', status: 'active', undoneBy: null, undoOf: txId, timestamp: FieldValue.serverTimestamp(),
     });
 
+    let remaining = null;
     if (gameSnap.exists) {
       const players = gameSnap.data().players || [];
       const updatedPlayers = players.map((p) => {
         const isTarget = tx.targetId ?
           p.id === tx.targetId :
           (tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName);
-        return isTarget ?
-          { ...p, buyIn: Math.max(0, (p.buyIn || 0) - tx.amount) } : p;
+        if (!isTarget) return p;
+        const newBuyIn = Math.max(0, (p.buyIn || 0) - tx.amount);
+        remaining = newBuyIn;
+        return { ...p, buyIn: newBuyIn };
       });
       transaction.update(gameRef, { players: updatedPlayers });
     }
+    return remaining;
   });
-  return { undoTxId: undoRef.id };
+  return { undoTxId: undoRef.id, totalBuyIn };
 }
 
 const TRANSACTION_LOG_DEFAULT_LIMIT = 200;

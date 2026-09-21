@@ -3,10 +3,11 @@
 // update prompt + purges old caches). This literal is only the dev fallback.
 const CACHE_NAME = 'poker-sync-v3';
 
-// Install event - skip waiting to activate immediately
-self.addEventListener('install', (event) => {
-  self.skipWaiting();
-});
+// Install event — do NOT skipWaiting here. Auto-activating meant every deploy
+// immediately took over open pages and main.js's controllerchange handler
+// force-reloaded them (visible screen flash mid-session). The new worker now
+// waits until the user accepts the in-app update prompt, which posts
+// SKIP_WAITING (see the message listener below).
 
 // Fetch event - Network-first strategy
 // Always try network first, only fall back to cache when offline

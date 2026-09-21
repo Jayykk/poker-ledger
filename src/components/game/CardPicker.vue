@@ -68,6 +68,7 @@
 <script setup>
 import { ref, watch } from 'vue';
 import { SUITS, RANKS } from '../../utils/constants.js';
+import { getCardColor } from '../../utils/cards.js';
 
 const props = defineProps({
   modelValue: {
@@ -108,13 +109,6 @@ const getSuitName = (suit) => {
     CLUBS: 'clubs'
   };
   return names[suit];
-};
-
-const getCardColor = (card) => {
-  if (card.includes('♥') || card.includes('♦')) {
-    return 'text-red-500';
-  }
-  return 'text-gray-900 dark:text-white';
 };
 
 const selectSuit = (suit) => {

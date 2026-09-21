@@ -15,6 +15,16 @@ export const formatNumber = (n) => {
 };
 
 /**
+ * Format a number with an explicit sign when positive
+ * @param {number} n - Number to format
+ * @returns {string} Signed formatted number string
+ */
+export const formatSignedNumber = (n) => {
+  const formatted = formatNumber(n);
+  return Number(n) > 0 ? `+${formatted}` : formatted;
+};
+
+/**
  * Format cash value with exchange rate
  * @param {number} chips - Chip amount
  * @param {number} rate - Exchange rate
@@ -57,6 +67,8 @@ export const timestampToMillis = (value) => {
   if (value instanceof Date) return value.getTime();
   if (typeof value.toMillis === 'function') return value.toMillis();
   if (typeof value.seconds === 'number') return value.seconds * 1000;
+  // Serialized Timestamp (JSON round-trip / admin SDK shape)
+  if (typeof value._seconds === 'number') return value._seconds * 1000;
   const parsed = Date.parse(value);
   return Number.isNaN(parsed) ? 0 : parsed;
 };
@@ -67,9 +79,21 @@ export const timestampToMillis = (value) => {
  * @param {string} locale - Locale code
  * @returns {string} Formatted date string
  */
-export const formatDate = (date, locale = 'zh-TW') => {
+/**
+ * Resolve any timestamp-ish value to a valid Date, or null when the value is
+ * missing/unparseable (e.g. a doc without the field, or a pending
+ * serverTimestamp read as null) — callers render '' instead of "Invalid Date".
+ */
+const toValidDate = (date) => {
+  if (date === null || date === undefined) return null;
   const millis = timestampToMillis(date);
   const dateObj = millis ? new Date(millis) : new Date(date);
+  return Number.isNaN(dateObj.getTime()) ? null : dateObj;
+};
+
+export const formatDate = (date, locale = 'zh-TW') => {
+  const dateObj = toValidDate(date);
+  if (!dateObj) return '';
   return dateObj.toLocaleString(locale, {
     year: 'numeric',
     month: '2-digit',
@@ -88,7 +112,8 @@ export const formatDate = (date, locale = 'zh-TW') => {
  * @returns {string} Formatted date string
  */
 export const formatShortDate = (date, locale = 'zh-TW') => {
-  const dateObj = date instanceof Date ? date : new Date(date);
+  const dateObj = toValidDate(date);
+  if (!dateObj) return '';
   return dateObj.toLocaleDateString(locale, {
     year: 'numeric',
     month: '2-digit',
@@ -103,7 +128,8 @@ export const formatShortDate = (date, locale = 'zh-TW') => {
  * @returns {string} Formatted time string
  */
 export const formatTime = (date, locale = 'zh-TW') => {
-  const dateObj = date instanceof Date ? date : new Date(date);
+  const dateObj = toValidDate(date);
+  if (!dateObj) return '';
   return dateObj.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',

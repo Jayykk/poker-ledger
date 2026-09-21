@@ -27,13 +27,29 @@ export function useChart() {
   const safeDestroy = () => {
     if (chartInstance.value) {
       try {
-        if (chartInstance.value.canvas) {
-          chartInstance.value.destroy();
-        }
+        // stop() first: destroying mid-animation can leave the chart in
+        // Chart.js's global animator, which keeps drawing on the released
+        // (null) ctx — "Cannot read properties of null (reading 'save')".
+        chartInstance.value.stop();
+        chartInstance.value.destroy();
       } catch (e) {
         // Chart already destroyed or in bad state, ignore
       }
       chartInstance.value = null;
+    }
+  };
+
+  // Kill any chart still bound to this canvas that we don't own (an orphan
+  // left behind by an unmount/recreate race keeps animating on a dead ctx).
+  const destroyOrphan = (canvas) => {
+    const orphan = Chart.getChart(canvas);
+    if (orphan && orphan !== chartInstance.value) {
+      try {
+        orphan.stop();
+        orphan.destroy();
+      } catch (e) {
+        // ignore
+      }
     }
   };
 
@@ -44,6 +60,7 @@ export function useChart() {
     if (!canvas) {
       return null;
     }
+    destroyOrphan(canvas);
 
     const ctx = canvas.getContext('2d');
 
@@ -83,6 +100,7 @@ export function useChart() {
     if (!canvas) {
       return null;
     }
+    destroyOrphan(canvas);
 
     const ctx = canvas.getContext('2d');
 
@@ -115,6 +133,7 @@ export function useChart() {
     if (!canvas) {
       return null;
     }
+    destroyOrphan(canvas);
 
     const ctx = canvas.getContext('2d');
 
@@ -151,7 +170,8 @@ export function useChart() {
   };
 
   const updateChart = (newData) => {
-    if (chartInstance.value) {
+    // ctx is nulled by destroy() — skip updates that raced past teardown.
+    if (chartInstance.value && chartInstance.value.ctx) {
       chartInstance.value.data = newData;
       chartInstance.value.update('none');
     }

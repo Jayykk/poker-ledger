@@ -198,7 +198,7 @@ describe('generateCSV', () => {
 
   it('starts with the Chinese header row', () => {
     const csv = generateCSV([{ date: Date.now(), gameName: 'G', profit: 100, rate: 10 }]);
-    expect(csv.startsWith('日期,牌局名稱,損益(籌碼),匯率,損益(現金)\n')).toBe(true);
+    expect(csv.startsWith('日期,牌局名稱,損益(籌碼),匯率,損益\n')).toBe(true);
   });
 
   it('writes one row per record with chips, rate and converted cash', () => {

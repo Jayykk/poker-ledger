@@ -186,7 +186,7 @@ describe('defaultSessionName', () => {
 
 describe('aggregateSessionSummary', () => {
   const tableA = {
-    name: '下午 現金', kind: 'cash', rate: 1,
+    name: '下午 限時', kind: 'cash', rate: 1,
     settlementSnapshot: [
       { odId: 'a', name: 'Alice', buyIn: 1000, stack: 1500, profit: 500 },
       { odId: 'b', name: 'Bob', buyIn: 1000, stack: 500, profit: -500 },

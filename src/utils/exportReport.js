@@ -105,7 +105,7 @@ export const generateTextReport = (game, rate = 10, options = {}) => {
 export const generateCSV = (history) => {
   if (!history || history.length === 0) return '';
   
-  let csv = '日期,牌局名稱,損益(籌碼),匯率,損益(現金)\n';
+  let csv = '日期,牌局名稱,損益(籌碼),匯率,損益\n';
   
   history.forEach(record => {
     const date = formatDate(record.date);

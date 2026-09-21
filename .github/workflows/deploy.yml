@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-
+ 
 permissions:
   contents: read
   pages: write
@@ -44,6 +44,10 @@ jobs:
         run: npm run build
         env:
           VITE_LIFF_ID: ${{ vars.VITE_LIFF_ID }}
+          # Firebase AI Logic (photo → card recognition). App Check is enforced for
+          # AI Logic, so the reCAPTCHA Enterprise site key is required in production.
+          VITE_RECAPTCHA_ENTERPRISE_SITE_KEY: ${{ vars.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY }}
+          VITE_GEMINI_MODEL: ${{ vars.VITE_GEMINI_MODEL }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

@@ -17,11 +17,13 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
+import { functions } from '../../firebase-init.js';
+import { httpsCallable } from 'firebase/functions';
 import { useAuthStore } from './auth.js';
 import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';
-import { createSyncRequestToken } from '../../utils/historyProjection.js';
 import { timestampToMillis } from '../../utils/formatters.js';
-import { buildCashSettlement, buildTournamentSettlement } from '../../utils/settlementMath.js';
+import { tournamentSettlementErrorKey } from '../../utils/tournamentSettlementErrors.js';
+import { cashSettlementErrorKey } from '../../utils/cashSettlementErrors.js';
 import {
   TX_TYPE_ELIMINATE,
   TX_TYPE_REENTRY,
@@ -432,37 +434,15 @@ export const useGameStore = defineStore('game', () => {
     
     loading.value = true;
     try {
-      const settledGameId = gameId.value;
-      const syncToken = createSyncRequestToken('settle');
-
-      await runTransaction(db, async (t) => {
-        const gameRef = doc(db, 'games', settledGameId);
-        const gameDoc = await t.get(gameRef);
-
-        if (!gameDoc.exists()) throw new Error('Game not found');
-
-        const gameData = gameDoc.data();
-        const settlementSnapshot = buildCashSettlement(gameData.players);
-
-        t.update(gameRef, {
-          status: GAME_STATUS.COMPLETED,
-          rate: Number(exchangeRate) || 1,
-          completedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          settlementSnapshot,
-          'historyProjection.requestToken': syncToken,
-          'historyProjection.requestedAt': serverTimestamp(),
-        });
+      const callable = httpsCallable(functions, 'settleCashGame');
+      const response = await callable({
+        gameId: gameId.value,
+        exchangeRate: Number(exchangeRate),
       });
-
-      return {
-        success: true,
-        gameId: settledGameId,
-        syncToken,
-      };
+      return response.data;
     } catch (err) {
       console.error('Settle game error:', err);
-      error.value = 'Failed to settle game: ' + err.message;
+      error.value = cashSettlementErrorKey(err);
       return false;
     } finally {
       loading.value = false;
@@ -847,58 +827,55 @@ export const useGameStore = defineStore('game', () => {
    * Uses payoutRatios from the tournament session config to distribute the prize pool.
    * No exchange rate — buy-in is real money, profit = prize won − total buy-in paid.
    */
-  const settleTournament = async (payoutRatios = []) => {
+  const settleTournament = async () => {
     if (!gameId.value) return false;
 
     loading.value = true;
     try {
-      const settledGameId = gameId.value;
-      const syncToken = createSyncRequestToken('settle-tournament');
-      let settlementResult = [];
-
-      await runTransaction(db, async (t) => {
-        const gameRef = doc(db, 'games', settledGameId);
-        const gameDoc = await t.get(gameRef);
-        if (!gameDoc.exists()) throw new Error('Game not found');
-
-        const gameData = gameDoc.data();
-        const players = gameData.players;
-
-        // Auto-crown last alive player as champion (placement=1) if not already set
-        const alive = players.filter(p => !p.eliminated);
-        if (alive.length === 1 && !alive[0].placement) {
-          const champIdx = players.findIndex(p => p.id === alive[0].id);
-          players[champIdx] = { ...players[champIdx], placement: 1 };
-        }
-
-        // Settlement records include ALL players so even eliminated participants
-        // (no prize) get a history record; prize rounding is reconciled against
-        // the pool with the largest-remainder method (see settlementMath.js).
-        const settlement = buildTournamentSettlement(players, payoutRatios);
-        settlementResult = settlement;
-
-        t.update(gameRef, {
-          players,
-          status: GAME_STATUS.COMPLETED,
-          rate: 1,
-          payoutRatios,
-          settlementSnapshot: settlement,
-          completedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          'historyProjection.requestToken': syncToken,
-          'historyProjection.requestedAt': serverTimestamp(),
-        });
-      });
-
-      return {
-        success: true,
-        settlement: settlementResult,
-        gameId: settledGameId,
-        syncToken,
-      };
+      const callable = httpsCallable(functions, 'settleTournamentGame');
+      const response = await callable({ gameId: gameId.value });
+      return response.data;
     } catch (err) {
       console.error('Settle tournament error:', err);
-      error.value = 'Failed to settle tournament: ' + err.message;
+      error.value = tournamentSettlementErrorKey(err);
+      return false;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  /**
+   * Settle a tournament via a negotiated deal (協議結算).
+   *
+   * The remaining in-the-money players receive their negotiated prizes and
+   * placements; already-eliminated players keep their normal placement prizes.
+   * Because the game ends with 2+ players still alive, eliminatePlayer's
+   * auto-end path never fires — so this also ends the linked tournament
+   * session (clock) itself.
+   *
+   * @param {Array<{place: number, percentage: number}>} payoutRatios
+   * @param {object} deal - { mode: 'icm'|'chipchop'|'custom',
+   *   stacks: Object<playerId, chips>|null,
+   *   allocations: Array<{playerId, prize, placement}>,
+   *   approvals: Array<{playerId, name}> }
+   */
+  const settleTournamentWithDeal = async (deal = {}) => {
+    if (!gameId.value) return false;
+
+    loading.value = true;
+    try {
+      const callable = httpsCallable(functions, 'settleTournamentDeal');
+      const response = await callable({ gameId: gameId.value, deal });
+      return response.data;
+    } catch (err) {
+      console.error('Settle tournament deal error:', err);
+      if (err.message?.includes('DEAL_STATE_CHANGED')) {
+        error.value = 'DEAL_STATE_CHANGED';
+      } else if (err.message?.includes('DEAL_TOTAL_MISMATCH')) {
+        error.value = 'DEAL_TOTAL_MISMATCH';
+      } else {
+        error.value = tournamentSettlementErrorKey(err);
+      }
       return false;
     } finally {
       loading.value = false;
@@ -923,7 +900,10 @@ export const useGameStore = defineStore('game', () => {
       
       const rooms = [];
       snapshot.forEach((doc) => {
-        const data = doc.data();
+        // 'estimate' resolves a still-pending serverTimestamp createdAt to the
+        // local estimate instead of null (a just-created room would otherwise
+        // show an empty date until the server ack).
+        const data = doc.data({ serverTimestamps: 'estimate' });
         const isHost = data.hostUid === authStore.user.uid;
         const isPlayer = data.players?.some(p => p.uid === authStore.user.uid);
         
@@ -992,6 +972,7 @@ export const useGameStore = defineStore('game', () => {
     undoEliminationTx,
     undoReentryTx,
     settleTournament,
+    settleTournamentWithDeal,
     clearCurrentGame,
     loadMyRooms,
     cleanup

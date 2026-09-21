@@ -145,9 +145,19 @@
       </div>
     </div>
 
-    <!-- My Live Events (Session layer) -->
-    <div v-if="mySessions.length > 0" class="mb-6">
-      <h3 class="text-lg font-bold text-white mb-3">{{ $t('session.myEvents') }}</h3>
+    <!-- My Live Events (Session layer) — ended events live in /session-history -->
+    <Transition name="section-expand">
+    <div v-if="mySessions.length > 0 || endedSessionsCount > 0" class="mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-bold text-white">{{ $t('session.myEvents') }}</h3>
+        <button
+          v-if="endedSessionsCount > 0"
+          @click="$router.push('/session-history')"
+          class="text-sm text-emerald-400 hover:text-emerald-300 transition"
+        >
+          {{ $t('session.historyEvents') }} <i class="fas fa-chevron-right text-xs"></i>
+        </button>
+      </div>
       <div class="space-y-2">
         <div
           v-for="evt in mySessions"
@@ -183,6 +193,7 @@
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- Quick Actions -->
     <div class="grid gap-4">
@@ -288,19 +299,6 @@
           <div>
             <h4 class="text-white font-bold">{{ $t('lobby.tournamentGame') }}</h4>
             <p class="text-gray-400 text-xs">{{ $t('lobby.tournamentGameDesc') }}</p>
-          </div>
-        </div>
-        <div
-          @click="selectGameType('online')"
-          class="flex items-center gap-4 p-4 rounded-lg border cursor-pointer transition-all active:scale-98"
-          :class="selectedGameType === 'online' ? 'border-purple-500 bg-purple-500/10' : 'border-slate-600 bg-slate-700/50 hover:bg-slate-600/50'"
-        >
-          <div class="w-10 h-10 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-lg">
-            🌐
-          </div>
-          <div>
-            <h4 class="text-white font-bold">{{ $t('lobby.onlineGame') }}</h4>
-            <p class="text-gray-400 text-xs">{{ $t('lobby.onlineGameDesc') }}</p>
           </div>
         </div>
         <BaseButton @click="createStep = 2" variant="primary" fullWidth :disabled="!selectedGameType">
@@ -547,7 +545,6 @@ import { useInvitation } from '../composables/useInvitation.js';
 import { usePushNotification } from '../composables/usePushNotification.js';
 import { useLoading } from '../composables/useLoading.js';
 import { useGameStore } from '../store/modules/game.js';
-import { usePokerStore } from '../store/modules/poker.js';
 import { useUserStore } from '../store/modules/user.js';
 import { useNotification } from '../composables/useNotification.js';
 import BaseCard from '../components/common/BaseCard.vue';
@@ -560,14 +557,12 @@ import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useCashPresets } from '../composables/useCashPresets.js';
 import { useSessions, sortSessions, MY_SESSIONS_LIMIT } from '../composables/useSessions.js';
-import { buildOnlineRoomConfig } from '../utils/pokerEntry.js';
 
 const { t } = useI18n();
 const router = useRouter();
 const route = useRoute();
 const { isGuest, user } = useAuth();
 const gameStore = useGameStore();
-const pokerStore = usePokerStore();
 const { createGame, checkGameStatus, joinByBinding, joinAsNewPlayer, joinGameListener } = gameStore;
 const userStore = useUserStore();
 const { success, error: showError } = useNotification();
@@ -607,16 +602,24 @@ const userPresets = ref([]);
 
 const { createSession: createTournamentSession, listenPresets } = useTournamentClock();
 const { listenPresets: listenCashPresets } = useCashPresets();
-const { listenMySessions, listenJoinedSessions } = useSessions();
+const { listenMySessions, listenJoinedSessions, myHostedSessions, myJoinedSessions } = useSessions();
 
 // Live events (Session layer): both the ones I host and the ones I've joined.
-const hostedSessions = ref([]);
-const joinedSessions = ref([]);
-const mySessions = computed(() => {
+// The lists live in useSessions' module-level cache so revisiting the lobby
+// renders the previous data instantly instead of popping the section in after
+// the first snapshot (which shoved the layout — the "lobby flash").
+const allMySessions = computed(() => {
   const byId = new Map();
-  for (const s of [...hostedSessions.value, ...joinedSessions.value]) byId.set(s.id, s);
-  return sortSessions([...byId.values()]).slice(0, MY_SESSIONS_LIMIT);
+  for (const s of [...myHostedSessions.value, ...myJoinedSessions.value]) byId.set(s.id, s);
+  return [...byId.values()];
 });
+// Ended events are hidden here — they live in /session-history instead.
+const mySessions = computed(() =>
+  sortSessions(allMySessions.value.filter((s) => s.status !== 'completed')).slice(0, MY_SESSIONS_LIMIT)
+);
+const endedSessionsCount = computed(() =>
+  allMySessions.value.filter((s) => s.status === 'completed').length
+);
 let unsubMySessions = null;
 let unsubJoinedSessions = null;
 
@@ -636,10 +639,32 @@ let unsubCashPresets = null;
 
 const selectGameType = (type) => {
   selectedGameType.value = type;
-  if (type === 'cash' || type === 'online') {
+  if (type === 'cash') {
     createStep.value = 2; // Skip template step, go straight to name+buyin
   }
 };
+
+/**
+ * Open the create-game modal from a `?create=1|cash|tournament` query
+ * (used by App.vue's bottom 「+」 · 「現場記帳」 to share this UI).
+ * Runs on mount AND whenever the query changes, so the button also works
+ * when the user is already on the lobby page.
+ */
+const openCreateFromQuery = () => {
+  const createParam = route.query.create;
+  if (!createParam) return;
+  // If a specific type is given, pre-select it; otherwise start at step 1
+  if (createParam === 'cash' || createParam === 'tournament') {
+    selectGameType(createParam);
+  }
+  showCreateModal.value = true;
+  // Strip the query so refresh / back doesn't reopen it
+  router.replace({ path: '/lobby' });
+};
+
+watch(() => route.query.create, (val) => {
+  if (val) openCreateFromQuery();
+});
 
 const selectCashPreset = (preset) => {
   if (!preset) {
@@ -741,21 +766,6 @@ const handleCreateGame = async () => {
   if (isCreating.value) return;
   isCreating.value = true;
   await withLoading(async () => {
-    // Online Texas Hold'em: create a pokerGames room (host auto-seated via the
-    // buy-in in the config) and jump straight to the live table.
-    if (selectedGameType.value === 'online') {
-      const createOnlineRoom = pokerStore.createGame;
-      const room = await createOnlineRoom(
-        buildOnlineRoomConfig({ buyIn: createBuyIn.value }),
-      );
-      if (room?.id) {
-        showCreateModal.value = false;
-        success(t('lobby.gameCreated'));
-        router.push({ name: 'PokerGame', params: { gameId: room.id } });
-      }
-      return;
-    }
-
     let type = GAME_TYPE.LIVE;
     let options = {};
     let tournamentSessionId = null;
@@ -890,29 +900,21 @@ const handleRejectInvitation = async (invitation) => {
 };
 
 onMounted(async () => {
-  // Load rooms first
-  await gameStore.loadMyRooms();
-
-  // Subscribe to live events this user hosts AND has joined (merged in mySessions).
-  unsubMySessions = listenMySessions((list) => { hostedSessions.value = list; });
-  unsubJoinedSessions = listenJoinedSessions((list) => { joinedSessions.value = list; });
+  // Attach the live-event listeners BEFORE any awaited work: they render from
+  // useSessions' module-level cache immediately, and waiting on loadMyRooms
+  // first delayed the first snapshot — the events section then popped in late
+  // and shoved the layout.
+  unsubMySessions = listenMySessions();
+  unsubJoinedSessions = listenJoinedSessions();
 
   // Load invitations and mark existing ones as seen
   loadInvitations();
 
+  await gameStore.loadMyRooms();
+
   // Auto-open the create-game modal when navigated with ?create=1|cash|tournament
-  // (used by App.vue's bottom 「+」 · 「現場記帳」 to share this UI)
-  const createParam = route.query.create;
-  if (createParam) {
-    // If a specific type is given, pre-select it; otherwise start at step 1
-    if (createParam === 'cash' || createParam === 'tournament' || createParam === 'online') {
-      selectGameType(createParam);
-    }
-    showCreateModal.value = true;
-    // Strip the query so refresh / back doesn't reopen it
-    router.replace({ path: '/lobby' });
-  }
-  
+  openCreateFromQuery();
+
   // Wait a bit for the first snapshot to arrive, then mark all as seen
   setTimeout(() => {
     pendingInvitations.value.forEach(inv => {
@@ -959,3 +961,27 @@ onUnmounted(() => {
   }
 });
 </script>
+
+<style scoped>
+/* Smooth expansion for sections that appear after async data arrives (e.g.
+   "My events"): animate height + opacity so the content below slides down
+   instead of being shoved in a single frame. */
+.section-expand-enter-active {
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  max-height: 1000px;
+  overflow: hidden;
+}
+.section-expand-enter-from {
+  max-height: 0;
+  opacity: 0;
+}
+.section-expand-leave-active {
+  transition: max-height 0.2s ease, opacity 0.2s ease;
+  max-height: 1000px;
+  overflow: hidden;
+}
+.section-expand-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+</style>

@@ -11,13 +11,6 @@
   </div>
   
   <div v-else class="pt-16 px-4 pb-24">
-    <div v-if="isSyncingHistory" class="mb-3 rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
-      <div class="flex items-center gap-2">
-        <i class="fas fa-spinner fa-spin"></i>
-        <span>{{ syncStatusMessage }}</span>
-      </div>
-    </div>
-
     <!-- Fixed header -->
     <div class="fixed top-0 inset-x-0 z-30 bg-slate-800/90 backdrop-blur px-4 py-3 border-b border-slate-700 flex justify-between items-center max-w-md mx-auto">
       <div>
@@ -118,19 +111,10 @@
     <!-- Add Player Modal -->
     <BaseModal v-model="showAddPlayer" :title="$t('game.addPlayer')">
       <BaseInput v-model="newPlayerName" :placeholder="$t('game.playerName')" class="mb-4" />
-      <div class="mb-4">
-        <label class="text-xs text-gray-400 block mb-2">{{ $t('game.buyIn') }}</label>
-        <div class="flex gap-2 items-center">
-          <BaseButton @click="decrementNewPlayerBuyIn" size="sm">-100</BaseButton>
-          <BaseInput
-            v-model.number="newPlayerBuyIn"
-            type="number"
-            :min="MIN_BUY_IN"
-            :step="CHIP_STEP"
-            class="flex-1 text-center"
-          />
-          <BaseButton @click="incrementNewPlayerBuyIn" size="sm">+100</BaseButton>
-        </div>
+      <!-- Buy-in is fixed by the room preset (baseBuyIn); not editable here -->
+      <div class="mb-4 flex items-center justify-between bg-slate-700/50 rounded-lg px-3 py-2">
+        <span class="text-xs text-gray-400">{{ $t('game.buyIn') }}</span>
+        <span class="text-white font-semibold">{{ formatNumber(newPlayerBuyIn) }}</span>
       </div>
       <BaseButton @click="handleAddPlayer" variant="primary" fullWidth>
         {{ $t('common.confirm') }}
@@ -193,7 +177,7 @@
       </div>
       
       <div v-if="gap !== 0" class="text-rose-400 text-center text-xs mb-4">
-        {{ $t('game.gap') }}: {{ formatNumber(gap) }}
+        {{ $t('game.gap') }}: {{ formatSignedNumber(gap) }}
       </div>
       
       <div class="grid gap-3">
@@ -246,10 +230,11 @@ import TransactionLog from '../components/game/TransactionLog.vue';
 import HandRecordSheet from '../components/game/HandRecordSheet.vue';
 import HandHistoryList from '../components/game/HandHistoryList.vue';
 import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
-import { formatNumber, formatCash, calculateNet } from '../utils/formatters.js';
+import { formatNumber, formatSignedNumber, formatCash, calculateNet } from '../utils/formatters.js';
 import { generateTextReport } from '../utils/exportReport.js';
-import { DEFAULT_EXCHANGE_RATE, DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from '../utils/constants.js';
+import { DEFAULT_EXCHANGE_RATE, DEFAULT_BUY_IN } from '../utils/constants.js';
 import { consumeSessionReturn } from '../utils/sessionReturn.js';
+import { buildCashSettlementReport } from '../utils/cashSettlementFlow.js';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -257,12 +242,15 @@ const route = useRoute();
 const { user, displayName } = useAuth();
 const userStore = useUserStore();
 const gameStore = useGameStore();
-const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer } = storeToRefs(gameStore);
+const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer, error: gameError } = storeToRefs(gameStore);
 const { addPlayer, updatePlayer, removePlayer, bindSeat, settleGame, closeGame, checkGameStatus, joinAsNewPlayer, joinGameListener, clearCurrentGame } = gameStore;
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
 const { transactions, txLoading, txError, listenerReady, startListening: startTxListening, stopListening: stopTxListening, recordBuyIn, recordAction, recordDirect, undoBuyIn } = useTransactions(gameId);
-const { sendBuyInMessage, sendUndoMessage, sendSettlementMessage, shareGameInvite, isInLineClient, isInitialized: liffReady } = useLiff();
-const { success, warning, copyWithNotification } = useNotification();
+const {
+  sendBuyInMessage, sendUndoMessage, sendSettlementMessage, shareGameInvite,
+  lineNotifyEnabled, isInLineClient, isInitialized: liffReady,
+} = useLiff();
+const { success, warning, error: showError, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
 
@@ -278,8 +266,6 @@ const exchangeRate = ref(DEFAULT_EXCHANGE_RATE);
 const selectedHand = ref(null);
 const autoJoinLoading = ref(false);
 const buyInProcessing = ref(new Set());
-const isSyncingHistory = ref(false);
-const syncStatusMessage = ref('');
 
 /**
  * Auto-join flow: when opened via /game/:gameId (e.g. LIFF deep link)
@@ -400,20 +386,12 @@ const decrementBuyInGroup = () => {
   editingPlayer.value.buyIn = Math.max(baseBuyIn, (currentGroups > 1 ? currentGroups - 1 : 1) * baseBuyIn);
 };
 
-const incrementNewPlayerBuyIn = () => {
-  newPlayerBuyIn.value = (newPlayerBuyIn.value || 0) + CHIP_STEP;
-};
-
-const decrementNewPlayerBuyIn = () => {
-  if (newPlayerBuyIn.value > MIN_BUY_IN) {
-    newPlayerBuyIn.value = Math.max(MIN_BUY_IN, newPlayerBuyIn.value - CHIP_STEP);
-  }
-};
-
 const handleAddPlayer = async () => {
   await withLoading(async () => {
     const playerName = newPlayerName.value || 'Player';
-    const newPlayer = await addPlayer(playerName, newPlayerBuyIn.value);
+    // Always use the room preset's buy-in (one group), never a hand-typed amount
+    const buyInAmount = game.value?.baseBuyIn || DEFAULT_BUY_IN;
+    const newPlayer = await addPlayer(playerName, buyInAmount);
     if (newPlayer) {
       await recordAction(newPlayer.id, null, playerName, 'join', 0);
     }
@@ -546,11 +524,17 @@ const handleUndoBuyIn = async (tx) => {
         }
       }
       success(t('transaction.undoSuccess'));
-      // Calculate remaining buyIn after undo
+      // Remaining buyIn after undo: prefer the CF-returned total (accurate).
+      // The local game snapshot may not have received the update yet, so the
+      // fallback subtracts the undone amount from the cached value instead of
+      // reading the (still pre-undo) cached buyIn directly.
       const player = game.value?.players?.find(
         p => tx.targetId ? p.id === tx.targetId : (tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName)
       );
-      const remainingBuyIn = player ? (player.buyIn || 0) : 0;
+      const undoneAmount = Math.abs(tx.amount || 0);
+      const remainingBuyIn = typeof result.totalBuyIn === 'number'
+        ? result.totalBuyIn
+        : Math.max(0, (player?.buyIn || 0) - undoneAmount);
       sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount), game.value?.name, game.value?.id, {
         totalBuyIn: remainingBuyIn,
         baseBuyIn: game.value?.baseBuyIn || Math.abs(tx.amount),
@@ -574,41 +558,38 @@ const handleSettle = async () => {
   // permanently — make the host acknowledge it explicitly.
   const shouldSettle = await confirm({
     message: gap.value !== 0
-      ? t('game.confirmSettlementGap', { gap: formatNumber(gap.value) })
+      ? t('game.confirmSettlementGap', { gap: formatSignedNumber(gap.value) })
       : t('game.confirmSettlement'),
     type: gap.value !== 0 ? 'danger' : 'warning'
   });
   if (shouldSettle) {
-    await withLoading(async () => {
-      // Capture game data before settling (game state gets cleared)
-      const gameName = game.value?.name;
-      const gId = game.value?.id;
-      const rate = exchangeRate.value;
-      const players = (game.value?.players || []).map((p) => ({
-        name: p.name,
-        buyIn: p.buyIn || 0,
-        profit: calculateNet(p),
-      }));
-      const settleResult = await settleGame(exchangeRate.value);
-      if (settleResult?.success) {
-        showSettlement.value = false;
-        isSyncingHistory.value = true;
-        syncStatusMessage.value = t('loading.syncingHistory');
-        const syncResult = await userStore.waitForHistorySync(settleResult.gameId, settleResult.syncToken, {
-          timeoutMs: 20000,
-          fallbackToGameProjection: true,
-        });
-        isSyncingHistory.value = false;
-        if (syncResult.source === 'timeout') {
-          warning(t('loading.syncingPending'));
-        }
-        // Send settlement report to LINE chat (user's own name, free)
-        sendSettlementMessage({ gameName, gameId: gId, rate, players });
-        const back = consumeSessionReturn(gId);
-        clearCurrentGame();
-        router.push(back || '/report');
-      }
-    }, t('loading.settling'));
+    const settleResult = await withLoading(
+      () => settleGame(exchangeRate.value),
+      t('loading.settling'),
+    );
+    if (!settleResult?.success) {
+      showError(t(gameError.value || 'game.settlementFailed'));
+      return;
+    }
+
+    showSettlement.value = false;
+    const reportSent = await sendSettlementMessage(
+      buildCashSettlementReport(settleResult),
+    );
+    if (lineNotifyEnabled.value && isInLineClient.value && !reportSent) {
+      warning(t('game.settlementReportFailed'));
+    }
+
+    void userStore.waitForHistorySync(settleResult.gameId, settleResult.syncToken, {
+      timeoutMs: 20000,
+      fallbackToGameProjection: true,
+    }).then((syncResult) => {
+      if (syncResult.source === 'timeout') warning(t('loading.syncingPending'));
+    }).catch(() => warning(t('loading.syncingPending')));
+
+    const back = consumeSessionReturn(settleResult.gameId);
+    clearCurrentGame();
+    router.push(back || '/report');
   }
 };
 
