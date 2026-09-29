@@ -6,7 +6,7 @@
         <span class="break-in-value">{{ timeToBreak }}</span>
       </div>
       <div v-if="timeToEnd && status !== 'ended'" class="break-in-info">
-        <span class="break-in-label">{{ $t('timed.timeToEnd') }}</span>
+        <span class="break-in-label">{{ $t('timed.clock.timeToEnd') }}</span>
         <span class="break-in-value">{{ timeToEnd }}</span>
       </div>
 
@@ -39,7 +39,7 @@
         <i class="fas fa-pause mr-2"></i>{{ $t('tournament.paused') }}
       </div>
       <div v-else-if="status === 'ended'" class="status-badge ended">
-        {{ timeToEnd ? $t('timed.timeUp') : $t('tournament.ended') }}
+        {{ timeToEnd ? $t('timed.clock.timeUp') : $t('tournament.ended') }}
       </div>
 
       <div v-if="nextPlayLevelEntry && !isBreak && status !== 'ended'" class="next-blinds">

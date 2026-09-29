@@ -113,10 +113,10 @@ const {
 
 const headerSubtitleText = computed(() => {
   if (isTimed.value) {
-    if (isBuyInClosed.value) return t('timed.buyInClosed');
+    if (isBuyInClosed.value) return t('timed.clock.buyInClosed');
     return config.value.reentryUntilLevel > 0
-      ? `${t('timed.label')} | ${t('timed.cutoff', { level: config.value.reentryUntilLevel })}`
-      : t('timed.label');
+      ? `${t('timed.clock.label')} | ${t('timed.clock.cutoff', { level: config.value.reentryUntilLevel })}`
+      : t('timed.clock.label');
   }
   if (config.value.subtitle) return config.value.subtitle;
 

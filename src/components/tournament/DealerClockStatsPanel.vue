@@ -1,17 +1,30 @@
 <template>
   <aside class="info-panel panel-surface left-panel">
-    <div class="info-item">
-      <div class="info-label">{{ $t('tournament.entries') }}</div>
-      <div class="info-value">{{ formatNumber(entries) }}</div>
-    </div>
-    <div class="info-item">
-      <div class="info-label">{{ $t('tournament.playersLeft') }}</div>
-      <div class="info-value">{{ formatNumber(playersRemaining) }}</div>
-    </div>
-    <div class="info-item">
-      <div class="info-label">{{ $t('tournament.totalPlayers') }}</div>
-      <div class="info-value">{{ formatNumber(playersRegistered) }}</div>
-    </div>
+    <!-- Timed game: nobody busts out, so players + buy-in groups -->
+    <template v-if="isTimed">
+      <div class="info-item">
+        <div class="info-label">{{ $t('timed.clock.players') }}</div>
+        <div class="info-value">{{ formatNumber(playersRegistered) }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">{{ $t('timed.clock.buyIns') }}</div>
+        <div class="info-value">{{ formatNumber(entries) }}</div>
+      </div>
+    </template>
+    <template v-else>
+      <div class="info-item">
+        <div class="info-label">{{ $t('tournament.entries') }}</div>
+        <div class="info-value">{{ formatNumber(entries) }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">{{ $t('tournament.playersLeft') }}</div>
+        <div class="info-value">{{ formatNumber(playersRemaining) }}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">{{ $t('tournament.totalPlayers') }}</div>
+        <div class="info-value">{{ formatNumber(playersRegistered) }}</div>
+      </div>
+    </template>
     <div class="info-item">
       <div class="info-label">{{ $t('tournament.chipsInPlay') }}</div>
       <div class="info-value">{{ formatNumber(chipsInPlay) }}</div>
@@ -30,6 +43,7 @@
 import { formatNumber } from './dealerClockFormat.js';
 
 defineProps({
+  isTimed: { type: Boolean, default: false },
   entries: { type: Number, default: 0 },
   playersRemaining: { type: Number, default: 0 },
   playersRegistered: { type: Number, default: 0 },

@@ -11,6 +11,7 @@ import {
   snapshotStructure,
   withTimedCutoff,
   buildTimedClockConfig,
+  timedBuyInStats,
 } from '../src/utils/timedStructure.js';
 
 // 3 × 10-minute levels with a 5-minute break after level 2.
@@ -176,5 +177,21 @@ describe('withTimedCutoff', () => {
 
   it('passes null through', () => {
     expect(withTimedCutoff(null, true)).toBeNull();
+  });
+});
+
+describe('timedBuyInStats', () => {
+  it('counts chips on the table and buy-in groups from the roster', () => {
+    const players = [{ buyIn: 2000 }, { buyIn: 1000 }, { buyIn: 3000 }];
+    expect(timedBuyInStats(players, 1000)).toEqual({ chipsInPlay: 6000, buyIns: 6 });
+  });
+
+  it('rounds odd-sized corrections to the nearest group', () => {
+    expect(timedBuyInStats([{ buyIn: 1000 }, { buyIn: 1400 }], 1000)).toEqual({ chipsInPlay: 2400, buyIns: 2 });
+  });
+
+  it('handles an empty roster or missing base buy-in', () => {
+    expect(timedBuyInStats([], 1000)).toEqual({ chipsInPlay: 0, buyIns: 0 });
+    expect(timedBuyInStats([{ buyIn: 500 }], 0)).toEqual({ chipsInPlay: 500, buyIns: 0 });
   });
 });

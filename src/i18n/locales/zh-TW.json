@@ -77,7 +77,7 @@
     "createOnlineDesc": "開一個線上房間，邀請朋友加入",
     "joinOnline": "加入房間",
     "joinOnlineDesc": "輸入房間 ID 加入朋友的局",
-    "tournament": "錦標賽時鐘",
+    "tournament": "賽制時鐘",
     "tournamentDesc": "設定錦標賽結構，大螢幕倒數計時",
     "tournamentSetup": "賽制設定",
     "tournamentSetupDesc": "管理盲注結構與模板（錦標賽、限時賽共用）",
@@ -457,7 +457,7 @@
     "confirmDelete": "確定要刪除「{name}」嗎？",
     "invalidInput": "請輸入有效的設定內容",
     "structure": "套用賽制",
-    "structureHint": "用錦標賽時鐘顯示升盲與 Ante，賽制時間到即結束",
+    "structureHint": "用賽制時鐘顯示升盲與 Ante，賽制時間到即結束",
     "structureNone": "不套用",
     "structureSummary": "{levels} 個級別 · 共 {duration} · {cutoff}",
     "decimals": "結算金額位數",
@@ -547,7 +547,7 @@
     "waitingToStart": "等待開始",
     "paused": "已暫停",
     "ended": "已結束",
-    "viewClock": "錦標賽時鐘",
+    "viewClock": "賽制時鐘",
     "dealerMode": "荷官模式",
     "dealerUrlCopied": "荷官連結已複製",
     "dealerUrlHint": "長按下方連結即可複製，分享給荷官使用",
@@ -801,6 +801,15 @@
     "noCutoff": "不截買",
     "players": "玩家人數",
     "cutoffLabel": "截買",
-    "followStructure": "依賽制（Level {level}）"
+    "followStructure": "依賽制（Level {level}）",
+    "clock": {
+      "label": "Timed",
+      "cutoff": "Buy-in until Level {level}",
+      "buyInClosed": "BUY-IN CLOSED",
+      "timeToEnd": "Ends in",
+      "timeUp": "Time's Up",
+      "players": "Players",
+      "buyIns": "Buy-ins"
+    }
   }
 }
