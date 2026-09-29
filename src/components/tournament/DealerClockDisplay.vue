@@ -1,11 +1,59 @@
 <template>
-  <div class="dealer-clock-display" :class="{ 'is-break': isBreak, 'time-critical': timerColorClass === 'timer-critical' && status === 'running', 'countdown-final': countdownFinal }">
+  <!-- Style 2: felt board -->
+  <div v-if="clockStyle === 'felt'" class="dealer-clock-display style-felt">
+    <FeltClockBoard
+      :name="title"
+      :custom-subtitle="subtitleText"
+      :is-timed="isTimed"
+      :status="status"
+      :buy-in-closed="isRegistrationClosed"
+      :cutoff-level="cutoffLevel"
+      :levels="levels"
+      :current-level-index="currentLevelIndex"
+      :current-level="currentLevel"
+      :current-blinds="currentBlinds"
+      :is-break="isBreak"
+      :next-play-level-entry="nextPlayLevelEntry"
+      :formatted-time="formattedTime"
+      :local-time-left="localTimeLeft"
+      :level-progress="levelProgress"
+      :time-to-break="timeToBreak"
+      :time-to-end="timeToEnd"
+      :ends-at="endsAt"
+      :players-registered="playersRegistered"
+      :players-remaining="playersRemaining"
+      :entries="entries"
+      :chips-in-play="chipsInPlay"
+      :average-stack="averageStack"
+      :averageStackBB="averageStackBB"
+      :prize-pool="prizePool"
+      :payouts="payouts"
+    >
+      <template #actions-left>
+        <button v-if="showSettingsButton" class="felt-btn" :title="$t('tournament.controls')" @click="$emit('toggle-settings')">
+          <i class="fas fa-cog"></i>
+        </button>
+      </template>
+      <template #actions-right>
+        <button v-if="showTimeBankButton" class="felt-btn" :title="$t('timeBank.title')" @click="$emit('open-time-bank')">
+          <i class="fas fa-hourglass-half"></i>
+        </button>
+        <button v-if="showFullscreenButton" class="felt-btn" @click="$emit('request-fullscreen')">
+          <i class="fas fa-expand"></i>
+        </button>
+      </template>
+    </FeltClockBoard>
+  </div>
+
+  <!-- Style 1: classic -->
+  <div v-else class="dealer-clock-display" :class="{ 'is-break': isBreak, 'time-critical': timerColorClass === 'timer-critical' && status === 'running', 'countdown-final': countdownFinal }">
     <div class="clock-container">
       <div class="clock-shell">
         <DealerClockHeader
           :title="title"
           :subtitle-text="subtitleText"
           :is-registration-closed="isRegistrationClosed"
+          :closed-label="isTimed ? $t('timed.clock.buyInClosed') : ''"
           :show-dealer-badge="showDealerBadge"
           :show-settings-button="showSettingsButton"
           :show-time-bank-button="showTimeBankButton"
@@ -31,15 +79,26 @@
             :current-level="currentLevel"
             :current-blinds="currentBlinds"
             :time-to-break="timeToBreak"
-            :time-to-end="isTimed ? timeToEnd : ''"
+            :is-timed="isTimed"
             :formatted-time="formattedTime"
             :timer-color-class="timerColorClass"
             :status="status"
             :next-play-level-entry="nextPlayLevelEntry"
           />
 
+          <!-- Timed game: when it ends (was an empty column) -->
+          <aside v-if="isTimed" class="info-panel panel-surface right-panel timed-panel">
+            <div class="info-item">
+              <div class="info-label">{{ $t('timed.clock.timeToEnd') }}</div>
+              <div class="info-value prize">{{ status === 'ended' ? '00:00' : (timeToEnd || '—') }}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">{{ $t('timed.clock.endsAt') }}</div>
+              <div class="info-value">{{ endsAt || '—' }}</div>
+            </div>
+          </aside>
           <DealerClockPayoutsPanel
-            v-if="!isTimed"
+            v-else
             :prize-pool="prizePool"
             :payouts="payouts"
           />
@@ -54,6 +113,7 @@ import DealerClockHeader from './DealerClockHeader.vue';
 import DealerClockStatsPanel from './DealerClockStatsPanel.vue';
 import DealerClockCenterPanel from './DealerClockCenterPanel.vue';
 import DealerClockPayoutsPanel from './DealerClockPayoutsPanel.vue';
+import FeltClockBoard from './FeltClockBoard.vue';
 
 defineEmits(['toggle-settings', 'open-time-bank', 'request-fullscreen']);
 
@@ -88,10 +148,65 @@ defineProps({
   showSettingsButton: { type: Boolean, default: true },
   showTimeBankButton: { type: Boolean, default: true },
   showFullscreenButton: { type: Boolean, default: true },
+  // Face style ('classic' | 'felt') + what the felt board / progress need
+  clockStyle: { type: String, default: 'classic' },
+  levels: { type: Array, default: () => [] },
+  currentLevelIndex: { type: Number, default: 0 },
+  localTimeLeft: { type: Number, default: 0 },
+  levelProgress: { type: Number, default: 0 },
+  endsAt: { type: String, default: '' },
+  cutoffLevel: { type: Number, default: 0 },
 });
 </script>
 
 <style scoped>
+.dealer-clock-display.style-felt { background: #0a2119; }
+.felt-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(10, 33, 25, 0.6);
+  border: 1px solid rgba(207, 174, 106, 0.45);
+  color: #f3ecdd;
+  cursor: pointer;
+}
+.felt-btn:hover { background: rgba(207, 174, 106, 0.2); }
+/* Timed right panel: same type scale as the payouts panel it replaces */
+.timed-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.timed-panel .info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+  text-align: center;
+}
+.timed-panel .info-item + .info-item {
+  margin-top: clamp(0.95rem, 1.3vw, 1.15rem);
+  padding-top: clamp(0.95rem, 1.3vw, 1.15rem);
+  border-top: 1px solid rgba(226, 232, 240, 0.08);
+}
+.timed-panel .info-label {
+  font-size: clamp(1rem, 1.35vw, 1.45rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(226, 232, 240, 0.72);
+}
+.timed-panel .info-value {
+  font-size: clamp(2rem, 2.5vw, 3rem);
+  line-height: 1;
+  font-weight: 700;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+}
+.timed-panel .info-value.prize {
+  font-size: clamp(2.5rem, 3.2vw, 3.9rem);
+  color: #fcd34d;
+}
+
 .dealer-clock-display {
   position: fixed;
   inset: 0;

@@ -17,8 +17,8 @@
 
         <div v-if="isRegistrationClosed" class="meta-chip meta-chip-status meta-chip-status-compact">
           <i class="fas fa-lock"></i>
-          <span class="meta-chip-text-full">{{ t('tournament.registrationClosed') }}</span>
-          <span class="meta-chip-text-short">{{ t('tournament.registrationClosedShort') }}</span>
+          <span class="meta-chip-text-full">{{ closedLabel || t('tournament.registrationClosed') }}</span>
+          <span class="meta-chip-text-short">{{ closedLabel || t('tournament.registrationClosedShort') }}</span>
         </div>
       </div>
 
@@ -65,6 +65,8 @@ defineProps({
   title: { type: String, default: 'Tournament' },
   subtitleText: { type: String, default: '' },
   isRegistrationClosed: { type: Boolean, default: false },
+  // Overrides the closed chip text (timed games: buy-in closed)
+  closedLabel: { type: String, default: '' },
   showDealerBadge: { type: Boolean, default: true },
   showSettingsButton: { type: Boolean, default: true },
   showTimeBankButton: { type: Boolean, default: true },

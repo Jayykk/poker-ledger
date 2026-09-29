@@ -39,7 +39,7 @@
         <i class="fas fa-pause mr-2"></i>{{ $t('tournament.paused') }}
       </div>
       <div v-else-if="status === 'ended'" class="status-badge ended">
-        {{ timeToEnd ? $t('timed.clock.timeUp') : $t('tournament.ended') }}
+        {{ isTimed ? $t('timed.clock.timeUp') : $t('tournament.ended') }}
       </div>
 
       <div v-if="nextPlayLevelEntry && !isBreak && status !== 'ended'" class="next-blinds">
@@ -66,6 +66,7 @@ defineProps({
   timeToBreak: { type: String, default: '' },
   // Timed games only (限時賽): countdown to the end of the structure
   timeToEnd: { type: String, default: '' },
+  isTimed: { type: Boolean, default: false },
   formattedTime: { type: String, default: '00:00' },
   timerColorClass: { type: String, default: '' },
   status: { type: String, default: 'waiting' },

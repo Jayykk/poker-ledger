@@ -87,6 +87,21 @@
         </div>
       </div>
 
+      <!-- Clock face style (stored on the session: every screen follows) -->
+      <div class="control-section">
+        <h4 class="section-title">{{ $t('tournament.clockStyle') }}</h4>
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            v-for="opt in styleOptions"
+            :key="opt.value"
+            @click="$emit('set-style', opt.value)"
+            :class="['preset-btn', clockStyle === opt.value ? 'preset-btn--active' : '']"
+          >
+            {{ $t(opt.label) }}
+          </button>
+        </div>
+      </div>
+
       <!-- Sound Volume -->
       <div class="control-section">
         <h4 class="section-title">{{ $t('tournament.soundVolume') }}</h4>
@@ -144,11 +159,17 @@ const props = defineProps({
   reentries: { type: Number, default: 0 },
   currentLevelIndex: { type: Number, default: 0 },
   totalLevels: { type: Number, default: 0 },
+  clockStyle: { type: String, default: 'classic' },
 });
+
+const styleOptions = [
+  { value: 'classic', label: 'tournament.clockStyleClassic' },
+  { value: 'felt', label: 'tournament.clockStyleFelt' },
+];
 
 const emit = defineEmits([
   'start', 'pause', 'advance', 'previous',
-  'update-players', 'end', 'close',
+  'update-players', 'end', 'close', 'set-style',
 ]);
 
 const localRegistered = ref(props.playersRegistered);
