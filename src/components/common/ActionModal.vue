@@ -15,20 +15,6 @@
         </div>
       </div>
 
-      <!-- Create Online Room Option -->
-      <div
-        @click="handleCreateOnline"
-        class="action-option bg-slate-700/50 hover:bg-slate-600/50 border border-slate-600 rounded-lg p-4 cursor-pointer transition-all active:scale-98 flex items-start gap-4"
-      >
-        <div class="w-12 h-12 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-2xl flex-shrink-0">
-          <i class="fas fa-plus-circle"></i>
-        </div>
-        <div class="flex-1">
-          <h4 class="text-white font-bold text-lg mb-1">🎮 {{ $t('action.createOnline') }}</h4>
-          <p class="text-gray-400 text-sm">{{ $t('action.createOnlineDesc') }}</p>
-        </div>
-      </div>
-
       <!-- Join Room Option -->
       <div
         @click="handleJoinOnline"
@@ -50,7 +36,6 @@
 
 <script setup>
 import { computed } from 'vue';
-import { useRouter } from 'vue-router';
 import BaseModal from './BaseModal.vue';
 
 const props = defineProps({
@@ -60,9 +45,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:modelValue', 'create-online', 'join-online', 'create-live']);
-
-const router = useRouter();
+const emit = defineEmits(['update:modelValue', 'join-online', 'create-live']);
 
 const isOpen = computed({
   get: () => props.modelValue,
@@ -72,11 +55,6 @@ const isOpen = computed({
 const handleLiveTrack = () => {
   isOpen.value = false;
   emit('create-live');
-};
-
-const handleCreateOnline = () => {
-  isOpen.value = false;
-  emit('create-online');
 };
 
 const handleJoinOnline = () => {

@@ -39,3 +39,8 @@ functions/.env
 *.temp
 dist/
 node_modules/
+
+# Production credentials & admin-script output — never commit
+serviceAccountKey.json
+service-account.json
+scripts-output/

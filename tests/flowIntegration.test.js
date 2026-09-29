@@ -315,15 +315,15 @@ describe('Lobby layout', () => {
       expect(actionModalContent).not.toContain('handleTimeBank');
     });
 
-    it('should contain exactly 3 game actions', () => {
+    it('should contain exactly 2 game actions (online create removed)', () => {
       expect(actionModalContent).toContain('handleLiveTrack');
-      expect(actionModalContent).toContain('handleCreateOnline');
+      expect(actionModalContent).not.toContain('handleCreateOnline');
       expect(actionModalContent).toContain('handleJoinOnline');
     });
 
-    it('should emit create-live, create-online, join-online events', () => {
+    it('should emit create-live, join-online events', () => {
       expect(actionModalContent).toContain("emit('create-live')");
-      expect(actionModalContent).toContain("emit('create-online')");
+      expect(actionModalContent).not.toContain("emit('create-online')");
       expect(actionModalContent).toContain("emit('join-online')");
     });
   });

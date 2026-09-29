@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { collection, doc, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
 import { useAuthStore } from './auth.js';
 import { formatDate } from '../../utils/formatters.js';
@@ -18,7 +18,10 @@ function toMillis(value) {
   return 0;
 }
 
-function normalizeHistoryRecord(record, source, fallbackKey) {
+// history_sub is the ONLY history source: the legacy `users.{uid}.history`
+// array was migrated into history_sub and deleted on 2026-07-20
+// (functions/scripts/migrate_legacy_history_to_history_sub.js).
+function normalizeHistoryRecord(record, fallbackKey) {
   const createdAt = toMillis(record.createdAt) || toMillis(record.completedAt) || toMillis(record.date);
   const date = record.date || new Date(createdAt || Date.now()).toISOString();
 
@@ -27,19 +30,13 @@ function normalizeHistoryRecord(record, source, fallbackKey) {
     gameId: record.gameId || fallbackKey,
     createdAt,
     date,
-    historySource: source,
   };
-}
-
-function getRecordKey(record, fallbackKey) {
-  return record.gameId || fallbackKey;
 }
 
 export const useUserStore = defineStore('user', () => {
   const authStore = useAuthStore();
 
   const history = ref([]);
-  const legacyHistory = ref([]);
   const projectedHistory = ref([]);
   const stats = ref({
     games: 0,
@@ -47,7 +44,6 @@ export const useUserStore = defineStore('user', () => {
     winRate: 0
   });
 
-  let unsubscribeUser = null;
   let unsubscribeHistorySub = null;
   const pendingSyncWaiters = new Set();
 
@@ -65,18 +61,8 @@ export const useUserStore = defineStore('user', () => {
     }
   };
 
-  const rebuildMergedHistory = () => {
-    const merged = new Map();
-
-    legacyHistory.value.forEach((record, index) => {
-      merged.set(getRecordKey(record, `legacy-${index}`), record);
-    });
-
-    projectedHistory.value.forEach((record, index) => {
-      merged.set(getRecordKey(record, `history_sub-${index}`), record);
-    });
-
-    const nextHistory = Array.from(merged.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const rebuildHistory = () => {
+    const nextHistory = [...projectedHistory.value].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     history.value = nextHistory;
     resolvePendingSyncWaiters();
 
@@ -109,43 +95,21 @@ export const useUserStore = defineStore('user', () => {
     if (!userId) return;
 
     // Cleanup previous listener
-    if (unsubscribeUser) {
-      unsubscribeUser();
-      unsubscribeUser = null;
-    }
-
     if (unsubscribeHistorySub) {
       unsubscribeHistorySub();
       unsubscribeHistorySub = null;
     }
 
-    // Subscribe to user document
-    unsubscribeUser = onSnapshot(doc(db, 'users', userId), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        const rawHistory = Array.isArray(data.history) ? data.history : [];
-
-        legacyHistory.value = rawHistory.map((record, index) =>
-          normalizeHistoryRecord(record, 'legacy', `legacy-${index}`)
-        );
-        rebuildMergedHistory();
-      } else {
-        legacyHistory.value = [];
-        rebuildMergedHistory();
-      }
-    });
-
     const historySubQuery = query(
       collection(db, 'users', userId, 'history_sub'),
-      orderBy('projectionUpdatedAt', 'desc'),
-      limit(50)
+      orderBy('projectionUpdatedAt', 'desc')
     );
 
     unsubscribeHistorySub = onSnapshot(historySubQuery, (snapshot) => {
       projectedHistory.value = snapshot.docs.map((docSnap) =>
-        normalizeHistoryRecord({ gameId: docSnap.id, ...docSnap.data() }, 'history_sub', docSnap.id)
+        normalizeHistoryRecord({ gameId: docSnap.id, ...docSnap.data() }, docSnap.id)
       );
-      rebuildMergedHistory();
+      rebuildHistory();
     });
   };
 
@@ -256,11 +220,6 @@ export const useUserStore = defineStore('user', () => {
    * Cleanup (unsubscribe from listeners)
    */
   const cleanup = () => {
-    if (unsubscribeUser) {
-      unsubscribeUser();
-      unsubscribeUser = null;
-    }
-
     if (unsubscribeHistorySub) {
       unsubscribeHistorySub();
       unsubscribeHistorySub = null;

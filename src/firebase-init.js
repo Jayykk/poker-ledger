@@ -57,3 +57,37 @@ export { db };
 // Shared Functions instance pinned to the backend region. Import this
 // everywhere instead of calling getFunctions() so the region stays consistent.
 export const functions = getFunctions(app, FUNCTIONS_REGION);
+
+// App Check (reCAPTCHA Enterprise). Currently only required by Firebase AI Logic
+// (photo → card recognition), so it is initialised lazily on first use and is a
+// no-op when no site key is configured — Firestore/Auth behaviour is unchanged.
+// If App Check enforcement is later enabled for Firestore, call ensureAppCheck()
+// eagerly from main.js instead.
+const APP_CHECK_SITE_KEY = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY || '';
+let appCheckPromise = null;
+
+export function ensureAppCheck() {
+  if (!APP_CHECK_SITE_KEY) return Promise.resolve(null);
+  if (!appCheckPromise) {
+    appCheckPromise = import('firebase/app-check')
+      .then(({ initializeAppCheck, ReCaptchaEnterpriseProvider }) => {
+        // Local dev: "true" prints a debug token in the console (register it in
+        // Firebase Console → App Check → Manage debug tokens), or paste a
+        // registered token. Must be set BEFORE initializeAppCheck().
+        const debugToken = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
+        if (import.meta.env.DEV && debugToken) {
+          self.FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken === 'true' ? true : debugToken;
+        }
+        return initializeAppCheck(app, {
+          provider: new ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY),
+          isTokenAutoRefreshEnabled: true
+        });
+      })
+      .catch((e) => {
+        console.warn('App Check init failed:', e);
+        appCheckPromise = null;
+        return null;
+      });
+  }
+  return appCheckPromise;
+}

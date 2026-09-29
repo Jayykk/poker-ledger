@@ -88,6 +88,16 @@ service cloud.firestore {
     }
 
     // ============================================
+    // Leaderboard aggregates — one doc per user per period, recomputed by
+    // Cloud Functions after each history projection (never client-written).
+    // Read is open to signed-in users: same visibility as history_sub above.
+    // ============================================
+    match /leaderboardStats/{statId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ============================================
     // Friend requests (mailbox)
     // ============================================
     match /friendRequests/{requestId} {

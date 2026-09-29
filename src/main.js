@@ -19,35 +19,50 @@ if ('serviceWorker' in navigator) {
       // Check for updates every 5 minutes
       setInterval(() => reg.update(), 5 * 60 * 1000);
 
+      // Reload only after the user ACCEPTS the update. The old flow reloaded
+      // on every controllerchange, which — combined with sw.js's former
+      // skipWaiting + clients.claim — force-refreshed every open client the
+      // moment a deploy landed (the "screen flashes after release" bug).
+      let updateAccepted = false;
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!updateAccepted || refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+
+      const promptUpdate = (waitingWorker) => {
+        if (!waitingWorker) return;
+        // Prompt via the app's shared action notification (Pinia is active
+        // by the time an update lands post-mount).
+        try {
+          useNotificationStore().addActionNotification({
+            type: 'custom',
+            title: '有新版本可用',
+            message: '是否立即更新？',
+            onConfirm: () => {
+              updateAccepted = true;
+              waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+            },
+          });
+        } catch (e) {
+          console.error('[SW] Update prompt failed:', e);
+        }
+      };
+
+      // An update may already be waiting from a previous visit.
+      promptUpdate(reg.waiting);
+
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         if (!newWorker) return;
         newWorker.addEventListener('statechange', () => {
-          // New SW is ready and there's an existing one controlling the page
-          if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
-            // Prompt to refresh via the app's shared action notification
-            // (Pinia is active by the time the SW activates post-mount).
-            try {
-              useNotificationStore().addActionNotification({
-                type: 'custom',
-                title: '有新版本可用',
-                message: '是否立即更新？',
-                onConfirm: () => window.location.reload(),
-              });
-            } catch (e) {
-              console.error('[SW] Update prompt failed:', e);
-            }
+          // 'installed' with an existing controller = an update is waiting
+          // for consent (without a controller it's the very first install).
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            promptUpdate(newWorker);
           }
         });
-      });
-
-      // If a new SW took over, reload to get the latest assets
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!refreshing) {
-          refreshing = true;
-          window.location.reload();
-        }
       });
     } catch (err) {
       console.error('[SW] Registration failed:', err);
@@ -108,6 +123,7 @@ import DealerClockDemoView from './views/DealerClockDemoView.vue';
 import TournamentGameView from './views/TournamentGameView.vue';
 import SessionView from './views/SessionView.vue';
 import SessionSetupView from './views/SessionSetupView.vue';
+import SessionHistoryView from './views/SessionHistoryView.vue';
 import TableManagementView from './views/admin/TableManagementView.vue';
 import CashTableEditView from './views/admin/CashTableEditView.vue';
 import TournamentEditView from './views/admin/TournamentEditView.vue';
@@ -166,6 +182,7 @@ import { logger } from "./utils/logger.js";
       { path: '/session-setup', name: 'SessionSetup', component: SessionSetupView, meta: { requiresAuth: true } },
       { path: '/session-setup/:sessionId', name: 'SessionSetupEdit', component: SessionSetupView, meta: { requiresAuth: true } },
       { path: '/session/:sessionId', name: 'Session', component: SessionView, meta: { requiresAuth: true } },
+      { path: '/session-history', name: 'SessionHistory', component: SessionHistoryView, meta: { requiresAuth: true } },
       { path: '/admin/tables', name: 'AdminTables', component: TableManagementView, meta: { requiresAuth: true } },
       { path: '/admin/cash/:gameId', name: 'AdminCashEdit', component: CashTableEditView, meta: { requiresAuth: true } },
       { path: '/admin/tournament/:sessionId', name: 'AdminTournamentEdit', component: TournamentEditView, meta: { requiresAuth: true } }
