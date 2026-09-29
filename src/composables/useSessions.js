@@ -519,7 +519,14 @@ export function useSessions() {
       const snap = await getDoc(doc(db, 'games', e.gameId));
       if (!snap.exists()) return null;
       const g = snap.data();
-      return { name: e.label || g.name || '', kind: e.type, rate: g.rate || 1, settlementSnapshot: g.settlementSnapshot };
+      return {
+        name: e.label || g.name || '',
+        kind: e.type,
+        rate: g.rate || 1,
+        // Settlement rounding precision — the summary formats totals with it.
+        cashDecimals: g.cashDecimals ?? null,
+        settlementSnapshot: g.settlementSnapshot,
+      };
     }));
     return aggregateSessionSummary(games.filter(Boolean));
   }
