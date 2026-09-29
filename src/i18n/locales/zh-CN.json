@@ -129,6 +129,7 @@
     "buyInChips": "买入筹码",
     "settlementChips": "结算筹码",
     "settlementPlaceholder": "请输入",
+    "saveFailed": "保存失败，请再试一次",
     "buyInGroups": "组",
     "net": "净损益",
     "addPlayer": "加入玩家",

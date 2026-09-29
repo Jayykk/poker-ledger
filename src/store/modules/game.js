@@ -22,6 +22,7 @@ import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../util
 import { createSyncRequestToken } from '../../utils/historyProjection.js';
 import { timestampToMillis } from '../../utils/formatters.js';
 import { buildCashSettlement, buildTournamentSettlement } from '../../utils/settlementMath.js';
+import { applyPlayerChange, isSnapshotCurrent } from '../../utils/ledgerOps.js';
 
 function getEffectiveTournamentLevel(levels = [], currentLevelIndex = 0) {
   const normalizedIndex = Number.isFinite(Number(currentLevelIndex))
@@ -60,6 +61,11 @@ export const useGameStore = defineStore('game', () => {
   const error = ref('');
   
   let unsubscribeGame = null;
+  // Game the listener follows, and the highest roster rev already on screen
+  // for it (see isSnapshotCurrent / commitRoster).
+  let listenedGameId = null;
+  let localRev = 0;
+  let resubscribeTimer = null;
 
   const isInGame = computed(() => !!game.value);
   const isHost = computed(() => game.value?.hostUid === authStore.user?.uid);
@@ -150,19 +156,184 @@ export const useGameStore = defineStore('game', () => {
   const joinGameListener = async (id) => {
     if (unsubscribeGame) {
       unsubscribeGame();
+      unsubscribeGame = null;
     }
-    
+    if (id !== listenedGameId) localRev = 0;
+    listenedGameId = id;
+
     unsubscribeGame = onSnapshot(doc(db, 'games', id), (snap) => {
       if (snap.exists() && snap.data().status === GAME_STATUS.ACTIVE) {
-        game.value = { id: snap.id, ...snap.data() };
+        const data = snap.data();
+        // Our own commit is already on screen — don't let a snapshot that
+        // predates it roll the roster back.
+        if (gameId.value === snap.id && !isSnapshotCurrent(data.rev, localRev)) return;
+        localRev = Number(data.rev) || 0;
+        game.value = { id: snap.id, ...data };
         gameId.value = snap.id;
         localStorage.setItem(STORAGE_KEYS.LAST_GAME_ID, id);
       } else {
         game.value = null;
         gameId.value = null;
+        listenedGameId = null;
         localStorage.removeItem(STORAGE_KEYS.LAST_GAME_ID);
       }
+    }, (err) => {
+      // A dead listener leaves the screen frozen on stale data — retry.
+      console.error('[game] snapshot error:', err);
+      unsubscribeGame = null;
+      if (err?.code !== 'permission-denied') scheduleResubscribe();
     });
+  };
+
+  const resubscribe = () => {
+    if (resubscribeTimer) {
+      clearTimeout(resubscribeTimer);
+      resubscribeTimer = null;
+    }
+    if (listenedGameId) joinGameListener(listenedGameId);
+  };
+
+  const scheduleResubscribe = (delayMs = 3000) => {
+    if (resubscribeTimer) return;
+    resubscribeTimer = setTimeout(() => {
+      resubscribeTimer = null;
+      if (listenedGameId && !unsubscribeGame) joinGameListener(listenedGameId);
+    }, delayMs);
+  };
+
+  // Mobile browsers and LINE's webview can stall the realtime stream while
+  // backgrounded; a fresh subscription pulls the latest doc on return.
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') resubscribe();
+    });
+    window.addEventListener('online', resubscribe);
+  }
+
+  /**
+   * Read-modify-write the roster in a client transaction, then put the
+   * committed roster on screen right away. Transactions get no latency
+   * compensation, so without the local apply this device would wait for the
+   * realtime listener to echo its own write back.
+   *
+   * Every write bumps `rev` so older in-flight snapshots can be ignored.
+   *
+   * @param {string} targetGameId
+   * @param {(players: Array, data: object, t: object) => ({players: Array}|Promise<{players: Array}>)} mutate
+   *   Must be retry-safe (Firestore may re-run it); may read other docs
+   *   through t before any write, and write them.
+   * @returns {Promise<object>} mutate's result plus the committed rev
+   */
+  const commitRoster = async (targetGameId, mutate) => {
+    const gameRef = doc(db, 'games', targetGameId);
+    const result = await runTransaction(db, async (t) => {
+      const snap = await t.get(gameRef);
+      if (!snap.exists()) throw new Error('Game not found');
+      const data = snap.data();
+      const out = await mutate(data.players || [], data, t);
+      const rev = (Number(data.rev) || 0) + 1;
+      t.update(gameRef, { players: out.players, rev });
+      return { ...out, rev };
+    });
+
+    if (gameId.value === targetGameId && game.value && result.rev > localRev) {
+      localRev = result.rev;
+      game.value = { ...game.value, players: result.players, rev: result.rev };
+    }
+    return result;
+  };
+
+  /**
+   * Record a buy-in / add-on / buy-in correction (type 'modify'): the seat's
+   * buyIn moves by `amount` and the audit record is written in the same
+   * transaction, so the log and the roster can't disagree. Optional `fields`
+   * (stack / name) ride along in the same write. Replaces the recordBuyInTx
+   * Cloud Function (no cold start, and this device updates on commit).
+   *
+   * @returns {Promise<{success: true, txId: string, totalBuyIn: number}>}
+   */
+  const recordLedgerTx = async ({
+    gameId: targetGameId = gameId.value,
+    targetId, targetUid, targetName, amount, type = 'buy_in', fields = {},
+  } = {}) => {
+    const actionUid = authStore.user?.uid;
+    if (!targetGameId || !actionUid) throw new Error('Not in a game');
+    const safeAmount = Number(amount) || 0;
+    const txRef = doc(collection(db, 'transactions'));
+
+    const result = await commitRoster(targetGameId, (players, _data, t) => {
+      const change = applyPlayerChange(
+        players,
+        { targetId, targetUid, targetName },
+        { buyInDelta: safeAmount, fields },
+      );
+      t.set(txRef, {
+        gameId: targetGameId,
+        targetId: targetId || null,
+        targetUid: targetUid || null,
+        targetName,
+        actionUid,
+        actionName: authStore.displayName || 'Player',
+        amount: safeAmount,
+        type,
+        status: 'active',
+        undoneBy: null,
+        undoOf: null,
+        timestamp: serverTimestamp(),
+      });
+      return change;
+    });
+
+    return { success: true, txId: txRef.id, totalBuyIn: result.player.buyIn || 0 };
+  };
+
+  /**
+   * Undo a ledger transaction: flip it to 'undone', write the compensating
+   * record, and move the seat's buyIn back — all in one transaction.
+   * Replaces the undoBuyInTx Cloud Function. Rules limit the flip to the
+   * original actor, the host, or an admin.
+   *
+   * @returns {Promise<{success: true, undoTxId: string, totalBuyIn: number}>}
+   */
+  const undoLedgerTx = async (txId, targetGameId = gameId.value) => {
+    const actionUid = authStore.user?.uid;
+    if (!targetGameId || !actionUid) throw new Error('Not in a game');
+    const txRef = doc(db, 'transactions', txId);
+    const undoRef = doc(collection(db, 'transactions'));
+
+    const result = await commitRoster(targetGameId, async (players, _data, t) => {
+      const txSnap = await t.get(txRef);
+      if (!txSnap.exists()) throw new Error('Transaction not found');
+      const tx = txSnap.data();
+      if (tx.gameId !== targetGameId) throw new Error('Transaction belongs to another game');
+      if (tx.status !== 'active') throw new Error('Transaction already undone');
+      const amount = Number(tx.amount) || 0;
+
+      t.update(txRef, { status: 'undone' });
+      t.set(undoRef, {
+        gameId: tx.gameId,
+        targetId: tx.targetId || null,
+        targetUid: tx.targetUid || null,
+        targetName: tx.targetName,
+        actionUid,
+        actionName: authStore.displayName || 'Player',
+        amount: -amount || 0,
+        type: 'undo',
+        status: 'active',
+        undoneBy: null,
+        undoOf: txId,
+        timestamp: serverTimestamp(),
+      });
+
+      try {
+        return applyPlayerChange(players, tx, { buyInDelta: -amount });
+      } catch (_) {
+        // Seat was removed since — still void the record, roster unchanged.
+        return { players, player: null };
+      }
+    });
+
+    return { success: true, undoTxId: undoRef.id, totalBuyIn: result.player?.buyIn || 0 };
   };
 
   /**
@@ -205,11 +376,7 @@ export const useGameStore = defineStore('game', () => {
   const joinByBinding = async (id, playerId) => {
     loading.value = true;
     try {
-      await runTransaction(db, async (t) => {
-        const gameRef = doc(db, 'games', id);
-        const gameDoc = await t.get(gameRef);
-        const players = gameDoc.data().players;
-        
+      await commitRoster(id, (players) => {
         const newPlayers = players.map(p => {
           if (p.id === playerId) {
             if (p.uid) throw new Error('Seat already taken');
@@ -217,8 +384,7 @@ export const useGameStore = defineStore('game', () => {
           }
           return p;
         });
-        
-        t.update(gameRef, { players: newPlayers });
+        return { players: newPlayers };
       });
       
       await joinGameListener(id);
@@ -238,11 +404,7 @@ export const useGameStore = defineStore('game', () => {
   const joinAsNewPlayer = async (id, buyInAmount = DEFAULT_BUY_IN) => {
     loading.value = true;
     try {
-      await runTransaction(db, async (t) => {
-        const gameRef = doc(db, 'games', id);
-        const gameDoc = await t.get(gameRef);
-        const players = gameDoc.data().players;
-        
+      await commitRoster(id, (players) => {
         if (players.some(p => p.uid === authStore.user.uid)) {
           throw new Error('Already in game');
         }
@@ -265,7 +427,7 @@ export const useGameStore = defineStore('game', () => {
           stack: 0
         };
         
-        t.update(gameRef, { players: arrayUnion(newPlayer) });
+        return { players: [...players, newPlayer] };
       });
       
       await joinGameListener(id);
@@ -295,8 +457,11 @@ export const useGameStore = defineStore('game', () => {
         stack: 0
       };
       
+      // Plain update (not a transaction) so the SDK shows it immediately;
+      // rev still moves so the snapshot guard stays monotonic.
       await updateDoc(doc(db, 'games', gameId.value), {
-        players: arrayUnion(newPlayer)
+        players: arrayUnion(newPlayer),
+        rev: increment(1),
       });
       
       return newPlayer;
@@ -308,37 +473,23 @@ export const useGameStore = defineStore('game', () => {
   };
 
   /**
-   * Update player
+   * Update a player's name and/or stack. buyIn is deliberately not writable
+   * here — it only moves through recordLedgerTx / undoLedgerTx (by delta, with
+   * an audit record), so a stale edit form can't overwrite a concurrent buy-in.
    */
   const updatePlayer = async (player) => {
     if (!gameId.value) return false;
-    
+
     try {
-      const gameRef = doc(db, 'games', gameId.value);
-      await runTransaction(db, async (transaction) => {
-        const gameSnap = await transaction.get(gameRef);
-        if (!gameSnap.exists()) throw new Error('Game not found');
+      const fields = {};
+      for (const field of ['name', 'stack']) {
+        if (Object.prototype.hasOwnProperty.call(player, field)) {
+          fields[field] = player[field];
+        }
+      }
+      await commitRoster(gameId.value, (players) =>
+        applyPlayerChange(players, { targetId: player.id }, { fields }));
 
-        const players = gameSnap.data().players || [];
-        let found = false;
-        const updatedPlayers = players.map(p => {
-          if (p.id === player.id) {
-            found = true;
-            const nextPlayer = { ...p };
-            for (const field of ['name', 'buyIn', 'stack']) {
-              if (Object.prototype.hasOwnProperty.call(player, field)) {
-                nextPlayer[field] = player[field];
-              }
-            }
-            return nextPlayer;
-          }
-          return p;
-        });
-
-        if (!found) throw new Error('Player not found');
-        transaction.update(gameRef, { players: updatedPlayers });
-      });
-      
       return true;
     } catch (err) {
       console.error('Update player error:', err);
@@ -354,18 +505,12 @@ export const useGameStore = defineStore('game', () => {
     if (!gameId.value) return false;
     
     try {
-      const gameRef = doc(db, 'games', gameId.value);
-      await runTransaction(db, async (transaction) => {
-        const gameSnap = await transaction.get(gameRef);
-        if (!gameSnap.exists()) throw new Error('Game not found');
-
-        const players = gameSnap.data().players || [];
+      await commitRoster(gameId.value, (players) => {
         const updatedPlayers = players.filter(p => p.id !== player.id);
         if (updatedPlayers.length === players.length) {
           throw new Error('Player not found');
         }
-
-        transaction.update(gameRef, { players: updatedPlayers });
+        return { players: updatedPlayers };
       });
       
       return true;
@@ -383,12 +528,7 @@ export const useGameStore = defineStore('game', () => {
     if (!gameId.value) return false;
     
     try {
-      const gameRef = doc(db, 'games', gameId.value);
-      await runTransaction(db, async (transaction) => {
-        const gameSnap = await transaction.get(gameRef);
-        if (!gameSnap.exists()) throw new Error('Game not found');
-
-        const players = gameSnap.data().players || [];
+      await commitRoster(gameId.value, (players) => {
         let found = false;
         const updatedPlayers = players.map(p => {
           if (p.id !== player.id) return p;
@@ -400,7 +540,7 @@ export const useGameStore = defineStore('game', () => {
         });
 
         if (!found) throw new Error('Player not found');
-        transaction.update(gameRef, { players: updatedPlayers });
+        return { players: updatedPlayers };
       });
       
       return true;
@@ -496,17 +636,11 @@ export const useGameStore = defineStore('game', () => {
     if (!gameId.value) return false;
 
     try {
-      const gameRef = doc(db, 'games', gameId.value);
-      await runTransaction(db, async (transaction) => {
-        const gameSnap = await transaction.get(gameRef);
-        if (!gameSnap.exists()) throw new Error('Game not found');
-
-        const gameData = gameSnap.data();
-        const players = gameData.players || [];
+      await commitRoster(gameId.value, async (players, gameData, transaction) => {
         const aliveBefore = players.filter(p => !p.eliminated);
         const target = players.find(p => p.id === playerId);
         if (!target) throw new Error('Player not found');
-        if (target.eliminated) return;
+        if (target.eliminated) return { players };
         if (aliveBefore.length <= 1) throw new Error('Cannot eliminate the last remaining player');
 
         const placement = aliveBefore.length; // e.g. 5 alive → eliminated gets 5th
@@ -550,7 +684,7 @@ export const useGameStore = defineStore('game', () => {
           });
         }
 
-        transaction.update(gameRef, { players: updatedPlayers });
+        return { players: updatedPlayers };
       });
       return true;
     } catch (err) {
@@ -596,7 +730,6 @@ export const useGameStore = defineStore('game', () => {
 
       const baseBuyIn = game.value.baseBuyIn || DEFAULT_BUY_IN;
       const maxReentries = cfg.maxReentries ?? 0;
-      const gameRef = doc(db, 'games', gameId.value);
 
       // Track the exact alive count from inside the transaction so we can write
       // an absolute value to the session (avoids increment() race vs startGameSync).
@@ -604,11 +737,7 @@ export const useGameStore = defineStore('game', () => {
 
       // Use a Firestore transaction to atomically read the latest data,
       // validate reentry count, and update both elimination state and buyIn.
-      await runTransaction(db, async (transaction) => {
-        const gameSnap = await transaction.get(gameRef);
-        if (!gameSnap.exists()) throw new Error('Game not found');
-
-        const players = gameSnap.data().players || [];
+      await commitRoster(gameId.value, (players) => {
         const player = players.find(p => p.id === playerId);
         if (!player) throw new Error('Player not found');
 
@@ -634,7 +763,7 @@ export const useGameStore = defineStore('game', () => {
         });
 
         aliveAfterReentry = updatedPlayers.filter(p => !p.eliminated).length;
-        transaction.update(gameRef, { players: updatedPlayers });
+        return { players: updatedPlayers };
       });
 
       // Sync tournament session counters.
@@ -777,9 +906,15 @@ export const useGameStore = defineStore('game', () => {
       unsubscribeGame();
       unsubscribeGame = null;
     }
+    listenedGameId = null;
+    if (resubscribeTimer) {
+      clearTimeout(resubscribeTimer);
+      resubscribeTimer = null;
+    }
   };
 
   const clearCurrentGame = () => {
+    cleanup();
     game.value = null;
     gameId.value = null;
     localStorage.removeItem(STORAGE_KEYS.LAST_GAME_ID);
@@ -806,6 +941,8 @@ export const useGameStore = defineStore('game', () => {
     updatePlayer,
     removePlayer,
     bindSeat,
+    recordLedgerTx,
+    undoLedgerTx,
     settleGame,
     closeGame,
     eliminatePlayer,

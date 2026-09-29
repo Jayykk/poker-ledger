@@ -151,7 +151,7 @@
       <div class="space-y-4">
         <div>
           <label class="text-xs text-gray-400 block mb-2">{{ $t('game.buyInChips') }}</label>
-          <div class="text-white font-mono text-xl text-center mb-2">{{ editingPlayer?.buyIn }}</div>
+          <div class="text-white font-mono text-xl text-center mb-2">{{ editedBuyIn }}</div>
           <div class="flex gap-2 items-center justify-center">
             <BaseButton @click="decrementBuyInGroup" size="sm">-</BaseButton>
             <span class="text-white font-mono text-lg px-4">{{ buyInGroups }} {{ $t('game.buyInGroups') }}</span>
@@ -379,25 +379,39 @@ const sortedPlayers = computed(() => {
   return [...game.value.players].sort((a, b) => calculateNet(b) - calculateNet(a));
 });
 
+// The edit modal tracks the buy-in change as a delta on top of the LIVE seat,
+// not an absolute copy taken when the modal opened — otherwise a buy-in made
+// on another device while the modal is open would be reverted on save.
+const editBuyInDelta = ref(0);
+
+const liveEditingPlayer = computed(() =>
+  game.value?.players?.find((p) => p.id === editingPlayer.value?.id) || null
+);
+
+const editedBuyIn = computed(() => {
+  const liveBuyIn = liveEditingPlayer.value?.buyIn ?? editingPlayer.value?.buyIn ?? 0;
+  return liveBuyIn + editBuyInDelta.value;
+});
+
 const buyInGroups = computed(() => {
   if (!editingPlayer.value) return 0;
   const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
-  return Math.floor(editingPlayer.value.buyIn / baseBuyIn);
+  return Math.floor(editedBuyIn.value / baseBuyIn);
 });
 
 const incrementBuyInGroup = () => {
   if (!editingPlayer.value) return;
   const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
   // Align to next full group
-  const currentGroups = Math.floor(editingPlayer.value.buyIn / baseBuyIn);
-  editingPlayer.value.buyIn = (currentGroups + 1) * baseBuyIn;
+  editBuyInDelta.value += (buyInGroups.value + 1) * baseBuyIn - editedBuyIn.value;
 };
 
 const decrementBuyInGroup = () => {
   if (!editingPlayer.value) return;
   const baseBuyIn = game.value?.baseBuyIn || DEFAULT_BUY_IN;
-  const currentGroups = Math.floor(editingPlayer.value.buyIn / baseBuyIn);
-  editingPlayer.value.buyIn = Math.max(baseBuyIn, (currentGroups > 1 ? currentGroups - 1 : 1) * baseBuyIn);
+  const currentGroups = buyInGroups.value;
+  const target = Math.max(baseBuyIn, (currentGroups > 1 ? currentGroups - 1 : 1) * baseBuyIn);
+  editBuyInDelta.value += target - editedBuyIn.value;
 };
 
 const incrementNewPlayerBuyIn = () => {
@@ -425,26 +439,22 @@ const handleAddPlayer = async () => {
 
 const handleEditPlayer = (player) => {
   editingPlayer.value = { ...player };
+  editBuyInDelta.value = 0;
   showEditPlayer.value = true;
 };
 
 const handleSavePlayer = async () => {
   await withLoading(async () => {
-    const originalPlayer = game.value?.players?.find((p) => p.id === editingPlayer.value.id);
-    const buyInChanged = originalPlayer && originalPlayer.buyIn !== editingPlayer.value.buyIn;
-    if (buyInChanged) {
-      // Only update non-buyIn fields via updatePlayer; let recordAction handle buyIn atomically
-      const { buyIn: _ignored, ...playerWithoutBuyIn } = editingPlayer.value;
-      await updatePlayer(playerWithoutBuyIn);
-      await recordAction(
-        editingPlayer.value.id,
-        editingPlayer.value.uid || null,
-        editingPlayer.value.name,
-        'modify',
-        editingPlayer.value.buyIn - originalPlayer.buyIn,
-      );
-    } else {
-      await updatePlayer(editingPlayer.value);
+    const p = editingPlayer.value;
+    const fields = { stack: p.stack };
+    // One write either way: a buy-in correction carries the stack with it
+    // (roster + audit record in the same transaction).
+    const ok = editBuyInDelta.value !== 0
+      ? await recordAction(p.id, p.uid || null, p.name, 'modify', editBuyInDelta.value, fields)
+      : await updatePlayer({ id: p.id, ...fields });
+    if (!ok) {
+      warning(t('game.saveFailed'));
+      return;
     }
     showEditPlayer.value = false;
     editingPlayer.value = null;
@@ -459,7 +469,10 @@ const handleRemovePlayer = async () => {
   if (shouldRemove) {
     await withLoading(async () => {
       const removedPlayer = { ...editingPlayer.value };
-      await removePlayer(editingPlayer.value);
+      if (!(await removePlayer(editingPlayer.value))) {
+        warning(t('game.saveFailed'));
+        return;
+      }
       await recordAction(removedPlayer.id, removedPlayer.uid || null, removedPlayer.name, 'remove', 0);
       showEditPlayer.value = false;
       editingPlayer.value = null;
@@ -475,7 +488,10 @@ const handleBind = async (player) => {
   if (shouldBind) {
     await withLoading(async () => {
       const originalSeatName = player.name;
-      await bindSeat(player);
+      if (!(await bindSeat(player))) {
+        warning(t('game.saveFailed'));
+        return;
+      }
       await recordAction(player.id, null, originalSeatName, 'bind', 0);
     }, t('loading.binding'));
   }
@@ -505,21 +521,15 @@ const handleAddBuy = async (player) => {
     const buyInAmount = game.value?.baseBuyIn || DEFAULT_BUY_IN;
     const result = await recordBuyIn(player.id, player.uid || null, player.name, buyInAmount, 'buy_in');
     if (result) {
-      // If the transaction was recorded via fallback (direct write),
-      // we also need to update the player's buyIn in the game document
-      if (result.fallback) {
-        const updatedPlayer = { ...player, buyIn: (player.buyIn || 0) + buyInAmount };
-        await updatePlayer(updatedPlayer);
-      }
       success(t('transaction.buyInSuccess'));
-      // Prefer CF-returned totalBuyIn (accurate) over local cache
-      const newTotalBuyIn = result.totalBuyIn || ((player.buyIn || 0) + buyInAmount);
       const gameType = game.value?.type || 'live';
       sendBuyInMessage(displayName.value, player.name, buyInAmount, game.value?.name, game.value?.id, {
-        totalBuyIn: newTotalBuyIn,
+        totalBuyIn: result.totalBuyIn,
         baseBuyIn: buyInAmount,
         gameType,
       });
+    } else {
+      warning(t('game.saveFailed'));
     }
   } finally {
     buyInProcessing.value.delete(player.id);
@@ -535,27 +545,14 @@ const handleUndoBuyIn = async (tx) => {
   if (shouldUndo) {
     const result = await undoBuyIn(tx.txId);
     if (result) {
-      // If undo was via fallback, update the player's buyIn directly
-      if (result.fallback && tx.targetName) {
-        const player = game.value?.players?.find(
-          p => tx.targetId ? p.id === tx.targetId : (tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName)
-        );
-        if (player) {
-          const updatedPlayer = { ...player, buyIn: Math.max(0, (player.buyIn || 0) - Math.abs(tx.amount || 0)) };
-          await updatePlayer(updatedPlayer);
-        }
-      }
       success(t('transaction.undoSuccess'));
-      // Calculate remaining buyIn after undo
-      const player = game.value?.players?.find(
-        p => tx.targetId ? p.id === tx.targetId : (tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName)
-      );
-      const remainingBuyIn = player ? (player.buyIn || 0) : 0;
       sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount), game.value?.name, game.value?.id, {
-        totalBuyIn: remainingBuyIn,
+        totalBuyIn: result.totalBuyIn,
         baseBuyIn: game.value?.baseBuyIn || Math.abs(tx.amount),
         gameType: game.value?.type || 'live',
       });
+    } else {
+      warning(t('game.saveFailed'));
     }
   }
 };

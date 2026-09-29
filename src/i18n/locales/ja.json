@@ -129,6 +129,7 @@
     "buyInChips": "バイインチップ",
     "settlementChips": "精算チップ",
     "settlementPlaceholder": "入力してください",
+    "saveFailed": "保存に失敗しました。もう一度お試しください",
     "buyInGroups": "組",
     "net": "純損益",
     "addPlayer": "プレーヤー追加",

@@ -523,7 +523,8 @@ const handleEditPlayer = (player) => {
 
 const handleSavePlayer = async () => {
   await withLoading(async () => {
-    await updatePlayer(editingPlayer.value);
+    // Only the name is editable here; never send buyIn from the stale form copy.
+    await updatePlayer({ id: editingPlayer.value.id, name: editingPlayer.value.name });
     showEditPlayer.value = false;
     editingPlayer.value = null;
   }, t('loading.saving'));
@@ -583,22 +584,7 @@ const handleUndoBuyIn = async (tx) => {
       const result = await undoBuyIn(tx.txId);
 
       if (result) {
-        // If undo was via fallback, update the player's buyIn directly
-        // (Cloud function already handles this when not in fallback mode)
-        if (result.fallback && tx.targetName) {
-          const { doc, updateDoc } = await import('firebase/firestore');
-          const { db } = await import('../firebase-init.js');
-
-          const updatedPlayers = game.value.players.map(p => {
-            const isTarget = tx.targetId ? p.id === tx.targetId : (tx.targetUid ? p.uid === tx.targetUid : p.name === tx.targetName);
-            if (isTarget) {
-              return { ...p, buyIn: Math.max(0, (p.buyIn || 0) - Math.abs(tx.amount || 0)) };
-            }
-            return p;
-          });
-          await updateDoc(doc(db, 'games', game.value.id), { players: updatedPlayers });
-        }
-
+        // undoBuyIn already moved the seat's buyIn back (same transaction).
         // Decrement tournament session reentry counter if applicable.
         // Only reentries is decremented — playersRegistered tracks unique players
         // and is unaffected by re-entry undo.

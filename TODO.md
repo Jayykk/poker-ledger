@@ -124,6 +124,7 @@
 - [x] ~~移除 deprecated validators~~ ✅ 2026-06-12：`startHand` 改用 actionValidator 版本
 - [x] ~~移除 `useGame.js` 薄包裝層~~ ✅ 2026-06-12：3 個 view 改用 `useGameStore` + `storeToRefs`
 - [x] ~~實作筆記移到 `docs/`~~ ✅ 2026-06-12
+- [ ] 移除 `recordBuyInTx` / `undoBuyInTx` Cloud Functions（2026-09-29 前端已改為用戶端 transaction，見 `game.js` 的 `recordLedgerTx` / `undoLedgerTx`）；保留一個版本週期給仍在跑舊版 PWA 快取的裝置，之後連同 `functions/src/handlers/transaction.js` 一併刪除
 
 ### P1 — 測試與 CI
 
