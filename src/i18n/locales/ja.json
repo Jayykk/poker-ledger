@@ -600,7 +600,10 @@
     "settlementPermissionDenied": "ルーム参加者のみ精算できます",
     "settlementStateChanged": "トーナメントの状態が変更されました。更新して再試行してください",
     "settlementUnavailable": "精算サービスを一時的に利用できません。後でもう一度お試しください",
-    "settlementFailed": "精算に失敗しました。後でもう一度お試しください"
+    "settlementFailed": "精算に失敗しました。後でもう一度お試しください",
+    "clockStyle": "クロックのスタイル",
+    "clockStyleClassic": "スタイル 1（クラシック）",
+    "clockStyleFelt": "スタイル 2（フェルト）"
   },
   "timeBank": {
     "title": "Time Bank",
@@ -809,7 +812,47 @@
       "timeToEnd": "終了まで",
       "timeUp": "時間終了",
       "players": "プレイヤー数",
-      "buyIns": "バイイン数"
+      "buyIns": "バイイン数",
+      "endsAt": "終了時刻"
     }
+  },
+  "clockFace": {
+    "running": "進行中",
+    "paused": "一時停止",
+    "waiting": "開始待ち",
+    "timeUp": "時間終了",
+    "ended": "終了",
+    "buyInOpen": "バイイン受付中",
+    "buyInClosed": "バイイン締切",
+    "regOpen": "エントリー受付中",
+    "regClosed": "登録締切",
+    "timedSub": "時間制",
+    "cutoffSub": "Level {level} まで購入可",
+    "reentrySub": "Level {level} までリエントリー可",
+    "small": "SB",
+    "big": "BB",
+    "ante": "アンティ",
+    "level": "Level {level}",
+    "breakTitle": "休憩",
+    "afterLevel": "Level {level} 終了後",
+    "next": "次",
+    "finalLevel": "最終レベル",
+    "finalRepeats": "最終レベルを繰り返し",
+    "gameOver": "時間終了 · 精算してください",
+    "structure": "ストラクチャー",
+    "endsAt": "終了時刻",
+    "endsIn": "終了まで",
+    "breakIn": "休憩まで",
+    "cutoffMark": "締切",
+    "reentryMark": "リエントリー",
+    "brk": "休",
+    "players": "プレイヤー数",
+    "buyIns": "バイイン数",
+    "entries": "エントリー数",
+    "playersLeft": "残り人数",
+    "chipsInPlay": "場のチップ",
+    "avgStack": "平均スタック",
+    "prizePool": "賞金総額",
+    "payouts": "賞金配分"
   }
 }

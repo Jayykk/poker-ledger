@@ -42,6 +42,13 @@
         :next-play-level-entry="nextPlayLevelEntry"
         :prize-pool="prizePool"
         :payouts="payouts"
+        :clock-style="clockStyle"
+        :levels="levels"
+        :current-level-index="currentLevelIndex"
+        :local-time-left="localTimeLeft"
+        :level-progress="levelProgress"
+        :ends-at="endsAt || ''"
+        :cutoff-level="Number(config.reentryUntilLevel) || 0"
         @toggle-settings="showControls = !showControls"
         @open-time-bank="showTimeBankFromClock"
         @request-fullscreen="requestFullscreen"
@@ -56,6 +63,8 @@
         :reentries="reentries"
         :current-level-index="currentLevelIndex"
         :total-levels="levels.length"
+        :clock-style="clockStyle"
+        @set-style="setClockStyle"
         @start="startClock"
         @pause="pauseClock"
         @advance="advanceLevel"
@@ -106,9 +115,9 @@ const {
   reentries, entries, chipsInPlay, averageStack, averageStackBB,
   isRegistrationClosed, prizePool, payouts,
   formattedTime, timeToBreak,
-  isTimed, isBuyInClosed, timeToEnd,
+  isTimed, isBuyInClosed, timeToEnd, levelProgress, endsAt, clockStyle,
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
-  updatePlayers, addReentry, endTournament, cleanup,
+  updatePlayers, addReentry, endTournament, setClockStyle, cleanup,
 } = useTournamentClock({ dealerMode: true });
 
 const headerSubtitleText = computed(() => {

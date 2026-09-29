@@ -29,7 +29,11 @@ import {
   secondsToEnd,
   formatDuration,
   timedBuyInStats,
+  levelDurationSeconds,
 } from '../utils/timedStructure.js';
+
+/** Clock face styles; stored on the session so every screen follows the host. */
+export const CLOCK_STYLES = ['classic', 'felt'];
 
 export function useTournamentClock(options = {}) {
   const { dealerMode = false } = options;
@@ -146,6 +150,28 @@ export function useTournamentClock(options = {}) {
     if (cutoff <= 0) return false;
     return effectiveLevelAt(levels.value, currentLevelIndex.value) >= cutoff;
   });
+
+  // Share of the current level still left (1 → 0), for progress bars.
+  const levelProgress = computed(() => {
+    const dur = levelDurationSeconds(levels.value, currentLevelIndex.value);
+    return dur > 0 ? Math.min(1, Math.max(0, localTimeLeft.value / dur)) : 0;
+  });
+
+  // Timed games: seconds until the structure ends, and the wall-clock time it
+  // ends at (only while running — a paused clock has no fixed end).
+  const secondsLeftToEnd = computed(() => (isTimed.value
+    ? secondsToEnd(levels.value, currentLevelIndex.value, localTimeLeft.value)
+    : null));
+  const endsAt = computed(() => {
+    if (!isTimed.value || status.value !== 'running' || secondsLeftToEnd.value == null) return null;
+    const d = new Date(Date.now() + secondsLeftToEnd.value * 1000);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  });
+
+  // Face style chosen by the host (see CLOCK_STYLES); unknown / missing → classic.
+  const clockStyle = computed(() => (CLOCK_STYLES.includes(session.value?.clockStyle)
+    ? session.value.clockStyle
+    : 'classic'));
 
   // Timed games: countdown to the end of the whole structure.
   const timeToEnd = computed(() => {
@@ -551,6 +577,14 @@ export function useTournamentClock(options = {}) {
     await deleteDoc(doc(db, 'tournamentSessions', sessionId.value));
   }
 
+  async function setClockStyle(style) {
+    if (!sessionId.value || !isHost.value || !CLOCK_STYLES.includes(style)) return;
+    await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
+      clockStyle: style,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
   async function toggleDealerMode(enabled) {
     if (!sessionId.value || !isHost.value) return;
     await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
@@ -643,6 +677,10 @@ export function useTournamentClock(options = {}) {
     isTimed,
     isBuyInClosed,
     timeToEnd,
+    levelProgress,
+    secondsLeftToEnd,
+    endsAt,
+    clockStyle,
 
     // Actions
     createSession,
@@ -656,6 +694,7 @@ export function useTournamentClock(options = {}) {
     endTournament,
     deleteSession,
     toggleDealerMode,
+    setClockStyle,
     cleanup,
 
     // Presets

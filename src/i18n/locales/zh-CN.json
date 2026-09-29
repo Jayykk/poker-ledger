@@ -600,7 +600,10 @@
     "settlementPermissionDenied": "只有房间参与者可以结算",
     "settlementStateChanged": "牌局状态已变更，请刷新后重试",
     "settlementUnavailable": "结算服务暂时无法使用，请稍后重试",
-    "settlementFailed": "结算失败，请稍后重试"
+    "settlementFailed": "结算失败，请稍后重试",
+    "clockStyle": "时钟样式",
+    "clockStyleClassic": "风格 1（经典）",
+    "clockStyleFelt": "风格 2（牌桌）"
   },
   "timeBank": {
     "title": "Time Bank",
@@ -809,7 +812,47 @@
       "timeToEnd": "距离结束",
       "timeUp": "时间到",
       "players": "玩家人数",
-      "buyIns": "买入组数"
+      "buyIns": "买入组数",
+      "endsAt": "结束时间"
     }
+  },
+  "clockFace": {
+    "running": "进行中",
+    "paused": "已暂停",
+    "waiting": "等待开始",
+    "timeUp": "时间到",
+    "ended": "已结束",
+    "buyInOpen": "可买入",
+    "buyInClosed": "已截买",
+    "regOpen": "开放报名",
+    "regClosed": "报名已截止",
+    "timedSub": "限时赛",
+    "cutoffSub": "截买至 Level {level}",
+    "reentrySub": "Re-entry 至 Level {level}",
+    "small": "小盲",
+    "big": "大盲",
+    "ante": "前注",
+    "level": "Level {level}",
+    "breakTitle": "休息",
+    "afterLevel": "Level {level} 后",
+    "next": "下一级",
+    "finalLevel": "最后一级",
+    "finalRepeats": "最后一级重复",
+    "gameOver": "时间到 · 请结算",
+    "structure": "赛制",
+    "endsAt": "结束时间",
+    "endsIn": "距离结束",
+    "breakIn": "距离休息",
+    "cutoffMark": "截买",
+    "reentryMark": "Re-entry",
+    "brk": "休",
+    "players": "玩家人数",
+    "buyIns": "买入组数",
+    "entries": "总买入人次",
+    "playersLeft": "剩余人数",
+    "chipsInPlay": "场上筹码",
+    "avgStack": "平均筹码",
+    "prizePool": "奖池",
+    "payouts": "奖金分配"
   }
 }

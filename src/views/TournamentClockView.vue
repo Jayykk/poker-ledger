@@ -1,5 +1,10 @@
 <template>
-  <div class="tournament-clock-view" :class="{ 'is-break': isBreak, 'time-critical': timerColorClass === 'timer-critical' && status === 'running', 'countdown-final': countdownFinal }">
+  <div
+    class="tournament-clock-view"
+    :class="clockStyle === 'felt'
+      ? 'style-felt'
+      : { 'is-break': isBreak, 'time-critical': timerColorClass === 'timer-critical' && status === 'running', 'countdown-final': countdownFinal }"
+  >
     <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center h-screen bg-slate-900">
       <LoadingSpinner />
@@ -14,7 +19,55 @@
       </button>
     </div>
 
-    <!-- Main Clock Display -->
+    <!-- Style 2: felt board -->
+    <FeltClockBoard
+      v-else-if="clockStyle === 'felt'"
+      :name="config.name || 'Tournament'"
+      :custom-subtitle="config.subtitle || ''"
+      :is-timed="isTimed"
+      :status="status"
+      :buy-in-closed="isTimed ? isBuyInClosed : isRegistrationClosed"
+      :cutoff-level="Number(config.reentryUntilLevel) || 0"
+      :levels="levels"
+      :current-level-index="currentLevelIndex"
+      :current-level="currentLevel"
+      :current-blinds="currentBlinds"
+      :is-break="isBreak"
+      :next-play-level-entry="nextPlayLevelEntry"
+      :formatted-time="formattedTime"
+      :local-time-left="localTimeLeft"
+      :level-progress="levelProgress"
+      :time-to-break="timeToBreak || ''"
+      :time-to-end="timeToEnd || ''"
+      :ends-at="endsAt || ''"
+      :players-registered="playersRegistered"
+      :players-remaining="playersRemaining"
+      :entries="entries"
+      :chips-in-play="chipsInPlay"
+      :average-stack="averageStack"
+      :averageStackBB="Number(averageStackBB) || 0"
+      :prize-pool="prizePool"
+      :payouts="payouts"
+    >
+      <template #actions-left>
+        <button v-if="isHost" @click="showControls = !showControls" class="hud-control-btn felt-btn">
+          <i class="fas fa-cog"></i>
+        </button>
+        <button @click="handleBack" class="hud-control-btn felt-btn">
+          <i class="fas fa-arrow-left"></i>
+        </button>
+      </template>
+      <template #actions-right>
+        <button v-if="isHost" @click="handleToggleDealerMode" class="hud-control-btn felt-btn" :class="{ 'dealer-active': dealerModeEnabled }" :title="$t('tournament.dealerMode')">
+          <i class="fas fa-user-shield"></i>
+        </button>
+        <button v-if="isHost" @click="showTimeBankFromClock" class="hud-control-btn felt-btn" :title="$t('timeBank.title')">
+          <i class="fas fa-hourglass-half"></i>
+        </button>
+      </template>
+    </FeltClockBoard>
+
+    <!-- Style 1: classic -->
     <div v-else class="clock-container">
       <!-- Header -->
       <header class="clock-header">
@@ -98,10 +151,6 @@
             <span class="break-in-label">{{ $t('tournament.breakIn') }}</span>
             <span class="break-in-value">{{ timeToBreak }}</span>
           </div>
-          <div class="break-in-info" :class="{ 'break-in-top': !timeToBreak }" v-if="isTimed && status !== 'ended'">
-            <span class="break-in-label">{{ $t('timed.clock.timeToEnd') }}</span>
-            <span class="break-in-value">{{ timeToEnd }}</span>
-          </div>
 
           <!-- Level indicator -->
           <div class="level-indicator">
@@ -119,8 +168,13 @@
           </div>
 
           <!-- Timer -->
-          <div class="timer-display" :class="timerColorClass">
-            {{ formattedTime }}
+          <div class="timer-wrap">
+            <div class="timer-display" :class="timerColorClass">
+              {{ formattedTime }}
+            </div>
+            <div class="level-progress" aria-hidden="true">
+              <i :style="{ width: `${levelProgress * 100}%` }"></i>
+            </div>
           </div>
 
           <!-- Status badge -->
@@ -145,7 +199,17 @@
         </main>
 
         <!-- Right Panel -->
-        <aside v-if="!isTimed" class="info-panel right-panel">
+        <aside v-if="isTimed" class="info-panel right-panel">
+          <div class="info-item">
+            <div class="info-label">{{ $t('timed.clock.timeToEnd') }}</div>
+            <div class="info-value prize">{{ status === 'ended' ? '00:00' : (timeToEnd || '—') }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">{{ $t('timed.clock.endsAt') }}</div>
+            <div class="info-value">{{ endsAt || '—' }}</div>
+          </div>
+        </aside>
+        <aside v-else class="info-panel right-panel">
           <div class="info-item">
             <div class="info-label">{{ $t('tournament.prizePool') }}</div>
             <div class="info-value prize">${{ formatNumber(prizePool) }}</div>
@@ -162,24 +226,27 @@
         </aside>
       </div>
 
-      <!-- Host Controls Overlay -->
-      <TournamentControls
-        v-if="isHost && showControls"
-        :status="status"
-        :players-registered="playersRegistered"
-        :players-remaining="playersRemaining"
-        :reentries="reentries"
-        :current-level-index="currentLevelIndex"
-        :total-levels="levels.length"
-        @start="startClock"
-        @pause="pauseClock"
-        @advance="advanceLevel"
-        @previous="previousLevel"
-        @update-players="handleUpdatePlayers"
-        @end="handleEnd"
-        @close="showControls = false"
-      />
     </div>
+
+    <!-- Host Controls Overlay -->
+    <TournamentControls
+      v-if="session && isHost && showControls"
+      :status="status"
+      :players-registered="playersRegistered"
+      :players-remaining="playersRemaining"
+      :reentries="reentries"
+      :current-level-index="currentLevelIndex"
+      :total-levels="levels.length"
+      :clock-style="clockStyle"
+      @start="startClock"
+      @pause="pauseClock"
+      @advance="advanceLevel"
+      @previous="previousLevel"
+      @update-players="handleUpdatePlayers"
+      @end="handleEnd"
+      @set-style="setClockStyle"
+      @close="showControls = false"
+    />
 
     <!-- Dealer URL Modal -->
     <div v-if="showDealerUrlModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" @click.self="showDealerUrlModal = false">
@@ -221,6 +288,7 @@ import { useWakeLock } from '../composables/useWakeLock.js';
 import { useGameStore } from '../store/modules/game.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import TournamentControls from '../components/tournament/TournamentControls.vue';
+import FeltClockBoard from '../components/tournament/FeltClockBoard.vue';
 import {
   TIMER_WARNING_THRESHOLD, TIMER_DANGER_THRESHOLD, TIMER_CRITICAL_THRESHOLD,
 } from '../utils/constants.js';
@@ -248,9 +316,9 @@ const {
   reentries, entries, chipsInPlay, averageStack, averageStackBB,
   isRegistrationClosed, prizePool, payouts,
   formattedTime, timeToBreak, dealerModeEnabled,
-  isTimed, isBuyInClosed, timeToEnd,
+  isTimed, isBuyInClosed, timeToEnd, levelProgress, endsAt, clockStyle,
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
-  updatePlayers, endTournament, toggleDealerMode, cleanup,
+  updatePlayers, endTournament, toggleDealerMode, setClockStyle, cleanup,
 } = useTournamentClock();
 
 // Unlock audio on first interaction to prevent iOS blocking
@@ -623,6 +691,7 @@ onUnmounted(() => {
 }
 
 .tournament-subtitle.registration-closed {
+  display: inline-block;
   background: rgba(220, 38, 38, 0.35);
   color: #fca5a5;
   border: 1px solid rgba(239, 68, 68, 0.5);
@@ -674,6 +743,38 @@ onUnmounted(() => {
   text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
   transition: color 0.3s;
 }
+
+/* Level progress under the timer (drains with the level) */
+.timer-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+}
+.level-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.level-progress > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.55);
+  transition: width 0.25s linear;
+}
+.tournament-clock-view.is-break .level-progress > i { background: #6ee7b7; }
+.info-value, .payout-row { font-variant-numeric: tabular-nums; }
+
+/* Felt style: the board paints its own background */
+.tournament-clock-view.style-felt { background: #0a2119; }
+.hud-control-btn.felt-btn {
+  background: rgba(10, 33, 25, 0.6);
+  border-color: rgba(207, 174, 106, 0.45);
+  color: #f3ecdd;
+}
+.hud-control-btn.felt-btn:hover { background: rgba(207, 174, 106, 0.2); }
 
 .timer-warning {
   color: #fbbf24;
