@@ -8,7 +8,7 @@ import { ref, computed, onUnmounted } from 'vue';
 import { db } from '../firebase-init.js';
 import {
   collection, doc, setDoc, updateDoc, deleteDoc,
-  onSnapshot, serverTimestamp, Timestamp, increment,
+  onSnapshot, serverTimestamp, increment,
 } from 'firebase/firestore';
 import { useAuthStore } from '../store/modules/auth.js';
 import {
@@ -21,6 +21,14 @@ import {
   computeAverageStack,
   computeAverageStackBB,
 } from '../utils/tournamentStats.js';
+import {
+  CLOCK_MODE_TIMED,
+  isTimedClock,
+  resolveClockPosition,
+  effectiveLevelAt,
+  secondsToEnd,
+  formatDuration,
+} from '../utils/timedStructure.js';
 
 export function useTournamentClock(options = {}) {
   const { dealerMode = false } = options;
@@ -90,7 +98,17 @@ export function useTournamentClock(options = {}) {
     return entry?.isBreak ? 0 : (entry?.level ?? 0);
   });
 
-  const status = computed(() => state.value.status || 'waiting');
+  // Timed game (限時賽) clock: ends with the last level, cutoff closes buy-ins.
+  const isTimed = computed(() => isTimedClock(config.value));
+  // Set by the local tick when a timed clock runs past its last level, so
+  // viewers show "time's up" even before the host's device persists it.
+  const localTimeUp = ref(false);
+
+  const status = computed(() => {
+    const stored = state.value.status || 'waiting';
+    if (isTimed.value && stored === 'running' && localTimeUp.value) return 'ended';
+    return stored;
+  });
 
   const playersRegistered = computed(() => state.value.playersRegistered ?? 0);
   const playersRemaining = computed(() => state.value.playersRemaining ?? 0);
@@ -110,6 +128,23 @@ export function useTournamentClock(options = {}) {
     const cutoff = config.value.reentryUntilLevel || 0;
     if (cutoff <= 0) return false;
     return currentLevel.value >= cutoff;
+  });
+
+  // Timed games: closed once over, or from the cutoff level on (≤ 0 = no
+  // cutoff). Uses the effective level so a break doesn't reopen buy-ins.
+  // Mirrors isTimedBuyInClosed(), which the store enforces in-transaction.
+  const isBuyInClosed = computed(() => {
+    if (!isTimed.value) return false;
+    if (status.value === 'ended') return true;
+    const cutoff = Number(config.value.reentryUntilLevel) || 0;
+    if (cutoff <= 0) return false;
+    return effectiveLevelAt(levels.value, currentLevelIndex.value) >= cutoff;
+  });
+
+  // Timed games: countdown to the end of the whole structure.
+  const timeToEnd = computed(() => {
+    if (!isTimed.value) return null;
+    return formatDuration(secondsToEnd(levels.value, currentLevelIndex.value, localTimeLeft.value));
   });
 
   const prizePool = computed(() => {
@@ -138,66 +173,10 @@ export function useTournamentClock(options = {}) {
     return Math.min(Math.max(0, parsed), maxIdx);
   }
 
-  function getLevelDurationSeconds(levelIndex) {
-    const minutes = levels.value[levelIndex]?.duration || DEFAULT_TOURNAMENT_LEVEL_DURATION;
-    return Math.max(1, Math.floor(Number(minutes) * 60));
-  }
-
+  // Projection of the stored state to "now" (see timedStructure.js). Timed
+  // games stop at the end of the last level; tournaments repeat it.
   function resolveRunningState(st) {
-    const totalLevels = levels.value.length;
-    const startLevelIndex = normalizeLevelIndex(st.currentLevelIndex ?? 0);
-    const startTimeLeft = Math.max(0, Math.floor(Number(st.timeLeftSeconds ?? 0)));
-    const seedDuration = totalLevels > 0 ? getLevelDurationSeconds(startLevelIndex) : getLevelDurationSeconds(0);
-    const seedTimeLeft = startTimeLeft > 0 ? startTimeLeft : seedDuration;
-
-    const rawLastTick = st.lastTickAt;
-    const lastTickMs = rawLastTick instanceof Timestamp
-      ? rawLastTick.toMillis()
-      : (typeof rawLastTick?.toMillis === 'function'
-        ? rawLastTick.toMillis()
-        : (typeof rawLastTick === 'number' ? rawLastTick : Date.now()));
-    const elapsed = Math.max(0, Math.floor((Date.now() - lastTickMs) / 1000));
-
-    if (elapsed < seedTimeLeft) {
-      return {
-        levelIndex: startLevelIndex,
-        timeLeftSeconds: seedTimeLeft - elapsed,
-      };
-    }
-
-    let overshoot = elapsed - seedTimeLeft;
-
-    // No level definition: keep cycling with default duration.
-    if (totalLevels === 0) {
-      const cycle = getLevelDurationSeconds(0);
-      const inCycle = overshoot % cycle;
-      return {
-        levelIndex: 0,
-        timeLeftSeconds: cycle - inCycle,
-      };
-    }
-
-    let idx = startLevelIndex + 1;
-    while (idx < totalLevels) {
-      const duration = getLevelDurationSeconds(idx);
-      if (overshoot < duration) {
-        return {
-          levelIndex: idx,
-          timeLeftSeconds: duration - overshoot,
-        };
-      }
-      overshoot -= duration;
-      idx += 1;
-    }
-
-    // After the final level, repeat the last level forever.
-    const lastIdx = totalLevels - 1;
-    const lastDuration = getLevelDurationSeconds(lastIdx);
-    const inLastCycle = overshoot % lastDuration;
-    return {
-      levelIndex: lastIdx,
-      timeLeftSeconds: lastDuration - inLastCycle,
-    };
+    return resolveClockPosition(levels.value, st, Date.now(), { timed: isTimed.value });
   }
 
   async function syncRunningStateToServer(st) {
@@ -205,6 +184,12 @@ export function useTournamentClock(options = {}) {
 
     const resolved = resolveRunningState(st);
     const storedLevelIndex = normalizeLevelIndex(st.currentLevelIndex ?? 0);
+
+    // Timed game ran out while nobody persisted it (e.g. host was away).
+    if (resolved.ended) {
+      endIfTimeUp();
+      return;
+    }
 
     // Keep writes minimal: only persist when running state has crossed levels.
     if (resolved.levelIndex === storedLevelIndex) return;
@@ -248,21 +233,37 @@ export function useTournamentClock(options = {}) {
     if (!st) return;
 
     if (st.status !== 'running' || !st.lastTickAt) {
+      localTimeUp.value = false;
       localLevelIndex.value = normalizeLevelIndex(st.currentLevelIndex ?? 0);
       localTimeLeft.value = Math.max(0, Math.floor(Number(st.timeLeftSeconds ?? 0)));
       return;
     }
 
     const resolved = resolveRunningState(st);
+    localTimeUp.value = resolved.ended;
     localLevelIndex.value = resolved.levelIndex;
     localTimeLeft.value = resolved.timeLeftSeconds;
+  }
+
+  // Host only: persist the end of a timed game once its last level runs out.
+  function endIfTimeUp() {
+    if (!isTimed.value || !isHost.value || isAdvancing) return;
+    isAdvancing = true;
+    endTournament().finally(() => { isAdvancing = false; });
   }
 
   function startLocalTick() {
     stopLocalTick();
     tickInterval = setInterval(() => {
-      if (status.value !== 'running') return;
+      // Stored status: a timed clock that just ran out still reads 'running'
+      // until the host persists 'ended'.
+      if (state.value.status !== 'running') return;
       computeTimeLeft();
+
+      if (localTimeUp.value) {
+        endIfTimeUp();
+        return;
+      }
 
       // Auto-advance or repeat last level when time runs out (host only)
       if (localTimeLeft.value <= 0 && isHost.value && !isAdvancing) {
@@ -270,6 +271,8 @@ export function useTournamentClock(options = {}) {
         if (nextIdx < levels.value.length) {
           isAdvancing = true;
           advanceLevel().finally(() => { isAdvancing = false; });
+        } else if (isTimed.value) {
+          endIfTimeUp();
         } else {
           // Last level: restart timer with same level duration
           isAdvancing = true;
@@ -395,6 +398,7 @@ export function useTournamentClock(options = {}) {
     const colRef = collection(db, 'tournamentSessions');
     const docRef = doc(colRef);
     const firstLevel = config.levels?.[0];
+    const timed = config.mode === CLOCK_MODE_TIMED;
 
     const data = {
       hostUid: uid,
@@ -402,11 +406,15 @@ export function useTournamentClock(options = {}) {
       gameId: config.gameId || null,
       dealerModeEnabled: false,
       config: {
+        ...(timed ? { mode: CLOCK_MODE_TIMED } : {}),
         name: config.name || 'Tournament',
         subtitle: config.subtitle || '',
         buyIn: config.buyIn || 0,
         startingChips: config.startingChips || DEFAULT_STARTING_CHIPS,
-        reentryUntilLevel: config.reentryUntilLevel || DEFAULT_REENTRY_LEVEL,
+        // Timed games: 0 means "no buy-in cutoff", so don't default it.
+        reentryUntilLevel: timed
+          ? (Number(config.reentryUntilLevel) || 0)
+          : (config.reentryUntilLevel || DEFAULT_REENTRY_LEVEL),
         maxReentries: config.maxReentries ?? 0,
         levels: config.levels || [],
         payoutRatios: config.payoutRatios || [],
@@ -571,6 +579,7 @@ export function useTournamentClock(options = {}) {
     session.value = null;
     sessionId.value = null;
     error.value = null;
+    localTimeUp.value = false;
   }
 
   onUnmounted(cleanup);
@@ -609,6 +618,9 @@ export function useTournamentClock(options = {}) {
     formattedTime,
     timeToBreak,
     dealerModeEnabled,
+    isTimed,
+    isBuyInClosed,
+    timeToEnd,
 
     // Actions
     createSession,

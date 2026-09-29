@@ -27,6 +27,33 @@
       </div>
     </div>
 
+    <!-- Timed game (structure applied): live level / countdown strip -->
+    <button
+      v-if="clockIsTimed"
+      type="button"
+      class="w-full mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs flex items-center justify-between gap-2 text-left"
+      @click="$router.push(`/tournament-clock/${game.tournamentSessionId}`)"
+    >
+      <span class="text-amber-300 font-semibold">
+        <template v-if="clockIsBreak">☕ {{ $t('tournament.breakTime') }}</template>
+        <template v-else>
+          {{ $t('tournament.level') }} {{ clockLevel }} ·
+          {{ formatNumber(clockBlinds.small) }}/{{ formatNumber(clockBlinds.big) }}<span v-if="clockBlinds.ante"> ({{ formatNumber(clockBlinds.ante) }})</span>
+        </template>
+      </span>
+      <span v-if="clockStatus === 'ended'" class="text-rose-300 font-semibold">{{ $t('timed.timeUp') }}</span>
+      <span v-else-if="clockStatus === 'waiting'" class="text-gray-400">{{ $t('tournament.waitingToStart') }}</span>
+      <span v-else class="text-gray-300">
+        {{ $t('timed.timeToEnd') }} <span class="font-mono text-white">{{ clockTimeToEnd }}</span>
+      </span>
+    </button>
+    <div
+      v-if="timedBuyInClosed"
+      class="mb-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs text-rose-200"
+    >
+      <i class="fas fa-lock mr-1"></i>{{ $t('timed.buyInClosed') }}
+    </div>
+
     <!-- Player cards -->
     <div class="space-y-3 mt-2">
       <PlayerCard
@@ -35,6 +62,7 @@
         :player="player"
         :can-bind="!myPlayer && !player.uid"
         :is-my-card="player.uid === user?.uid"
+        :buy-in-disabled="timedBuyInClosed"
         @bind="handleBind"
         @invite="handleInvite"
         @add-buy="handleAddBuy"
@@ -59,7 +87,7 @@
         variant="ghost"
         size="sm"
       >
-        <i class="fas fa-trophy mr-1 text-amber-400"></i>{{ $t('tournament.viewClock') }}
+        <i class="fas mr-1 text-amber-400" :class="clockIsTimed ? 'fa-clock' : 'fa-trophy'"></i>{{ $t('tournament.viewClock') }}
       </BaseButton>
     </div>
 
@@ -100,8 +128,9 @@
       {{ $t('game.closeGame') }}
     </BaseButton>
 
-    <!-- Add player button -->
+    <!-- Add player button (a new seat brings a buy-in: hidden past a timed cutoff) -->
     <button
+      v-if="!timedBuyInClosed"
       @click="showAddPlayer = true"
       class="fixed bottom-24 right-4 w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center text-xl shadow-lg hover:bg-amber-600 transition active:scale-95"
     >
@@ -221,6 +250,8 @@ import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import { useLoading } from '../composables/useLoading.js';
 import { useUserStore } from '../store/modules/user.js';
+import { useTournamentClock } from '../composables/useTournamentClock.js';
+import { BUY_IN_CLOSED } from '../utils/timedStructure.js';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
@@ -253,6 +284,38 @@ const {
 const { success, warning, error: showError, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
+
+// Timed game (限時賽 with a blind structure): follow the linked clock for the
+// level strip and the buy-in cutoff. Following it here also lets the host's
+// device advance / end the clock without the clock page open.
+const {
+  isTimed: clockIsTimed,
+  isBuyInClosed: clockBuyInClosed,
+  timeToEnd: clockTimeToEnd,
+  currentLevel: clockLevel,
+  currentBlinds: clockBlinds,
+  isBreak: clockIsBreak,
+  status: clockStatus,
+  joinSession: joinClock,
+  cleanup: cleanupClock,
+} = useTournamentClock();
+
+watch(
+  () => (game.value?.type === 'live' ? game.value?.tournamentSessionId : null),
+  (sid, prevSid) => {
+    if (sid === prevSid) return;
+    if (sid) joinClock(sid);
+    else cleanupClock();
+  },
+  { immediate: true },
+);
+
+const timedBuyInClosed = computed(() => clockIsTimed.value && clockBuyInClosed.value);
+
+/** Toast for a failed ledger write — the cutoff gets its own message. */
+const warnLedgerFailed = () => {
+  warning(txError.value === BUY_IN_CLOSED ? t('timed.buyInClosed') : t('game.saveFailed'));
+};
 
 const showAddPlayer = ref(false);
 const showEditPlayer = ref(false);
@@ -287,7 +350,11 @@ onMounted(async () => {
     } else if (result.status === 'open') {
       // Not in game yet — auto-join as new player with baseBuyIn
       const baseBuyIn = result.baseBuyIn || DEFAULT_BUY_IN;
-      await joinAsNewPlayer(targetGameId, baseBuyIn);
+      const joined = await joinAsNewPlayer(targetGameId, baseBuyIn);
+      if (!joined && gameError.value === BUY_IN_CLOSED) {
+        warning(t('timed.joinClosed'));
+        router.push('/lobby');
+      }
     } else {
       // Game not found or ended
       router.push('/lobby');
@@ -401,6 +468,12 @@ const decrementBuyInGroup = () => {
 };
 
 const handleAddPlayer = async () => {
+  // The modal may have been opened just before the cutoff hit.
+  if (timedBuyInClosed.value) {
+    warning(t('timed.buyInClosed'));
+    showAddPlayer.value = false;
+    return;
+  }
   await withLoading(async () => {
     const playerName = newPlayerName.value || 'Player';
     // Always use the room preset's buy-in (one group), never a hand-typed amount
@@ -431,7 +504,7 @@ const handleSavePlayer = async () => {
       ? await recordAction(p.id, p.uid || null, p.name, 'modify', editBuyInDelta.value, fields)
       : await updatePlayer({ id: p.id, ...fields });
     if (!ok) {
-      warning(t('game.saveFailed'));
+      warnLedgerFailed();
       return;
     }
     showEditPlayer.value = false;
@@ -507,7 +580,7 @@ const handleAddBuy = async (player) => {
         gameType,
       });
     } else {
-      warning(t('game.saveFailed'));
+      warnLedgerFailed();
     }
   } finally {
     buyInProcessing.value.delete(player.id);
@@ -530,7 +603,7 @@ const handleUndoBuyIn = async (tx) => {
         gameType: game.value?.type || 'live',
       });
     } else {
-      warning(t('game.saveFailed'));
+      warnLedgerFailed();
     }
   }
 };

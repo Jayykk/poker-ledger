@@ -28,7 +28,12 @@
         </div>
         <div class="header-center">
           <h1 class="tournament-name">{{ config.name || 'Tournament' }}</h1>
-          <p class="tournament-subtitle" :class="{ 'registration-closed': isRegistrationClosed }">
+          <p v-if="isTimed" class="tournament-subtitle" :class="{ 'registration-closed': isBuyInClosed }">
+            <template v-if="isBuyInClosed">{{ $t('timed.buyInClosed') }}</template>
+            <template v-else-if="config.reentryUntilLevel > 0">{{ $t('timed.label') }} | {{ $t('timed.cutoff', { level: config.reentryUntilLevel }) }}</template>
+            <template v-else>{{ $t('timed.label') }}</template>
+          </p>
+          <p v-else class="tournament-subtitle" :class="{ 'registration-closed': isRegistrationClosed }">
             <template v-if="isRegistrationClosed">{{ $t('tournament.registrationClosed') }}</template>
             <template v-else>{{ config.subtitle || `BuyIn $${config.buyIn} | ${$t('tournament.reentryUntil', { level: config.reentryUntilLevel })}` }}</template>
           </p>
@@ -46,7 +51,13 @@
       <!-- Body: 3-column layout -->
       <div class="clock-body">
         <!-- Left Panel -->
-        <aside class="info-panel left-panel">
+        <aside v-if="isTimed" class="info-panel left-panel">
+          <div class="info-item">
+            <div class="info-label">{{ $t('timed.players') }}</div>
+            <div class="info-value">{{ playersRegistered }}</div>
+          </div>
+        </aside>
+        <aside v-else class="info-panel left-panel">
           <div class="info-item">
             <div class="info-label">{{ $t('tournament.entries') }}</div>
             <div class="info-value">{{ entries }}</div>
@@ -74,6 +85,10 @@
           <div class="break-in-info break-in-top" v-if="timeToBreak">
             <span class="break-in-label">{{ $t('tournament.breakIn') }}</span>
             <span class="break-in-value">{{ timeToBreak }}</span>
+          </div>
+          <div class="break-in-info" :class="{ 'break-in-top': !timeToBreak }" v-if="isTimed && status !== 'ended'">
+            <span class="break-in-label">{{ $t('timed.timeToEnd') }}</span>
+            <span class="break-in-value">{{ timeToEnd }}</span>
           </div>
 
           <!-- Level indicator -->
@@ -104,7 +119,7 @@
             <i class="fas fa-pause mr-2"></i>{{ $t('tournament.paused') }}
           </div>
           <div v-else-if="status === 'ended'" class="status-badge ended">
-            {{ $t('tournament.ended') }}
+            {{ isTimed ? $t('timed.timeUp') : $t('tournament.ended') }}
           </div>
 
           <!-- Next blinds -->
@@ -118,7 +133,7 @@
         </main>
 
         <!-- Right Panel -->
-        <aside class="info-panel right-panel">
+        <aside v-if="!isTimed" class="info-panel right-panel">
           <div class="info-item">
             <div class="info-label">{{ $t('tournament.prizePool') }}</div>
             <div class="info-value prize">${{ formatNumber(prizePool) }}</div>
@@ -191,6 +206,7 @@ import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useTournamentAudio, unlockAudio, startAudioHeartbeat, stopAudioHeartbeat } from '../composables/useTournamentAudio.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useWakeLock } from '../composables/useWakeLock.js';
+import { useGameStore } from '../store/modules/game.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import TournamentControls from '../components/tournament/TournamentControls.vue';
 import {
@@ -199,6 +215,7 @@ import {
 
 const route = useRoute();
 const router = useRouter();
+const gameStore = useGameStore();
 const { t } = useI18n();
 const { error: showError, success } = useNotification();
 const { playSound } = useTournamentAudio();
@@ -219,6 +236,7 @@ const {
   reentries, entries, chipsInPlay, averageStack, averageStackBB,
   isRegistrationClosed, prizePool, payouts,
   formattedTime, timeToBreak, dealerModeEnabled,
+  isTimed, isBuyInClosed, timeToEnd,
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
   updatePlayers, endTournament, toggleDealerMode, cleanup,
 } = useTournamentClock();
@@ -266,6 +284,11 @@ watch(currentLevelIndex, () => {
   playSound('levelUp');
 });
 
+// Timed game: chime when time is up
+watch(status, (val, prev) => {
+  if (isTimed.value && val === 'ended' && prev === 'running') playSound('levelUp');
+});
+
 function formatNumber(n) {
   if (n == null) return '0';
   return Number(n).toLocaleString();
@@ -274,7 +297,11 @@ function formatNumber(n) {
 function handleBack() {
   // If there's a linked game room, go back to tournament game view; otherwise go to lobby
   const gameId = session.value?.gameId;
-  if (gameId) {
+  if (gameId && isTimed.value) {
+    // Timed game: the room is a cash-ledger game (GameView). Only go there if
+    // it's the room this device already has open.
+    router.push(gameStore.game?.id === gameId ? '/game' : '/lobby');
+  } else if (gameId) {
     router.push('/tournament-game');
   } else {
     router.push('/lobby');

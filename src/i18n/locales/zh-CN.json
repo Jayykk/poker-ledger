@@ -79,8 +79,8 @@
     "joinOnlineDesc": "输入房间 ID 加入朋友的局",
     "tournament": "锦标赛时钟",
     "tournamentDesc": "设置锦标赛结构并显示全屏时钟",
-    "tournamentSetup": "锦标赛赛制设定",
-    "tournamentSetupDesc": "管理锦标赛盲注结构与模板",
+    "tournamentSetup": "赛制设定",
+    "tournamentSetupDesc": "管理盲注结构与模板（锦标赛、限时赛共用）",
     "timeBank": "Time Bank",
     "timeBankDesc": "独立倒计时工具，供荷官使用"
   },
@@ -455,10 +455,14 @@
     "usePreset": "使用预设",
     "custom": "自定义",
     "confirmDelete": "确定要删除「{name}」吗？",
-    "invalidInput": "请输入有效的预设内容"
+    "invalidInput": "请输入有效的预设内容",
+    "structure": "套用赛制",
+    "structureHint": "用锦标赛时钟显示升盲与 Ante，赛制时间到即结束",
+    "structureNone": "不套用",
+    "structureSummary": "{levels} 个级别 · 共 {duration} · {cutoff}"
   },
   "tournament": {
-    "presets": "锦标赛设置",
+    "presets": "赛制设定",
     "builtInTemplates": "内置模板",
     "myPresets": "我的预设",
     "newPreset": "新建预设",
@@ -584,8 +588,8 @@
     "addPlayer": "新增玩家",
     "playerName": "玩家名称",
     "prize": "奖金",
-    "payoutRatiosNotLoaded": "奖金分配尚未加载，请稍候再试"
-    ,"settlementPermissionDenied": "只有房间参与者可以结算",
+    "payoutRatiosNotLoaded": "奖金分配尚未加载，请稍候再试",
+    "settlementPermissionDenied": "只有房间参与者可以结算",
     "settlementStateChanged": "牌局状态已变更，请刷新后重试",
     "settlementUnavailable": "结算服务暂时无法使用，请稍后重试",
     "settlementFailed": "结算失败，请稍后重试"
@@ -778,5 +782,15 @@
     "copySelected": "已选 {count}/{max} 人",
     "copyRosterHint": "从本活动已报名的成员直接带入这个新时段，成员无需再次报名",
     "copyOverCap": "「{label}」带入人数超过上限"
+  },
+  "timed": {
+    "label": "限时赛",
+    "timeToEnd": "距离结束",
+    "timeUp": "时间到",
+    "buyInClosed": "已截买，无法再买入",
+    "joinClosed": "这桌已截买，无法再加入",
+    "cutoff": "截买 Level {level}",
+    "noCutoff": "不截买",
+    "players": "玩家人数"
   }
 }

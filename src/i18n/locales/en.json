@@ -79,8 +79,8 @@
     "joinOnlineDesc": "Enter room ID to join a friend's game",
     "tournament": "Tournament Clock",
     "tournamentDesc": "Set up tournament structure with fullscreen clock",
-    "tournamentSetup": "Tournament Setup",
-    "tournamentSetupDesc": "Manage tournament blind structures and templates",
+    "tournamentSetup": "Structures",
+    "tournamentSetupDesc": "Blind structures and templates (shared by tournaments and timed games)",
     "timeBank": "Time Bank",
     "timeBankDesc": "Standalone countdown timer for dealers"
   },
@@ -455,10 +455,14 @@
     "usePreset": "Use preset",
     "custom": "Custom",
     "confirmDelete": "Delete \"{name}\"?",
-    "invalidInput": "Please enter valid values"
+    "invalidInput": "Please enter valid values",
+    "structure": "Blind structure",
+    "structureHint": "Show blinds / ante on the tournament clock; the game ends when the structure does",
+    "structureNone": "None",
+    "structureSummary": "{levels} levels · {duration} total · {cutoff}"
   },
   "tournament": {
-    "presets": "Tournament Setup",
+    "presets": "Structures",
     "builtInTemplates": "Built-in Templates",
     "myPresets": "My Presets",
     "newPreset": "New Preset",
@@ -778,5 +782,15 @@
     "copySelected": "{count}/{max} selected",
     "copyRosterHint": "Tick members already signed up for this event to seat them in this new period — no need to RSVP again",
     "copyOverCap": "\"{label}\" has more copied members than its player cap"
+  },
+  "timed": {
+    "label": "Timed game",
+    "timeToEnd": "Ends in",
+    "timeUp": "Time's up",
+    "buyInClosed": "Buy-ins are closed",
+    "joinClosed": "Buy-ins are closed for this table",
+    "cutoff": "Buy-ins close at Level {level}",
+    "noCutoff": "No buy-in cutoff",
+    "players": "Players"
   }
 }

@@ -22,7 +22,7 @@
       <DealerClockDisplay
         :title="config.name || 'Tournament'"
         :subtitle-text="headerSubtitleText"
-        :is-registration-closed="isRegistrationClosed"
+        :is-registration-closed="isTimed ? isBuyInClosed : isRegistrationClosed"
         :entries="entries"
         :players-remaining="playersRemaining"
         :players-registered="playersRegistered"
@@ -33,6 +33,8 @@
         :current-level="currentLevel"
         :current-blinds="currentBlinds"
         :time-to-break="timeToBreak"
+        :is-timed="isTimed"
+        :time-to-end="timeToEnd || ''"
         :formatted-time="formattedTime"
         :timer-color-class="timerColorClass"
         :countdown-final="countdownFinal"
@@ -104,11 +106,18 @@ const {
   reentries, entries, chipsInPlay, averageStack, averageStackBB,
   isRegistrationClosed, prizePool, payouts,
   formattedTime, timeToBreak,
+  isTimed, isBuyInClosed, timeToEnd,
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
   updatePlayers, addReentry, endTournament, cleanup,
 } = useTournamentClock({ dealerMode: true });
 
 const headerSubtitleText = computed(() => {
+  if (isTimed.value) {
+    if (isBuyInClosed.value) return t('timed.buyInClosed');
+    return config.value.reentryUntilLevel > 0
+      ? `${t('timed.label')} | ${t('timed.cutoff', { level: config.value.reentryUntilLevel })}`
+      : t('timed.label');
+  }
   if (config.value.subtitle) return config.value.subtitle;
 
   const buyInText = config.value.buyIn ? `BuyIn $${config.value.buyIn}` : '';

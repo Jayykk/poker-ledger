@@ -417,6 +417,9 @@
               <div class="text-xs text-gray-400">
                 {{ formatNumber(p.buyIn || 0) }} {{ $t('game.chips') }} · 1:{{ p.rate || 1 }}
               </div>
+              <div v-if="p.structure" class="text-[10px] text-amber-400/80">
+                <i class="fas fa-clock mr-0.5"></i>{{ p.structure.name }}
+              </div>
             </button>
             <button
               type="button"
@@ -469,6 +472,10 @@
           <div v-if="selectedGameType === 'cash'" class="flex justify-between items-center text-sm mt-1">
             <span class="text-gray-300">{{ $t('cashPreset.rate') }}</span>
             <span class="text-white font-mono font-bold">1 : {{ createRate }}</span>
+          </div>
+          <div v-if="selectedCashPreset?.structure" class="flex justify-between items-center text-sm mt-1">
+            <span class="text-gray-300">{{ $t('cashPreset.structure') }}</span>
+            <span class="text-amber-300 font-semibold">{{ selectedCashPreset.structure.name }}</span>
           </div>
         </div>
         <!-- Tournament: read-only buy-in display -->
@@ -554,6 +561,7 @@ import BaseModal from '../components/common/BaseModal.vue';
 import { formatNumber, formatShortDate } from '../utils/formatters.js';
 import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP, GAME_TYPE } from '../utils/constants.js';
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
+import { buildTimedClockConfig } from '../utils/timedStructure.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useCashPresets } from '../composables/useCashPresets.js';
 import { useSessions, sortSessions, MY_SESSIONS_LIMIT } from '../composables/useSessions.js';
@@ -591,6 +599,9 @@ const createBuyIn = ref(DEFAULT_BUY_IN);
 const createRate = ref(1);
 const selectedCashPresetId = ref(null);
 const cashPresets = ref([]);
+const selectedCashPreset = computed(() =>
+  cashPresets.value.find((p) => p.id === selectedCashPresetId.value) || null
+);
 const unboundPlayers = ref([]);
 const isCreating = ref(false);
 
@@ -790,6 +801,17 @@ const handleCreateGame = async () => {
       const rateNum = Number(createRate.value);
       if (Number.isFinite(rateNum) && rateNum > 0) {
         options.rate = rateNum;
+      }
+      // Preset with a blind structure → timed game: linked clock that ends
+      // with the structure (settlement stays stack − buy-in).
+      const structure = selectedGameType.value === 'cash' ? selectedCashPreset.value?.structure : null;
+      if (structure) {
+        tournamentSessionId = await createTournamentSession(buildTimedClockConfig({
+          name: gameName.value || structure.name,
+          buyIn: createBuyIn.value,
+          structure,
+        }));
+        options.tournamentSessionId = tournamentSessionId;
       }
     }
 

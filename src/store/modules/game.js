@@ -23,6 +23,7 @@ import { useAuthStore } from './auth.js';
 import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';
 import { timestampToMillis } from '../../utils/formatters.js';
 import { applyPlayerChange, isSnapshotCurrent } from '../../utils/ledgerOps.js';
+import { BUY_IN_CLOSED, isTimedClock, isTimedBuyInClosed } from '../../utils/timedStructure.js';
 import { tournamentSettlementErrorKey } from '../../utils/tournamentSettlementErrors.js';
 import { cashSettlementErrorKey } from '../../utils/cashSettlementErrors.js';
 import {
@@ -150,8 +151,12 @@ export const useGameStore = defineStore('game', () => {
         if (Number.isFinite(rateNum) && rateNum > 0) {
           gameData.rate = rateNum;
         }
+        // Timed game (限時賽 with a blind structure): linked clock session.
+        if (options.tournamentSessionId) {
+          gameData.tournamentSessionId = options.tournamentSessionId;
+        }
       }
-      
+
       const docRef = await addDoc(collection(db, 'games'), gameData);
       
       await joinGameListener(docRef.id);
@@ -259,6 +264,22 @@ export const useGameStore = defineStore('game', () => {
   };
 
   /**
+   * Timed games (限時賽 on a blind structure): refuse new money once the
+   * structure's cutoff level is reached or time is up. Reads the linked clock
+   * inside the caller's transaction so a stale screen can't slip one through.
+   * @throws {Error} BUY_IN_CLOSED
+   */
+  const assertTimedBuyInOpen = async (gameData, t) => {
+    if (gameData.type !== GAME_TYPE.LIVE || !gameData.tournamentSessionId) return;
+    const snap = await t.get(doc(db, 'tournamentSessions', gameData.tournamentSessionId));
+    if (!snap.exists()) return;
+    const sessionData = snap.data();
+    if (isTimedClock(sessionData.config) && isTimedBuyInClosed(sessionData, Date.now())) {
+      throw new Error(BUY_IN_CLOSED);
+    }
+  };
+
+  /**
    * Record a buy-in / add-on / buy-in correction (type 'modify'): the seat's
    * buyIn moves by `amount` and the audit record is written in the same
    * transaction, so the log and the roster can't disagree. Optional `fields`
@@ -276,7 +297,9 @@ export const useGameStore = defineStore('game', () => {
     const safeAmount = Number(amount) || 0;
     const txRef = doc(collection(db, 'transactions'));
 
-    const result = await commitRoster(targetGameId, (players, _data, t) => {
+    const result = await commitRoster(targetGameId, async (players, data, t) => {
+      // A host 'modify' correction stays allowed after the cutoff.
+      if (type === 'buy_in' || type === 'add_on') await assertTimedBuyInOpen(data, t);
       const change = applyPlayerChange(
         players,
         { targetId, targetUid, targetName },
@@ -424,10 +447,12 @@ export const useGameStore = defineStore('game', () => {
   const joinAsNewPlayer = async (id, buyInAmount = DEFAULT_BUY_IN) => {
     loading.value = true;
     try {
-      await commitRoster(id, (players) => {
+      await commitRoster(id, async (players, data, t) => {
         if (players.some(p => p.uid === authStore.user.uid)) {
           throw new Error('Already in game');
         }
+        // Joining brings a buy-in with it — closed after a timed game's cutoff.
+        await assertTimedBuyInOpen(data, t);
         
         let baseName = authStore.displayName;
         let finalName = baseName;
@@ -454,7 +479,8 @@ export const useGameStore = defineStore('game', () => {
       return true;
     } catch (err) {
       console.error('Join as new player error:', err);
-      error.value = 'Failed to join: ' + err.message;
+      // Keep the bare code so views can show the "buy-ins closed" message.
+      error.value = err.message === BUY_IN_CLOSED ? BUY_IN_CLOSED : 'Failed to join: ' + err.message;
       return false;
     } finally {
       loading.value = false;

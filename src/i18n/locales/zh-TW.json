@@ -79,8 +79,8 @@
     "joinOnlineDesc": "輸入房間 ID 加入朋友的局",
     "tournament": "錦標賽時鐘",
     "tournamentDesc": "設定錦標賽結構，大螢幕倒數計時",
-    "tournamentSetup": "錦標賽賽制設定",
-    "tournamentSetupDesc": "管理錦標賽盲注結構與模板",
+    "tournamentSetup": "賽制設定",
+    "tournamentSetupDesc": "管理盲注結構與模板（錦標賽、限時賽共用）",
     "timeBank": "Time Bank",
     "timeBankDesc": "獨立倒數計時器，荷官操控"
   },
@@ -455,10 +455,14 @@
     "usePreset": "使用設定",
     "custom": "自訂",
     "confirmDelete": "確定要刪除「{name}」嗎？",
-    "invalidInput": "請輸入有效的設定內容"
+    "invalidInput": "請輸入有效的設定內容",
+    "structure": "套用賽制",
+    "structureHint": "用錦標賽時鐘顯示升盲與 Ante，賽制時間到即結束",
+    "structureNone": "不套用",
+    "structureSummary": "{levels} 個級別 · 共 {duration} · {cutoff}"
   },
   "tournament": {
-    "presets": "錦標賽設定",
+    "presets": "賽制設定",
     "builtInTemplates": "公版模板",
     "myPresets": "我的賽制",
     "newPreset": "新增賽制",
@@ -778,5 +782,15 @@
     "copySelected": "已選 {count}/{max} 人",
     "copyRosterHint": "從本活動已報名的成員直接帶入這個新時段，成員不必再報名一次",
     "copyOverCap": "「{label}」帶入人數超過上限"
+  },
+  "timed": {
+    "label": "限時賽",
+    "timeToEnd": "距離結束",
+    "timeUp": "時間到",
+    "buyInClosed": "已截買，無法再買入",
+    "joinClosed": "這桌已截買，無法再加入",
+    "cutoff": "截買 Level {level}",
+    "noCutoff": "不截買",
+    "players": "玩家人數"
   }
 }

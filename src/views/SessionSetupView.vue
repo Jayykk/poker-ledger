@@ -198,7 +198,7 @@ function presetOptions(type) {
     const user = userTournamentPresets.value.map((p) => ({ id: `usr:${p.id}`, label: p.name || p.id, source: p }));
     return [...builtin, ...user];
   }
-  return cashPresets.value.map((p) => ({ id: p.id, label: `${p.name} (${p.buyIn})`, source: p }));
+  return cashPresets.value.map((p) => ({ id: p.id, label: `${p.name} (${p.buyIn})${p.structure ? ` ⏱ ${p.structure.name}` : ''}`, source: p }));
 }
 function findOption(type, id) {
   return presetOptions(type).find((o) => o.id === id) || null;
@@ -296,7 +296,11 @@ function onPresetSelect(row) {
       maxReentries: s.maxReentries, levels: s.levels, payoutRatios: s.payoutRatios,
     };
   } else {
-    row.presetSnapshot = { name: s.name || '', buyIn: Number(s.buyIn) || 0, rate: Number(s.rate) || 1 };
+    row.presetSnapshot = {
+      name: s.name || '', buyIn: Number(s.buyIn) || 0, rate: Number(s.rate) || 1,
+      // Blind structure (timed game) — createTableRoom starts a clock for it
+      structure: s.structure || null,
+    };
   }
 }
 

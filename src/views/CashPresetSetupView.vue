@@ -66,6 +66,30 @@
           />
         </div>
       </div>
+
+      <!-- Blind structure (optional): drives the clock, cutoff and end time -->
+      <div class="space-y-2">
+        <label class="text-sm font-bold text-gray-300">
+          {{ $t('cashPreset.structure') }}
+          <span class="text-xs text-gray-500 font-normal ml-2">{{ $t('cashPreset.structureHint') }}</span>
+        </label>
+        <select
+          v-model="structureChoice"
+          class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"
+        >
+          <option value="">{{ $t('cashPreset.structureNone') }}</option>
+          <option v-if="keepsOrphanSnapshot" :value="CURRENT_SNAPSHOT">{{ form.structure.name }}</option>
+          <optgroup v-if="userStructures.length" :label="$t('tournament.myPresets')">
+            <option v-for="p in userStructures" :key="p.id" :value="`user:${p.id}`">{{ p.name }}</option>
+          </optgroup>
+          <optgroup :label="$t('tournament.builtInTemplates')">
+            <option v-for="tmpl in TOURNAMENT_TEMPLATES" :key="tmpl.id" :value="`builtin:${tmpl.id}`">{{ $t(tmpl.nameKey) }}</option>
+          </optgroup>
+        </select>
+        <div v-if="structurePreview" class="text-xs text-gray-400 bg-slate-800/60 rounded-lg px-3 py-2">
+          {{ $t('cashPreset.structureSummary', structurePreview) }}
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -75,16 +99,20 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useCashPresets } from '../composables/useCashPresets.js';
+import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useNotification } from '../composables/useNotification.js';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseButton from '../components/common/BaseButton.vue';
 import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from '../utils/constants.js';
+import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
+import { snapshotStructure, totalStructureSeconds, formatDuration } from '../utils/timedStructure.js';
 
 const router = useRouter();
 const route = useRoute();
 const { t } = useI18n();
 const { success, error: showError } = useNotification();
 const { listenPresets, savePreset } = useCashPresets();
+const { listenPresets: listenStructures } = useTournamentClock();
 
 const presetId = computed(() => route.params.presetId || null);
 const isEditing = computed(() => Boolean(presetId.value));
@@ -93,6 +121,52 @@ const form = ref({
   name: '',
   buyIn: DEFAULT_BUY_IN,
   rate: 1,
+  structure: null,
+});
+
+// ── Blind structure ────────────────────────────────────
+// The preset stores a snapshot of the chosen structure (see snapshotStructure).
+// Picker values: '' = none, 'user:<id>' / 'builtin:<id>' = a source to
+// (re-)snapshot on save, CURRENT_SNAPSHOT = keep the stored snapshot when its
+// source was deleted.
+const CURRENT_SNAPSHOT = '__current';
+const userStructures = ref([]);
+const structureChoice = ref('');
+
+function choiceFor(structure) {
+  if (!structure) return '';
+  const id = structure.sourceId;
+  if (id && userStructures.value.some((p) => p.id === id)) return `user:${id}`;
+  if (id && TOURNAMENT_TEMPLATES.some((tmpl) => tmpl.id === id)) return `builtin:${id}`;
+  return CURRENT_SNAPSHOT;
+}
+
+const keepsOrphanSnapshot = computed(() =>
+  Boolean(form.value.structure) && choiceFor(form.value.structure) === CURRENT_SNAPSHOT
+);
+
+/** Structure snapshot for the current choice (null = none). */
+function selectedStructure() {
+  const choice = structureChoice.value;
+  if (!choice) return null;
+  if (choice === CURRENT_SNAPSHOT) return form.value.structure;
+  const [kind, id] = choice.split(':');
+  if (kind === 'user') {
+    const p = userStructures.value.find((x) => x.id === id);
+    return p ? snapshotStructure(p, p.name) : null;
+  }
+  const tmpl = TOURNAMENT_TEMPLATES.find((x) => x.id === id);
+  return tmpl ? snapshotStructure(tmpl, t(tmpl.nameKey)) : null;
+}
+
+const structurePreview = computed(() => {
+  const s = selectedStructure();
+  if (!s) return null;
+  return {
+    levels: s.levels.filter((l) => !l.isBreak).length,
+    duration: formatDuration(totalStructureSeconds(s.levels)),
+    cutoff: s.reentryUntilLevel > 0 ? t('timed.cutoff', { level: s.reentryUntilLevel }) : t('timed.noCutoff'),
+  };
 });
 
 const canSave = computed(() => {
@@ -108,8 +182,18 @@ const canSave = computed(() => {
 });
 
 let unsubPresets = null;
+let unsubStructures = null;
 
 onMounted(() => {
+  unsubStructures = listenStructures((list) => {
+    userStructures.value = list;
+    // Re-resolve once the user's structures load (the stored snapshot's
+    // source may be one of them).
+    if (structureChoice.value === CURRENT_SNAPSHOT) {
+      structureChoice.value = choiceFor(form.value.structure);
+    }
+  });
+
   if (!isEditing.value) return;
   // Load existing preset for editing.
   unsubPresets = listenPresets((presets) => {
@@ -119,13 +203,16 @@ onMounted(() => {
         name: found.name || '',
         buyIn: found.buyIn || DEFAULT_BUY_IN,
         rate: found.rate || 1,
+        structure: found.structure || null,
       };
+      structureChoice.value = choiceFor(form.value.structure);
     }
   });
 });
 
 onUnmounted(() => {
   if (unsubPresets) unsubPresets();
+  if (unsubStructures) unsubStructures();
 });
 
 function incrementBuyIn() {
@@ -148,6 +235,9 @@ async function handleSave() {
         name: form.value.name.trim(),
         buyIn: Number(form.value.buyIn),
         rate: Number(form.value.rate),
+        // Re-snapshotted on every save so edits to the source structure are
+        // picked up; null clears it (setDoc merge overwrites the field).
+        structure: selectedStructure(),
       },
       presetId.value
     );

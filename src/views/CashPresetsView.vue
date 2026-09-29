@@ -43,6 +43,9 @@
               <p class="text-xs text-gray-500 mt-0.5">
                 {{ $t('cashPreset.rate') }}: 1 : {{ preset.rate || 1 }}
               </p>
+              <p v-if="preset.structure" class="text-xs text-amber-400/80 mt-0.5">
+                <i class="fas fa-clock mr-1"></i>{{ preset.structure.name }}
+              </p>
             </div>
             <div class="flex items-center gap-3">
               <button

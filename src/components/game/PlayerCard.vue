@@ -67,6 +67,7 @@
             variant="ghost"
             size="sm"
             fullWidth
+            :disabled="buyInDisabled"
           >
             <i class="fas fa-plus mr-1"></i>{{ $t('game.addBuyIn') }}
           </BaseButton>
@@ -109,6 +110,11 @@ const props = defineProps({
     default: false
   },
   isMyCard: {
+    type: Boolean,
+    default: false
+  },
+  // Timed game past its buy-in cutoff
+  buyInDisabled: {
     type: Boolean,
     default: false
   }
