@@ -49,21 +49,26 @@
         </div>
       </div>
 
-      <!-- Settlement rate -->
+      <!-- Buy-in amount: the rate (chips per 1 currency unit) is derived -->
       <div class="space-y-2">
         <label class="text-sm font-bold text-gray-300">
-          {{ $t('cashPreset.rate') }}
-          <span class="text-xs text-gray-500 font-normal ml-2">{{ $t('cashPreset.rateHint') }}</span>
+          {{ $t('cashPreset.buyInAmount') }}
+          <span class="text-xs text-gray-500 font-normal ml-2">{{ $t('cashPreset.buyInAmountHint', { chips: form.buyIn || 0 }) }}</span>
         </label>
         <div class="flex gap-2 items-center">
-          <span class="text-white text-sm">1 :</span>
+          <span class="text-white text-sm">$</span>
           <BaseInput
-            v-model.number="form.rate"
+            v-model.number="form.buyInAmount"
             type="number"
-            min="0.001"
-            step="0.1"
+            min="0.01"
+            step="1"
             class="flex-1"
           />
+        </div>
+        <div class="text-xs text-gray-400">
+          {{ $t('cashPreset.rate') }}:
+          <span v-if="derivedRate" class="text-white font-mono">{{ $t('cashPreset.rateDerived', { rate: formatRate(derivedRate) }) }}</span>
+          <span v-else>-</span>
         </div>
       </div>
 
@@ -132,6 +137,7 @@ import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from '../utils/constants.js';
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
 import { snapshotStructure, withTimedCutoff, totalStructureSeconds, formatDuration } from '../utils/timedStructure.js';
 import { CASH_DECIMAL_OPTIONS, normalizeCashDecimals } from '../utils/cashRounding.js';
+import { rateFromBuyIn, resolveBuyInAmount, formatRate } from '../utils/buyInRate.js';
 
 const router = useRouter();
 const route = useRoute();
@@ -146,7 +152,7 @@ const isEditing = computed(() => Boolean(presetId.value));
 const form = ref({
   name: '',
   buyIn: DEFAULT_BUY_IN,
-  rate: 1,
+  buyInAmount: DEFAULT_BUY_IN,
   cashDecimals: null,
   structure: null,
 });
@@ -214,15 +220,16 @@ const structurePreview = computed(() => {
   };
 });
 
+// Settlement rate derived from "buyIn chips cost buyInAmount" (see buyInRate.js)
+const derivedRate = computed(() => rateFromBuyIn(form.value.buyIn, form.value.buyInAmount));
+
 const canSave = computed(() => {
   const buyIn = Number(form.value.buyIn);
-  const rate = Number(form.value.rate);
   return (
     form.value.name.trim().length > 0 &&
     Number.isFinite(buyIn) &&
     buyIn >= MIN_BUY_IN &&
-    Number.isFinite(rate) &&
-    rate > 0
+    derivedRate.value !== null
   );
 });
 
@@ -247,7 +254,8 @@ onMounted(() => {
       form.value = {
         name: found.name || '',
         buyIn: found.buyIn || DEFAULT_BUY_IN,
-        rate: found.rate || 1,
+        // Presets saved before buyInAmount existed only have the rate.
+        buyInAmount: resolveBuyInAmount({ ...found, buyIn: found.buyIn || DEFAULT_BUY_IN, rate: found.rate || 1 }),
         cashDecimals: normalizeCashDecimals(found.cashDecimals),
         structure: found.structure || null,
       };
@@ -281,7 +289,8 @@ async function handleSave() {
       {
         name: form.value.name.trim(),
         buyIn: Number(form.value.buyIn),
-        rate: Number(form.value.rate),
+        buyInAmount: Number(form.value.buyInAmount),
+        rate: derivedRate.value,
         cashDecimals: normalizeCashDecimals(form.value.cashDecimals),
         // Re-snapshotted on every save so edits to the source structure are
         // picked up; null clears it (setDoc merge overwrites the field).

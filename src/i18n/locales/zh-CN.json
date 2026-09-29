@@ -451,7 +451,7 @@
     "buyIn": "买入筹码",
     "buyInHint": "默认买入的筹码数量",
     "rate": "结算汇率",
-    "rateHint": "1 筹码 : 多少元（结算时使用）",
+    "rateHint": "几个筹码换 1 元（由买入金额自动计算）",
     "usePreset": "使用预设",
     "custom": "自定义",
     "confirmDelete": "确定要删除「{name}」吗？",
@@ -464,7 +464,10 @@
     "decimalsHint": "四舍五入后账一定平，零头平手时赢家少收",
     "decimalsNone": "不处理（照旧）",
     "decimalsInteger": "整数（到元）",
-    "decimalsN": "小数 {n} 位"
+    "decimalsN": "小数 {n} 位",
+    "buyInAmount": "买入金额",
+    "buyInAmountHint": "{chips} 筹码的价格",
+    "rateDerived": "每 {rate} 筹码 = 1 元"
   },
   "tournament": {
     "presets": "赛制设定",

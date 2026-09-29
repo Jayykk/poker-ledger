@@ -451,7 +451,7 @@
     "buyIn": "バイインチップ",
     "buyInHint": "バイイン時のデフォルトチップ量",
     "rate": "清算レート",
-    "rateHint": "1 チップ ： 何円（清算時に使用）",
+    "rateHint": "1 通貨単位あたりのチップ数（バイイン金額から自動計算）",
     "usePreset": "プリセットを使用",
     "custom": "カスタム",
     "confirmDelete": "「{name}」を削除しますか？",
@@ -464,7 +464,10 @@
     "decimalsHint": "四捨五入しても必ず収支が合います（端数が同じ場合は勝者の受取を減らします）",
     "decimalsNone": "処理しない（従来どおり）",
     "decimalsInteger": "整数",
-    "decimalsN": "小数 {n} 桁"
+    "decimalsN": "小数 {n} 桁",
+    "buyInAmount": "バイイン金額",
+    "buyInAmountHint": "{chips} チップの価格",
+    "rateDerived": "{rate} チップ = 1"
   },
   "tournament": {
     "presets": "ストラクチャー設定",

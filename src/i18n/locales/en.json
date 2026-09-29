@@ -451,7 +451,7 @@
     "buyIn": "Buy-in chips",
     "buyInHint": "Default chip stack on buy-in",
     "rate": "Settlement rate",
-    "rateHint": "1 chip : how much currency (used at settlement)",
+    "rateHint": "Chips per currency unit (derived from the buy-in price)",
     "usePreset": "Use preset",
     "custom": "Custom",
     "confirmDelete": "Delete \"{name}\"?",
@@ -464,7 +464,10 @@
     "decimalsHint": "Rounded amounts always balance; on a tie the winner receives less",
     "decimalsNone": "None (as before)",
     "decimalsInteger": "Whole units",
-    "decimalsN": "{n} decimal places"
+    "decimalsN": "{n} decimal places",
+    "buyInAmount": "Buy-in price",
+    "buyInAmountHint": "Price of {chips} chips",
+    "rateDerived": "{rate} chips = 1 unit"
   },
   "tournament": {
     "presets": "Structures",

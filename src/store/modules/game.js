@@ -152,6 +152,11 @@ export const useGameStore = defineStore('game', () => {
         if (Number.isFinite(rateNum) && rateNum > 0) {
           gameData.rate = rateNum;
         }
+        // What one buy-in costs (the rate was derived from it) — for display.
+        const buyInAmountNum = Number(options.buyInAmount);
+        if (Number.isFinite(buyInAmountNum) && buyInAmountNum > 0) {
+          gameData.buyInAmount = buyInAmountNum;
+        }
         // Settlement rounding (0 / 1 / 2 decimals) from the cash preset.
         const cashDecimals = normalizeCashDecimals(options.cashDecimals);
         if (cashDecimals !== null) gameData.cashDecimals = cashDecimals;

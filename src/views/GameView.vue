@@ -188,8 +188,17 @@
     <!-- Settlement Modal -->
     <BaseModal v-model="showSettlement" :title="$t('game.settlement')">
       <div class="flex justify-between bg-slate-900 p-3 rounded mb-4">
-        <span class="text-gray-400 text-sm">{{ $t('game.exchangeRate') }}</span>
-        <BaseInput v-model.number="exchangeRate" type="number" class="w-20 text-center" />
+        <span class="text-gray-400 text-sm">
+          {{ $t('cashPreset.buyInAmount') }}
+          <span class="block text-[10px] text-gray-500">{{ $t('cashPreset.buyInAmountHint', { chips: formatNumber(settleBuyInChips) }) }}</span>
+        </span>
+        <div class="text-right">
+          <div class="flex items-center gap-1 justify-end">
+            <span class="text-white text-sm">$</span>
+            <BaseInput v-model.number="settleBuyInAmount" type="number" min="0.01" class="w-24 text-center" />
+          </div>
+          <div class="text-[10px] text-gray-400 mt-1">{{ $t('cashPreset.rateDerived', { rate: formatRate(exchangeRate) }) }}</div>
+        </div>
       </div>
       <div class="flex justify-between items-center bg-slate-900 p-3 rounded mb-4 gap-3">
         <span class="text-gray-400 text-sm">{{ $t('cashPreset.decimals') }}</span>
@@ -261,6 +270,7 @@ import { useLoading } from '../composables/useLoading.js';
 import { useUserStore } from '../store/modules/user.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { BUY_IN_CLOSED } from '../utils/timedStructure.js';
+import { rateFromBuyIn, resolveBuyInAmount, formatRate } from '../utils/buyInRate.js';
 import {
   CASH_DECIMAL_OPTIONS, normalizeCashDecimals, withCashAmounts, rowCash, formatCashAmount,
 } from '../utils/cashRounding.js';
@@ -337,7 +347,14 @@ const showHandDetail = ref(false);
 const newPlayerName = ref('');
 const newPlayerBuyIn = ref(DEFAULT_BUY_IN);
 const editingPlayer = ref(null);
-const exchangeRate = ref(DEFAULT_EXCHANGE_RATE);
+// Settlement dialog: the host enters what one buy-in (baseBuyIn chips) cost;
+// the rate (chips per currency unit, cash = chips / rate) is derived.
+const settleBuyInChips = computed(() => game.value?.baseBuyIn || DEFAULT_BUY_IN);
+const settleBuyInAmount = ref(null);
+const exchangeRate = computed(() =>
+  rateFromBuyIn(settleBuyInChips.value, settleBuyInAmount.value)
+    || Number(game.value?.rate) || DEFAULT_EXCHANGE_RATE
+);
 const selectedHand = ref(null);
 const autoJoinLoading = ref(false);
 const buyInProcessing = ref(new Set());
@@ -434,8 +451,12 @@ watch(() => showAddPlayer.value, (isOpen) => {
 
 // Pre-fill exchangeRate from game.rate (set at creation via cash preset) when settlement modal opens
 watch(() => showSettlement.value, (isOpen) => {
-  if (isOpen && game.value?.rate) {
-    exchangeRate.value = game.value.rate;
+  if (isOpen) {
+    settleBuyInAmount.value = resolveBuyInAmount({
+      buyInAmount: game.value?.buyInAmount,
+      buyIn: settleBuyInChips.value,
+      rate: Number(game.value?.rate) || DEFAULT_EXCHANGE_RATE,
+    });
   }
   if (isOpen) settleDecimals.value = normalizeCashDecimals(game.value?.cashDecimals);
 });

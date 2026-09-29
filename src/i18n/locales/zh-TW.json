@@ -451,7 +451,7 @@
     "buyIn": "買入籌碼",
     "buyInHint": "預設買入的籌碼數量",
     "rate": "結算匯率",
-    "rateHint": "1 籌碼 : 多少元（結算時用）",
+    "rateHint": "幾個籌碼換 1 元（由買入金額自動計算）",
     "usePreset": "使用設定",
     "custom": "自訂",
     "confirmDelete": "確定要刪除「{name}」嗎？",
@@ -464,7 +464,10 @@
     "decimalsHint": "四捨五入後帳一定平，零頭平手時贏家少收",
     "decimalsNone": "不處理（照舊）",
     "decimalsInteger": "整數（到元）",
-    "decimalsN": "小數 {n} 位"
+    "decimalsN": "小數 {n} 位",
+    "buyInAmount": "買入金額",
+    "buyInAmountHint": "{chips} 籌碼的價格",
+    "rateDerived": "每 {rate} 籌碼 = 1 元"
   },
   "tournament": {
     "presets": "賽制設定",

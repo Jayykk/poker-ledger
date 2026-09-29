@@ -415,7 +415,7 @@
             >
               <div class="font-semibold">{{ p.name || $t('cashPreset.untitled') }}</div>
               <div class="text-xs text-gray-400">
-                {{ formatNumber(p.buyIn || 0) }} {{ $t('game.chips') }} · 1:{{ p.rate || 1 }}
+                {{ formatNumber(p.buyIn || 0) }} {{ $t('game.chips') }} · ${{ formatNumber(resolveBuyInAmount({ ...p, buyIn: p.buyIn || 0, rate: p.rate || 1 }) || 0) }}
               </div>
               <div v-if="p.structure" class="text-[10px] text-amber-400/80">
                 <i class="fas fa-clock mr-0.5"></i>{{ p.structure.name }}
@@ -450,17 +450,22 @@
           <span class="text-white text-sm">{{ $t('game.chips') }}</span>
         </div>
 
-        <!-- Cash game: settlement rate (only when custom; online poker has no rate) -->
-        <div v-if="selectedGameType === 'cash' && !selectedCashPresetId" class="flex gap-2 mb-4 items-center">
-          <span class="text-gray-400 text-sm w-24">{{ $t('cashPreset.rate') }}</span>
-          <span class="text-white text-sm">1 :</span>
-          <BaseInput
-            v-model.number="createRate"
-            type="number"
-            min="0.001"
-            step="0.1"
-            class="flex-1"
-          />
+        <!-- Cash game: buy-in amount → derived rate (only when custom; online poker has no rate) -->
+        <div v-if="selectedGameType === 'cash' && !selectedCashPresetId" class="mb-4">
+          <div class="flex gap-2 items-center">
+            <span class="text-gray-400 text-sm w-24">{{ $t('cashPreset.buyInAmount') }}</span>
+            <span class="text-white text-sm">$</span>
+            <BaseInput
+              v-model.number="createBuyInAmount"
+              type="number"
+              min="0.01"
+              step="1"
+              class="flex-1"
+            />
+          </div>
+          <div class="text-xs text-gray-400 mt-1 text-right">
+            {{ $t('cashPreset.rate') }}: {{ derivedCreateRate ? $t('cashPreset.rateDerived', { rate: formatRate(derivedCreateRate) }) : '-' }}
+          </div>
         </div>
 
         <!-- Cash game: selected preset summary (when using a preset) -->
@@ -470,8 +475,12 @@
             <span class="text-white font-mono font-bold">{{ formatNumber(createBuyIn) }} {{ $t('game.chips') }}</span>
           </div>
           <div v-if="selectedGameType === 'cash'" class="flex justify-between items-center text-sm mt-1">
-            <span class="text-gray-300">{{ $t('cashPreset.rate') }}</span>
-            <span class="text-white font-mono font-bold">1 : {{ createRate }}</span>
+            <span class="text-gray-300">{{ $t('cashPreset.buyInAmount') }}</span>
+            <span class="text-white font-mono font-bold">${{ formatNumber(createBuyInAmount) }}</span>
+          </div>
+          <div v-if="selectedGameType === 'cash'" class="flex justify-between items-center text-xs mt-1">
+            <span class="text-gray-400">{{ $t('cashPreset.rate') }}</span>
+            <span class="text-gray-300">{{ $t('cashPreset.rateDerived', { rate: formatRate(createRate) }) }}</span>
           </div>
           <div v-if="selectedCashPreset?.structure" class="flex justify-between items-center text-sm mt-1">
             <span class="text-gray-300">{{ $t('cashPreset.structure') }}</span>
@@ -562,6 +571,7 @@ import { formatNumber, formatShortDate } from '../utils/formatters.js';
 import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP, GAME_TYPE } from '../utils/constants.js';
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
 import { buildTimedClockConfig } from '../utils/timedStructure.js';
+import { rateFromBuyIn, resolveBuyInAmount, formatRate } from '../utils/buyInRate.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useCashPresets } from '../composables/useCashPresets.js';
 import { useSessions, sortSessions, MY_SESSIONS_LIMIT } from '../composables/useSessions.js';
@@ -596,7 +606,10 @@ const gameName = ref('Poker Game');
 const gameCode = ref('');
 const buyIn = ref(DEFAULT_BUY_IN);
 const createBuyIn = ref(DEFAULT_BUY_IN);
-const createRate = ref(1);
+// Buy-in amount for one buy-in of createBuyIn chips; the rate is derived.
+const createBuyInAmount = ref(DEFAULT_BUY_IN);
+const derivedCreateRate = computed(() => rateFromBuyIn(createBuyIn.value, createBuyInAmount.value));
+const createRate = computed(() => derivedCreateRate.value || 1);
 const selectedCashPresetId = ref(null);
 const cashPresets = ref([]);
 const selectedCashPreset = computed(() =>
@@ -684,7 +697,9 @@ const selectCashPreset = (preset) => {
   }
   selectedCashPresetId.value = preset.id;
   createBuyIn.value = Number(preset.buyIn) || DEFAULT_BUY_IN;
-  createRate.value = Number(preset.rate) || 1;
+  createBuyInAmount.value = resolveBuyInAmount({
+    ...preset, buyIn: createBuyIn.value, rate: Number(preset.rate) || 1,
+  }) || createBuyIn.value;
 };
 
 // Reset create modal state when it closes
@@ -695,7 +710,7 @@ watch(showCreateModal, (val) => {
     selectedTemplate.value = null;
     gameName.value = 'Poker Game';
     createBuyIn.value = DEFAULT_BUY_IN;
-    createRate.value = 1;
+    createBuyInAmount.value = DEFAULT_BUY_IN;
     selectedCashPresetId.value = null;
     showBuiltInTemplates.value = false;
     isCreating.value = false;
@@ -801,6 +816,7 @@ const handleCreateGame = async () => {
       const rateNum = Number(createRate.value);
       if (Number.isFinite(rateNum) && rateNum > 0) {
         options.rate = rateNum;
+        options.buyInAmount = Number(createBuyInAmount.value) || null;
       }
       // Settlement rounding from the preset (custom games choose at settle time)
       if (selectedGameType.value === 'cash' && selectedCashPreset.value) {

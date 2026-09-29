@@ -298,6 +298,7 @@ function onPresetSelect(row) {
   } else {
     row.presetSnapshot = {
       name: s.name || '', buyIn: Number(s.buyIn) || 0, rate: Number(s.rate) || 1,
+      buyInAmount: Number(s.buyInAmount) || null,
       // Blind structure (timed game) — createTableRoom starts a clock for it
       structure: s.structure || null,
       cashDecimals: s.cashDecimals ?? null,
