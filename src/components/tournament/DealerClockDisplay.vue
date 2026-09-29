@@ -17,7 +17,7 @@
 
         <section class="clock-stage">
           <DealerClockStatsPanel
-            v-if="!isTimed"
+            :is-timed="isTimed"
             :entries="entries"
             :players-remaining="playersRemaining"
             :players-registered="playersRegistered"

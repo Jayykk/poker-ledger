@@ -77,7 +77,7 @@
     "createOnlineDesc": "オンラインルームを作成して友達を招待",
     "joinOnline": "ルーム参加",
     "joinOnlineDesc": "ルームIDを入力して友達のゲームに参加",
-    "tournament": "トーナメントクロック",
+    "tournament": "ブラインドクロック",
     "tournamentDesc": "トーナメント構成を設定してフルスクリーンクロックを表示",
     "tournamentSetup": "ストラクチャー設定",
     "tournamentSetupDesc": "ブラインド構成とテンプレート（トーナメント・時間制ゲーム共通）",
@@ -457,7 +457,7 @@
     "confirmDelete": "「{name}」を削除しますか？",
     "invalidInput": "有効な値を入力してください",
     "structure": "ストラクチャーを適用",
-    "structureHint": "トーナメントクロックでブラインド/アンティを表示し、終了時刻でゲーム終了",
+    "structureHint": "ブラインドクロックでブラインド/アンティを表示し、終了時刻でゲーム終了",
     "structureNone": "適用しない",
     "structureSummary": "{levels} レベル · 合計 {duration} · {cutoff}",
     "decimals": "精算金額の桁数",
@@ -547,7 +547,7 @@
     "waitingToStart": "開始待ち",
     "paused": "一時停止中",
     "ended": "終了",
-    "viewClock": "トーナメントクロック",
+    "viewClock": "ブラインドクロック",
     "dealerMode": "ディーラーモード",
     "dealerUrlCopied": "ディーラーリンクをコピーしました",
     "dealerUrlHint": "以下のリンクを長押しでコピーし、ディーラーに共有してください",
@@ -801,6 +801,15 @@
     "noCutoff": "バイイン締切なし",
     "players": "プレイヤー数",
     "cutoffLabel": "バイイン締切",
-    "followStructure": "ストラクチャー通り（Level {level}）"
+    "followStructure": "ストラクチャー通り（Level {level}）",
+    "clock": {
+      "label": "時間制",
+      "cutoff": "Level {level} まで購入可",
+      "buyInClosed": "バイイン締切",
+      "timeToEnd": "終了まで",
+      "timeUp": "時間終了",
+      "players": "プレイヤー数",
+      "buyIns": "バイイン数"
+    }
   }
 }

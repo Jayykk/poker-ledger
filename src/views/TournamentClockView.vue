@@ -29,9 +29,9 @@
         <div class="header-center">
           <h1 class="tournament-name">{{ config.name || 'Tournament' }}</h1>
           <p v-if="isTimed" class="tournament-subtitle" :class="{ 'registration-closed': isBuyInClosed }">
-            <template v-if="isBuyInClosed">{{ $t('timed.buyInClosed') }}</template>
-            <template v-else-if="config.reentryUntilLevel > 0">{{ $t('timed.label') }} | {{ $t('timed.cutoff', { level: config.reentryUntilLevel }) }}</template>
-            <template v-else>{{ $t('timed.label') }}</template>
+            <template v-if="isBuyInClosed">{{ $t('timed.clock.buyInClosed') }}</template>
+            <template v-else-if="config.reentryUntilLevel > 0">{{ $t('timed.clock.label') }} | {{ $t('timed.clock.cutoff', { level: config.reentryUntilLevel }) }}</template>
+            <template v-else>{{ $t('timed.clock.label') }}</template>
           </p>
           <p v-else class="tournament-subtitle" :class="{ 'registration-closed': isRegistrationClosed }">
             <template v-if="isRegistrationClosed">{{ $t('tournament.registrationClosed') }}</template>
@@ -53,8 +53,20 @@
         <!-- Left Panel -->
         <aside v-if="isTimed" class="info-panel left-panel">
           <div class="info-item">
-            <div class="info-label">{{ $t('timed.players') }}</div>
+            <div class="info-label">{{ $t('timed.clock.players') }}</div>
             <div class="info-value">{{ playersRegistered }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">{{ $t('timed.clock.buyIns') }}</div>
+            <div class="info-value">{{ entries }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">{{ $t('tournament.chipsInPlay') }}</div>
+            <div class="info-value">{{ formatNumber(chipsInPlay) }}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">{{ $t('tournament.averageStack') }}</div>
+            <div class="info-value">{{ formatNumber(averageStack) }}<span v-if="averageStackBB" class="avg-bb"> ({{ averageStackBB }} BB)</span></div>
           </div>
         </aside>
         <aside v-else class="info-panel left-panel">
@@ -87,7 +99,7 @@
             <span class="break-in-value">{{ timeToBreak }}</span>
           </div>
           <div class="break-in-info" :class="{ 'break-in-top': !timeToBreak }" v-if="isTimed && status !== 'ended'">
-            <span class="break-in-label">{{ $t('timed.timeToEnd') }}</span>
+            <span class="break-in-label">{{ $t('timed.clock.timeToEnd') }}</span>
             <span class="break-in-value">{{ timeToEnd }}</span>
           </div>
 
@@ -119,7 +131,7 @@
             <i class="fas fa-pause mr-2"></i>{{ $t('tournament.paused') }}
           </div>
           <div v-else-if="status === 'ended'" class="status-badge ended">
-            {{ isTimed ? $t('timed.timeUp') : $t('tournament.ended') }}
+            {{ isTimed ? $t('timed.clock.timeUp') : $t('tournament.ended') }}
           </div>
 
           <!-- Next blinds -->

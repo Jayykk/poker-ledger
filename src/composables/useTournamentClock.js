@@ -28,6 +28,7 @@ import {
   effectiveLevelAt,
   secondsToEnd,
   formatDuration,
+  timedBuyInStats,
 } from '../utils/timedStructure.js';
 
 export function useTournamentClock(options = {}) {
@@ -113,10 +114,15 @@ export function useTournamentClock(options = {}) {
   const playersRegistered = computed(() => state.value.playersRegistered ?? 0);
   const playersRemaining = computed(() => state.value.playersRemaining ?? 0);
   const reentries = computed(() => state.value.reentries ?? 0);
-  const entries = computed(() => computeEntries(playersRegistered.value, reentries.value));
-  const chipsInPlay = computed(() => {
-    return computeChipsInPlay(entries.value, config.value.startingChips || 0);
-  });
+  // Timed games: buy-in groups and chips on the table come from the linked
+  // cash-ledger roster (synced by the host, see startGameSync) — buy-ins there
+  // aren't a fixed starting stack per entry.
+  const entries = computed(() => (isTimed.value
+    ? (state.value.buyIns ?? 0)
+    : computeEntries(playersRegistered.value, reentries.value)));
+  const chipsInPlay = computed(() => (isTimed.value
+    ? (state.value.chipsInPlay ?? 0)
+    : computeChipsInPlay(entries.value, config.value.startingChips || 0)));
   const averageStack = computed(() => {
     return computeAverageStack(chipsInPlay.value, playersRemaining.value);
   });
@@ -375,9 +381,21 @@ export function useTournamentClock(options = {}) {
 
       const currentRegistered = session.value?.state?.playersRegistered ?? 0;
       const currentRemaining = session.value?.state?.playersRemaining ?? 0;
+
+      // Timed games also mirror chips on the table / buy-in groups for the
+      // clock's stats panel.
+      let timedStats = null;
+      if (isTimed.value) {
+        const stats = timedBuyInStats(uniquePlayers, gameData.baseBuyIn);
+        const st = session.value?.state || {};
+        if (stats.chipsInPlay !== (st.chipsInPlay ?? null) || stats.buyIns !== (st.buyIns ?? null)) {
+          timedStats = stats;
+        }
+      }
+
       // Sync when player count or alive count diverges
-      if (playerCount !== currentRegistered || aliveCount !== currentRemaining) {
-        updatePlayers(playerCount, aliveCount);
+      if (playerCount !== currentRegistered || aliveCount !== currentRemaining || timedStats) {
+        updatePlayers(playerCount, aliveCount, timedStats);
       }
     });
   }
@@ -497,11 +515,15 @@ export function useTournamentClock(options = {}) {
     });
   }
 
-  async function updatePlayers(registered, remaining) {
+  async function updatePlayers(registered, remaining, timedStats = null) {
     if (!sessionId.value || !isHost.value) return;
     await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
       'state.playersRegistered': registered,
       'state.playersRemaining': remaining,
+      ...(timedStats ? {
+        'state.chipsInPlay': timedStats.chipsInPlay,
+        'state.buyIns': timedStats.buyIns,
+      } : {}),
       updatedAt: serverTimestamp(),
     });
   }

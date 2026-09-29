@@ -77,7 +77,7 @@
     "createOnlineDesc": "开一个线上房间，邀请朋友加入",
     "joinOnline": "加入房间",
     "joinOnlineDesc": "输入房间 ID 加入朋友的局",
-    "tournament": "锦标赛时钟",
+    "tournament": "赛制时钟",
     "tournamentDesc": "设置锦标赛结构并显示全屏时钟",
     "tournamentSetup": "赛制设定",
     "tournamentSetupDesc": "管理盲注结构与模板（锦标赛、限时赛共用）",
@@ -457,7 +457,7 @@
     "confirmDelete": "确定要删除「{name}」吗？",
     "invalidInput": "请输入有效的预设内容",
     "structure": "套用赛制",
-    "structureHint": "用锦标赛时钟显示升盲与 Ante，赛制时间到即结束",
+    "structureHint": "用赛制时钟显示升盲与 Ante，赛制时间到即结束",
     "structureNone": "不套用",
     "structureSummary": "{levels} 个级别 · 共 {duration} · {cutoff}",
     "decimals": "结算金额位数",
@@ -547,7 +547,7 @@
     "waitingToStart": "等待开始",
     "paused": "已暂停",
     "ended": "已结束",
-    "viewClock": "锦标赛时钟",
+    "viewClock": "赛制时钟",
     "dealerMode": "荷官模式",
     "dealerUrlCopied": "荷官链接已复制",
     "dealerUrlHint": "长按下方链接即可复制，分享给荷官使用",
@@ -801,6 +801,15 @@
     "noCutoff": "不截买",
     "players": "玩家人数",
     "cutoffLabel": "截买",
-    "followStructure": "依赛制（Level {level}）"
+    "followStructure": "依赛制（Level {level}）",
+    "clock": {
+      "label": "限时赛",
+      "cutoff": "截买至 Level {level}",
+      "buyInClosed": "已截买",
+      "timeToEnd": "距离结束",
+      "timeUp": "时间到",
+      "players": "玩家人数",
+      "buyIns": "买入组数"
+    }
   }
 }

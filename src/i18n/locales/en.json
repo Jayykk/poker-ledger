@@ -77,7 +77,7 @@
     "createOnlineDesc": "Create an online room and invite friends",
     "joinOnline": "Join Room",
     "joinOnlineDesc": "Enter room ID to join a friend's game",
-    "tournament": "Tournament Clock",
+    "tournament": "Blind Clock",
     "tournamentDesc": "Set up tournament structure with fullscreen clock",
     "tournamentSetup": "Structures",
     "tournamentSetupDesc": "Blind structures and templates (shared by tournaments and timed games)",
@@ -457,7 +457,7 @@
     "confirmDelete": "Delete \"{name}\"?",
     "invalidInput": "Please enter valid values",
     "structure": "Blind structure",
-    "structureHint": "Show blinds / ante on the tournament clock; the game ends when the structure does",
+    "structureHint": "Show blinds / ante on the blind clock; the game ends when the structure does",
     "structureNone": "None",
     "structureSummary": "{levels} levels · {duration} total · {cutoff}",
     "decimals": "Settlement rounding",
@@ -547,7 +547,7 @@
     "waitingToStart": "Waiting to Start",
     "paused": "Paused",
     "ended": "Ended",
-    "viewClock": "Tournament Clock",
+    "viewClock": "Blind Clock",
     "dealerMode": "Dealer Mode",
     "dealerUrlCopied": "Dealer link copied",
     "dealerUrlHint": "Long press the link below to copy and share with the dealer",
@@ -801,6 +801,15 @@
     "noCutoff": "No buy-in cutoff",
     "players": "Players",
     "cutoffLabel": "Buy-in cutoff",
-    "followStructure": "Per structure (Level {level})"
+    "followStructure": "Per structure (Level {level})",
+    "clock": {
+      "label": "Timed",
+      "cutoff": "Buy-in until Level {level}",
+      "buyInClosed": "BUY-IN CLOSED",
+      "timeToEnd": "Ends in",
+      "timeUp": "Time's Up",
+      "players": "Players",
+      "buyIns": "Buy-ins"
+    }
   }
 }

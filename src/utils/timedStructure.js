@@ -147,6 +147,22 @@ export function isTimedBuyInClosed(sessionData = {}, nowMs = Date.now()) {
   return effectiveLevelAt(levels, pos.levelIndex) >= cutoff;
 }
 
+/**
+ * Clock stats for a timed game, from the cash-ledger roster: chips on the
+ * table (every buy-in, since nobody busts out of a timed game) and how many
+ * buy-in groups that is. Tournaments derive these from entries × starting
+ * stack instead; a timed game's buy-ins can be any size, so it counts chips.
+ *
+ * @param {Array<{buyIn: number}>} players
+ * @param {number} baseBuyIn - chips per buy-in group
+ * @returns {{chipsInPlay: number, buyIns: number}}
+ */
+export function timedBuyInStats(players = [], baseBuyIn = 0) {
+  const chipsInPlay = players.reduce((sum, p) => sum + (Number(p?.buyIn) || 0), 0);
+  const base = Number(baseBuyIn) || 0;
+  return { chipsInPlay, buyIns: base > 0 ? Math.round(chipsInPlay / base) : 0 };
+}
+
 /** h:mm:ss when an hour or more is left, otherwise mm:ss. */
 export function formatDuration(totalSeconds = 0) {
   const t = Math.max(0, Math.floor(Number(totalSeconds) || 0));
