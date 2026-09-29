@@ -16,6 +16,7 @@ import {
   resolveSessionView,
   canViewLocation,
   defaultSessionName,
+  renameForDate,
   aggregateSessionSummary,
 } from '../src/utils/sessionFlow.js';
 
@@ -212,5 +213,32 @@ describe('aggregateSessionSummary', () => {
   it('handles empty / malformed input', () => {
     expect(aggregateSessionSummary([]).ranking).toEqual([]);
     expect(aggregateSessionSummary([null, { foo: 1 }]).tableCount).toBe(0);
+  });
+});
+
+describe('renameForDate', () => {
+  const d0929 = new Date(2026, 8, 29, 19, 0).getTime();
+  const d0929late = new Date(2026, 8, 29, 22, 30).getTime();
+  const d1003 = new Date(2026, 9, 3, 14, 0).getTime();
+
+  it('moves the default name with the date', () => {
+    expect(renameForDate('20260929 德州撲克活動', d0929, d1003)).toBe('20261003 德州撲克活動');
+  });
+
+  it('keeps a customised suffix after the date stamp', () => {
+    expect(renameForDate('20260929 週五局', d0929, d1003)).toBe('20261003 週五局');
+  });
+
+  it('leaves hand-picked names alone', () => {
+    expect(renameForDate('阿明生日局', d0929, d1003)).toBe('阿明生日局');
+    expect(renameForDate('週五 20260929', d0929, d1003)).toBe('週五 20260929');
+  });
+
+  it('does nothing when only the time changes', () => {
+    expect(renameForDate('20260929 德州撲克活動', d0929, d0929late)).toBe('20260929 德州撲克活動');
+  });
+
+  it('leaves an empty name empty (placeholder follows the date instead)', () => {
+    expect(renameForDate('', d0929, d1003)).toBe('');
   });
 });
