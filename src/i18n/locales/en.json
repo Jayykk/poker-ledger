@@ -129,6 +129,7 @@
     "buyInChips": "Buy-in Chips",
     "settlementChips": "Settlement Chips",
     "settlementPlaceholder": "Enter amount",
+    "saveFailed": "Save failed, please try again",
     "buyInGroups": "group(s)",
     "net": "Net",
     "addPlayer": "Add Player",

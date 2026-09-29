@@ -127,14 +127,15 @@ service cloud.firestore {
       // Joining via link adds yourself to the players array, and seated
       // players update stacks/buy-ins — both happen before/without being the
       // host, so updates follow the capability model (having the ID = invited).
-      // Non-hosts are limited to the roster (players/updatedAt): settlement,
+      // Non-hosts are limited to the roster (players/updatedAt, plus the
+      // roster revision counter `rev` every roster write bumps): settlement,
       // lifecycle, and ownership fields (settlementSnapshot, status, rate,
       // hostUid, …) are host/admin-only.
       allow update: if isAuthenticated() &&
         (resource.data.hostUid == request.auth.uid ||
          isAdmin() ||
          request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['players', 'updatedAt']));
+             .hasOnly(['players', 'updatedAt', 'rev']));
       allow delete: if isAuthenticated() &&
         (resource.data.hostUid == request.auth.uid || isAdmin());
 

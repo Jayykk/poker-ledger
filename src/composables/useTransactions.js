@@ -1,18 +1,22 @@
 import { ref, computed, watch, onUnmounted } from 'vue';
-import { collection, query, where, orderBy, onSnapshot, addDoc, doc, runTransaction, serverTimestamp } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
-import { db, functions } from '../firebase-init.js';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase-init.js';
 import { useAuth } from './useAuth.js';
+import { useGameStore } from '../store/modules/game.js';
 
 /**
  * Composable for managing buy-in transactions with "who did it for whom" tracking.
  * Real-time listener on the `transactions` collection filtered by gameId.
  *
- * Writes transactions directly to Firestore for reliability.
- * Tries Cloud Functions first; falls back to direct Firestore writes.
+ * Anything that moves a seat's buyIn goes through the game store's client
+ * transaction (roster + audit record in one atomic write, shown on this
+ * device as soon as it commits). Zero-amount log entries (join / bind /
+ * remove) are plain writes. No Cloud Function round trip — the old
+ * recordBuyInTx / undoBuyInTx callables cold-started for seconds.
  */
 export function useTransactions(gameIdRef) {
   const { user, displayName } = useAuth();
+  const gameStore = useGameStore();
   const transactions = ref([]);
   const txLoading = ref(false);
   const txError = ref('');
@@ -73,7 +77,23 @@ export function useTransactions(gameIdRef) {
     }, { immediate: true });
   }
 
-  onUnmounted(() => stopListening());
+  // Same stalled-stream recovery as the game listener: resubscribe when the
+  // page comes back to the foreground.
+  const handleVisible = () => {
+    if (document.visibilityState !== 'visible' || !unsubscribe) return;
+    const id = resolveGameId();
+    if (id) startListening(id);
+  };
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', handleVisible);
+  }
+
+  onUnmounted(() => {
+    stopListening();
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', handleVisible);
+    }
+  });
 
   /**
    * Active (non-undone) transactions
@@ -108,187 +128,86 @@ export function useTransactions(gameIdRef) {
     }
   };
 
+
   /**
-   * Record a buy-in transaction.
-   * Tries Cloud Function first; falls back to direct Firestore write.
+   * Run a store ledger op with the composable's loading/error bookkeeping.
+   * Returns the op's result, or null on failure (message in txError).
    */
-  const recordBuyIn = async (targetId, targetUid, targetName, amount, type = 'buy_in') => {
+  const runLedgerOp = async (label, op) => {
     txLoading.value = true;
     txError.value = '';
-    const gameId = resolveGameId();
-    if (!gameId || !targetName) {
-      txError.value = 'Missing gameId or targetName';
-      txLoading.value = false;
-      return null;
-    }
-
-    const safeAmount = Number(amount) || 0;
-
-    // Try Cloud Function first
     try {
-      const fn = httpsCallable(functions, 'recordBuyInTx');
-      const { data } = await fn({
-        gameId,
-        targetId,
-        targetUid,
-        targetName,
-        amount: safeAmount,
-        type,
-      });
-      txLoading.value = false;
-      return data;
-    } catch (cfErr) {
-      console.warn('[useTransactions] CF recordBuyIn failed, using direct write:', cfErr.message);
-    }
-
-    // Fallback: write directly to Firestore
-    try {
-      const result = await writeTransactionDirect({
-        gameId,
-        targetId: targetId || null,
-        targetUid: targetUid || null,
-        targetName,
-        actionUid: user.value?.uid || null,
-        actionName: displayName.value || 'Player',
-        amount: safeAmount,
-        type,
-        status: 'active',
-        undoneBy: null,
-        undoOf: null,
-      });
-      if (result) {
-        return { success: true, ...result, fallback: true };
-      }
-      txError.value = 'Failed to record transaction';
-      return null;
+      return await op();
     } catch (err) {
-      console.error('[useTransactions] recordBuyIn fallback error:', err);
+      console.error(`[useTransactions] ${label} error:`, err);
       txError.value = err.message;
       return null;
     } finally {
       txLoading.value = false;
     }
+  };
+
+  /**
+   * Record a buy-in (or add-on): moves the seat's buyIn by `amount` and logs
+   * it in one transaction.
+   * @returns {Promise<{success: true, txId: string, totalBuyIn: number}|null>}
+   */
+  const recordBuyIn = async (targetId, targetUid, targetName, amount, type = 'buy_in') => {
+    const gameId = resolveGameId();
+    if (!gameId || !targetName) {
+      txError.value = 'Missing gameId or targetName';
+      return null;
+    }
+    return runLedgerOp('recordBuyIn', () => gameStore.recordLedgerTx({
+      gameId, targetId, targetUid, targetName, amount, type,
+    }));
   };
 
   /**
    * Record a non-buy-in action (join, modify, remove, bind).
-   * Writes directly to Firestore with CF fallback.
+   * A non-zero amount (a 'modify' buy-in correction) moves the seat's buyIn
+   * atomically with the log entry; `fields` (stack / name) ride along in the
+   * same write. Zero-amount entries are log-only.
    */
-  const recordAction = async (targetId, targetUid, targetName, type, amount = 0) => {
-    txLoading.value = true;
-    txError.value = '';
+  const recordAction = async (targetId, targetUid, targetName, type, amount = 0, fields = {}) => {
     const gameId = resolveGameId();
     if (!gameId || !targetName) {
       txError.value = 'Missing gameId or targetName';
-      txLoading.value = false;
       return null;
     }
 
     const safeAmount = Number(amount) || 0;
-
-    // Try Cloud Function first
-    try {
-      const fn = httpsCallable(functions, 'recordBuyInTx');
-      const { data } = await fn({
-        gameId,
-        targetId,
-        targetUid,
-        targetName,
-        amount: safeAmount,
-        type,
-      });
-      txLoading.value = false;
-      return data;
-    } catch (cfErr) {
-      console.warn('[useTransactions] CF recordAction failed, using direct write:', cfErr.message);
+    if (safeAmount !== 0) {
+      return runLedgerOp('recordAction', () => gameStore.recordLedgerTx({
+        gameId, targetId, targetUid, targetName, amount: safeAmount, type, fields,
+      }));
     }
 
-    // Fallback: write directly to Firestore
-    try {
-      const result = await writeTransactionDirect({
-        gameId,
-        targetId: targetId || null,
-        targetUid: targetUid || null,
-        targetName,
-        actionUid: user.value?.uid || null,
-        actionName: displayName.value || 'Player',
-        amount: safeAmount,
-        type,
-        status: 'active',
-        undoneBy: null,
-        undoOf: null,
-      });
-      if (result) {
-        return { success: true, ...result, fallback: true };
-      }
-      txError.value = 'Failed to record action';
-      return null;
-    } catch (err) {
-      console.error('[useTransactions] recordAction fallback error:', err);
-      txError.value = err.message;
-      return null;
-    } finally {
-      txLoading.value = false;
-    }
+    const result = await writeTransactionDirect({
+      gameId,
+      targetId: targetId || null,
+      targetUid: targetUid || null,
+      targetName,
+      actionUid: user.value?.uid || null,
+      actionName: displayName.value || 'Player',
+      amount: 0,
+      type,
+      status: 'active',
+      undoneBy: null,
+      undoOf: null,
+    });
+    if (!result) txError.value = 'Failed to record action';
+    return result ? { success: true, ...result } : null;
   };
 
   /**
-   * Undo a previous buy-in.
-   * Tries Cloud Function first; falls back to direct Firestore transaction.
+   * Undo a previous buy-in: voids the record and moves the seat's buyIn back
+   * in one transaction.
+   * @returns {Promise<{success: true, undoTxId: string, totalBuyIn: number}|null>}
    */
   const undoBuyIn = async (txId) => {
-    txLoading.value = true;
-    txError.value = '';
-
-    // Try Cloud Function first
-    try {
-      const fn = httpsCallable(functions, 'undoBuyInTx');
-      const { data } = await fn({ txId });
-      txLoading.value = false;
-      return data;
-    } catch (cfErr) {
-      console.warn('[useTransactions] CF undoBuyIn failed, using direct write:', cfErr.message);
-    }
-
-    // Fallback: use client-side Firestore transaction
-    try {
-      const txRef = doc(db, 'transactions', txId);
-      const undoResult = await runTransaction(db, async (transaction) => {
-        const txSnap = await transaction.get(txRef);
-        if (!txSnap.exists()) throw new Error('Transaction not found');
-        const txData = txSnap.data();
-        if (txData.status !== 'active') throw new Error('Transaction already undone');
-
-        // Mark original as undone
-        transaction.update(txRef, { status: 'undone' });
-
-        // Create undo record
-        const undoRef = doc(collection(db, 'transactions'));
-        transaction.set(undoRef, {
-          gameId: txData.gameId,
-          targetId: txData.targetId || null,
-          targetUid: txData.targetUid || null,
-          targetName: txData.targetName,
-          actionUid: user.value?.uid || null,
-          actionName: displayName.value || 'Player',
-          amount: -(txData.amount || 0) || 0,
-          type: 'undo',
-          status: 'active',
-          undoneBy: null,
-          undoOf: txId,
-          timestamp: serverTimestamp(),
-        });
-
-        return { undoTxId: undoRef.id };
-      });
-      return { success: true, ...undoResult, fallback: true };
-    } catch (err) {
-      console.error('[useTransactions] undoBuyIn fallback error:', err);
-      txError.value = err.message;
-      return null;
-    } finally {
-      txLoading.value = false;
-    }
+    const gameId = resolveGameId();
+    return runLedgerOp('undoBuyIn', () => gameStore.undoLedgerTx(txId, gameId));
   };
 
   /**

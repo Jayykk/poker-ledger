@@ -52,6 +52,9 @@
 - [ ] **雙軌狀態模式文件化**：Pinia store 與 composable 各自持有 Firestore 監聽與業務邏輯
       （ledger/auth/poker 走 store；sessions/tournament clock 走 composable）——
       訂約定寫進 copilot-instructions 即可，不強制重構
+- [ ] **移除 `recordBuyInTx` / `undoBuyInTx` Cloud Functions**：2026-09-29 起前端改用
+      用戶端 transaction（`game.js` 的 `recordLedgerTx` / `undoLedgerTx`）；保留一個版本週期
+      給仍在跑舊版 PWA 快取的裝置，之後連同 `functions/src/handlers/transaction.js` 一併刪除
 
 ## 🟢 P3 — 維運（人工步驟）
 

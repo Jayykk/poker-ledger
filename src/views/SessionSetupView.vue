@@ -212,8 +212,10 @@ function isRowLocked(row) {
   return row.status === 'active' || row.status === 'done';
 }
 function addPeriod() {
+  // Periods usually share a cap — start from the previous period's.
+  const prev = form.periods[form.periods.length - 1];
   form.periods.push({
-    id: null, label: '', type: 'cash', maxPlayers: 8,
+    id: null, label: '', type: 'cash', maxPlayers: Number(prev?.maxPlayers) || 8,
     presetId: '', presetSnapshot: {}, roster: [], rosterUids: [],
     status: 'queued', gameId: null, tournamentSessionId: null,
   });

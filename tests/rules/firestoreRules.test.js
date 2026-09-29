@@ -180,6 +180,25 @@ describe('games (ledger)', () => {
     }));
   });
 
+  it('non-hosts may bump the roster rev alongside a roster write', async () => {
+    await assertSucceeds(updateDoc(doc(bobDb(), 'games', 'active-game'), {
+      players: [{ uid: BOB, name: 'Bob', buyIn: 2000 }], rev: 1,
+    }));
+  });
+
+  it('a roster transaction can write the game and its audit record together', async () => {
+    const { runTransaction } = await import('firebase/firestore');
+    const db = bobDb();
+    await assertSucceeds(runTransaction(db, async (t) => {
+      const gameRef = doc(db, 'games', 'active-game');
+      await t.get(gameRef);
+      t.update(gameRef, { players: [{ uid: BOB, name: 'Bob', buyIn: 3000 }], rev: 2 });
+      t.set(doc(collection(db, 'transactions')), {
+        gameId: 'active-game', actionUid: BOB, amount: 1000, type: 'buy_in', status: 'active',
+      });
+    }));
+  });
+
   it('non-hosts cannot touch settlement, lifecycle, or ownership fields', async () => {
     await assertFails(updateDoc(doc(bobDb(), 'games', 'active-game'), {
       status: 'completed', settlementSnapshot: [{ odId: BOB, profit: 99999 }],

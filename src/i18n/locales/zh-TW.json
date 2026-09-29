@@ -129,6 +129,7 @@
     "buyInChips": "買入籌碼",
     "settlementChips": "結算籌碼",
     "settlementPlaceholder": "請輸入",
+    "saveFailed": "儲存失敗，請再試一次",
     "buyInGroups": "組",
     "net": "淨損益",
     "addPlayer": "加入玩家",
