@@ -228,6 +228,7 @@
 </template>
 
 <script setup>
+import { recordCash } from '../utils/cashRounding.js';
 import { computed, ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
@@ -351,10 +352,7 @@ const gamesInRangeWithCash = computed(() => {
   if (gameTypeFilter.value !== 'all') {
     games = games.filter((h) => (h.type || 'live') === gameTypeFilter.value);
   }
-  return games.map((h) => {
-    const rate = h.rate || 1;
-    return { ...h, profitCash: (h.profit || 0) / rate };
-  });
+  return games.map((h) => ({ ...h, profitCash: recordCash(h) }));
 });
 
 // ── Settlement modal ─────────────────────────────────────────────

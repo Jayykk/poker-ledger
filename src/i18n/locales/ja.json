@@ -459,7 +459,12 @@
     "structure": "ストラクチャーを適用",
     "structureHint": "トーナメントクロックでブラインド/アンティを表示し、終了時刻でゲーム終了",
     "structureNone": "適用しない",
-    "structureSummary": "{levels} レベル · 合計 {duration} · {cutoff}"
+    "structureSummary": "{levels} レベル · 合計 {duration} · {cutoff}",
+    "decimals": "精算金額の桁数",
+    "decimalsHint": "四捨五入しても必ず収支が合います（端数が同じ場合は勝者の受取を減らします）",
+    "decimalsNone": "処理しない（従来どおり）",
+    "decimalsInteger": "整数",
+    "decimalsN": "小数 {n} 桁"
   },
   "tournament": {
     "presets": "ストラクチャー設定",

@@ -459,7 +459,12 @@
     "structure": "套用赛制",
     "structureHint": "用锦标赛时钟显示升盲与 Ante，赛制时间到即结束",
     "structureNone": "不套用",
-    "structureSummary": "{levels} 个级别 · 共 {duration} · {cutoff}"
+    "structureSummary": "{levels} 个级别 · 共 {duration} · {cutoff}",
+    "decimals": "结算金额位数",
+    "decimalsHint": "四舍五入后账一定平，零头平手时赢家少收",
+    "decimalsNone": "不处理（照旧）",
+    "decimalsInteger": "整数（到元）",
+    "decimalsN": "小数 {n} 位"
   },
   "tournament": {
     "presets": "赛制设定",

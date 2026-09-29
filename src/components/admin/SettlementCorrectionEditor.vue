@@ -189,6 +189,7 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { formatNumber } from '../../utils/formatters.js';
+import { normalizeCashDecimals, withCashAmounts } from '../../utils/cashRounding.js';
 
 const props = defineProps({
   /** Loaded game document (read-only; used for baseBuyIn, players and sync error display) */
@@ -347,9 +348,19 @@ function getPlayerProfit(player) {
   return roundChipAmount(player.stack) - getPlayerBuyIn(player);
 }
 
-function getPlayerProfitCash(player) {
+// Cash preview for the corrected rows: the game's rounding (balanced, see
+// cashRounding.js) when it has one, otherwise whole units like before.
+const correctionCash = computed(() => {
   const rate = Number(props.correctionForm.rate) || 1;
-  return Math.round(getPlayerProfit(player) / rate);
+  const decimals = normalizeCashDecimals(props.game?.cashDecimals);
+  const rows = (props.correctionForm.players || []).map((p) => ({ profit: getPlayerProfit(p) }));
+  return withCashAmounts(rows, rate, decimals)
+    .map((r) => (decimals === null ? Math.round(r.profit / rate) : r.cash));
+});
+
+function getPlayerProfitCash(player) {
+  const index = (props.correctionForm.players || []).indexOf(player);
+  return correctionCash.value[index] ?? 0;
 }
 
 function getPlayerPrize(player) {

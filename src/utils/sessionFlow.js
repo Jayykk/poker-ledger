@@ -9,6 +9,7 @@
  * be unit-tested directly; the components/composables just act on what these
  * return.
  */
+import { rowCash } from './cashRounding.js';
 
 // ── Role ─────────────────────────────────────────────────────────────
 
@@ -172,7 +173,7 @@ export function aggregateSessionSummary(tableGames = []) {
     for (const p of rows) {
       const key = p.odId || p.name;
       if (!key) continue;
-      const cashProfit = (Number(p.profit) || 0) / rate;
+      const cashProfit = rowCash(p, rate);
       const cashBuyIn = (Number(p.buyIn) || 0) / rate;
       tableBuyIn += cashBuyIn;
 

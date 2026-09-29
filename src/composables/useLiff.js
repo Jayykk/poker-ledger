@@ -1,6 +1,7 @@
 import { ref, readonly } from 'vue';
 import liff from '@line/liff';
 import { STORAGE_KEYS } from '../utils/constants.js';
+import { rowCash, formatCashAmount } from '../utils/cashRounding.js';
 
 const LIFF_ID = import.meta.env.VITE_LIFF_ID || '';
 // LINE Flex Message altText is limited; truncate settlement reports for the preview
@@ -343,7 +344,7 @@ const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId,
  * Send single-game settlement report to the current LINE chat (Flex Message).
  * Structured layout matching daily settlement style.
  */
-const sendSettlementMessage = async ({ gameName, gameId, rate, players }) => {
+const sendSettlementMessage = async ({ gameName, gameId, rate, players, cashDecimals = null }) => {
   if (!lineNotifyEnabled.value) return false;
 
   const totalBuyInCash = Math.round((players || []).reduce((s, p) => s + p.buyIn, 0) / (rate || 1));
@@ -354,7 +355,10 @@ const sendSettlementMessage = async ({ gameName, gameId, rate, players }) => {
   // Player rows sorted by profit descending
   const sorted = [...(players || [])].sort((a, b) => (b.profit ?? 0) - (a.profit ?? 0));
   const playerRows = sorted.slice(0, 20).map((p) => {
-    const cash = Math.round((p.profit ?? 0) / (rate || 1));
+    // Rounded settlements carry the balanced cash result; legacy ones are
+    // chips / rate, shown as whole units like before.
+    const cash = cashDecimals === null ? Math.round(rowCash(p, rate)) : rowCash(p, rate);
+    const cashText = cashDecimals === null ? cash.toLocaleString() : formatCashAmount(cash, cashDecimals);
     return {
       type: 'box',
       layout: 'horizontal',
@@ -362,7 +366,7 @@ const sendSettlementMessage = async ({ gameName, gameId, rate, players }) => {
         { type: 'text', text: p.name || '???', size: 'sm', color: '#555555', flex: 3 },
         {
           type: 'text',
-          text: `${cash > 0 ? '+' : ''}$${cash.toLocaleString()}`,
+          text: `${cash > 0 ? '+' : ''}${cashText}`,
           size: 'sm',
           color: cash >= 0 ? '#1DB446' : '#FF4444',
           align: 'end',

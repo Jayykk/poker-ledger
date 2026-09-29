@@ -1,6 +1,7 @@
 // Export utilities for reports
 
 import { formatDate, formatCash, calculateNet, formatNumber } from './formatters.js';
+import { normalizeCashDecimals, withCashAmounts, formatCashAmount, recordCash } from './cashRounding.js';
 
 /**
  * Calculate minimum cash flow transfers
@@ -64,6 +65,9 @@ const calculateMinimumTransfers = (players) => {
 export const generateTextReport = (game, rate = 10, options = {}) => {
   if (!game) return '';
   const { includeTransfers = true } = options;
+  // Rounded settlement (see cashRounding.js): amounts are the balanced cash
+  // figures; unset keeps the legacy chips / rate formatting.
+  const decimals = normalizeCashDecimals(options.cashDecimals);
   
   const gap = game.players.reduce((sum, p) => sum + (p.stack || 0), 0) -
               game.players.reduce((sum, p) => sum + (p.buyIn || 0), 0);
@@ -74,9 +78,15 @@ export const generateTextReport = (game, rate = 10, options = {}) => {
   text += `---\n`;
   
   const sortedPlayers = [...game.players].sort((a, b) => calculateNet(b) - calculateNet(a));
-  sortedPlayers.forEach(p => {
+  const cashByPlayer = withCashAmounts(
+    sortedPlayers.map((p) => ({ profit: calculateNet(p) })), rate, decimals,
+  );
+  sortedPlayers.forEach((p, i) => {
     const net = calculateNet(p);
-    text += `${p.name}: ${net > 0 ? '+' : ''}${formatCash(net, rate)}\n`;
+    const amount = decimals === null
+      ? formatCash(net, rate)
+      : formatCashAmount(cashByPlayer[i].cash, decimals);
+    text += `${p.name}: ${net > 0 ? '+' : ''}${amount}\n`;
   });
   
   if (gap !== 0) {
@@ -85,11 +95,22 @@ export const generateTextReport = (game, rate = 10, options = {}) => {
   
   // Add minimum transfer suggestions
   if (includeTransfers) {
-    const transfers = calculateMinimumTransfers(game.players);
+    // Rounded: settle the balanced cash figures in whole units of the last
+    // decimal place (integers, so the greedy matching never drifts).
+    const unit = decimals === null ? 1 : 10 ** decimals;
+    const transferInput = decimals === null
+      ? game.players
+      : sortedPlayers.map((p, i) => ({
+        name: p.name, buyIn: 0, stack: Math.round(cashByPlayer[i].cash * unit),
+      }));
+    const transfers = calculateMinimumTransfers(transferInput);
     if (transfers.length > 0) {
       text += `---\n=== 轉帳建議 ===\n`;
       transfers.forEach(t => {
-        text += `${t.from} → ${t.to}: ${formatCash(t.amount, rate)}\n`;
+        const amount = decimals === null
+          ? formatCash(t.amount, rate)
+          : formatCashAmount(t.amount / unit, decimals);
+        text += `${t.from} → ${t.to}: ${amount}\n`;
       });
     }
   }
@@ -112,7 +133,7 @@ export const generateCSV = (history) => {
     const name = (record.gameName || '未命名').replace(/,/g, '');
     const profit = record.profit || 0;
     const rate = record.rate || 1;
-    const cash = formatCash(profit, rate);
+    const cash = formatCashAmount(recordCash(record), record.cashDecimals);
     
     csv += `${date},${name},${profit},${rate},${cash}\n`;
   });

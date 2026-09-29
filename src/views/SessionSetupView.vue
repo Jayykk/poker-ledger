@@ -300,6 +300,7 @@ function onPresetSelect(row) {
       name: s.name || '', buyIn: Number(s.buyIn) || 0, rate: Number(s.rate) || 1,
       // Blind structure (timed game) — createTableRoom starts a clock for it
       structure: s.structure || null,
+      cashDecimals: s.cashDecimals ?? null,
     };
   }
 }

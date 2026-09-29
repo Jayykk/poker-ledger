@@ -67,6 +67,20 @@
         </div>
       </div>
 
+      <!-- Settlement rounding (zero-sum, see utils/cashRounding.js) -->
+      <div class="space-y-2">
+        <label class="text-sm font-bold text-gray-300">
+          {{ $t('cashPreset.decimals') }}
+          <span class="text-xs text-gray-500 font-normal ml-2">{{ $t('cashPreset.decimalsHint') }}</span>
+        </label>
+        <select
+          v-model="form.cashDecimals"
+          class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"
+        >
+          <option v-for="d in CASH_DECIMAL_OPTIONS" :key="String(d)" :value="d">{{ decimalsLabel(d) }}</option>
+        </select>
+      </div>
+
       <!-- Blind structure (optional): drives the clock, cutoff and end time -->
       <div class="space-y-2">
         <label class="text-sm font-bold text-gray-300">
@@ -117,6 +131,7 @@ import BaseButton from '../components/common/BaseButton.vue';
 import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from '../utils/constants.js';
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
 import { snapshotStructure, withTimedCutoff, totalStructureSeconds, formatDuration } from '../utils/timedStructure.js';
+import { CASH_DECIMAL_OPTIONS, normalizeCashDecimals } from '../utils/cashRounding.js';
 
 const router = useRouter();
 const route = useRoute();
@@ -132,8 +147,14 @@ const form = ref({
   name: '',
   buyIn: DEFAULT_BUY_IN,
   rate: 1,
+  cashDecimals: null,
   structure: null,
 });
+
+function decimalsLabel(d) {
+  if (d === null) return t('cashPreset.decimalsNone');
+  return d === 0 ? t('cashPreset.decimalsInteger') : t('cashPreset.decimalsN', { n: d });
+}
 
 // ── Blind structure ────────────────────────────────────
 // The preset stores a snapshot of the chosen structure (see snapshotStructure).
@@ -227,6 +248,7 @@ onMounted(() => {
         name: found.name || '',
         buyIn: found.buyIn || DEFAULT_BUY_IN,
         rate: found.rate || 1,
+        cashDecimals: normalizeCashDecimals(found.cashDecimals),
         structure: found.structure || null,
       };
       structureChoice.value = choiceFor(form.value.structure);
@@ -260,6 +282,7 @@ async function handleSave() {
         name: form.value.name.trim(),
         buyIn: Number(form.value.buyIn),
         rate: Number(form.value.rate),
+        cashDecimals: normalizeCashDecimals(form.value.cashDecimals),
         // Re-snapshotted on every save so edits to the source structure are
         // picked up; null clears it (setDoc merge overwrites the field).
         structure: selectedStructure(),

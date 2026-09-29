@@ -191,16 +191,25 @@
         <span class="text-gray-400 text-sm">{{ $t('game.exchangeRate') }}</span>
         <BaseInput v-model.number="exchangeRate" type="number" class="w-20 text-center" />
       </div>
+      <div class="flex justify-between items-center bg-slate-900 p-3 rounded mb-4 gap-3">
+        <span class="text-gray-400 text-sm">{{ $t('cashPreset.decimals') }}</span>
+        <select
+          v-model="settleDecimals"
+          class="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white text-sm"
+        >
+          <option v-for="d in CASH_DECIMAL_OPTIONS" :key="String(d)" :value="d">{{ decimalsLabel(d) }}</option>
+        </select>
+      </div>
       
       <div class="space-y-2 mb-4 max-h-60 overflow-y-auto">
         <div
-          v-for="p in sortedPlayers"
+          v-for="p in settlementPreview"
           :key="p.id"
           class="flex justify-between text-sm py-1 border-b border-slate-700"
         >
           <span class="text-white">{{ p.name }}</span>
-          <span :class="calculateNet(p) >= 0 ? 'text-emerald-400' : 'text-rose-400'">
-            {{ formatCash(calculateNet(p), exchangeRate) }}
+          <span :class="p.cash >= 0 ? 'text-emerald-400' : 'text-rose-400'">
+            {{ formatCashAmount(p.cash, settleDecimals) }}
           </span>
         </div>
       </div>
@@ -252,6 +261,9 @@ import { useLoading } from '../composables/useLoading.js';
 import { useUserStore } from '../store/modules/user.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { BUY_IN_CLOSED } from '../utils/timedStructure.js';
+import {
+  CASH_DECIMAL_OPTIONS, normalizeCashDecimals, withCashAmounts, rowCash, formatCashAmount,
+} from '../utils/cashRounding.js';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
@@ -261,7 +273,7 @@ import TransactionLog from '../components/game/TransactionLog.vue';
 import HandRecordSheet from '../components/game/HandRecordSheet.vue';
 import HandHistoryList from '../components/game/HandHistoryList.vue';
 import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
-import { formatNumber, formatSignedNumber, formatCash, calculateNet } from '../utils/formatters.js';
+import { formatNumber, formatSignedNumber, calculateNet } from '../utils/formatters.js';
 import { generateTextReport } from '../utils/exportReport.js';
 import { DEFAULT_EXCHANGE_RATE, DEFAULT_BUY_IN } from '../utils/constants.js';
 import { consumeSessionReturn } from '../utils/sessionReturn.js';
@@ -425,6 +437,25 @@ watch(() => showSettlement.value, (isOpen) => {
   if (isOpen && game.value?.rate) {
     exchangeRate.value = game.value.rate;
   }
+  if (isOpen) settleDecimals.value = normalizeCashDecimals(game.value?.cashDecimals);
+});
+
+// Settlement rounding (decimal places) — defaults to the game's preset
+// setting, changeable here. The preview uses the same zero-sum rounding the
+// settlement Cloud Function applies, so what the host sees is what's saved.
+const settleDecimals = ref(null);
+
+function decimalsLabel(d) {
+  if (d === null) return t('cashPreset.decimalsNone');
+  return d === 0 ? t('cashPreset.decimalsInteger') : t('cashPreset.decimalsN', { n: d });
+}
+
+const settlementPreview = computed(() => {
+  if (!game.value) return [];
+  const rows = game.value.players.map((p) => ({ id: p.id, name: p.name, profit: calculateNet(p) }));
+  return withCashAmounts(rows, exchangeRate.value, settleDecimals.value)
+    .map((row) => ({ ...row, cash: rowCash(row, exchangeRate.value) }))
+    .sort((a, b) => b.cash - a.cash);
 });
 
 const sortedPlayers = computed(() => {
@@ -613,7 +644,7 @@ const handleCopyId = async () => {
 };
 
 const handleCopyReport = async () => {
-  const report = generateTextReport(game.value, exchangeRate.value);
+  const report = generateTextReport(game.value, exchangeRate.value, { cashDecimals: settleDecimals.value });
   await copyWithNotification(report, t('game.copyReport'));
 };
 
@@ -628,7 +659,7 @@ const handleSettle = async () => {
   });
   if (shouldSettle) {
     const settleResult = await withLoading(
-      () => settleGame(exchangeRate.value),
+      () => settleGame(exchangeRate.value, settleDecimals.value),
       t('loading.settling'),
     );
     if (!settleResult?.success) {

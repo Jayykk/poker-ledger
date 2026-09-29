@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getFirestore } from '../utils/db.js';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { roundNumber, toMillis } from '../utils/numbers.js';
+import { normalizeCashDecimals } from '../utils/cashRounding.js';
 import { recomputeLeaderboardStatsForUser } from './leaderboardStats.js';
 import { deriveTournamentEntryMetrics } from '../utils/tournamentSettlementMath.js';
 
@@ -74,6 +75,9 @@ function normalizeSettlementRow(row) {
     prize: roundNumber(row.prize),
     profit: roundNumber(row.profit),
   };
+  // Rounded cash result (settlements with cashDecimals) — currency, may have
+  // decimals, so it must not go through roundNumber.
+  if (Number.isFinite(row.cash)) normalized.cash = Number(row.cash.toFixed(2));
   if (Number.isInteger(row.entryCount)) normalized.entryCount = row.entryCount;
   if (Number.isInteger(row.rebuyCount)) normalized.rebuyCount = row.rebuyCount;
   return normalized;
@@ -230,6 +234,10 @@ export function buildUserProjectionDocs(gameId, game) {
         completedAt: roundNumber(completedAt),
         profit: roundNumber(row.profit),
         rate,
+        // Rounded cash result when the game settled with cashDecimals;
+        // readers fall back to profit / rate without it.
+        ...(Number.isFinite(row.cash) ? { profitCash: row.cash } : {}),
+        cashDecimals: normalizeCashDecimals(game.cashDecimals),
         baseBuyIn: roundNumber(game.baseBuyIn),
         placement: row.placement ?? null,
         settlement,

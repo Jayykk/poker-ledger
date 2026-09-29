@@ -76,10 +76,10 @@ const TASK_HTTP_OPTS = { cors: true, region: FUNCTIONS_REGION };
 
 export const settleCashGame = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
-  const { gameId, exchangeRate } = request.data || {};
+  const { gameId, exchangeRate, cashDecimals } = request.data || {};
   if (!gameId) throw new HttpsError('invalid-argument', 'Missing gameId');
   return settleCashGameHandler({
-    gameId, callerUid: request.auth.uid, exchangeRate, db: getFirestore(),
+    gameId, callerUid: request.auth.uid, exchangeRate, cashDecimals, db: getFirestore(),
   });
 });
 

@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue';
+import { recordCash, rowCash } from '../utils/cashRounding.js';
 import { useUserStore } from '../store/modules/user.js';
 import { useAuthStore } from '../store/modules/auth.js';
 
@@ -70,7 +71,7 @@ export function useDailyReport() {
 
   /** Total profit converted to cash (chips / rate per game) */
   const totalProfitCash = computed(() =>
-    selectedGames.value.reduce((sum, h) => sum + ((h.profit || 0) / (h.rate || 1)), 0)
+    selectedGames.value.reduce((sum, h) => sum + recordCash(h), 0)
   );
 
   const totalGames = computed(() => selectedGames.value.length);
@@ -119,7 +120,7 @@ export function useDailyReport() {
           || h.settlement.find((p) => p.profit === h.profit));
       return {
         ...h,
-        profitCash: (h.profit || 0) / rate,
+        profitCash: recordCash(h),
         buyInCash: me ? me.buyIn / rate : 0,
         stackCash: me ? (me.stack || 0) / rate : 0,
       };
@@ -139,7 +140,7 @@ export function useDailyReport() {
         const key = p.odId || p.name;
         if (!key) continue;
 
-        const cashProfit = (p.profit || 0) / rate;
+        const cashProfit = rowCash(p, rate);
         const existing = map.get(key);
         if (existing) {
           existing.profitCash += cashProfit;

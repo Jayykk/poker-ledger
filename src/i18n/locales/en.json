@@ -459,7 +459,12 @@
     "structure": "Blind structure",
     "structureHint": "Show blinds / ante on the tournament clock; the game ends when the structure does",
     "structureNone": "None",
-    "structureSummary": "{levels} levels · {duration} total · {cutoff}"
+    "structureSummary": "{levels} levels · {duration} total · {cutoff}",
+    "decimals": "Settlement rounding",
+    "decimalsHint": "Rounded amounts always balance; on a tie the winner receives less",
+    "decimalsNone": "None (as before)",
+    "decimalsInteger": "Whole units",
+    "decimalsN": "{n} decimal places"
   },
   "tournament": {
     "presets": "Structures",

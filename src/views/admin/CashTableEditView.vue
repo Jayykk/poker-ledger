@@ -473,7 +473,12 @@ async function handleSettlementCorrection(payload) {
 
     const result = showTournamentSettlementEditor.value
       ? await saveTournamentSettlementCorrection(gameId.value, payload, before, correctionReason.value)
-      : await saveSettlementCorrection(gameId.value, payload, before, correctionReason.value);
+      : await saveSettlementCorrection(
+        gameId.value,
+        { ...payload, cashDecimals: game.value?.cashDecimals ?? null },
+        before,
+        correctionReason.value,
+      );
     game.value = {
       ...game.value,
       players: result.players,

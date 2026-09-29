@@ -399,6 +399,7 @@ export function useSessions() {
     }
     const gameId = await gameStore.createGame(name, buyIn, GAME_TYPE.LIVE, {
       rate: snapshot.rate,
+      cashDecimals: snapshot.cashDecimals,
       tournamentSessionId,
     });
     if (gameId && tournamentSessionId) {

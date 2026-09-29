@@ -802,6 +802,10 @@ const handleCreateGame = async () => {
       if (Number.isFinite(rateNum) && rateNum > 0) {
         options.rate = rateNum;
       }
+      // Settlement rounding from the preset (custom games choose at settle time)
+      if (selectedGameType.value === 'cash' && selectedCashPreset.value) {
+        options.cashDecimals = selectedCashPreset.value.cashDecimals ?? null;
+      }
       // Preset with a blind structure → timed game: linked clock that ends
       // with the structure (settlement stays stack − buy-in).
       const structure = selectedGameType.value === 'cash' ? selectedCashPreset.value?.structure : null;

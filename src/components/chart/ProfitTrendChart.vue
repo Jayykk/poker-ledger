@@ -49,6 +49,7 @@
 </template>
 
 <script setup>
+import { recordCash } from '../../utils/cashRounding.js';
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useChart } from '../../composables/useChart.js';
@@ -103,7 +104,7 @@ const chartData = computed(() => {
   const chronological = [...history].reverse();
   let accumulated = 0;
   const data = chronological.map(h => {
-    accumulated += h.profit / (h.rate || 1);
+    accumulated += recordCash(h);
     return Math.round(accumulated);
   });
 

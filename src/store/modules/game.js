@@ -23,6 +23,7 @@ import { useAuthStore } from './auth.js';
 import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';
 import { timestampToMillis } from '../../utils/formatters.js';
 import { applyPlayerChange, isSnapshotCurrent } from '../../utils/ledgerOps.js';
+import { normalizeCashDecimals } from '../../utils/cashRounding.js';
 import { BUY_IN_CLOSED, isTimedClock, isTimedBuyInClosed } from '../../utils/timedStructure.js';
 import { tournamentSettlementErrorKey } from '../../utils/tournamentSettlementErrors.js';
 import { cashSettlementErrorKey } from '../../utils/cashSettlementErrors.js';
@@ -151,6 +152,9 @@ export const useGameStore = defineStore('game', () => {
         if (Number.isFinite(rateNum) && rateNum > 0) {
           gameData.rate = rateNum;
         }
+        // Settlement rounding (0 / 1 / 2 decimals) from the cash preset.
+        const cashDecimals = normalizeCashDecimals(options.cashDecimals);
+        if (cashDecimals !== null) gameData.cashDecimals = cashDecimals;
         // Timed game (限時賽 with a blind structure): linked clock session.
         if (options.tournamentSessionId) {
           gameData.tournamentSessionId = options.tournamentSessionId;
@@ -600,7 +604,12 @@ export const useGameStore = defineStore('game', () => {
   /**
    * Settle game
    */
-  const settleGame = async (exchangeRate = 10) => {
+  /**
+   * @param {number} exchangeRate
+   * @param {?number} [cashDecimals] - rounding places chosen in the dialog
+   *   (null = none); omitted → the game's own setting
+   */
+  const settleGame = async (exchangeRate = 10, cashDecimals) => {
     if (!gameId.value) return false;
     
     loading.value = true;
@@ -609,6 +618,7 @@ export const useGameStore = defineStore('game', () => {
       const response = await callable({
         gameId: gameId.value,
         exchangeRate: Number(exchangeRate),
+        ...(cashDecimals !== undefined ? { cashDecimals: normalizeCashDecimals(cashDecimals) } : {}),
       });
       return response.data;
     } catch (err) {
