@@ -791,6 +791,8 @@
     "joinClosed": "Buy-ins are closed for this table",
     "cutoff": "Buy-ins close at Level {level}",
     "noCutoff": "No buy-in cutoff",
-    "players": "Players"
+    "players": "Players",
+    "cutoffLabel": "Buy-in cutoff",
+    "followStructure": "Per structure (Level {level})"
   }
 }

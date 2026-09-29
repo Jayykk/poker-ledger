@@ -9,6 +9,7 @@ import {
   isTimedBuyInClosed,
   formatDuration,
   snapshotStructure,
+  withTimedCutoff,
   buildTimedClockConfig,
 } from '../src/utils/timedStructure.js';
 
@@ -153,5 +154,27 @@ describe('snapshotStructure / buildTimedClockConfig', () => {
     const cfg = buildTimedClockConfig({ name: 'Friday', buyIn: 1000, structure: snapshotStructure({ levels, reentryUntilLevel: 0 }, 'S') });
     expect(cfg).toMatchObject({ mode: CLOCK_MODE_TIMED, name: 'Friday', buyIn: 1000, reentryUntilLevel: 0, payoutRatios: [], maxReentries: 0 });
     expect(cfg.levels).toHaveLength(4);
+  });
+});
+
+describe('withTimedCutoff', () => {
+  const snap = snapshotStructure({ id: 's', levels, reentryUntilLevel: 3 }, 'S');
+
+  it('keeps the structure cutoff by default', () => {
+    expect(withTimedCutoff(snap, false)).toMatchObject({ reentryUntilLevel: 3, sourceCutoff: 3, noCutoff: false });
+  });
+
+  it('drops the cutoff when the preset opts out (only time-up closes buy-ins)', () => {
+    const noCut = withTimedCutoff(snap, true);
+    expect(noCut).toMatchObject({ reentryUntilLevel: 0, sourceCutoff: 3, noCutoff: true });
+    expect(isTimedBuyInClosed({ config: { levels, reentryUntilLevel: noCut.reentryUntilLevel }, state: running() }, at(1500))).toBe(false);
+  });
+
+  it('can flip a stored no-cutoff snapshot back to the structure level', () => {
+    expect(withTimedCutoff(withTimedCutoff(snap, true), false).reentryUntilLevel).toBe(3);
+  });
+
+  it('passes null through', () => {
+    expect(withTimedCutoff(null, true)).toBeNull();
   });
 });

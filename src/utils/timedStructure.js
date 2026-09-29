@@ -177,6 +177,29 @@ export function snapshotStructure(source, name) {
 }
 
 /**
+ * Apply the timed preset's own cutoff choice to a structure snapshot.
+ *
+ * The structure's reentryUntilLevel can't express "no cutoff" for timed games
+ * — for tournaments 0 means "no re-entry at all", and templates always carry
+ * one — so the preset decides: noCutoff drops it (0 = only time-up closes
+ * buy-ins); otherwise the structure's own level applies. sourceCutoff keeps
+ * the structure's level so the choice can be flipped back later.
+ *
+ * @param {object|null} snapshot - from snapshotStructure (or a stored one)
+ * @param {boolean} noCutoff
+ */
+export function withTimedCutoff(snapshot, noCutoff) {
+  if (!snapshot) return null;
+  const sourceCutoff = Number(snapshot.sourceCutoff ?? snapshot.reentryUntilLevel) || 0;
+  return {
+    ...snapshot,
+    sourceCutoff,
+    noCutoff: Boolean(noCutoff),
+    reentryUntilLevel: noCutoff ? 0 : sourceCutoff,
+  };
+}
+
+/**
  * useTournamentClock().createSession() config for a timed game.
  * @param {{name: string, buyIn: number, structure: object}} params
  */

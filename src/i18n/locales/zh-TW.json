@@ -791,6 +791,8 @@
     "joinClosed": "這桌已截買，無法再加入",
     "cutoff": "截買 Level {level}",
     "noCutoff": "不截買",
-    "players": "玩家人數"
+    "players": "玩家人數",
+    "cutoffLabel": "截買",
+    "followStructure": "依賽制（Level {level}）"
   }
 }

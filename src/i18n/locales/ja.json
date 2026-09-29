@@ -791,6 +791,8 @@
     "joinClosed": "このテーブルはバイイン受付を終了しました",
     "cutoff": "Level {level} でバイイン締切",
     "noCutoff": "バイイン締切なし",
-    "players": "プレイヤー数"
+    "players": "プレイヤー数",
+    "cutoffLabel": "バイイン締切",
+    "followStructure": "ストラクチャー通り（Level {level}）"
   }
 }

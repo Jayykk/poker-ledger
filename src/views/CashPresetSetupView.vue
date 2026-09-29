@@ -86,6 +86,17 @@
             <option v-for="tmpl in TOURNAMENT_TEMPLATES" :key="tmpl.id" :value="`builtin:${tmpl.id}`">{{ $t(tmpl.nameKey) }}</option>
           </optgroup>
         </select>
+        <!-- Timed games decide the cutoff themselves (see withTimedCutoff) -->
+        <div v-if="structureCutoff > 0" class="flex items-center gap-2">
+          <span class="text-sm text-gray-300 flex-shrink-0">{{ $t('timed.cutoffLabel') }}</span>
+          <select
+            v-model="noCutoff"
+            class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"
+          >
+            <option :value="false">{{ $t('timed.followStructure', { level: structureCutoff }) }}</option>
+            <option :value="true">{{ $t('timed.noCutoff') }}</option>
+          </select>
+        </div>
         <div v-if="structurePreview" class="text-xs text-gray-400 bg-slate-800/60 rounded-lg px-3 py-2">
           {{ $t('cashPreset.structureSummary', structurePreview) }}
         </div>
@@ -105,7 +116,7 @@ import BaseInput from '../components/common/BaseInput.vue';
 import BaseButton from '../components/common/BaseButton.vue';
 import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP } from '../utils/constants.js';
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
-import { snapshotStructure, totalStructureSeconds, formatDuration } from '../utils/timedStructure.js';
+import { snapshotStructure, withTimedCutoff, totalStructureSeconds, formatDuration } from '../utils/timedStructure.js';
 
 const router = useRouter();
 const route = useRoute();
@@ -132,6 +143,8 @@ const form = ref({
 const CURRENT_SNAPSHOT = '__current';
 const userStructures = ref([]);
 const structureChoice = ref('');
+// true = no buy-in cutoff for this preset (only time-up closes buy-ins)
+const noCutoff = ref(false);
 
 function choiceFor(structure) {
   if (!structure) return '';
@@ -145,8 +158,8 @@ const keepsOrphanSnapshot = computed(() =>
   Boolean(form.value.structure) && choiceFor(form.value.structure) === CURRENT_SNAPSHOT
 );
 
-/** Structure snapshot for the current choice (null = none). */
-function selectedStructure() {
+/** Raw snapshot of the chosen structure, before the cutoff choice. */
+function baseStructure() {
   const choice = structureChoice.value;
   if (!choice) return null;
   if (choice === CURRENT_SNAPSHOT) return form.value.structure;
@@ -158,6 +171,17 @@ function selectedStructure() {
   const tmpl = TOURNAMENT_TEMPLATES.find((x) => x.id === id);
   return tmpl ? snapshotStructure(tmpl, t(tmpl.nameKey)) : null;
 }
+
+/** Structure snapshot to store (null = none), with this preset's cutoff choice. */
+function selectedStructure() {
+  return withTimedCutoff(baseStructure(), noCutoff.value);
+}
+
+/** The chosen structure's own cutoff level (0 = it has none). */
+const structureCutoff = computed(() => {
+  const base = baseStructure();
+  return base ? Number(base.sourceCutoff ?? base.reentryUntilLevel) || 0 : 0;
+});
 
 const structurePreview = computed(() => {
   const s = selectedStructure();
@@ -206,6 +230,7 @@ onMounted(() => {
         structure: found.structure || null,
       };
       structureChoice.value = choiceFor(form.value.structure);
+      noCutoff.value = Boolean(found.structure?.noCutoff);
     }
   });
 });
