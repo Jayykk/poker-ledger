@@ -115,7 +115,7 @@
               class="text-lg font-mono font-bold"
               :class="record.profitCash >= 0 ? 'text-emerald-400' : 'text-rose-400'"
             >
-              {{ record.profitCash > 0 ? '+' : '' }}${{ formatCash(record.profit, record.rate || 1) }}
+              {{ record.profitCash > 0 ? '+' : '' }}${{ formatCashAmount(record.profitCash, record.cashDecimals) }}
             </div>
           </div>
         </div>
@@ -147,6 +147,7 @@
 </template>
 
 <script setup>
+import { recordCash, formatCashAmount } from '../utils/cashRounding.js';
 import { computed, ref, watch, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -158,7 +159,7 @@ import BaseCard from '../components/common/BaseCard.vue';
 import SettlementDetailModal from '../components/common/SettlementDetailModal.vue';
 import ProfitTrendChart from '../components/chart/ProfitTrendChart.vue';
 import WinRateChart from '../components/chart/WinRateChart.vue';
-import { formatNumber, formatDate, formatCash } from '../utils/formatters.js';
+import { formatNumber, formatDate } from '../utils/formatters.js';
 import { exportHistoryToCSV } from '../utils/exportReport.js';
 import { CHART_COLORS } from '../utils/constants.js';
 
@@ -194,7 +195,7 @@ const recentRecords = computed(() => {
   // Format with date strings
   return sorted.map(h => ({
     ...h,
-    profitCash: (h.profit || 0) / (h.rate || 1),
+    profitCash: recordCash(h),
     dateStr: formatDate(h.createdAt || h.date)
   }));
 });

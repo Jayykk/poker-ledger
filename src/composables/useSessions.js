@@ -26,6 +26,7 @@ import { useGameStore } from '../store/modules/game.js';
 import { useTournamentClock } from './useTournamentClock.js';
 import { GAME_TYPE, GAME_STATUS } from '../utils/constants.js';
 import { defaultSessionName, aggregateSessionSummary } from '../utils/sessionFlow.js';
+import { buildTimedClockConfig } from '../utils/timedStructure.js';
 
 // Live/scheduling events float to the top of the "my events" list; finished
 // ones sink. Within a status group, newest first.
@@ -389,8 +390,23 @@ export function useSessions() {
       if (gameId) await updateDoc(doc(db, 'tournamentSessions', tournamentSessionId), { gameId });
       return { gameId, tournamentSessionId };
     }
-    const gameId = await gameStore.createGame(name, buyIn, GAME_TYPE.LIVE, { rate: snapshot.rate });
-    return { gameId, tournamentSessionId: null };
+    // Cash preset with a blind structure → timed game with its own clock.
+    let tournamentSessionId = null;
+    if (snapshot.structure) {
+      tournamentSessionId = await clock.createSession(
+        buildTimedClockConfig({ name, buyIn, structure: snapshot.structure })
+      );
+    }
+    const gameId = await gameStore.createGame(name, buyIn, GAME_TYPE.LIVE, {
+      rate: snapshot.rate,
+      buyInAmount: snapshot.buyInAmount,
+      cashDecimals: snapshot.cashDecimals,
+      tournamentSessionId,
+    });
+    if (gameId && tournamentSessionId) {
+      await updateDoc(doc(db, 'tournamentSessions', tournamentSessionId), { gameId });
+    }
+    return { gameId, tournamentSessionId };
   }
 
   /** Seat everyone signed up for this period (host is already seated; dedup by uid). */
@@ -503,7 +519,14 @@ export function useSessions() {
       const snap = await getDoc(doc(db, 'games', e.gameId));
       if (!snap.exists()) return null;
       const g = snap.data();
-      return { name: e.label || g.name || '', kind: e.type, rate: g.rate || 1, settlementSnapshot: g.settlementSnapshot };
+      return {
+        name: e.label || g.name || '',
+        kind: e.type,
+        rate: g.rate || 1,
+        // Settlement rounding precision — the summary formats totals with it.
+        cashDecimals: g.cashDecimals ?? null,
+        settlementSnapshot: g.settlementSnapshot,
+      };
     }));
     return aggregateSessionSummary(games.filter(Boolean));
   }

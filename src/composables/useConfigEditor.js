@@ -16,6 +16,7 @@ import { db, functions } from '../firebase-init.js';
 import { useAuthStore } from '../store/modules/auth.js';
 import { createSyncRequestToken } from '../utils/historyProjection.js';
 import { buildCashSettlement } from '../utils/settlementMath.js';
+import { normalizeCashDecimals, withCashAmounts } from '../utils/cashRounding.js';
 
 /**
  * Composable for saving game / tournament config with version history.
@@ -172,7 +173,12 @@ export function useConfigEditor() {
       const gameRef = doc(db, 'games', gameId);
       const nowMs = Date.now();
       const syncToken = createSyncRequestToken('correction');
-      const settlementSnapshot = buildCashSettlement(correctedPlayers);
+      // Re-apply the game's settlement rounding so corrected rows balance too.
+      const settlementSnapshot = withCashAmounts(
+        buildCashSettlement(correctedPlayers),
+        exchangeRate,
+        normalizeCashDecimals(correction?.cashDecimals),
+      );
 
       await updateDoc(gameRef, {
         players: correctedPlayers,
@@ -202,6 +208,7 @@ export function useConfigEditor() {
       return {
         rate: exchangeRate,
         players: correctedPlayers,
+        settlementSnapshot,
         syncToken,
       };
     } catch (err) {

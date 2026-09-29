@@ -27,6 +27,33 @@
       </div>
     </div>
 
+    <!-- Timed game (structure applied): live level / countdown strip -->
+    <button
+      v-if="clockIsTimed"
+      type="button"
+      class="w-full mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs flex items-center justify-between gap-2 text-left"
+      @click="$router.push(`/tournament-clock/${game.tournamentSessionId}`)"
+    >
+      <span class="text-amber-300 font-semibold">
+        <template v-if="clockIsBreak">☕ {{ $t('tournament.breakTime') }}</template>
+        <template v-else>
+          {{ $t('tournament.level') }} {{ clockLevel }} ·
+          {{ formatNumber(clockBlinds.small) }}/{{ formatNumber(clockBlinds.big) }}<span v-if="clockBlinds.ante"> ({{ formatNumber(clockBlinds.ante) }})</span>
+        </template>
+      </span>
+      <span v-if="clockStatus === 'ended'" class="text-rose-300 font-semibold">{{ $t('timed.timeUp') }}</span>
+      <span v-else-if="clockStatus === 'waiting'" class="text-gray-400">{{ $t('tournament.waitingToStart') }}</span>
+      <span v-else class="text-gray-300">
+        {{ $t('timed.timeToEnd') }} <span class="font-mono text-white">{{ clockTimeToEnd }}</span>
+      </span>
+    </button>
+    <div
+      v-if="timedBuyInClosed"
+      class="mb-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs text-rose-200"
+    >
+      <i class="fas fa-lock mr-1"></i>{{ $t('timed.buyInClosed') }}
+    </div>
+
     <!-- Player cards -->
     <div class="space-y-3 mt-2">
       <PlayerCard
@@ -35,6 +62,7 @@
         :player="player"
         :can-bind="!myPlayer && !player.uid"
         :is-my-card="player.uid === user?.uid"
+        :buy-in-disabled="timedBuyInClosed"
         @bind="handleBind"
         @invite="handleInvite"
         @add-buy="handleAddBuy"
@@ -59,7 +87,7 @@
         variant="ghost"
         size="sm"
       >
-        <i class="fas fa-trophy mr-1 text-amber-400"></i>{{ $t('tournament.viewClock') }}
+        <i class="fas mr-1 text-amber-400" :class="clockIsTimed ? 'fa-clock' : 'fa-trophy'"></i>{{ $t('tournament.viewClock') }}
       </BaseButton>
     </div>
 
@@ -100,8 +128,9 @@
       {{ $t('game.closeGame') }}
     </BaseButton>
 
-    <!-- Add player button -->
+    <!-- Add player button (a new seat brings a buy-in: hidden past a timed cutoff) -->
     <button
+      v-if="!timedBuyInClosed"
       @click="showAddPlayer = true"
       class="fixed bottom-24 right-4 w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center text-xl shadow-lg hover:bg-amber-600 transition active:scale-95"
     >
@@ -159,19 +188,37 @@
     <!-- Settlement Modal -->
     <BaseModal v-model="showSettlement" :title="$t('game.settlement')">
       <div class="flex justify-between bg-slate-900 p-3 rounded mb-4">
-        <span class="text-gray-400 text-sm">{{ $t('game.exchangeRate') }}</span>
-        <BaseInput v-model.number="exchangeRate" type="number" class="w-20 text-center" />
+        <span class="text-gray-400 text-sm">
+          {{ $t('cashPreset.buyInAmount') }}
+          <span class="block text-[10px] text-gray-500">{{ $t('cashPreset.buyInAmountHint', { chips: formatNumber(settleBuyInChips) }) }}</span>
+        </span>
+        <div class="text-right">
+          <div class="flex items-center gap-1 justify-end">
+            <span class="text-white text-sm">$</span>
+            <BaseInput v-model.number="settleBuyInAmount" type="number" min="0.01" class="w-24 text-center" />
+          </div>
+          <div class="text-[10px] text-gray-400 mt-1">{{ $t('cashPreset.rateDerived', { rate: formatRate(exchangeRate) }) }}</div>
+        </div>
+      </div>
+      <div class="flex justify-between items-center bg-slate-900 p-3 rounded mb-4 gap-3">
+        <span class="text-gray-400 text-sm">{{ $t('cashPreset.decimals') }}</span>
+        <select
+          v-model="settleDecimals"
+          class="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white text-sm"
+        >
+          <option v-for="d in CASH_DECIMAL_OPTIONS" :key="String(d)" :value="d">{{ decimalsLabel(d) }}</option>
+        </select>
       </div>
       
       <div class="space-y-2 mb-4 max-h-60 overflow-y-auto">
         <div
-          v-for="p in sortedPlayers"
+          v-for="p in settlementPreview"
           :key="p.id"
           class="flex justify-between text-sm py-1 border-b border-slate-700"
         >
           <span class="text-white">{{ p.name }}</span>
-          <span :class="calculateNet(p) >= 0 ? 'text-emerald-400' : 'text-rose-400'">
-            {{ formatCash(calculateNet(p), exchangeRate) }}
+          <span :class="p.cash >= 0 ? 'text-emerald-400' : 'text-rose-400'">
+            {{ formatCashAmount(p.cash, settleDecimals) }}
           </span>
         </div>
       </div>
@@ -221,6 +268,12 @@ import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import { useLoading } from '../composables/useLoading.js';
 import { useUserStore } from '../store/modules/user.js';
+import { useTournamentClock } from '../composables/useTournamentClock.js';
+import { BUY_IN_CLOSED } from '../utils/timedStructure.js';
+import { rateFromBuyIn, resolveBuyInAmount, formatRate } from '../utils/buyInRate.js';
+import {
+  CASH_DECIMAL_OPTIONS, normalizeCashDecimals, withCashAmounts, rowCash, formatCashAmount,
+} from '../utils/cashRounding.js';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
@@ -230,7 +283,7 @@ import TransactionLog from '../components/game/TransactionLog.vue';
 import HandRecordSheet from '../components/game/HandRecordSheet.vue';
 import HandHistoryList from '../components/game/HandHistoryList.vue';
 import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
-import { formatNumber, formatSignedNumber, formatCash, calculateNet } from '../utils/formatters.js';
+import { formatNumber, formatSignedNumber, calculateNet } from '../utils/formatters.js';
 import { generateTextReport } from '../utils/exportReport.js';
 import { DEFAULT_EXCHANGE_RATE, DEFAULT_BUY_IN } from '../utils/constants.js';
 import { consumeSessionReturn } from '../utils/sessionReturn.js';
@@ -254,6 +307,38 @@ const { success, warning, error: showError, copyWithNotification } = useNotifica
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
 
+// Timed game (限時賽 with a blind structure): follow the linked clock for the
+// level strip and the buy-in cutoff. Following it here also lets the host's
+// device advance / end the clock without the clock page open.
+const {
+  isTimed: clockIsTimed,
+  isBuyInClosed: clockBuyInClosed,
+  timeToEnd: clockTimeToEnd,
+  currentLevel: clockLevel,
+  currentBlinds: clockBlinds,
+  isBreak: clockIsBreak,
+  status: clockStatus,
+  joinSession: joinClock,
+  cleanup: cleanupClock,
+} = useTournamentClock();
+
+watch(
+  () => (game.value?.type === 'live' ? game.value?.tournamentSessionId : null),
+  (sid, prevSid) => {
+    if (sid === prevSid) return;
+    if (sid) joinClock(sid);
+    else cleanupClock();
+  },
+  { immediate: true },
+);
+
+const timedBuyInClosed = computed(() => clockIsTimed.value && clockBuyInClosed.value);
+
+/** Toast for a failed ledger write — the cutoff gets its own message. */
+const warnLedgerFailed = () => {
+  warning(txError.value === BUY_IN_CLOSED ? t('timed.buyInClosed') : t('game.saveFailed'));
+};
+
 const showAddPlayer = ref(false);
 const showEditPlayer = ref(false);
 const showSettlement = ref(false);
@@ -262,7 +347,14 @@ const showHandDetail = ref(false);
 const newPlayerName = ref('');
 const newPlayerBuyIn = ref(DEFAULT_BUY_IN);
 const editingPlayer = ref(null);
-const exchangeRate = ref(DEFAULT_EXCHANGE_RATE);
+// Settlement dialog: the host enters what one buy-in (baseBuyIn chips) cost;
+// the rate (chips per currency unit, cash = chips / rate) is derived.
+const settleBuyInChips = computed(() => game.value?.baseBuyIn || DEFAULT_BUY_IN);
+const settleBuyInAmount = ref(null);
+const exchangeRate = computed(() =>
+  rateFromBuyIn(settleBuyInChips.value, settleBuyInAmount.value)
+    || Number(game.value?.rate) || DEFAULT_EXCHANGE_RATE
+);
 const selectedHand = ref(null);
 const autoJoinLoading = ref(false);
 const buyInProcessing = ref(new Set());
@@ -287,7 +379,11 @@ onMounted(async () => {
     } else if (result.status === 'open') {
       // Not in game yet — auto-join as new player with baseBuyIn
       const baseBuyIn = result.baseBuyIn || DEFAULT_BUY_IN;
-      await joinAsNewPlayer(targetGameId, baseBuyIn);
+      const joined = await joinAsNewPlayer(targetGameId, baseBuyIn);
+      if (!joined && gameError.value === BUY_IN_CLOSED) {
+        warning(t('timed.joinClosed'));
+        router.push('/lobby');
+      }
     } else {
       // Game not found or ended
       router.push('/lobby');
@@ -355,9 +451,32 @@ watch(() => showAddPlayer.value, (isOpen) => {
 
 // Pre-fill exchangeRate from game.rate (set at creation via cash preset) when settlement modal opens
 watch(() => showSettlement.value, (isOpen) => {
-  if (isOpen && game.value?.rate) {
-    exchangeRate.value = game.value.rate;
+  if (isOpen) {
+    settleBuyInAmount.value = resolveBuyInAmount({
+      buyInAmount: game.value?.buyInAmount,
+      buyIn: settleBuyInChips.value,
+      rate: Number(game.value?.rate) || DEFAULT_EXCHANGE_RATE,
+    });
   }
+  if (isOpen) settleDecimals.value = normalizeCashDecimals(game.value?.cashDecimals);
+});
+
+// Settlement rounding (decimal places) — defaults to the game's preset
+// setting, changeable here. The preview uses the same zero-sum rounding the
+// settlement Cloud Function applies, so what the host sees is what's saved.
+const settleDecimals = ref(null);
+
+function decimalsLabel(d) {
+  if (d === null) return t('cashPreset.decimalsNone');
+  return d === 0 ? t('cashPreset.decimalsInteger') : t('cashPreset.decimalsN', { n: d });
+}
+
+const settlementPreview = computed(() => {
+  if (!game.value) return [];
+  const rows = game.value.players.map((p) => ({ id: p.id, name: p.name, profit: calculateNet(p) }));
+  return withCashAmounts(rows, exchangeRate.value, settleDecimals.value)
+    .map((row) => ({ ...row, cash: rowCash(row, exchangeRate.value) }))
+    .sort((a, b) => b.cash - a.cash);
 });
 
 const sortedPlayers = computed(() => {
@@ -401,6 +520,12 @@ const decrementBuyInGroup = () => {
 };
 
 const handleAddPlayer = async () => {
+  // The modal may have been opened just before the cutoff hit.
+  if (timedBuyInClosed.value) {
+    warning(t('timed.buyInClosed'));
+    showAddPlayer.value = false;
+    return;
+  }
   await withLoading(async () => {
     const playerName = newPlayerName.value || 'Player';
     // Always use the room preset's buy-in (one group), never a hand-typed amount
@@ -408,6 +533,9 @@ const handleAddPlayer = async () => {
     const newPlayer = await addPlayer(playerName, buyInAmount);
     if (newPlayer) {
       await recordAction(newPlayer.id, null, playerName, 'join', 0);
+    } else {
+      // The store re-checks the cutoff atomically; this is the authoritative refusal.
+      warning(gameError.value === BUY_IN_CLOSED ? t('timed.buyInClosed') : t('game.saveFailed'));
     }
     showAddPlayer.value = false;
     newPlayerName.value = '';
@@ -431,7 +559,7 @@ const handleSavePlayer = async () => {
       ? await recordAction(p.id, p.uid || null, p.name, 'modify', editBuyInDelta.value, fields)
       : await updatePlayer({ id: p.id, ...fields });
     if (!ok) {
-      warning(t('game.saveFailed'));
+      warnLedgerFailed();
       return;
     }
     showEditPlayer.value = false;
@@ -507,7 +635,7 @@ const handleAddBuy = async (player) => {
         gameType,
       });
     } else {
-      warning(t('game.saveFailed'));
+      warnLedgerFailed();
     }
   } finally {
     buyInProcessing.value.delete(player.id);
@@ -530,7 +658,7 @@ const handleUndoBuyIn = async (tx) => {
         gameType: game.value?.type || 'live',
       });
     } else {
-      warning(t('game.saveFailed'));
+      warnLedgerFailed();
     }
   }
 };
@@ -540,7 +668,7 @@ const handleCopyId = async () => {
 };
 
 const handleCopyReport = async () => {
-  const report = generateTextReport(game.value, exchangeRate.value);
+  const report = generateTextReport(game.value, exchangeRate.value, { cashDecimals: settleDecimals.value });
   await copyWithNotification(report, t('game.copyReport'));
 };
 
@@ -555,7 +683,7 @@ const handleSettle = async () => {
   });
   if (shouldSettle) {
     const settleResult = await withLoading(
-      () => settleGame(exchangeRate.value),
+      () => settleGame(exchangeRate.value, settleDecimals.value),
       t('loading.settling'),
     );
     if (!settleResult?.success) {

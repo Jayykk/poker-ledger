@@ -79,8 +79,8 @@
     "joinOnlineDesc": "輸入房間 ID 加入朋友的局",
     "tournament": "錦標賽時鐘",
     "tournamentDesc": "設定錦標賽結構，大螢幕倒數計時",
-    "tournamentSetup": "錦標賽賽制設定",
-    "tournamentSetupDesc": "管理錦標賽盲注結構與模板",
+    "tournamentSetup": "賽制設定",
+    "tournamentSetupDesc": "管理盲注結構與模板（錦標賽、限時賽共用）",
     "timeBank": "Time Bank",
     "timeBankDesc": "獨立倒數計時器，荷官操控"
   },
@@ -451,14 +451,26 @@
     "buyIn": "買入籌碼",
     "buyInHint": "預設買入的籌碼數量",
     "rate": "結算匯率",
-    "rateHint": "1 籌碼 : 多少元（結算時用）",
+    "rateHint": "幾個籌碼換 1 元（由買入金額自動計算）",
     "usePreset": "使用設定",
     "custom": "自訂",
     "confirmDelete": "確定要刪除「{name}」嗎？",
-    "invalidInput": "請輸入有效的設定內容"
+    "invalidInput": "請輸入有效的設定內容",
+    "structure": "套用賽制",
+    "structureHint": "用錦標賽時鐘顯示升盲與 Ante，賽制時間到即結束",
+    "structureNone": "不套用",
+    "structureSummary": "{levels} 個級別 · 共 {duration} · {cutoff}",
+    "decimals": "結算金額位數",
+    "decimalsHint": "四捨五入後帳一定平，零頭平手時贏家少收",
+    "decimalsNone": "不處理（照舊）",
+    "decimalsInteger": "整數（到元）",
+    "decimalsN": "小數 {n} 位",
+    "buyInAmount": "買入金額",
+    "buyInAmountHint": "{chips} 籌碼的價格",
+    "rateDerived": "每 {rate} 籌碼 = 1 元"
   },
   "tournament": {
-    "presets": "錦標賽設定",
+    "presets": "賽制設定",
     "builtInTemplates": "公版模板",
     "myPresets": "我的賽制",
     "newPreset": "新增賽制",
@@ -778,5 +790,17 @@
     "copySelected": "已選 {count}/{max} 人",
     "copyRosterHint": "從本活動已報名的成員直接帶入這個新時段，成員不必再報名一次",
     "copyOverCap": "「{label}」帶入人數超過上限"
+  },
+  "timed": {
+    "label": "限時賽",
+    "timeToEnd": "距離結束",
+    "timeUp": "時間到",
+    "buyInClosed": "已截買，無法再買入",
+    "joinClosed": "這桌已截買，無法再加入",
+    "cutoff": "截買 Level {level}",
+    "noCutoff": "不截買",
+    "players": "玩家人數",
+    "cutoffLabel": "截買",
+    "followStructure": "依賽制（Level {level}）"
   }
 }

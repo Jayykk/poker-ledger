@@ -154,6 +154,13 @@ import { logger } from "./utils/logger.js";
   // Create router (hash is now clean)
   const router = createRouter({
     history: createWebHashHistory(import.meta.env.BASE_URL),
+    // Without this the window keeps the previous page's scroll offset: e.g.
+    // opening 限時賽設定 from the lobby's Tools section (bottom of the page)
+    // landed the form scrolled past its first field. New pages start at the
+    // top; back / forward restores where you were.
+    scrollBehavior(to, from, savedPosition) {
+      return savedPosition || { top: 0 };
+    },
     routes: [
       { path: '/', redirect: '/login' },
       { path: '/login', name: 'Login', component: LoginView, meta: { requiresAuth: false } },

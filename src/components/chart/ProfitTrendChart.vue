@@ -49,6 +49,7 @@
 </template>
 
 <script setup>
+import { recordCash, roundCashTotal, totalCashDecimals } from '../../utils/cashRounding.js';
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useChart } from '../../composables/useChart.js';
@@ -101,10 +102,11 @@ const chartData = computed(() => {
   // history is newest-first; reverse to oldest-first so the cumulative line
   // moves chronologically from left (oldest) to right (newest).
   const chronological = [...history].reverse();
+  const decimals = totalCashDecimals(history);
   let accumulated = 0;
   const data = chronological.map(h => {
-    accumulated += h.profit / (h.rate || 1);
-    return Math.round(accumulated);
+    accumulated += recordCash(h);
+    return roundCashTotal(accumulated, decimals);
   });
 
   return {

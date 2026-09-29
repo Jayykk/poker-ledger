@@ -17,6 +17,7 @@
 
         <section class="clock-stage">
           <DealerClockStatsPanel
+            v-if="!isTimed"
             :entries="entries"
             :players-remaining="playersRemaining"
             :players-registered="playersRegistered"
@@ -30,6 +31,7 @@
             :current-level="currentLevel"
             :current-blinds="currentBlinds"
             :time-to-break="timeToBreak"
+            :time-to-end="isTimed ? timeToEnd : ''"
             :formatted-time="formattedTime"
             :timer-color-class="timerColorClass"
             :status="status"
@@ -37,6 +39,7 @@
           />
 
           <DealerClockPayoutsPanel
+            v-if="!isTimed"
             :prize-pool="prizePool"
             :payouts="payouts"
           />
@@ -71,6 +74,9 @@ defineProps({
     default: () => ({ small: 0, big: 0, ante: 0 }),
   },
   timeToBreak: { type: String, default: '' },
+  // Timed game (限時賽): no prize / stack panels, countdown to the end instead
+  isTimed: { type: Boolean, default: false },
+  timeToEnd: { type: String, default: '' },
   formattedTime: { type: String, default: '00:00' },
   timerColorClass: { type: String, default: '' },
   countdownFinal: { type: Boolean, default: false },

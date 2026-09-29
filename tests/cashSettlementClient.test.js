@@ -42,8 +42,19 @@ describe('cash settlement client contract', () => {
       gameId: 'game-1',
       gameName: 'Friday Cash',
       rate: 100,
+      cashDecimals: null,
       players: [{ name: 'Alice', buyIn: 1000, profit: 500 }],
     });
+  });
+
+  it('passes the settlement rounding through to the LINE report', () => {
+    expect(buildCashSettlementReport({
+      gameId: 'game-1',
+      gameName: 'Friday Cash',
+      rate: 10,
+      cashDecimals: 0,
+      settlement: [{ name: 'Alice', profit: 15, cash: 1 }],
+    })).toMatchObject({ cashDecimals: 0, players: [{ cash: 1 }] });
   });
 
   it('awaits LINE delivery without blocking completion on history projection', () => {

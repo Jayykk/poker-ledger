@@ -130,7 +130,10 @@ export function aggregateHistoryRecords(uid, records) {
     const ms = recordMillis(record);
     if (!ms) continue;
 
-    const profit = (Number(record.profit) || 0) / (Number(record.rate) || 1);
+    // Rounded settlements store the cash result; older ones are chips / rate.
+    const profit = Number.isFinite(record.profitCash) ?
+      record.profitCash :
+      (Number(record.profit) || 0) / (Number(record.rate) || 1);
     const isWin = (Number(record.profit) || 0) > 0;
     const bucketType = bucketTypeOf(record);
 

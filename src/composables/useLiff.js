@@ -1,6 +1,7 @@
 import { ref, readonly } from 'vue';
 import liff from '@line/liff';
 import { STORAGE_KEYS } from '../utils/constants.js';
+import { rowCash, formatCashAmount, roundCashTotal, formatCashTotal } from '../utils/cashRounding.js';
 
 const LIFF_ID = import.meta.env.VITE_LIFF_ID || '';
 // LINE Flex Message altText is limited; truncate settlement reports for the preview
@@ -343,7 +344,7 @@ const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId,
  * Send single-game settlement report to the current LINE chat (Flex Message).
  * Structured layout matching daily settlement style.
  */
-const sendSettlementMessage = async ({ gameName, gameId, rate, players }) => {
+const sendSettlementMessage = async ({ gameName, gameId, rate, players, cashDecimals = null }) => {
   if (!lineNotifyEnabled.value) return false;
 
   const totalBuyInCash = Math.round((players || []).reduce((s, p) => s + p.buyIn, 0) / (rate || 1));
@@ -354,7 +355,10 @@ const sendSettlementMessage = async ({ gameName, gameId, rate, players }) => {
   // Player rows sorted by profit descending
   const sorted = [...(players || [])].sort((a, b) => (b.profit ?? 0) - (a.profit ?? 0));
   const playerRows = sorted.slice(0, 20).map((p) => {
-    const cash = Math.round((p.profit ?? 0) / (rate || 1));
+    // Rounded settlements carry the balanced cash result; legacy ones are
+    // chips / rate, shown as whole units like before.
+    const cash = cashDecimals === null ? Math.round(rowCash(p, rate)) : rowCash(p, rate);
+    const cashText = cashDecimals === null ? cash.toLocaleString() : formatCashAmount(cash, cashDecimals);
     return {
       type: 'box',
       layout: 'horizontal',
@@ -362,7 +366,7 @@ const sendSettlementMessage = async ({ gameName, gameId, rate, players }) => {
         { type: 'text', text: p.name || '???', size: 'sm', color: '#555555', flex: 3 },
         {
           type: 'text',
-          text: `${cash > 0 ? '+' : ''}$${cash.toLocaleString()}`,
+          text: `${cash > 0 ? '+' : ''}${cashText}`,
           size: 'sm',
           color: cash >= 0 ? '#1DB446' : '#FF4444',
           align: 'end',
@@ -576,7 +580,7 @@ const sendTournamentSettlementMessage = async ({ gameName, gameId, players }) =>
  * Send daily settlement report to the current LINE chat (Flex Message).
  * Public-friendly layout: summary → game names → all players ranked by P&L.
  */
-const sendDailySettlementMessage = async ({ dateLabel, startDateStr, endDateStr, totalGames, totalBuyInAllCash, games, playerRanking }) => {
+const sendDailySettlementMessage = async ({ dateLabel, startDateStr, endDateStr, totalGames, totalBuyInAllCash, games, playerRanking, cashDecimals = 0 }) => {
   if (!lineNotifyEnabled.value) return false;
 
   const altText = `💰 日結結算 ${dateLabel}`;
@@ -597,7 +601,8 @@ const sendDailySettlementMessage = async ({ dateLabel, startDateStr, endDateStr,
 
   // Player settlement rows (all players, max 20)
   const playerRows = (playerRanking || []).slice(0, 20).map((p) => {
-    const cash = Math.round(p.profitCash);
+    // Totals keep the precision the games settled with (0 for legacy ones).
+    const cash = roundCashTotal(p.profitCash, cashDecimals);
     return {
       type: 'box',
       layout: 'horizontal',
@@ -605,7 +610,7 @@ const sendDailySettlementMessage = async ({ dateLabel, startDateStr, endDateStr,
         { type: 'text', text: p.name || '???', size: 'sm', color: '#555555', flex: 3 },
         {
           type: 'text',
-          text: `${cash > 0 ? '+' : ''}$${cash.toLocaleString()}`,
+          text: `${cash > 0 ? '+' : ''}$${formatCashTotal(cash, cashDecimals)}`,
           size: 'sm',
           color: cash >= 0 ? '#1DB446' : '#FF4444',
           align: 'end',
@@ -679,7 +684,7 @@ const sendDailySettlementMessage = async ({ dateLabel, startDateStr, endDateStr,
  * Send daily ranking to the current LINE chat (Flex Message).
  * Shows top 3 winners and top 3 losers.
  */
-const sendDailyRankingMessage = async ({ dateLabel, startDateStr, endDateStr, topWinners, topLosers }) => {
+const sendDailyRankingMessage = async ({ dateLabel, startDateStr, endDateStr, topWinners, topLosers, cashDecimals = 0 }) => {
   if (!lineNotifyEnabled.value) return false;
 
   const altText = `🏆 日結排行 ${dateLabel}`;
@@ -692,7 +697,7 @@ const sendDailyRankingMessage = async ({ dateLabel, startDateStr, endDateStr, to
       { type: 'text', text: `${emoji} ${p.name}`, size: 'sm', color: '#555555', flex: 3 },
       {
         type: 'text',
-        text: `${p.profitCash > 0 ? '+' : ''}$${Math.round(p.profitCash).toLocaleString()}`,
+        text: `${p.profitCash > 0 ? '+' : ''}$${formatCashTotal(p.profitCash, cashDecimals)}`,
         size: 'sm',
         color: p.profitCash >= 0 ? '#1DB446' : '#FF4444',
         align: 'end',
@@ -1008,7 +1013,7 @@ const shareSessionSummary = async (session, summary) => {
     const rankRows = (summary.ranking || []).slice(0, 5).map((p, i) => ({
       type: 'box', layout: 'horizontal', margin: i === 0 ? 'lg' : 'sm', contents: [
         { type: 'text', text: `${medals[i] || `${i + 1}.`} ${p.name || ''}`, size: 'sm', color: '#333333', flex: 5, wrap: true },
-        { type: 'text', text: `${p.profitCash >= 0 ? '+' : ''}${Math.round(p.profitCash)}`, size: 'sm', weight: 'bold', align: 'end', color: p.profitCash >= 0 ? '#1DB446' : '#DC143C', flex: 3 },
+        { type: 'text', text: `${p.profitCash >= 0 ? '+' : ''}${formatCashTotal(p.profitCash, summary.cashDecimals)}`, size: 'sm', weight: 'bold', align: 'end', color: p.profitCash >= 0 ? '#1DB446' : '#DC143C', flex: 3 },
       ],
     }));
 

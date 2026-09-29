@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { recordCash, roundCashTotal, totalCashDecimals } from '../../utils/cashRounding.js';
 import { ref, computed } from 'vue';
 import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
@@ -66,12 +67,12 @@ export const useUserStore = defineStore('user', () => {
     history.value = nextHistory;
     resolvePendingSyncWaiters();
 
-    const totalProfit = nextHistory.reduce((sum, item) => sum + ((item.profit || 0) / (item.rate || 1)), 0);
+    const totalProfit = nextHistory.reduce((sum, item) => sum + recordCash(item), 0);
     const wins = nextHistory.filter((item) => (item.profit || 0) > 0).length;
 
     stats.value = {
       games: nextHistory.length,
-      totalProfit: Math.round(totalProfit),
+      totalProfit: roundCashTotal(totalProfit, totalCashDecimals(nextHistory)),
       winRate: nextHistory.length ? Math.round((wins / nextHistory.length) * 100) : 0,
     };
   };
@@ -206,12 +207,12 @@ export const useUserStore = defineStore('user', () => {
   const getStatsByPeriod = (period = 'all', type = 'all') => {
     const periodHistory = getHistoryByPeriod(period, type);
 
-    const totalProfit = periodHistory.reduce((sum, h) => sum + ((h.profit || 0) / (h.rate || 1)), 0);
+    const totalProfit = periodHistory.reduce((sum, h) => sum + recordCash(h), 0);
     const wins = periodHistory.filter((h) => (h.profit || 0) > 0).length;
 
     return {
       games: periodHistory.length,
-      totalProfit: Math.round(totalProfit),
+      totalProfit: roundCashTotal(totalProfit, totalCashDecimals(periodHistory)),
       winRate: periodHistory.length ? Math.round((wins / periodHistory.length) * 100) : 0,
     };
   };

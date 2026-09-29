@@ -5,6 +5,10 @@
         <span class="break-in-label">{{ $t('tournament.breakIn') }}</span>
         <span class="break-in-value">{{ timeToBreak }}</span>
       </div>
+      <div v-if="timeToEnd && status !== 'ended'" class="break-in-info">
+        <span class="break-in-label">{{ $t('timed.timeToEnd') }}</span>
+        <span class="break-in-value">{{ timeToEnd }}</span>
+      </div>
 
       <div class="level-indicator">
         <template v-if="isBreak">
@@ -35,7 +39,7 @@
         <i class="fas fa-pause mr-2"></i>{{ $t('tournament.paused') }}
       </div>
       <div v-else-if="status === 'ended'" class="status-badge ended">
-        {{ $t('tournament.ended') }}
+        {{ timeToEnd ? $t('timed.timeUp') : $t('tournament.ended') }}
       </div>
 
       <div v-if="nextPlayLevelEntry && !isBreak && status !== 'ended'" class="next-blinds">
@@ -60,6 +64,8 @@ defineProps({
     default: () => ({ small: 0, big: 0, ante: 0 }),
   },
   timeToBreak: { type: String, default: '' },
+  // Timed games only (限時賽): countdown to the end of the structure
+  timeToEnd: { type: String, default: '' },
   formattedTime: { type: String, default: '00:00' },
   timerColorClass: { type: String, default: '' },
   status: { type: String, default: 'waiting' },

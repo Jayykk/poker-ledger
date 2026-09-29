@@ -41,7 +41,11 @@
                 {{ $t('cashPreset.buyIn') }}: {{ formatNumber(preset.buyIn || 0) }} {{ $t('game.chips') }}
               </p>
               <p class="text-xs text-gray-500 mt-0.5">
-                {{ $t('cashPreset.rate') }}: 1 : {{ preset.rate || 1 }}
+                {{ $t('cashPreset.buyInAmount') }}: ${{ formatNumber(resolveBuyInAmount({ ...preset, buyIn: preset.buyIn || 0, rate: preset.rate || 1 }) || 0) }}
+                · {{ $t('cashPreset.rateDerived', { rate: formatRate(preset.rate || 1) }) }}
+              </p>
+              <p v-if="preset.structure" class="text-xs text-amber-400/80 mt-0.5">
+                <i class="fas fa-clock mr-1"></i>{{ preset.structure.name }}
               </p>
             </div>
             <div class="flex items-center gap-3">
@@ -69,6 +73,7 @@ import { useCashPresets } from '../composables/useCashPresets.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import { formatNumber } from '../utils/formatters.js';
+import { resolveBuyInAmount, formatRate } from '../utils/buyInRate.js';
 
 const router = useRouter();
 const { t } = useI18n();

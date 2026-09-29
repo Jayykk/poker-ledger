@@ -115,7 +115,7 @@
               class="text-xl font-mono font-bold"
               :class="totalProfitCash >= 0 ? 'text-emerald-400' : 'text-rose-400'"
             >
-              {{ totalProfitCash > 0 ? '+' : '' }}${{ formatNumber(Math.round(totalProfitCash)) }}
+              {{ totalProfitCash > 0 ? '+' : '' }}${{ formatCashTotal(totalProfitCash, cashDecimals) }}
             </div>
           </div>
         </BaseCard>
@@ -162,7 +162,7 @@
               class="font-mono font-bold text-sm"
               :class="player.profitCash >= 0 ? 'text-emerald-400' : 'text-rose-400'"
             >
-              {{ player.profitCash > 0 ? '+' : '' }}${{ formatNumber(Math.round(player.profitCash)) }}
+              {{ player.profitCash > 0 ? '+' : '' }}${{ formatCashTotal(player.profitCash, cashDecimals) }}
             </div>
           </div>
         </div>
@@ -212,7 +212,7 @@
               class="font-mono font-bold"
               :class="game.profitCash >= 0 ? 'text-emerald-400' : 'text-rose-400'"
             >
-              {{ game.profitCash > 0 ? '+' : '' }}${{ formatNumber(Math.round(game.profitCash)) }}
+              {{ game.profitCash > 0 ? '+' : '' }}${{ formatCashTotal(game.profitCash, game.cashDecimals) }}
             </div>
           </div>
         </div>
@@ -228,6 +228,7 @@
 </template>
 
 <script setup>
+import { recordCash, formatCashTotal } from '../utils/cashRounding.js';
 import { computed, ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
@@ -254,6 +255,7 @@ const {
   selectAll,
   deselectAll,
   totalProfitCash,
+  cashDecimals,
   totalGames,
   totalBuyInCash,
   totalBuyInAllCash,
@@ -351,10 +353,7 @@ const gamesInRangeWithCash = computed(() => {
   if (gameTypeFilter.value !== 'all') {
     games = games.filter((h) => (h.type || 'live') === gameTypeFilter.value);
   }
-  return games.map((h) => {
-    const rate = h.rate || 1;
-    return { ...h, profitCash: (h.profit || 0) / rate };
-  });
+  return games.map((h) => ({ ...h, profitCash: recordCash(h) }));
 });
 
 // ── Settlement modal ─────────────────────────────────────────────
@@ -389,6 +388,7 @@ const handleShareSettlement = async () => {
     totalBuyInAllCash: totalBuyInAllCash.value,
     games: selectedGamesWithCash.value,
     playerRanking: playerRanking.value,
+    cashDecimals: cashDecimals.value,
   });
   if (ok) success(t('dailyReport.shared'));
   else showError(t('dailyReport.shareError'));
@@ -401,6 +401,7 @@ const handleShareRanking = async () => {
     endDateStr: endDateStr.value,
     topWinners: topWinners.value,
     topLosers: topLosers.value,
+    cashDecimals: cashDecimals.value,
   });
   if (ok) success(t('dailyReport.shared'));
   else showError(t('dailyReport.shareError'));

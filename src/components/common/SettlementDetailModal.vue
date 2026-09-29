@@ -40,7 +40,7 @@
               class="font-mono font-bold text-lg"
               :class="getProfitColorClass(getPlayerProfitCash(player))"
             >
-              {{ getPlayerProfitCash(player) > 0 ? '+' : '' }}${{ formatCash(player.profit || 0, record.rate || 1) }}
+              {{ getPlayerProfitCash(player) > 0 ? '+' : '' }}${{ formatCashAmount(getPlayerProfitCash(player), record.cashDecimals) }}
             </div>
             <div v-if="showChipProfit" class="text-xs text-gray-500">
               {{ player.profit > 0 ? '+' : '' }}{{ formatNumber(player.profit || 0) }} {{ $t('game.chips') }}
@@ -168,10 +168,11 @@
 </template>
 
 <script setup>
+import { rowCash, formatCashAmount } from '../../utils/cashRounding.js';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BaseModal from './BaseModal.vue';
-import { formatNumber, formatCash, formatDate, getProfitColorClass } from '../../utils/formatters.js';
+import { formatNumber, formatDate, getProfitColorClass } from '../../utils/formatters.js';
 import { useHand } from '../../composables/useHand.js';
 
 const { t } = useI18n();
@@ -211,7 +212,7 @@ const sortedSettlement = computed(() => {
   return [...props.record.settlement].sort((a, b) => (b.profit || 0) - (a.profit || 0));
 });
 
-const getPlayerProfitCash = (player) => (player?.profit || 0) / getRecordRate();
+const getPlayerProfitCash = (player) => rowCash(player, getRecordRate());
 
 const getSettlementSummary = (player) => {
   if (isTournamentRecord.value) {

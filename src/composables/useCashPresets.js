@@ -4,6 +4,9 @@
  * Each preset stores only the two pieces of info the user wants to fix up-front:
  *   - buyIn  : default buy-in chip count (numeric, > 0)
  *   - rate   : settlement exchange rate (numeric, > 0; 1 means chips == currency)
+ *   - structure (optional): snapshot of a blind structure (see
+ *     utils/timedStructure.js snapshotStructure) — games created from the
+ *     preset get a timed clock that ends with the structure
  *
  * Stored at: users/{uid}/cashPresets/{presetId}
  *
