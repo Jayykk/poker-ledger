@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import { recordCash, rowCash } from '../utils/cashRounding.js';
+import { recordCash, rowCash, totalCashDecimals } from '../utils/cashRounding.js';
 import { useUserStore } from '../store/modules/user.js';
 import { useAuthStore } from '../store/modules/auth.js';
 
@@ -162,6 +162,9 @@ export function useDailyReport() {
     return [...map.values()].sort((a, b) => b.profitCash - a.profitCash);
   });
 
+  /** Display precision for totals over the selected games (see totalCashDecimals) */
+  const cashDecimals = computed(() => totalCashDecimals(selectedGames.value));
+
   /** Top 3 winners (profitCash > 0) */
   const topWinners = computed(() =>
     playerRanking.value.filter((p) => p.profitCash > 0).slice(0, 3)
@@ -211,6 +214,7 @@ export function useDailyReport() {
     totalBuyInCash,
     totalBuyInAllCash,
     playerRanking,
+    cashDecimals,
     topWinners,
     topLosers,
     setDateRange,

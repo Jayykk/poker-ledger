@@ -6,7 +6,11 @@ import {
   rowCash,
   recordCash,
   formatCashAmount,
+  totalCashDecimals,
+  roundCashTotal,
+  formatCashTotal,
 } from '../src/utils/cashRounding.js';
+import { aggregateSessionSummary } from '../src/utils/sessionFlow.js';
 import * as server from '../functions/src/utils/cashRounding.js';
 import { settleCashGame, resolveCashDecimals } from '../functions/src/handlers/cashSettlement.js';
 import { buildUserProjectionDocs } from '../functions/src/handlers/gameHistoryProjection.js';
@@ -223,5 +227,36 @@ describe('text report', () => {
     const text = generateTextReport(game, 10);
     expect(text).toContain('A: +1.5\n');
     expect(text).toContain('B: -0.5\n');
+  });
+});
+
+describe('totals over several games', () => {
+  it('uses the most decimals any game settled with (legacy counts as 0)', () => {
+    expect(totalCashDecimals([{}, { cashDecimals: null }])).toBe(0);
+    expect(totalCashDecimals([{ cashDecimals: 0 }, { cashDecimals: 2 }, {}])).toBe(2);
+    expect(totalCashDecimals(undefined)).toBe(0);
+  });
+
+  it('keeps a +1.5 result instead of rounding it to +2', () => {
+    expect(roundCashTotal(1.5, 1)).toBe(1.5);
+    expect(formatCashTotal(1.5, 1)).toBe('1.5');
+    expect(formatCashTotal(1234.5, 2)).toBe('1,234.50');
+    expect(formatCashTotal(-1234.4, 0)).toBe('-1,234');
+    expect(roundCashTotal(-0.4, 0)).toBe(0);
+  });
+
+  it('session summaries carry the display precision of their tables', () => {
+    const summary = aggregateSessionSummary([
+      { name: 'T1', rate: 10, cashDecimals: 1, settlementSnapshot: [
+        { odId: 'a', name: 'A', buyIn: 100, profit: 15, cash: 1.5 },
+        { odId: 'b', name: 'B', buyIn: 100, profit: -15, cash: -1.5 },
+      ] },
+      { name: 'T2', rate: 10, settlementSnapshot: [
+        { odId: 'a', name: 'A', buyIn: 100, profit: 10 },
+        { odId: 'b', name: 'B', buyIn: 100, profit: -10 },
+      ] },
+    ]);
+    expect(summary.cashDecimals).toBe(1);
+    expect(summary.ranking[0]).toMatchObject({ odId: 'a', profitCash: 2.5 });
   });
 });

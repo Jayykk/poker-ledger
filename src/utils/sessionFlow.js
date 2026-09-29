@@ -9,7 +9,7 @@
  * be unit-tested directly; the components/composables just act on what these
  * return.
  */
-import { rowCash } from './cashRounding.js';
+import { rowCash, totalCashDecimals } from './cashRounding.js';
 
 // ── Role ─────────────────────────────────────────────────────────────
 
@@ -209,6 +209,8 @@ export function aggregateSessionSummary(tableGames = []) {
     ranking,
     tableCount,
     totalBuyIn,
+    // Display precision for ranking totals (see totalCashDecimals)
+    cashDecimals: totalCashDecimals(tableGames),
     topWinners: ranking.filter((p) => p.profitCash > 0).slice(0, 3),
     topLosers: ranking.filter((p) => p.profitCash < 0).slice(-3).reverse(),
   };

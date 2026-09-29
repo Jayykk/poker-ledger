@@ -100,6 +100,33 @@ export function recordCash(record) {
 }
 
 /**
+ * Display precision for a total over several games / history records: the
+ * most decimal places any of them settled with. Unrounded (legacy) ones
+ * count as 0 — those totals were always shown in whole units — so a report
+ * made only of old games looks exactly as before.
+ */
+export function totalCashDecimals(items = []) {
+  return (items || []).reduce(
+    (max, it) => Math.max(max, normalizeCashDecimals(it?.cashDecimals) ?? 0),
+    0,
+  );
+}
+
+/** Round a cash total to `decimals` places (0 → whole units). */
+export function roundCashTotal(value, decimals = 0) {
+  const d = normalizeCashDecimals(decimals) ?? 0;
+  return Number((Number(value) || 0).toFixed(d)) || 0;
+}
+
+/** A cash total with thousands separators and exactly `decimals` places. */
+export function formatCashTotal(value, decimals = 0) {
+  const d = normalizeCashDecimals(decimals) ?? 0;
+  const [int, frac] = roundCashTotal(value, d).toFixed(d).split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return frac !== undefined ? `${grouped}.${frac}` : grouped;
+}
+
+/**
  * Display a cash amount. With decimals set, exactly that many places;
  * unset keeps the legacy look (integer, else one decimal).
  */

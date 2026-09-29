@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { recordCash } from '../../utils/cashRounding.js';
+import { recordCash, roundCashTotal, totalCashDecimals } from '../../utils/cashRounding.js';
 import { ref, computed } from 'vue';
 import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
@@ -72,7 +72,7 @@ export const useUserStore = defineStore('user', () => {
 
     stats.value = {
       games: nextHistory.length,
-      totalProfit: Math.round(totalProfit),
+      totalProfit: roundCashTotal(totalProfit, totalCashDecimals(nextHistory)),
       winRate: nextHistory.length ? Math.round((wins / nextHistory.length) * 100) : 0,
     };
   };
@@ -212,7 +212,7 @@ export const useUserStore = defineStore('user', () => {
 
     return {
       games: periodHistory.length,
-      totalProfit: Math.round(totalProfit),
+      totalProfit: roundCashTotal(totalProfit, totalCashDecimals(periodHistory)),
       winRate: periodHistory.length ? Math.round((wins / periodHistory.length) * 100) : 0,
     };
   };

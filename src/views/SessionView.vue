@@ -124,7 +124,7 @@
               <span class="rank-medal">{{ medal(i) }}</span>
               <span class="rank-name">{{ p.name }}</span>
               <span class="rank-profit" :class="p.profitCash >= 0 ? 'pos' : 'neg'">
-                {{ p.profitCash >= 0 ? '+' : '' }}{{ Math.round(p.profitCash) }}
+                {{ p.profitCash >= 0 ? '+' : '' }}{{ formatCashTotal(p.profitCash, summary.cashDecimals) }}
               </span>
             </li>
           </ol>
@@ -151,6 +151,7 @@ import {
   periodCount, periodFull, canJoinPeriod, isSignedUpForPeriod,
 } from '../utils/sessionFlow.js';
 import { markSessionReturn } from '../utils/sessionReturn.js';
+import { formatCashTotal } from '../utils/cashRounding.js';
 
 const route = useRoute();
 const router = useRouter();
