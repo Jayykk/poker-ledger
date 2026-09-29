@@ -145,6 +145,29 @@ export function defaultSessionName(dateMs) {
   return `${y}${m}${day} 德州撲克活動`;
 }
 
+/**
+ * Keep a date-stamped event name in step with the event's date. A name that
+ * still starts with the previous date's YYYYMMDD stamp — the default
+ * "20260929 德州撲克活動" or a tweaked "20260929 週五局" — gets the new stamp
+ * with the rest kept; any other name was chosen by hand and is left alone
+ * (as is an empty one: the placeholder / save fallback already follow the
+ * date).
+ *
+ * @param {string} name - current name field
+ * @param {number} prevDateMs - date before the change
+ * @param {number} nextDateMs - date after the change
+ * @returns {string} the name to show
+ */
+export function renameForDate(name, prevDateMs, nextDateMs) {
+  const current = name || '';
+  const prevStamp = defaultSessionName(prevDateMs).slice(0, 8);
+  const nextStamp = defaultSessionName(nextDateMs).slice(0, 8);
+  if (!prevStamp || !nextStamp || prevStamp === nextStamp) return current;
+  const trimmed = current.trimStart();
+  if (!trimmed.startsWith(prevStamp)) return current;
+  return nextStamp + trimmed.slice(prevStamp.length);
+}
+
 // ── Session summary aggregation ──────────────────────────────────────
 
 /**

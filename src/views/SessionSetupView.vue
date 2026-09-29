@@ -146,7 +146,7 @@ import { useCashPresets } from '../composables/useCashPresets.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useLiff } from '../composables/useLiff.js';
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
-import { defaultSessionName } from '../utils/sessionFlow.js';
+import { defaultSessionName, renameForDate } from '../utils/sessionFlow.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -157,7 +157,8 @@ const tournamentApi = useTournamentClock();
 const { sendSessionUpdateMessage } = useLiff();
 
 const isEdit = computed(() => !!route.params.sessionId);
-const defaultName = defaultSessionName(Date.now());
+// Follows the chosen date (placeholder + save fallback).
+const defaultName = computed(() => defaultSessionName(form.dateTimeMs));
 
 const cashPresets = ref([]);
 const userTournamentPresets = ref([]);
@@ -187,7 +188,11 @@ const dateTimeLocal = computed({
   },
   set(v) {
     const ms = Date.parse(v);
-    if (!Number.isNaN(ms)) form.dateTimeMs = ms;
+    if (Number.isNaN(ms)) return;
+    const prev = form.dateTimeMs;
+    form.dateTimeMs = ms;
+    // A date-stamped name ("20260929 德州撲克活動") moves with the date.
+    form.name = renameForDate(form.name, prev, ms);
   },
 });
 
@@ -391,7 +396,7 @@ onMounted(async () => {
       loadedSig = periodsSig(form.periods);
     }
   } else {
-    form.name = defaultName;
+    form.name = defaultName.value;
     addPeriod();
     try { quickSetup.value = await getSessionQuickSetup(); } catch (_) { quickSetup.value = null; }
   }
@@ -424,7 +429,7 @@ async function save() {
   saving.value = true;
   try {
     const payload = {
-      name: form.name || defaultName,
+      name: form.name || defaultName.value,
       dateTimeMs: form.dateTimeMs,
       location: { name: form.location.name },
       periods: form.periods,
