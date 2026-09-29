@@ -853,6 +853,7 @@
     "chipsInPlay": "場のチップ",
     "avgStack": "平均スタック",
     "prizePool": "賞金総額",
-    "payouts": "賞金配分"
+    "payouts": "賞金配分",
+    "place": "{n}位"
   }
 }

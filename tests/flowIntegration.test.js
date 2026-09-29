@@ -492,33 +492,35 @@ describe('Tournament clock view', () => {
     });
   });
 
+  // The view picks a face (style 1 scoreboard / style 2 felt); the faces
+  // render the figures.
   describe('display sections', () => {
-    it('should display player stats (entries, playersLeft, totalPlayers)', () => {
-      expect(clockViewContent).toContain("$t('tournament.entries')");
-      expect(clockViewContent).toContain("$t('tournament.playersLeft')");
-      expect(clockViewContent).toContain("$t('tournament.totalPlayers')");
-      expect(clockViewContent).toContain('playersRemaining');
-      expect(clockViewContent).toContain('playersRegistered');
+    const scoreboard = read('src/components/tournament/ScoreboardClockBoard.vue');
+
+    it('renders the host-chosen face', () => {
+      expect(clockViewContent).toContain('<ScoreboardClockBoard');
+      expect(clockViewContent).toContain('<FeltClockBoard');
+      expect(clockViewContent).toContain("clockStyle === 'felt'");
     });
 
-    it('should display chips in play and average stack', () => {
-      expect(clockViewContent).toContain("$t('tournament.chipsInPlay')");
-      expect(clockViewContent).toContain("$t('tournament.averageStack')");
+    it('passes player counts to the face', () => {
+      expect(clockViewContent).toContain(':players-registered="playersRegistered"');
+      expect(clockViewContent).toContain(':players-remaining="playersRemaining"');
+      expect(clockViewContent).toContain(':entries="entries"');
     });
 
-    it('should display prize pool and payouts', () => {
-      expect(clockViewContent).toContain("$t('tournament.prizePool')");
-      expect(clockViewContent).toContain("$t('tournament.payouts')");
+    it('style 1 shows prize pool + payouts, avg stack, break in, players / entries', () => {
+      for (const key of ['prizePool', 'avgStack', 'breakIn', 'playersLeft', 'entries']) {
+        expect(scoreboard).toContain(`t('clockFace.${key}')`);
+      }
+      expect(scoreboard).toContain('payouts.slice(0, 3)');
     });
 
-    it('should show next blinds info', () => {
-      expect(clockViewContent).toContain("$t('tournament.nextBlinds')");
-    });
-
-    it('should display status badges (waiting, paused, ended)', () => {
-      expect(clockViewContent).toContain("$t('tournament.waitingToStart')");
-      expect(clockViewContent).toContain("$t('tournament.paused')");
-      expect(clockViewContent).toContain("$t('tournament.ended')");
+    it('style 1 shows the next level and every clock status', () => {
+      expect(scoreboard).toContain("t('clockFace.next')");
+      for (const key of ['waiting', 'paused', 'running', 'ended', 'timeUp']) {
+        expect(scoreboard).toContain(`t('clockFace.${key}')`);
+      }
     });
   });
 

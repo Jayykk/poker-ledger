@@ -72,14 +72,22 @@ describe('Tournament elimination integration', () => {
   });
 });
 
+// The timer lives in the style 1 face (ScoreboardClockBoard) now.
 describe('Tournament clock timer sizing', () => {
-  it('should give the timer display a proportional minimum width', () => {
-    expect(clockViewContent).toContain('min-width: 6.4ch;');
+  const scoreboard = read('src/components/tournament/ScoreboardClockBoard.vue');
+  const timerRule = scoreboard.slice(scoreboard.indexOf('.sb-timer {'), scoreboard.indexOf('}', scoreboard.indexOf('.sb-timer {')));
+
+  it('keeps the timer width steady while it counts (tabular figures)', () => {
+    expect(timerRule).toContain('font-variant-numeric: tabular-nums');
   });
 
-  it('should use larger responsive timer font sizes across breakpoints', () => {
-    expect(clockViewContent).toContain('font-size: clamp(4.85rem, 13.6vw, 11rem);');
-    expect(clockViewContent).toContain('font-size: clamp(7.5rem, 8.4vw, 8.75rem);');
-    expect(clockViewContent).toContain('font-size: clamp(4.6rem, 17vw, 5.4rem);');
+  it('scales the timer with the screen, including a phone size', () => {
+    expect(timerRule).toContain('calc(var(--u) * 21)');
+    expect(scoreboard).toContain('--u: min(1cqw, 1.75cqh)');
+    expect(scoreboard).toMatch(/@container \(max-width: 720px\)[\s\S]*\.sb-timer \{ font-size: calc\(var\(--u\) \* 15\); \}/);
+  });
+
+  it('the host view still renders it', () => {
+    expect(clockViewContent).toContain('<ScoreboardClockBoard');
   });
 });
