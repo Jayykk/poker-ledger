@@ -481,6 +481,9 @@ const handleAddPlayer = async () => {
     const newPlayer = await addPlayer(playerName, buyInAmount);
     if (newPlayer) {
       await recordAction(newPlayer.id, null, playerName, 'join', 0);
+    } else {
+      // The store re-checks the cutoff atomically; this is the authoritative refusal.
+      warning(gameError.value === BUY_IN_CLOSED ? t('timed.buyInClosed') : t('game.saveFailed'));
     }
     showAddPlayer.value = false;
     newPlayerName.value = '';
