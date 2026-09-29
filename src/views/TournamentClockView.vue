@@ -1,10 +1,5 @@
 <template>
-  <div
-    class="tournament-clock-view"
-    :class="clockStyle === 'felt'
-      ? 'style-felt'
-      : { 'is-break': isBreak, 'time-critical': timerColorClass === 'timer-critical' && status === 'running', 'countdown-final': countdownFinal }"
-  >
+  <div class="tournament-clock-view" :class="clockStyle === 'felt' ? 'style-felt' : 'style-scoreboard'">
     <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center h-screen bg-slate-900">
       <LoadingSpinner />
@@ -67,166 +62,51 @@
       </template>
     </FeltClockBoard>
 
-    <!-- Style 1: classic -->
-    <div v-else class="clock-container">
-      <!-- Header -->
-      <header class="clock-header">
-        <div class="header-left">
-          <button v-if="isHost" @click="showControls = !showControls" class="hud-control-btn">
-            <i class="fas fa-cog"></i>
-          </button>
-          <button @click="handleBack" class="hud-control-btn">
-            <i class="fas fa-arrow-left"></i>
-          </button>
-        </div>
-        <div class="header-center">
-          <h1 class="tournament-name">{{ config.name || 'Tournament' }}</h1>
-          <p v-if="isTimed" class="tournament-subtitle" :class="{ 'registration-closed': isBuyInClosed }">
-            <template v-if="isBuyInClosed">{{ $t('timed.clock.buyInClosed') }}</template>
-            <template v-else-if="config.reentryUntilLevel > 0">{{ $t('timed.clock.label') }} | {{ $t('timed.clock.cutoff', { level: config.reentryUntilLevel }) }}</template>
-            <template v-else>{{ $t('timed.clock.label') }}</template>
-          </p>
-          <p v-else class="tournament-subtitle" :class="{ 'registration-closed': isRegistrationClosed }">
-            <template v-if="isRegistrationClosed">{{ $t('tournament.registrationClosed') }}</template>
-            <template v-else>{{ config.subtitle || `BuyIn $${config.buyIn} | ${$t('tournament.reentryUntil', { level: config.reentryUntilLevel })}` }}</template>
-          </p>
-        </div>
-        <div class="header-right">
-          <button v-if="isHost" @click="handleToggleDealerMode" class="hud-control-btn" :class="{ 'dealer-active': dealerModeEnabled }" :title="$t('tournament.dealerMode')">
-            <i class="fas fa-user-shield"></i>
-          </button>
-          <button v-if="isHost" @click="showTimeBankFromClock" class="hud-control-btn" :title="$t('timeBank.title')">
-            <i class="fas fa-hourglass-half"></i>
-          </button>
-        </div>
-      </header>
-
-      <!-- Body: 3-column layout -->
-      <div class="clock-body">
-        <!-- Left Panel -->
-        <aside v-if="isTimed" class="info-panel left-panel">
-          <div class="info-item">
-            <div class="info-label">{{ $t('timed.clock.players') }}</div>
-            <div class="info-value">{{ playersRegistered }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('timed.clock.buyIns') }}</div>
-            <div class="info-value">{{ entries }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.chipsInPlay') }}</div>
-            <div class="info-value">{{ formatNumber(chipsInPlay) }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.averageStack') }}</div>
-            <div class="info-value">{{ formatNumber(averageStack) }}<span v-if="averageStackBB" class="avg-bb"> ({{ averageStackBB }} BB)</span></div>
-          </div>
-        </aside>
-        <aside v-else class="info-panel left-panel">
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.entries') }}</div>
-            <div class="info-value">{{ entries }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.playersLeft') }}</div>
-            <div class="info-value">{{ playersRemaining }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.totalPlayers') }}</div>
-            <div class="info-value">{{ playersRegistered }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.chipsInPlay') }}</div>
-            <div class="info-value">{{ formatNumber(chipsInPlay) }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.averageStack') }}</div>
-            <div class="info-value">{{ formatNumber(averageStack) }}<span v-if="averageStackBB" class="avg-bb"> ({{ averageStackBB }} BB)</span></div>
-          </div>
-        </aside>
-
-        <!-- Center: Main Clock -->
-        <main class="clock-center">
-          <div class="break-in-info break-in-top" v-if="timeToBreak">
-            <span class="break-in-label">{{ $t('tournament.breakIn') }}</span>
-            <span class="break-in-value">{{ timeToBreak }}</span>
-          </div>
-
-          <!-- Level indicator -->
-          <div class="level-indicator">
-            <template v-if="isBreak">
-              <span class="level-text break-text">☕ {{ $t('tournament.breakTime') }}</span>
-            </template>
-            <template v-else>
-              <span class="level-text">{{ $t('tournament.level') }} {{ currentLevel }}</span>
-            </template>
-          </div>
-
-          <!-- Blinds display -->
-          <div class="blinds-display" v-if="!isBreak">
-            <span class="blinds-value">{{ formatNumber(currentBlinds.small) }} / {{ formatNumber(currentBlinds.big) }}<span v-if="currentBlinds.ante" class="ante-value"> ({{ formatNumber(currentBlinds.ante) }})</span></span>
-          </div>
-
-          <!-- Timer -->
-          <div class="timer-wrap">
-            <div class="timer-display" :class="timerColorClass">
-              {{ formattedTime }}
-            </div>
-            <div class="level-progress" aria-hidden="true">
-              <i :style="{ width: `${levelProgress * 100}%` }"></i>
-            </div>
-          </div>
-
-          <!-- Status badge -->
-          <div v-if="status === 'waiting'" class="status-badge waiting">
-            {{ $t('tournament.waitingToStart') }}
-          </div>
-          <div v-else-if="status === 'paused'" class="status-badge paused">
-            <i class="fas fa-pause mr-2"></i>{{ $t('tournament.paused') }}
-          </div>
-          <div v-else-if="status === 'ended'" class="status-badge ended">
-            {{ isTimed ? $t('timed.clock.timeUp') : $t('tournament.ended') }}
-          </div>
-
-          <!-- Next blinds -->
-          <div class="next-blinds" v-if="nextPlayLevelEntry && !isBreak">
-            {{ $t('tournament.nextBlinds') }}: {{ formatNumber(nextPlayLevelEntry.small) }} / {{ formatNumber(nextPlayLevelEntry.big) }}
-            <span v-if="nextPlayLevelEntry.ante"> ({{ $t('tournament.ante') }} {{ formatNumber(nextPlayLevelEntry.ante) }})</span>
-          </div>
-          <div class="next-blinds" v-else-if="isBreak && nextPlayLevelEntry">
-            {{ $t('tournament.nextLevel') }}: {{ formatNumber(nextPlayLevelEntry.small) }} / {{ formatNumber(nextPlayLevelEntry.big) }}
-          </div>
-        </main>
-
-        <!-- Right Panel -->
-        <aside v-if="isTimed" class="info-panel right-panel">
-          <div class="info-item">
-            <div class="info-label">{{ $t('timed.clock.timeToEnd') }}</div>
-            <div class="info-value prize">{{ status === 'ended' ? '00:00' : (timeToEnd || '—') }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('timed.clock.endsAt') }}</div>
-            <div class="info-value">{{ endsAt || '—' }}</div>
-          </div>
-        </aside>
-        <aside v-else class="info-panel right-panel">
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.prizePool') }}</div>
-            <div class="info-value prize">${{ formatNumber(prizePool) }}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">{{ $t('tournament.payouts') }}</div>
-            <div class="payout-list">
-              <div v-for="p in payouts" :key="p.place" class="payout-row">
-                <span class="payout-place">{{ p.place }}.</span>
-                <span class="payout-amount">${{ formatNumber(p.amount) }}</span>
-              </div>
-            </div>
-          </div>
-        </aside>
-      </div>
-
-    </div>
+    <!-- Style 1: scoreboard -->
+    <ScoreboardClockBoard
+      v-else
+      :name="config.name || 'Tournament'"
+      :custom-subtitle="config.subtitle || ''"
+      :is-timed="isTimed"
+      :status="status"
+      :buy-in-closed="isTimed ? isBuyInClosed : isRegistrationClosed"
+      :cutoff-level="Number(config.reentryUntilLevel) || 0"
+      :current-level-index="currentLevelIndex"
+      :current-level="currentLevel"
+      :current-blinds="currentBlinds"
+      :is-break="isBreak"
+      :next-play-level-entry="nextPlayLevelEntry"
+      :formatted-time="formattedTime"
+      :local-time-left="localTimeLeft"
+      :level-progress="levelProgress"
+      :time-to-break="timeToBreak || ''"
+      :time-to-end="timeToEnd || ''"
+      :ends-at="endsAt || ''"
+      :players-registered="playersRegistered"
+      :players-remaining="playersRemaining"
+      :entries="entries"
+      :average-stack="averageStack"
+      :averageStackBB="Number(averageStackBB) || 0"
+      :prize-pool="prizePool"
+      :payouts="payouts"
+    >
+      <template #actions-left>
+        <button v-if="isHost" @click="showControls = !showControls" class="hud-control-btn">
+          <i class="fas fa-cog"></i>
+        </button>
+        <button @click="handleBack" class="hud-control-btn">
+          <i class="fas fa-arrow-left"></i>
+        </button>
+      </template>
+      <template #actions-right>
+        <button v-if="isHost" @click="handleToggleDealerMode" class="hud-control-btn" :class="{ 'dealer-active': dealerModeEnabled }" :title="$t('tournament.dealerMode')">
+          <i class="fas fa-user-shield"></i>
+        </button>
+        <button v-if="isHost" @click="showTimeBankFromClock" class="hud-control-btn" :title="$t('timeBank.title')">
+          <i class="fas fa-hourglass-half"></i>
+        </button>
+      </template>
+    </ScoreboardClockBoard>
 
     <!-- Host Controls Overlay -->
     <TournamentControls
@@ -278,7 +158,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
@@ -289,6 +169,7 @@ import { useGameStore } from '../store/modules/game.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import TournamentControls from '../components/tournament/TournamentControls.vue';
 import FeltClockBoard from '../components/tournament/FeltClockBoard.vue';
+import ScoreboardClockBoard from '../components/tournament/ScoreboardClockBoard.vue';
 import {
   TIMER_WARNING_THRESHOLD, TIMER_DANGER_THRESHOLD, TIMER_CRITICAL_THRESHOLD,
 } from '../utils/constants.js';
@@ -329,12 +210,7 @@ function _handleFirstInteraction() {
   document.removeEventListener('touchstart', _handleFirstInteraction, true);
 }
 
-// 5-second countdown flash
-const countdownFinal = computed(() =>
-  localTimeLeft.value <= 5 && localTimeLeft.value > 0 && status.value === 'running' && !isBreak.value
-);
-
-// Timer color class
+// Warning sound in the final seconds (the faces colour the timer themselves)
 const timerColorClass = ref('');
 watch(localTimeLeft, (val) => {
   if (status.value !== 'running') {
@@ -368,11 +244,6 @@ watch(currentLevelIndex, () => {
 watch(status, (val, prev) => {
   if (isTimed.value && val === 'ended' && prev === 'running') playSound('levelUp');
 });
-
-function formatNumber(n) {
-  if (n == null) return '0';
-  return Number(n).toLocaleString();
-}
 
 function handleBack() {
   // If there's a linked game room, go back to tournament game view; otherwise go to lobby
@@ -468,89 +339,19 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Full-screen host clock; the face itself (ScoreboardClockBoard /
+   FeltClockBoard) paints everything inside. */
 .tournament-clock-view {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
   color: white;
-  font-family: 'Inter', system-ui, sans-serif;
   overflow: hidden;
+  background: #0a1425;
 }
+.tournament-clock-view.style-felt { background: #0a2119; }
 
-.tournament-clock-view.is-break {
-  background: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #064e3b 100%);
-}
-
-.tournament-clock-view.time-critical {
-  animation: borderPulse 1s ease-in-out infinite;
-}
-
-@keyframes borderPulse {
-  0%, 100% { box-shadow: inset 0 0 30px rgba(239, 68, 68, 0); }
-  50% { box-shadow: inset 0 0 30px rgba(239, 68, 68, 0.3); }
-}
-
-.tournament-clock-view.countdown-final::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: rgba(245, 158, 11, 0.18);
-  animation: countdownFlash 1s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 1;
-}
-
-@keyframes countdownFlash {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 1; }
-}
-
-.clock-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
-}
-
-/* Header */
-.clock-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1.5rem;
-  background: rgba(0, 0, 0, 0.4);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-}
-
-.header-left, .header-right {
-  display: flex;
-  gap: 0.5rem;
-  min-width: 80px;
-}
-
-.header-right {
-  justify-content: flex-end;
-}
-
-.header-center {
-  text-align: center;
-  flex: 1;
-}
-
-.tournament-name {
-  font-size: clamp(1.5rem, 4vw, 3rem);
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-}
-
-.tournament-subtitle {
-  font-size: clamp(0.85rem, 1.8vw, 1.2rem);
-  color: rgba(255, 255, 255, 0.7);
-  margin-top: 0.25rem;
-}
-
+/* Header action buttons passed into the face's slots */
 .hud-control-btn {
   width: 40px;
   height: 40px;
@@ -561,214 +362,14 @@ onUnmounted(() => {
   font-size: 1rem;
   cursor: pointer;
   transition: background 0.2s;
+  flex-shrink: 0;
 }
-
-.hud-control-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
+.hud-control-btn:hover { background: rgba(255, 255, 255, 0.2); }
 .hud-control-btn.dealer-active {
   background: rgba(245, 158, 11, 0.3);
   border-color: #f59e0b;
   color: #fbbf24;
 }
-
-/* Body */
-.clock-body {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 2fr 1fr;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  min-height: 0;
-}
-
-/* Info Panels */
-.info-panel {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1.5rem;
-}
-
-.info-item {
-  text-align: center;
-}
-
-.info-label {
-  font-size: clamp(0.85rem, 1.5vw, 1.1rem);
-  font-weight: 700;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.8);
-  letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
-}
-
-.info-value {
-  font-size: clamp(1.15rem, 2.2vw, 1.6rem);
-  font-weight: 600;
-  color: white;
-}
-
-.info-value.prize {
-  color: #fbbf24;
-  font-size: clamp(1.4rem, 2.8vw, 2.2rem);
-  font-weight: 800;
-}
-
-.payout-list {
-  margin-top: 0.5rem;
-}
-
-.payout-row {
-  display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-  font-size: clamp(0.9rem, 1.6vw, 1.2rem);
-  padding: 0.15rem 0;
-}
-
-.payout-place {
-  color: rgba(255, 255, 255, 0.6);
-  min-width: 1.5em;
-  text-align: right;
-}
-
-.payout-amount {
-  font-weight: 600;
-}
-
-/* Center */
-.clock-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.level-indicator {
-  margin-bottom: 0.5rem;
-}
-
-.level-text {
-  font-size: clamp(1.15rem, 2.2vw, 1.6rem);
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.8);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.break-text {
-  color: #6ee7b7;
-  font-size: clamp(1.4rem, 2.8vw, 2rem);
-}
-
-.blinds-display {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.blinds-value {
-  font-size: clamp(2.8rem, 7vw, 5.5rem);
-  font-weight: 800;
-  color: white;
-  text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
-}
-
-.ante-value {
-  font-size: clamp(1.6rem, 4vw, 3rem);
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.avg-bb {
-  font-size: clamp(0.75rem, 1.2vw, 1rem);
-  color: rgba(255, 255, 255, 0.5);
-  font-weight: 400;
-}
-
-.tournament-subtitle.registration-closed {
-  display: inline-block;
-  background: rgba(220, 38, 38, 0.35);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  padding: 0.15rem 0.75rem;
-  border-radius: 4px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-}
-
-.break-in-info {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: clamp(1rem, 2vw, 1.4rem);
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 0.25rem;
-}
-
-.break-in-top {
-  margin-bottom: 0.5rem;
-}
-
-.break-in-label {
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.break-in-value {
-  font-weight: 700;
-  color: #6ee7b7;
-  font-variant-numeric: tabular-nums;
-}
-
-.timer-display {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 6.4ch;
-  font-size: clamp(4.85rem, 13.6vw, 11rem);
-  font-weight: 900;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.05em;
-  line-height: 1;
-  text-align: center;
-  padding: clamp(0.85rem, 1.9vw, 1.15rem) clamp(1.25rem, 3.2vw, 2.2rem);
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 1rem;
-  text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-  transition: color 0.3s;
-}
-
-/* Level progress under the timer (drains with the level) */
-.timer-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.6rem;
-}
-.level-progress {
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.35);
-  overflow: hidden;
-}
-.level-progress > i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: rgba(255, 255, 255, 0.55);
-  transition: width 0.25s linear;
-}
-.tournament-clock-view.is-break .level-progress > i { background: #6ee7b7; }
-.info-value, .payout-row { font-variant-numeric: tabular-nums; }
-
-/* Felt style: the board paints its own background */
-.tournament-clock-view.style-felt { background: #0a2119; }
 .hud-control-btn.felt-btn {
   background: rgba(10, 33, 25, 0.6);
   border-color: rgba(207, 174, 106, 0.45);
@@ -776,129 +377,7 @@ onUnmounted(() => {
 }
 .hud-control-btn.felt-btn:hover { background: rgba(207, 174, 106, 0.2); }
 
-.timer-warning {
-  color: #fbbf24;
-}
-
-.timer-danger {
-  color: #f87171;
-}
-
-.timer-critical {
-  color: #ef4444;
-  animation: timerPulse 0.5s ease-in-out infinite;
-}
-
-@keyframes timerPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.02); }
-}
-
-.status-badge {
-  padding: 0.5rem 1.5rem;
-  border-radius: 9999px;
-  font-size: clamp(0.9rem, 1.8vw, 1.2rem);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.status-badge.waiting {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.4);
-}
-
-.status-badge.paused {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.4);
-  animation: pauseBlink 2s ease-in-out infinite;
-}
-
-@keyframes pauseBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-.status-badge.ended {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.4);
-}
-
-.next-blinds {
-  font-size: clamp(1rem, 2.2vw, 1.5rem);
-  color: rgba(255, 255, 255, 0.7);
-  font-weight: 600;
-  margin-top: 0.5rem;
-}
-
-/* ── Tablet & large screen responsive (≥ 769px) ─── */
 @media (min-width: 769px) {
-  .info-label {
-    font-size: 1.7rem;
-  }
-
-  .info-value {
-    font-size: 2.8rem;
-  }
-
-  .info-value.prize {
-    font-size: 3.5rem;
-  }
-
-  .payout-row {
-    font-size: 1.8rem;
-  }
-
-  .blinds-value {
-    font-size: 4rem;
-  }
-
-  .timer-display {
-    font-size: clamp(7.5rem, 8.4vw, 8.75rem);
-    padding: 1rem 2.25rem;
-  }
-
-  .level-text {
-    font-size: 1.3rem;
-  }
-
-  .hud-control-btn {
-    width: 48px;
-    height: 48px;
-    font-size: 1.2rem;
-  }
-}
-
-/* ── Mobile responsive ─────────────────────────── */
-@media (max-width: 768px) {
-  .clock-body {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr auto;
-    padding: 0.5rem;
-    gap: 0.5rem;
-  }
-
-  .left-panel, .right-panel {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.75rem;
-  }
-
-  .info-item {
-    min-width: 80px;
-  }
-
-  .blinds-value {
-    font-size: 2.5rem;
-  }
-
-  .timer-display {
-    font-size: clamp(4.6rem, 17vw, 5.4rem);
-    padding: 0.7rem 1.1rem;
-  }
+  .hud-control-btn { width: 48px; height: 48px; font-size: 1.2rem; }
 }
 </style>

@@ -853,6 +853,7 @@
     "chipsInPlay": "Chips in play",
     "avgStack": "Avg stack",
     "prizePool": "Prize pool",
-    "payouts": "Payouts"
+    "payouts": "Payouts",
+    "place": "{ord}"
   }
 }

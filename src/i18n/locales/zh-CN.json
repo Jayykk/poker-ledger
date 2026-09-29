@@ -853,6 +853,7 @@
     "chipsInPlay": "场上筹码",
     "avgStack": "平均筹码",
     "prizePool": "奖池",
-    "payouts": "奖金分配"
+    "payouts": "奖金分配",
+    "place": "第{n}名"
   }
 }
