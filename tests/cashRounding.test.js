@@ -260,3 +260,13 @@ describe('totals over several games', () => {
     expect(summary.ranking[0]).toMatchObject({ odId: 'a', profitCash: 2.5 });
   });
 });
+
+describe('session summary loader', () => {
+  it('passes each table\'s cashDecimals into the summary (Codex #200)', async () => {
+    const { readFileSync } = await import('fs');
+    const { resolve } = await import('path');
+    const src = readFileSync(resolve(__dirname, '../src/composables/useSessions.js'), 'utf-8');
+    const loader = src.slice(src.indexOf('async function loadSessionSummary'), src.indexOf('aggregateSessionSummary(games'));
+    expect(loader).toContain('cashDecimals: g.cashDecimals');
+  });
+});
