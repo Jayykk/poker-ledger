@@ -507,17 +507,28 @@ export const useGameStore = defineStore('game', () => {
         stack: 0
       };
       
-      // Plain update (not a transaction) so the SDK shows it immediately;
-      // rev still moves so the snapshot guard stays monotonic.
-      await updateDoc(doc(db, 'games', gameId.value), {
-        players: arrayUnion(newPlayer),
-        rev: increment(1),
-      });
-      
+      if (game.value?.type === GAME_TYPE.LIVE && game.value?.tournamentSessionId) {
+        // Timed game: a new seat brings a buy-in, so it has to pass the
+        // cutoff check in the same transaction as the write — a UI check
+        // made just before the level turns over isn't enough.
+        await commitRoster(gameId.value, async (players, data, t) => {
+          await assertTimedBuyInOpen(data, t);
+          return { players: [...players, newPlayer] };
+        });
+      } else {
+        // Plain update (not a transaction) so the SDK shows it immediately;
+        // rev still moves so the snapshot guard stays monotonic.
+        await updateDoc(doc(db, 'games', gameId.value), {
+          players: arrayUnion(newPlayer),
+          rev: increment(1),
+        });
+      }
+
       return newPlayer;
     } catch (err) {
       console.error('Add player error:', err);
-      error.value = 'Failed to add player: ' + err.message;
+      // Keep the bare code so views can show the "buy-ins closed" message.
+      error.value = err.message === BUY_IN_CLOSED ? BUY_IN_CLOSED : 'Failed to add player: ' + err.message;
       return null;
     }
   };
