@@ -7,6 +7,15 @@
  * uid, then name — same precedence the old recordBuyInTx Cloud Function used,
  * so transaction logs written by either path resolve to the same seat.
  */
+/**
+ * Can this seat's name be changed? Only seats without an account (added by
+ * hand) and guest (anonymous) logins — an account's name comes from its
+ * profile.
+ */
+export function canRenamePlayer(player = {}) {
+  return !player.uid || player.isGuest === true;
+}
+
 export function matchesPlayer(player, { targetId, targetUid, targetName } = {}) {
   if (targetId) return player.id === targetId;
   if (targetUid) return player.uid === targetUid;

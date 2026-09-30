@@ -38,7 +38,7 @@
   </div>
   <!-- ⋯ : rename / remove (e.g. someone who joined the wrong room) -->
   <div v-if="menuOpen" class="t-menu">
-    <button type="button" @click="pick('edit')"><i class="fas fa-pen"></i>{{ $t('room.rename') }}</button>
+    <button v-if="canRename" type="button" @click="pick('edit')"><i class="fas fa-pen"></i>{{ $t('room.rename') }}</button>
     <button type="button" class="danger" @click="pick('remove')"><i class="fas fa-user-minus"></i>{{ $t('room.removePlayer') }}</button>
   </div>
   </div>
@@ -48,6 +48,7 @@
 // One tournament player as a compact row: players still in get 淘汰, players
 // out get 重新買入 while re-entry is open (or the reason it isn't).
 import { computed, ref } from 'vue';
+import { canRenamePlayer } from '../../utils/ledgerOps.js';
 import { formatNumber } from '../../utils/formatters.js';
 
 const props = defineProps({
@@ -71,6 +72,8 @@ const pick = (action) => {
 };
 
 const champion = computed(() => props.isChampion || props.player.placement === 1);
+// Account names come from the profile; only hand-added and guest seats rename
+const canRename = computed(() => canRenamePlayer(props.player));
 
 const entryCount = computed(() => {
   if (!props.baseBuyIn || props.baseBuyIn <= 0) return 1;
