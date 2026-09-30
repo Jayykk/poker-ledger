@@ -85,7 +85,7 @@
     "tournament": "Blind Clock",
     "tournamentDesc": "Set up tournament structure with fullscreen clock",
     "tournamentSetup": "Structures",
-    "tournamentSetupDesc": "Blind structures and templates (shared by tournaments and timed games)",
+    "tournamentSetupDesc": "Manage blind structures (shared by tournaments and timed games)",
     "timeBank": "Time Bank",
     "timeBankDesc": "Standalone countdown timer for dealers"
   },
@@ -860,5 +860,68 @@
     "prizePool": "Prize pool",
     "payouts": "Payouts",
     "place": "{ord}"
+  },
+  "structure": {
+    "title": "Structures",
+    "intro": "Blind structures only (levels, blinds, durations). Buy-in, re-entry and payouts are set on table templates.",
+    "new": "New structure",
+    "mine": "My blind structures",
+    "none": "No blind structures yet",
+    "confirmDelete": "Delete \"{name}\"? Templates already using it keep their copy.",
+    "create": "New blind structure",
+    "edit": "Edit blind structure",
+    "name": "Structure name",
+    "namePlaceholder": "e.g. Friday Turbo",
+    "cutoff": "Suggested buy-in cutoff",
+    "cutoffHint": "Filled in when a template picks this structure; the template can change it",
+    "levelsCount": "{n} levels",
+    "totalTime": "{duration} total",
+    "errors": {
+      "nameRequired": "Enter a structure name",
+      "levelsRequired": "Add at least one level"
+    }
+  },
+  "template": {
+    "title": "Table Templates",
+    "new": "New template",
+    "create": "New table template",
+    "edit": "Edit table template",
+    "kindCash": "Cash",
+    "kindTournament": "Tournament",
+    "kindCashDesc": "Settles stack − buy-in at the rate. Add a blind structure for a timed game.",
+    "kindTournamentDesc": "Prize pool paid by placement. Needs a blind structure.",
+    "mine": "My templates",
+    "none": "No templates yet",
+    "confirmDelete": "Delete \"{name}\"?",
+    "name": "Template name",
+    "moduleBuyIn": "Buy-in",
+    "moduleStructure": "Blind structure",
+    "structureRequiredHint": "Tournaments need a blind structure",
+    "pickStructure": "Pick a blind structure",
+    "manageStructures": "Manage blind structures",
+    "moduleEntry": "Entry / cutoff",
+    "reentryAllowed": "Allow re-entry",
+    "reentryNoCutoff": "No cutoff (until the last level)",
+    "noReentry": "No re-entry",
+    "reentryMaxN": "up to {n}",
+    "moduleSettlement": "Settlement",
+    "moduleBounty": "Bounty",
+    "bounty": {
+      "none": "None",
+      "ko": "Knockout",
+      "pko": "Progressive KO",
+      "mystery": "Mystery bounty"
+    },
+    "comingSoon": "Coming soon",
+    "bountyHint": "Knockout, progressive KO and mystery bounties arrive in the next phase",
+    "errors": {
+      "nameRequired": "Enter a template name",
+      "structureRequired": "Pick a blind structure",
+      "payoutNot100": "Payout percentages must total 100%",
+      "bountyNotAvailable": "Bounties are coming soon — choose None for now",
+      "bountyShareRequired": "Set the bounty per buy-in",
+      "cutoffBeyondStructure": "The cutoff level is past the last level of the structure",
+      "buyInInvalid": "Enter a valid buy-in (chips and amount)"
+    }
   }
 }

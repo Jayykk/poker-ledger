@@ -24,7 +24,8 @@ const lobbyContent = read('src/views/LobbyView.vue');
 const actionModalContent = read('src/components/common/ActionModal.vue');
 const appContent = read('src/App.vue');
 const clockViewContent = read('src/views/TournamentClockView.vue');
-const presetsViewContent = read('src/views/TournamentPresetsView.vue');
+const structuresViewContent = read('src/views/BlindStructuresView.vue');
+const templatesViewContent = read('src/views/TableTemplatesView.vue');
 const gameStoreContent = read('src/store/modules/game.js');
 const clockComposable = read('src/composables/useTournamentClock.js');
 
@@ -81,24 +82,26 @@ describe('Room creation flow', () => {
     it('should auto-create tournament session before creating game', () => {
       expect(lobbyContent).toContain('createTournamentSession');
       // Tournament session is created first, then game
-      const createSessionIdx = lobbyContent.indexOf('createTournamentSession({');
+      const createSessionIdx = lobbyContent.indexOf('createTournamentSession(clockConfig)');
       const createGameIdx = lobbyContent.indexOf('createGame(');
       expect(createSessionIdx).toBeLessThan(createGameIdx);
     });
 
     it('should pass tournamentSessionId to createGame options', () => {
-      expect(lobbyContent).toContain('options.tournamentSessionId = tournamentSessionId');
+      expect(lobbyContent).toContain('gameCreationFromTemplate(template, { tournamentSessionId })');
+      expect(lobbyContent).toContain('const options = game.options');
     });
 
-    it('should merge built-in templates and user presets in allTemplateOptions', () => {
+    it('should merge built-in templates and user templates in allTemplateOptions', () => {
       expect(lobbyContent).toContain('allTemplateOptions');
       expect(lobbyContent).toContain('TOURNAMENT_TEMPLATES');
-      expect(lobbyContent).toContain('userPresets');
+      expect(lobbyContent).toContain('userTemplates');
+      expect(lobbyContent).toContain('templateFromBuiltInTournament');
     });
 
     it('should show template summary with change button in final step', () => {
       expect(lobbyContent).toContain("$t('common.change')");
-      expect(lobbyContent).toContain('selectedTemplate.isBuiltIn');
+      expect(lobbyContent).toContain('templateSummary(selectedTemplate, t)');
     });
   });
 
@@ -280,8 +283,9 @@ describe('Lobby layout', () => {
       expect(lobbyContent).toContain("$t('lobby.tools')");
     });
 
-    it('lobby should have tournament-presets link', () => {
-      expect(lobbyContent).toContain("'/tournament-presets'");
+    it('lobby should link to 賽制設定 (structures) and 開桌範本 (templates)', () => {
+      expect(lobbyContent).toContain("'/structures'");
+      expect(lobbyContent).toContain("'/templates'");
     });
 
     it('lobby should have time-bank link', () => {
@@ -394,43 +398,34 @@ describe('App.vue route guards', () => {
 // 5. Preset Management Flow
 // ═══════════════════════════════════════════════════════════════════════
 describe('Preset management flow', () => {
-  describe('TournamentPresetsView card interactions', () => {
-    it('built-in template cards should be clickable (whole card)', () => {
-      // Cards have @click handlers directly on the card div
-      expect(presetsViewContent).toMatch(/@click="editFromTemplate\(tmpl\)"/);
-    });
+  for (const [label, content, newPath] of [
+    ['BlindStructuresView', structuresViewContent, "'/structure-setup'"],
+    ['TableTemplatesView', templatesViewContent, "'/template-setup'"],
+  ]) {
+    describe(`${label} card interactions`, () => {
+      it('cards should be clickable (whole card)', () => {
+        expect(content).toMatch(/@click="edit\((s|tpl)\)"/);
+      });
 
-    it('built-in cards should NOT have play buttons', () => {
-      // No fa-play icon in the built-in section
-      const builtInSection = presetsViewContent.match(
-        /builtInTemplates[\s\S]*?<\/section>/
-      );
-      expect(builtInSection).not.toBeNull();
-      expect(builtInSection[0]).not.toContain('fa-play');
-    });
+      it('cards should NOT have play buttons', () => {
+        expect(content).not.toContain('fa-play');
+        expect(content).not.toContain('startFromPreset');
+        expect(content).not.toContain('startFromTemplate');
+      });
 
-    it('user preset cards should be clickable (whole card)', () => {
-      expect(presetsViewContent).toMatch(/@click="editPreset\(preset\)"/);
-    });
+      it('user cards should have delete button with click.stop', () => {
+        expect(content).toMatch(/@click\.stop="handleDelete\((s|tpl)\)"/);
+      });
 
-    it('user preset cards should have delete button with click.stop', () => {
-      expect(presetsViewContent).toContain('@click.stop="handleDelete(preset)"');
-    });
+      it('cards should show chevron-right for navigation hint', () => {
+        expect(content).toContain('fa-chevron-right');
+      });
 
-    it('user preset cards should NOT have play button', () => {
-      // No startFromPreset function should exist
-      expect(presetsViewContent).not.toContain('startFromPreset');
-      expect(presetsViewContent).not.toContain('startFromTemplate');
+      it(`should have new button linking to ${newPath}`, () => {
+        expect(content).toContain(newPath);
+      });
     });
-
-    it('cards should show chevron-right for navigation hint', () => {
-      expect(presetsViewContent).toContain('fa-chevron-right');
-    });
-
-    it('should have new preset button linking to /tournament-setup', () => {
-      expect(presetsViewContent).toContain("'/tournament-setup'");
-    });
-  });
+  }
 
   describe('template data integrity', () => {
     it('cloneTemplate should deep-copy levels', () => {

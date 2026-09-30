@@ -455,10 +455,11 @@ export function useTournamentClock(options = {}) {
         subtitle: config.subtitle || '',
         buyIn: config.buyIn || 0,
         startingChips: config.startingChips || DEFAULT_STARTING_CHIPS,
-        // Timed games: 0 means "no buy-in cutoff", so don't default it.
+        // 0 is meaningful — timed: no buy-in cutoff; tournament: no re-entry
+        // (the store treats ≤ 0 as closed) — so only a missing value defaults.
         reentryUntilLevel: timed
           ? (Number(config.reentryUntilLevel) || 0)
-          : (config.reentryUntilLevel || DEFAULT_REENTRY_LEVEL),
+          : (config.reentryUntilLevel == null ? DEFAULT_REENTRY_LEVEL : Number(config.reentryUntilLevel) || 0),
         maxReentries: config.maxReentries ?? 0,
         levels: config.levels || [],
         payoutRatios: config.payoutRatios || [],
@@ -595,34 +596,7 @@ export function useTournamentClock(options = {}) {
 
   const dealerModeEnabled = computed(() => session.value?.dealerModeEnabled === true);
 
-  // ── Preset CRUD ────────────────────────────────────
-  async function savePreset(presetData, presetId = null) {
-    const uid = authStore.user?.uid;
-    if (!uid) throw new Error('Not authenticated');
-    const colRef = collection(db, 'users', uid, 'tournamentPresets');
-    const docRef = presetId ? doc(colRef, presetId) : doc(colRef);
-    await setDoc(docRef, {
-      ...presetData,
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
-    return docRef.id;
-  }
-
-  async function deletePreset(presetId) {
-    const uid = authStore.user?.uid;
-    if (!uid) throw new Error('Not authenticated');
-    await deleteDoc(doc(db, 'users', uid, 'tournamentPresets', presetId));
-  }
-
-  function listenPresets(callback) {
-    const uid = authStore.user?.uid;
-    if (!uid) return () => {};
-    const colRef = collection(db, 'users', uid, 'tournamentPresets');
-    return onSnapshot(colRef, (snap) => {
-      const presets = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      callback(presets);
-    });
-  }
+  // Presets moved to table templates / blind structures (useTableTemplates).
 
   // ── Cleanup ────────────────────────────────────────
   function cleanup() {
@@ -698,8 +672,5 @@ export function useTournamentClock(options = {}) {
     cleanup,
 
     // Presets
-    savePreset,
-    deletePreset,
-    listenPresets,
   };
 }

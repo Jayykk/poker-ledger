@@ -5,6 +5,13 @@ import {
   LEGACY_SOURCE,
   normalizeLevel,
   normalizeStructure,
+  validateStructure,
+  renumberLevels,
+  builtInStructures,
+  periodSnapshotFromTemplate,
+  encodeTemplateShare,
+  decodeTemplateShare,
+  templateFromImport,
   structureSnapshot,
   maxLevelNumber,
   normalizeBounty,
@@ -44,10 +51,37 @@ describe('structures', () => {
     });
   });
 
-  it('keeps only name + levels', () => {
-    const s = normalizeStructure({ id: 's1', name: ' Turbo ', levels: LEVELS, buyIn: 999 });
-    expect(s).toEqual({ id: 's1', name: 'Turbo', levels: expect.any(Array) });
+  it('keeps only name, suggested cutoff and levels', () => {
+    const s = normalizeStructure({ id: 's1', name: ' Turbo ', cutoffLevel: '2', levels: LEVELS, buyIn: 999 });
+    expect(s).toEqual({ id: 's1', name: 'Turbo', cutoffLevel: 2, levels: expect.any(Array) });
     expect(s.levels).toHaveLength(4);
+  });
+
+  it('drops a cutoff past the last level', () => {
+    expect(normalizeStructure({ cutoffLevel: 9, levels: LEVELS }).cutoffLevel).toBeNull();
+    expect(normalizeStructure({ cutoffLevel: 0, levels: LEVELS }).cutoffLevel).toBeNull();
+  });
+
+  it('validates name and levels', () => {
+    expect(validateStructure({ name: 'S', levels: LEVELS })).toEqual([]);
+    expect(validateStructure({ levels: LEVELS })).toEqual(['nameRequired']);
+    expect(validateStructure({ name: 'S', levels: [{ isBreak: true }] })).toEqual(['levelsRequired']);
+  });
+
+  it('renumbers playable levels around breaks', () => {
+    const levels = [{ level: 5 }, { isBreak: true, level: 0 }, { level: 9 }];
+    expect(renumberLevels(levels).map((l) => l.level)).toEqual([1, 0, 2]);
+  });
+
+  it('lists built-in structures with their cutoff', () => {
+    const list = builtInStructures(TOURNAMENT_TEMPLATES, (k) => `T:${k}`);
+    expect(list).toHaveLength(TOURNAMENT_TEMPLATES.length);
+    expect(list[0]).toMatchObject({
+      id: `builtin:${TOURNAMENT_TEMPLATES[0].id}`,
+      name: `T:${TOURNAMENT_TEMPLATES[0].nameKey}`,
+      cutoffLevel: TOURNAMENT_TEMPLATES[0].reentryUntilLevel,
+      source: 'builtin',
+    });
   });
 
   it('snapshots a structure (or null when empty)', () => {
@@ -231,7 +265,8 @@ describe('legacy tournament presets', () => {
   });
 
   it('extracts the structure as a library item', () => {
-    expect(structureFromTournamentPreset(preset)).toEqual({ id: 'p1', name: 'Friday', levels: expect.any(Array) });
+    expect(structureFromTournamentPreset(preset)).toEqual({ id: 'p1', name: 'Friday', cutoffLevel: 2, levels: expect.any(Array) });
+    expect(structureFromTournamentPreset({ ...preset, reentryUntilLevel: 0 }).cutoffLevel).toBeNull();
   });
 
   it('built-in templates convert with a translated name', () => {
@@ -357,5 +392,76 @@ describe('kinds', () => {
   it('exposes the two kinds and four bounty types', () => {
     expect(Object.values(TEMPLATE_KIND)).toEqual(['cash', 'tournament']);
     expect(Object.values(BOUNTY_TYPE)).toEqual(['none', 'ko', 'pko', 'mystery']);
+  });
+});
+
+describe('event period snapshots', () => {
+  const tpl = normalizeTemplate({
+    kind: 'cash', id: 'x', name: 'Home', buyIn: { chips: 1000, amount: 100 },
+    structure: { name: 'S', levels: LEVELS }, entry: { cutoffLevel: 2 }, migratedFrom: 'cashPresets/c1',
+  });
+
+  it('stores the template without its id / origin', () => {
+    const snap = periodSnapshotFromTemplate(tpl);
+    expect(snap).not.toHaveProperty('id');
+    expect(snap).not.toHaveProperty('migratedFrom');
+    expect(snap.formatVersion).toBe(1);
+  });
+
+  it('reads new snapshots as templates and old ones through the adapters', () => {
+    const snap = periodSnapshotFromTemplate(tpl);
+    expect(templateFromPeriodSnapshot('cash', snap)).toMatchObject({ name: 'Home', buyIn: { chips: 1000, amount: 100 }, entry: { cutoffLevel: 2 } });
+    expect(templateFromPeriodSnapshot('cash', { name: 'Old', buyIn: 500, rate: 5 }).buyIn).toEqual({ chips: 500, amount: 100 });
+  });
+
+  it('a period starts the same table as the lobby would', () => {
+    const snap = periodSnapshotFromTemplate(tpl);
+    const fromPeriod = templateFromPeriodSnapshot('cash', snap);
+    expect(clockConfigFromTemplate(fromPeriod)).toEqual(clockConfigFromTemplate(tpl));
+    expect(gameCreationFromTemplate(fromPeriod)).toEqual(gameCreationFromTemplate(tpl));
+  });
+});
+
+describe('share links and import', () => {
+  it('round-trips a tournament template', () => {
+    const tpl = templateFromTournamentPreset({
+      name: '週五賽', subtitle: 'Weekly', buyIn: 1500, startingChips: 30000,
+      reentryUntilLevel: 2, maxReentries: 2, levels: LEVELS, payoutRatios: [{ place: 1, percentage: 100 }],
+    });
+    const back = decodeTemplateShare(encodeTemplateShare(tpl));
+    expect(back).toMatchObject({
+      kind: 'tournament', name: '週五賽', subtitle: 'Weekly', buyIn: { amount: 1500, chips: 30000 },
+      entry: { cutoffLevel: 2, reentry: { allowed: true, max: 2 } },
+      payout: { ratios: [{ place: 1, percentage: 100 }] },
+    });
+    expect(back.structure.levels).toEqual(tpl.structure.levels);
+  });
+
+  it('round-trips a timed cash template', () => {
+    const tpl = normalizeTemplate({
+      kind: 'cash', name: 'Home', buyIn: { chips: 1000, amount: 300 },
+      structure: { name: 'S', levels: LEVELS }, entry: { cutoffLevel: 3 }, cash: { decimals: 2 },
+    });
+    expect(decodeTemplateShare(encodeTemplateShare(tpl))).toMatchObject({
+      kind: 'cash', name: 'Home', buyIn: { chips: 1000, amount: 300 },
+      structure: { name: 'S' }, entry: { cutoffLevel: 3 }, cash: { decimals: 2 },
+    });
+  });
+
+  it('still reads links made by the old 賽制設定 page', () => {
+    const compact = { n: 'Old', s: '', b: 200, c: 20000, r: 4, m: 0, l: [[1, 25, 50, 0, 15, 0], [0, 0, 0, 0, 5, 1]], p: [[1, 100]] };
+    const b64 = Buffer.from(JSON.stringify(compact), 'utf8').toString('base64');
+    expect(decodeTemplateShare(b64)).toMatchObject({
+      kind: 'tournament', name: 'Old', buyIn: { amount: 200, chips: 20000 },
+      entry: { cutoffLevel: 4, reentry: { allowed: true, max: null } },
+    });
+    expect(decodeTemplateShare('not base64 json')).toBeNull();
+  });
+
+  it('imports template files and old tournament exports', () => {
+    expect(templateFromImport({ kind: 'cash', id: 'x', name: 'C' })).toMatchObject({ kind: 'cash', id: null, name: 'C' });
+    expect(templateFromImport({ name: 'T', levels: LEVELS, buyIn: 100 }).kind).toBe('tournament');
+    expect(templateFromImport({ foo: 1 })).toBeNull();
+    expect(templateFromImport(null)).toBeNull();
   });
 });

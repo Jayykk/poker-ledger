@@ -85,7 +85,7 @@
     "tournament": "赛制时钟",
     "tournamentDesc": "设置锦标赛结构并显示全屏时钟",
     "tournamentSetup": "赛制设定",
-    "tournamentSetupDesc": "管理盲注结构与模板（锦标赛、限时赛共用）",
+    "tournamentSetupDesc": "管理盲注结构（锦标赛、限时赛共用）",
     "timeBank": "Time Bank",
     "timeBankDesc": "独立倒计时工具，供荷官使用"
   },
@@ -860,5 +860,68 @@
     "prizePool": "奖池",
     "payouts": "奖金分配",
     "place": "第{n}名"
+  },
+  "structure": {
+    "title": "赛制设定",
+    "intro": "这里只放盲注结构（级别、盲注、时长）。买入、Re-entry、奖池分配改在「开桌模板」设置。",
+    "new": "新增结构",
+    "mine": "我的盲注结构",
+    "none": "暂无自定义盲注结构",
+    "confirmDelete": "确定要删除「{name}」吗？已套用这个结构的模板不受影响。",
+    "create": "新增盲注结构",
+    "edit": "编辑盲注结构",
+    "name": "结构名称",
+    "namePlaceholder": "例：周五 Turbo",
+    "cutoff": "建议截买等级",
+    "cutoffHint": "模板选用这个结构时默认带入，模板里仍可修改",
+    "levelsCount": "{n} 个级别",
+    "totalTime": "共 {duration}",
+    "errors": {
+      "nameRequired": "请输入结构名称",
+      "levelsRequired": "至少需要一个级别"
+    }
+  },
+  "template": {
+    "title": "开桌模板",
+    "new": "新增模板",
+    "create": "新增开桌模板",
+    "edit": "编辑开桌模板",
+    "kindCash": "现金桌",
+    "kindTournament": "锦标赛",
+    "kindCashDesc": "结算＝筹码 − 买入，按汇率换算。套用盲注结构就是限时赛。",
+    "kindTournamentDesc": "奖池按名次分配，必须有盲注结构。",
+    "mine": "我的模板",
+    "none": "暂无模板",
+    "confirmDelete": "确定要删除「{name}」吗？",
+    "name": "模板名称",
+    "moduleBuyIn": "买入",
+    "moduleStructure": "盲注结构",
+    "structureRequiredHint": "锦标赛必须选择一个盲注结构",
+    "pickStructure": "选择盲注结构",
+    "manageStructures": "管理盲注结构",
+    "moduleEntry": "报名 / 截买",
+    "reentryAllowed": "允许 Re-entry",
+    "reentryNoCutoff": "不截止（到最后一级）",
+    "noReentry": "不可 Re-entry",
+    "reentryMaxN": "最多 {n} 次",
+    "moduleSettlement": "结算",
+    "moduleBounty": "赏金",
+    "bounty": {
+      "none": "无",
+      "ko": "KO 猎头",
+      "pko": "PKO 累进猎头",
+      "mystery": "神秘赏金"
+    },
+    "comingSoon": "即将推出",
+    "bountyHint": "KO / PKO / 神秘赏金将在下一阶段开放",
+    "errors": {
+      "nameRequired": "请输入模板名称",
+      "structureRequired": "请选择盲注结构",
+      "payoutNot100": "奖池分配比例合计必须为 100%",
+      "bountyNotAvailable": "赏金赛即将推出，目前请选「无」",
+      "bountyShareRequired": "请设置每次买入的赏金金额",
+      "cutoffBeyondStructure": "截买等级超过盲注结构的最后一级",
+      "buyInInvalid": "请输入有效的买入筹码与金额"
+    }
   }
 }

@@ -235,7 +235,7 @@
     <div class="mt-6">
       <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wide mb-3">{{ $t('lobby.tools') }}</h3>
       <div class="grid grid-cols-2 gap-3">
-        <BaseCard padding="md" clickable @click="$router.push('/tournament-presets')">
+        <BaseCard padding="md" clickable @click="$router.push('/structures')">
           <div class="flex flex-col items-center gap-2 text-center py-1">
             <div class="w-10 h-10 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg">
               🏆
@@ -243,12 +243,12 @@
             <span class="text-white text-sm font-semibold">{{ $t('action.tournamentSetup') }}</span>
           </div>
         </BaseCard>
-        <BaseCard padding="md" clickable @click="$router.push('/cash-presets')">
+        <BaseCard padding="md" clickable @click="$router.push('/templates')">
           <div class="flex flex-col items-center gap-2 text-center py-1">
             <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
-              💵
+              📋
             </div>
-            <span class="text-white text-sm font-semibold">{{ $t('cashPreset.presets') }}</span>
+            <span class="text-white text-sm font-semibold">{{ $t('template.title') }}</span>
           </div>
         </BaseCard>
         <BaseCard padding="md" clickable @click="$router.push('/time-bank/new')">
@@ -312,22 +312,19 @@
 
         <!-- Custom presets (shown first) -->
         <div
-          v-for="tmpl in allTemplateOptions.filter(t => !t.isBuiltIn)"
-          :key="tmpl.id"
+          v-for="tmpl in allTemplateOptions.filter(t => !t.builtIn)"
+          :key="tmpl.key"
           @click="selectedTemplate = tmpl"
           class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all"
-          :class="selectedTemplate?.id === tmpl.id ? 'border-amber-500 bg-amber-500/10' : 'border-slate-600 bg-slate-700/50 hover:bg-slate-600/50'"
+          :class="selectedTemplate?.key === tmpl.key ? 'border-amber-500 bg-amber-500/10' : 'border-slate-600 bg-slate-700/50 hover:bg-slate-600/50'"
         >
           <div class="flex-1 min-w-0">
             <div class="text-white font-semibold text-sm truncate">
               {{ tmpl.name }}
             </div>
-            <div class="text-gray-400 text-xs">
-              {{ $t('tournament.buyInAmount') }}: {{ tmpl.buyIn }} ·
-              {{ tmpl.levels.filter(l => !l.isBreak).length }} {{ $t('tournament.level') }}
-            </div>
+            <div class="text-gray-400 text-xs">{{ templateSummary(tmpl, t) }}</div>
           </div>
-          <i v-if="selectedTemplate?.id === tmpl.id" class="fas fa-check text-amber-400"></i>
+          <i v-if="selectedTemplate?.key === tmpl.key" class="fas fa-check text-amber-400"></i>
         </div>
 
         <!-- Built-in templates (collapsible) -->
@@ -341,22 +338,19 @@
           </button>
           <div v-if="showBuiltInTemplates" class="space-y-2">
             <div
-              v-for="tmpl in allTemplateOptions.filter(t => t.isBuiltIn)"
-              :key="tmpl.id"
+              v-for="tmpl in allTemplateOptions.filter(t => t.builtIn)"
+              :key="tmpl.key"
               @click="selectedTemplate = tmpl"
               class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all"
-              :class="selectedTemplate?.id === tmpl.id ? 'border-amber-500 bg-amber-500/10' : 'border-slate-600 bg-slate-700/50 hover:bg-slate-600/50'"
+              :class="selectedTemplate?.key === tmpl.key ? 'border-amber-500 bg-amber-500/10' : 'border-slate-600 bg-slate-700/50 hover:bg-slate-600/50'"
             >
               <div class="flex-1 min-w-0">
                 <div class="text-white font-semibold text-sm truncate">
-                  {{ $t(tmpl.nameKey) }}
+                  {{ tmpl.name }}
                 </div>
-                <div class="text-gray-400 text-xs">
-                  {{ $t('tournament.buyInAmount') }}: {{ tmpl.buyIn }} ·
-                  {{ tmpl.levels.filter(l => !l.isBreak).length }} {{ $t('tournament.level') }}
-                </div>
+                <div class="text-gray-400 text-xs">{{ templateSummary(tmpl, t) }}</div>
               </div>
-              <i v-if="selectedTemplate?.id === tmpl.id" class="fas fa-check text-amber-400"></i>
+              <i v-if="selectedTemplate?.key === tmpl.key" class="fas fa-check text-amber-400"></i>
             </div>
           </div>
         </div>
@@ -387,15 +381,14 @@
         <div v-if="selectedGameType === 'tournament' && selectedTemplate" class="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
           <div class="flex items-center justify-between">
             <span class="text-amber-400 text-sm font-semibold">
-              🏆 {{ selectedTemplate.isBuiltIn ? $t(selectedTemplate.nameKey) : selectedTemplate.name }}
+              🏆 {{ selectedTemplate.name }}
             </span>
             <button @click="createStep = 2" class="text-xs text-gray-400 hover:text-white">
               {{ $t('common.change') }}
             </button>
           </div>
           <div class="text-gray-400 text-xs mt-1">
-            {{ $t('tournament.startingChips') }}: {{ formatNumber(selectedTemplate.startingChips) }} ·
-            {{ selectedTemplate.levels.filter(l => !l.isBreak).length }} {{ $t('tournament.level') }}
+            {{ templateSummary(selectedTemplate, t) }}
           </div>
         </div>
 
@@ -404,18 +397,18 @@
           <div class="text-xs text-gray-400 mb-2">{{ $t('cashPreset.usePreset') }}</div>
           <div class="flex gap-2 overflow-x-auto pb-1">
             <button
-              v-for="p in cashPresets"
-              :key="p.id"
+              v-for="p in cashTemplates"
+              :key="p.key"
               type="button"
               @click="selectCashPreset(p)"
               class="flex-shrink-0 px-3 py-2 rounded-lg border text-left text-sm transition-all"
-              :class="selectedCashPresetId === p.id
+              :class="selectedCashPresetId === p.key
                 ? 'border-emerald-500 bg-emerald-500/10 text-white'
                 : 'border-slate-600 bg-slate-700/50 text-gray-300 hover:bg-slate-600/50'"
             >
               <div class="font-semibold">{{ p.name || $t('cashPreset.untitled') }}</div>
               <div class="text-xs text-gray-400">
-                {{ formatNumber(p.buyIn || 0) }} {{ $t('game.chips') }} · ${{ formatNumber(resolveBuyInAmount({ ...p, buyIn: p.buyIn || 0, rate: p.rate || 1 }) || 0) }}
+                {{ formatNumber(p.buyIn.chips) }} {{ $t('game.chips') }} · ${{ formatNumber(p.buyIn.amount) }}
               </div>
               <div v-if="p.structure" class="text-[10px] text-amber-400/80">
                 <i class="fas fa-clock mr-0.5"></i>{{ p.structure.name }}
@@ -570,10 +563,14 @@ import BaseModal from '../components/common/BaseModal.vue';
 import { formatNumber, formatShortDate } from '../utils/formatters.js';
 import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP, GAME_TYPE } from '../utils/constants.js';
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
-import { buildTimedClockConfig } from '../utils/timedStructure.js';
-import { rateFromBuyIn, resolveBuyInAmount, formatRate } from '../utils/buyInRate.js';
+import {
+  TEMPLATE_KIND, normalizeTemplate, templateFromBuiltInTournament,
+  clockConfigFromTemplate, gameCreationFromTemplate,
+} from '../utils/tableTemplates.js';
+import { templateSummary } from '../utils/templateDisplay.js';
+import { rateFromBuyIn, formatRate } from '../utils/buyInRate.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
-import { useCashPresets } from '../composables/useCashPresets.js';
+import { useTableTemplates } from '../composables/useTableTemplates.js';
 import { useSessions, sortSessions, MY_SESSIONS_LIMIT } from '../composables/useSessions.js';
 
 const { t } = useI18n();
@@ -610,10 +607,15 @@ const createBuyIn = ref(DEFAULT_BUY_IN);
 const createBuyInAmount = ref(DEFAULT_BUY_IN);
 const derivedCreateRate = computed(() => rateFromBuyIn(createBuyIn.value, createBuyInAmount.value));
 const createRate = computed(() => derivedCreateRate.value || 1);
+// Table templates (開桌範本); `key` is unique across sources.
+const userTemplates = ref([]);
+const withKey = (tpl) => ({ ...tpl, key: `${tpl.source || 'builtin'}:${tpl.id}` });
+const cashTemplates = computed(() =>
+  userTemplates.value.filter((tpl) => tpl.kind === TEMPLATE_KIND.CASH).map(withKey)
+);
 const selectedCashPresetId = ref(null);
-const cashPresets = ref([]);
 const selectedCashPreset = computed(() =>
-  cashPresets.value.find((p) => p.id === selectedCashPresetId.value) || null
+  cashTemplates.value.find((p) => p.key === selectedCashPresetId.value) || null
 );
 const unboundPlayers = ref([]);
 const isCreating = ref(false);
@@ -622,10 +624,8 @@ const isCreating = ref(false);
 const createStep = ref(1);
 const selectedGameType = ref(null);
 const selectedTemplate = ref(null);
-const userPresets = ref([]);
-
-const { createSession: createTournamentSession, listenPresets } = useTournamentClock();
-const { listenPresets: listenCashPresets } = useCashPresets();
+const { createSession: createTournamentSession } = useTournamentClock();
+const { listenTemplates } = useTableTemplates();
 const { listenMySessions, listenJoinedSessions, myHostedSessions, myJoinedSessions } = useSessions();
 
 // Live events (Session layer): both the ones I host and the ones I've joined.
@@ -647,19 +647,17 @@ const endedSessionsCount = computed(() =>
 let unsubMySessions = null;
 let unsubJoinedSessions = null;
 
-// Merge built-in templates with user presets for the picker
+// Tournament picker: my templates first, then the built-ins
 const allTemplateOptions = computed(() => {
-  const builtIn = TOURNAMENT_TEMPLATES.map((t) => ({ ...t, isBuiltIn: true }));
-  const custom = userPresets.value.map((p) => ({ ...p, isBuiltIn: false }));
-  // Custom presets first, then built-in
+  const custom = userTemplates.value.filter((tpl) => tpl.kind === TEMPLATE_KIND.TOURNAMENT).map(withKey);
+  const builtIn = TOURNAMENT_TEMPLATES.map((b) => withKey(templateFromBuiltInTournament(b, t)));
   return [...custom, ...builtIn];
 });
 
 const showBuiltInTemplates = ref(false);
 
-// Load user presets when modal opens
-let unsubPresets = null;
-let unsubCashPresets = null;
+// Load the user's templates when the modal opens
+let unsubTemplates = null;
 
 const selectGameType = (type) => {
   selectedGameType.value = type;
@@ -695,11 +693,9 @@ const selectCashPreset = (preset) => {
     selectedCashPresetId.value = null;
     return;
   }
-  selectedCashPresetId.value = preset.id;
-  createBuyIn.value = Number(preset.buyIn) || DEFAULT_BUY_IN;
-  createBuyInAmount.value = resolveBuyInAmount({
-    ...preset, buyIn: createBuyIn.value, rate: Number(preset.rate) || 1,
-  }) || createBuyIn.value;
+  selectedCashPresetId.value = preset.key;
+  createBuyIn.value = preset.buyIn.chips;
+  createBuyInAmount.value = preset.buyIn.amount;
 };
 
 // Reset create modal state when it closes
@@ -715,33 +711,29 @@ watch(showCreateModal, (val) => {
     showBuiltInTemplates.value = false;
     isCreating.value = false;
   } else {
-    // Load user presets when modal opens
-    if (!unsubPresets) {
-      unsubPresets = listenPresets((presets) => {
-        userPresets.value = presets;
-        // Auto-expand built-in if no custom presets
-        if (presets.length === 0) {
+    if (!unsubTemplates) {
+      unsubTemplates = listenTemplates((list) => {
+        userTemplates.value = list;
+        // Auto-expand built-in if no custom tournament templates
+        if (!list.some((tpl) => tpl.kind === TEMPLATE_KIND.TOURNAMENT)) {
           showBuiltInTemplates.value = true;
+        }
+        // Default to the first cash template if available, otherwise stay on custom
+        if (cashTemplates.value.length > 0 && !selectedCashPresetId.value) {
+          selectCashPreset(cashTemplates.value[0]);
         }
       });
     }
-    if (!unsubCashPresets) {
-      unsubCashPresets = listenCashPresets((presets) => {
-        cashPresets.value = presets;
-        // Default to first preset if available, otherwise stay on custom
-        if (presets.length > 0 && !selectedCashPresetId.value) {
-          selectCashPreset(presets[0]);
-        }
-      });
+    // Reopened: the listener is already live, so pick the default here
+    else if (cashTemplates.value.length > 0 && !selectedCashPresetId.value) {
+      selectCashPreset(cashTemplates.value[0]);
     }
   }
 });
 
 // Auto-fill buy-in from tournament template
 watch(selectedTemplate, (tmpl) => {
-  if (tmpl && tmpl.buyIn) {
-    createBuyIn.value = tmpl.buyIn;
-  }
+  if (tmpl) createBuyIn.value = tmpl.buyIn.amount;
 });
 
 // Track previously seen invitations to show notifications for new ones
@@ -792,50 +784,28 @@ const handleCreateGame = async () => {
   if (isCreating.value) return;
   isCreating.value = true;
   await withLoading(async () => {
-    let type = GAME_TYPE.LIVE;
-    let options = {};
-    let tournamentSessionId = null;
-
-    if (selectedGameType.value === 'tournament' && selectedTemplate.value) {
-      type = GAME_TYPE.TOURNAMENT;
-      // Auto-create a tournament clock session
-      const tmpl = selectedTemplate.value;
-      tournamentSessionId = await createTournamentSession({
-        name: gameName.value || tmpl.name || 'Tournament',
-        subtitle: tmpl.subtitle || '',
-        buyIn: createBuyIn.value,
-        startingChips: tmpl.startingChips,
-        reentryUntilLevel: tmpl.reentryUntilLevel,
-        maxReentries: tmpl.maxReentries ?? 0,
-        levels: tmpl.levels,
-        payoutRatios: tmpl.payoutRatios,
+    // Every table starts from a template: the picked one, or (custom cash)
+    // one made from the chips / amount entered here.
+    const tournament = selectedGameType.value === 'tournament';
+    if (tournament && !selectedTemplate.value) return;
+    const template = tournament
+      ? selectedTemplate.value
+      : selectedCashPreset.value || normalizeTemplate({
+        kind: TEMPLATE_KIND.CASH,
+        buyIn: { chips: createBuyIn.value, amount: createBuyInAmount.value },
       });
-      options.tournamentSessionId = tournamentSessionId;
-    } else {
-      // Cash game: pass settlement rate so it's recorded at creation time.
-      const rateNum = Number(createRate.value);
-      if (Number.isFinite(rateNum) && rateNum > 0) {
-        options.rate = rateNum;
-        options.buyInAmount = Number(createBuyInAmount.value) || null;
-      }
-      // Settlement rounding from the preset (custom games choose at settle time)
-      if (selectedGameType.value === 'cash' && selectedCashPreset.value) {
-        options.cashDecimals = selectedCashPreset.value.cashDecimals ?? null;
-      }
-      // Preset with a blind structure → timed game: linked clock that ends
-      // with the structure (settlement stays stack − buy-in).
-      const structure = selectedGameType.value === 'cash' ? selectedCashPreset.value?.structure : null;
-      if (structure) {
-        tournamentSessionId = await createTournamentSession(buildTimedClockConfig({
-          name: gameName.value || structure.name,
-          buyIn: createBuyIn.value,
-          structure,
-        }));
-        options.tournamentSessionId = tournamentSessionId;
-      }
-    }
+    const name = gameName.value || template.name;
 
-    const gameId = await createGame(gameName.value, createBuyIn.value, type, options);
+    // Tournaments always get a clock; cash only with a blind structure
+    // (timed game: the clock ends with the structure, settlement stays
+    // stack − buy-in).
+    const clockConfig = clockConfigFromTemplate(template, { name });
+    const tournamentSessionId = clockConfig ? await createTournamentSession(clockConfig) : null;
+    const game = gameCreationFromTemplate(template, { tournamentSessionId });
+    const type = tournament ? GAME_TYPE.TOURNAMENT : GAME_TYPE.LIVE;
+    const options = game.options;
+
+    const gameId = await createGame(name, game.buyIn, type, options);
     if (gameId) {
       // Link tournament session back to the game room
       if (tournamentSessionId) {
@@ -993,13 +963,9 @@ onUnmounted(() => {
     unsubJoinedSessions();
     unsubJoinedSessions = null;
   }
-  if (unsubPresets) {
-    unsubPresets();
-    unsubPresets = null;
-  }
-  if (unsubCashPresets) {
-    unsubCashPresets();
-    unsubCashPresets = null;
+  if (unsubTemplates) {
+    unsubTemplates();
+    unsubTemplates = null;
   }
 });
 </script>

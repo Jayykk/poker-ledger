@@ -85,7 +85,7 @@
     "tournament": "ブラインドクロック",
     "tournamentDesc": "トーナメント構成を設定してフルスクリーンクロックを表示",
     "tournamentSetup": "ストラクチャー設定",
-    "tournamentSetupDesc": "ブラインド構成とテンプレート（トーナメント・時間制ゲーム共通）",
+    "tournamentSetupDesc": "ブラインドストラクチャーを管理（トーナメント・時間制ゲーム共通）",
     "timeBank": "Time Bank",
     "timeBankDesc": "ディーラー用カウントダウンタイマー"
   },
@@ -860,5 +860,68 @@
     "prizePool": "賞金総額",
     "payouts": "賞金配分",
     "place": "{n}位"
+  },
+  "structure": {
+    "title": "ストラクチャー設定",
+    "intro": "ブラインドストラクチャー（レベル・ブラインド・時間）のみを管理します。バイイン・リエントリー・賞金配分はテーブルテンプレートで設定します。",
+    "new": "新規ストラクチャー",
+    "mine": "マイストラクチャー",
+    "none": "ストラクチャーがありません",
+    "confirmDelete": "「{name}」を削除しますか？適用済みのテンプレートには影響しません。",
+    "create": "ストラクチャーを作成",
+    "edit": "ストラクチャーを編集",
+    "name": "ストラクチャー名",
+    "namePlaceholder": "例：金曜 Turbo",
+    "cutoff": "推奨バイイン締切レベル",
+    "cutoffHint": "テンプレートでこのストラクチャーを選ぶと初期値になります（変更可）",
+    "levelsCount": "{n} レベル",
+    "totalTime": "合計 {duration}",
+    "errors": {
+      "nameRequired": "ストラクチャー名を入力してください",
+      "levelsRequired": "レベルを 1 つ以上追加してください"
+    }
+  },
+  "template": {
+    "title": "テーブルテンプレート",
+    "new": "新規テンプレート",
+    "create": "テーブルテンプレートを作成",
+    "edit": "テーブルテンプレートを編集",
+    "kindCash": "キャッシュ",
+    "kindTournament": "トーナメント",
+    "kindCashDesc": "精算はスタック − バイインをレートで換算。ストラクチャーを付けると時間制ゲームになります。",
+    "kindTournamentDesc": "賞金は順位で配分。ストラクチャーが必要です。",
+    "mine": "マイテンプレート",
+    "none": "テンプレートがありません",
+    "confirmDelete": "「{name}」を削除しますか？",
+    "name": "テンプレート名",
+    "moduleBuyIn": "バイイン",
+    "moduleStructure": "ブラインドストラクチャー",
+    "structureRequiredHint": "トーナメントにはストラクチャーが必要です",
+    "pickStructure": "ストラクチャーを選択",
+    "manageStructures": "ストラクチャーを管理",
+    "moduleEntry": "エントリー / 締切",
+    "reentryAllowed": "リエントリーを許可",
+    "reentryNoCutoff": "締切なし（最終レベルまで）",
+    "noReentry": "リエントリー不可",
+    "reentryMaxN": "最大 {n} 回",
+    "moduleSettlement": "精算",
+    "moduleBounty": "バウンティ",
+    "bounty": {
+      "none": "なし",
+      "ko": "ノックアウト",
+      "pko": "プログレッシブ KO",
+      "mystery": "ミステリーバウンティ"
+    },
+    "comingSoon": "近日公開",
+    "bountyHint": "ノックアウト / PKO / ミステリーバウンティは次のフェーズで対応します",
+    "errors": {
+      "nameRequired": "テンプレート名を入力してください",
+      "structureRequired": "ストラクチャーを選択してください",
+      "payoutNot100": "賞金配分の合計は 100% にしてください",
+      "bountyNotAvailable": "バウンティは近日公開です。今は「なし」を選んでください",
+      "bountyShareRequired": "バイインごとのバウンティ額を設定してください",
+      "cutoffBeyondStructure": "締切レベルがストラクチャーの最終レベルを超えています",
+      "buyInInvalid": "有効なバイイン（チップと金額）を入力してください"
+    }
   }
 }
