@@ -568,6 +568,18 @@ describe('users / friends / invitations', () => {
     }));
   });
 
+  it('table templates and blind structures are owner-only', async () => {
+    for (const sub of ['tableTemplates', 'blindStructures']) {
+      await assertSucceeds(setDoc(doc(aliceDb(), 'users', ALICE, sub, 't1'), { name: 'Mine' }));
+      await assertSucceeds(getDoc(doc(aliceDb(), 'users', ALICE, sub, 't1')));
+      await assertSucceeds(getDocs(collection(aliceDb(), 'users', ALICE, sub)));
+      await assertFails(getDoc(doc(bobDb(), 'users', ALICE, sub, 't1')));
+      await assertFails(getDocs(collection(bobDb(), 'users', ALICE, sub)));
+      await assertFails(setDoc(doc(bobDb(), 'users', ALICE, sub, 't2'), { name: 'Hacked' }));
+      await assertFails(getDocs(collection(anonDb(), 'users', ALICE, sub)));
+    }
+  });
+
   it('admins collection is server-managed; users may check only their own status', async () => {
     await assertSucceeds(getDoc(doc(adminDb(), 'admins', ADMIN)));
     await assertFails(getDoc(doc(bobDb(), 'admins', ADMIN)));
