@@ -952,9 +952,6 @@
     "more": "その他",
     "inPlayN": "プレイ中 {n}",
     "eliminatedN": "脱落 {n}",
-    "canReentry": "リエントリー可",
-    "reentryClosed": "締切済み・リエントリー不可",
-    "noReentry": "この大会はリエントリーなし",
     "knockedOutBy": "{name} がKO",
     "buyInTimes": "バイイン {n} 回",
     "reentry": "リエントリー",
@@ -971,6 +968,8 @@
     "colProfit": "損益",
     "sumCheck": "損益合計 ${amount}",
     "prizePool": "賞金プール",
-    "payouts": "順位別賞金"
+    "payouts": "順位別賞金",
+    "rename": "名前を変更",
+    "removePlayer": "プレイヤーを削除"
   }
 }

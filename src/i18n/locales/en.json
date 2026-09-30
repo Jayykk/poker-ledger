@@ -952,9 +952,6 @@
     "more": "More",
     "inPlayN": "In play {n}",
     "eliminatedN": "Out {n}",
-    "canReentry": "Re-entry open",
-    "reentryClosed": "Re-entry closed",
-    "noReentry": "No re-entry in this event",
     "knockedOutBy": "KO by {name}",
     "buyInTimes": "{n} buy-ins",
     "reentry": "Re-enter",
@@ -971,6 +968,8 @@
     "colProfit": "Net",
     "sumCheck": "Net total ${amount}",
     "prizePool": "Prize pool",
-    "payouts": "Payouts"
+    "payouts": "Payouts",
+    "rename": "Rename",
+    "removePlayer": "Remove player"
   }
 }

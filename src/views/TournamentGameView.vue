@@ -70,6 +70,7 @@
         :bounty-per-head="bountyPerHead"
         @eliminate="handleEliminate"
         @edit="handleEditPlayer"
+        @remove="handleRemoveFromRow"
       />
     </div>
 
@@ -77,7 +78,6 @@
     <div v-if="eliminatedPlayers.length" class="room-section mt-3">
       <div class="room-section-head">
         <span class="font-bold">{{ $t('room.eliminatedN', { n: eliminatedPlayers.length }) }}</span>
-        <span class="text-[11px]" :class="reentriesOpen ? 'text-emerald-400' : 'text-gray-500'">{{ eliminatedHint }}</span>
       </div>
       <TournamentPlayerCard
         v-for="player in eliminatedPlayers"
@@ -414,12 +414,6 @@ const getPlayerReentryCount = (player) => {
   return Math.max(0, Math.round((player.buyIn || 0) / baseBuyIn) - 1);
 };
 
-// Header hint over the eliminated list
-const eliminatedHint = computed(() => {
-  if (!reentryUntilLevel.value) return t('room.noReentry');
-  return reentriesOpen.value ? t('room.canReentry') : t('room.reentryClosed');
-});
-
 // Re-entry still open for others, but this player used them all up
 const reentryBlocked = (player) => {
   if (!player.eliminated || !reentriesOpen.value || maxReentries.value <= 0) return '';
@@ -703,6 +697,13 @@ const handleSavePlayer = async () => {
     showEditPlayer.value = false;
     editingPlayer.value = null;
   }, t('loading.saving'));
+};
+
+// Row ⋯ → 移除玩家 (someone who joined the wrong room)
+const handleRemoveFromRow = async (player) => {
+  const shouldRemove = await confirm({ message: t('game.confirmRemove'), type: 'danger' });
+  if (!shouldRemove) return;
+  await withLoading(() => removePlayer(player), t('loading.removing'));
 };
 
 const handleRemovePlayer = async () => {

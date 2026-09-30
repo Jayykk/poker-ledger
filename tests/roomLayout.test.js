@@ -45,3 +45,15 @@ describe('timed cash room', () => {
     expect(cashRoom).toContain(':closed="timedBuyInClosed"');
   });
 });
+
+describe('row ⋯ menu', () => {
+  it('offers rename and remove on players still in', () => {
+    expect(row).toContain("@click=\"pick('edit')\"");
+    expect(row).toContain("@click=\"pick('remove')\"");
+    expect(tournamentRoom).toContain('@remove="handleRemoveFromRow"');
+  });
+
+  it('the eliminated header has no re-entry hint text', () => {
+    expect(tournamentRoom).not.toContain('eliminatedHint');
+  });
+});

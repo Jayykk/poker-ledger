@@ -952,9 +952,6 @@
     "more": "更多",
     "inPlayN": "在场 {n}",
     "eliminatedN": "已淘汰 {n}",
-    "canReentry": "可重新买入",
-    "reentryClosed": "已截买，不能重新买入",
-    "noReentry": "这场不能重新买入",
     "knockedOutBy": "被 {name} 击杀",
     "buyInTimes": "买入 {n} 次",
     "reentry": "重新买入",
@@ -971,6 +968,8 @@
     "colProfit": "盈亏",
     "sumCheck": "盈亏合计 ${amount}",
     "prizePool": "奖池",
-    "payouts": "名次奖金"
+    "payouts": "名次奖金",
+    "rename": "改名",
+    "removePlayer": "移除玩家"
   }
 }

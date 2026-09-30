@@ -1,4 +1,5 @@
 <template>
+  <div class="t-wrap">
   <div class="t-row" :class="{ out: player.eliminated && !champion }">
     <span v-if="player.eliminated && player.placement && !champion" class="t-place">#{{ player.placement }}</span>
 
@@ -22,8 +23,8 @@
       <button type="button" class="t-btn elim" @click="$emit('eliminate', player)">
         <i class="fas fa-user-times"></i>{{ $t('tournament.eliminate') }}
       </button>
-      <button type="button" class="t-icon" :aria-label="$t('common.edit')" @click="$emit('edit', player)">
-        <i class="fas fa-pen"></i>
+      <button type="button" class="t-icon" :aria-label="$t('room.more')" @click="menuOpen = !menuOpen">
+        <i class="fas fa-ellipsis-h"></i>
       </button>
     </template>
 
@@ -35,12 +36,18 @@
       <span v-else-if="reentryBlocked === 'limit'" class="t-note">{{ $t('room.limitReached') }}</span>
     </template>
   </div>
+  <!-- ⋯ : rename / remove (e.g. someone who joined the wrong room) -->
+  <div v-if="menuOpen" class="t-menu">
+    <button type="button" @click="pick('edit')"><i class="fas fa-pen"></i>{{ $t('room.rename') }}</button>
+    <button type="button" class="danger" @click="pick('remove')"><i class="fas fa-user-minus"></i>{{ $t('room.removePlayer') }}</button>
+  </div>
+  </div>
 </template>
 
 <script setup>
 // One tournament player as a compact row: players still in get 淘汰, players
 // out get 重新買入 while re-entry is open (or the reason it isn't).
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { formatNumber } from '../../utils/formatters.js';
 
 const props = defineProps({
@@ -55,7 +62,13 @@ const props = defineProps({
   knockedOutBy: { type: String, default: '' },
 });
 
-defineEmits(['eliminate', 'reentry', 'edit']);
+const emit = defineEmits(['eliminate', 'reentry', 'edit', 'remove']);
+
+const menuOpen = ref(false);
+const pick = (action) => {
+  menuOpen.value = false;
+  emit(action, props.player);
+};
 
 const champion = computed(() => props.isChampion || props.player.placement === 1);
 
@@ -73,7 +86,26 @@ const entryCount = computed(() => {
   padding: 0.65rem 0.9rem;
   border-bottom: 1px solid rgba(51, 65, 85, 0.7);
 }
-.t-row:last-child { border-bottom: none; }
+.t-wrap:last-child .t-row { border-bottom: none; }
+.t-menu {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 0.9rem 0.65rem;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.7);
+}
+.t-menu button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem;
+  border-radius: 0.55rem;
+  font-size: 0.8rem;
+  color: #e2e8f0;
+  background: rgba(51, 65, 85, 0.7);
+}
+.t-menu button.danger { color: #fda4af; }
 .t-name { color: #fff; font-weight: 700; }
 .t-row.out .t-name { color: #94a3b8; font-weight: 500; }
 .t-place { width: 1.8rem; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #94a3b8; }
