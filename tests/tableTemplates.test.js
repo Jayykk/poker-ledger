@@ -133,11 +133,11 @@ describe('bounty module', () => {
     expect(bountyPerEntry(normalizeBounty({ type: 'ko', share: { value: 5000 } }), 1000)).toBe(1000);
   });
 
-  it('none and KO are playable; PKO / mystery not yet', () => {
+  it('none, KO and PKO are playable; mystery not yet', () => {
     expect(isBountyPlayable({ type: 'none' })).toBe(true);
     expect(isBountyPlayable(undefined)).toBe(true);
     expect(isBountyPlayable({ type: 'ko' })).toBe(true);
-    expect(isBountyPlayable({ type: 'pko' })).toBe(false);
+    expect(isBountyPlayable({ type: 'pko' })).toBe(true);
     expect(isBountyPlayable({ type: 'mystery' })).toBe(false);
   });
 });
@@ -197,11 +197,12 @@ describe('validateTemplate', () => {
     expect(validateTemplate({ ...tourney, entry: { cutoffLevel: 9 } })).toContain('cutoffBeyondStructure');
   });
 
-  it('KO needs a bounty share; PKO / mystery are not playable yet', () => {
+  it('KO / PKO need a bounty share; mystery is not playable yet', () => {
     expect(validateTemplate({ ...tourney, buyIn: { amount: 1000 }, bounty: { type: 'ko', share: { value: 200 } } })).toEqual([]);
+    expect(validateTemplate({ ...tourney, buyIn: { amount: 1000 }, bounty: { type: 'pko', share: { value: 200 } } })).toEqual([]);
     expect(validateTemplate({ ...tourney, bounty: { type: 'ko' } })).toContain('bountyShareRequired');
-    expect(validateTemplate({ ...tourney, buyIn: { amount: 1000 }, bounty: { type: 'pko', share: { value: 200 } } }))
-      .toEqual(['bountyNotAvailable']);
+    expect(validateTemplate({ ...tourney, buyIn: { amount: 1000 }, bounty: { type: 'mystery', share: { value: 200 } } }))
+      .toContain('bountyNotAvailable');
   });
 });
 

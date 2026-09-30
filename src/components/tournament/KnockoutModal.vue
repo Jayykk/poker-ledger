@@ -4,6 +4,7 @@
       <p class="text-sm text-gray-300">
         {{ $t('bounty.whoKnockedOut') }}
         <span class="text-rose-300 font-semibold">🎯 ${{ formatNumber(perEntry) }}</span>
+        <span v-if="cashShare < 1" class="block text-xs text-gray-400 mt-1">{{ $t('bounty.pkoSplitHint', { cash: Math.round(cashShare * 100) }) }}</span>
       </p>
 
       <div class="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
@@ -16,7 +17,10 @@
           @click="toggle(p.id)"
         >
           <span class="truncate">{{ p.name }}</span>
-          <span v-if="selected.includes(p.id)" class="text-xs text-rose-300">+${{ formatNumber(shareOf(p.id)) }}</span>
+          <span v-if="selected.includes(p.id)" class="text-xs text-rose-300 text-right leading-tight">
+            +${{ formatNumber(shareOf(p.id)) }}
+            <span v-if="growOf(p.id)" class="block text-[10px] text-amber-300">{{ $t('bounty.headGrow', { amount: formatNumber(growOf(p.id)) }) }}</span>
+          </span>
         </button>
       </div>
       <p class="text-xs text-gray-500">{{ $t('bounty.splitHint') }}</p>
@@ -55,7 +59,9 @@ const props = defineProps({
   player: { type: Object, default: null },
   // Players still in, other than `player`
   candidates: { type: Array, default: () => [] },
+  // Value of this player's head (PKO heads grow) and the part paid in cash
   perEntry: { type: Number, default: 0 },
+  cashShare: { type: Number, default: 1 },
   warning: { type: String, default: '' },
 });
 const emit = defineEmits(['update:modelValue', 'confirm']);
@@ -70,8 +76,11 @@ watch(() => props.modelValue, (open) => {
   }
 });
 
-const split = computed(() => splitBounty(props.perEntry, selected.value));
+const cash = computed(() => Math.round(props.perEntry * props.cashShare));
+const split = computed(() => splitBounty(cash.value, selected.value));
+const grow = computed(() => splitBounty(props.perEntry - cash.value, selected.value));
 const shareOf = (id) => split.value.find((a) => a.playerId === id)?.amount || 0;
+const growOf = (id) => grow.value.find((a) => a.playerId === id)?.amount || 0;
 const canConfirm = computed(() => selected.value.length > 0 || noEliminator.value);
 
 function toggle(id) {

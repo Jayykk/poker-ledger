@@ -935,7 +935,7 @@
       "mystery": "神秘賞金"
     },
     "comingSoon": "即將推出",
-    "bountyHint": "PKO / 神秘賞金會在之後開放",
+    "bountyHint": "神秘賞金會在之後開放",
     "errors": {
       "nameRequired": "請輸入範本名稱",
       "structureRequired": "請選擇盲注結構",
@@ -959,7 +959,14 @@
     "modePercent": "買入的 %",
     "modeAmount": "固定金額",
     "splitPreview": "每次買入：人頭 ${head} · 獎池 ${pool}",
-    "koHint": "擊殺者拿走被淘汰玩家的人頭；冠軍（或協議時還在場的人）保留自己的人頭"
+    "koHint": "擊殺者拿走被淘汰玩家的人頭；冠軍（或協議時還在場的人）保留自己的人頭",
+    "cashShare": "擊殺時拿現金的比例",
+    "cashSharePreview": "一顆人頭：現金 ${cash}，${grow} 加到擊殺者自己的人頭",
+    "pkoHint": "人頭會長大：擊殺拿一部分現金，其餘加到自己的人頭；冠軍拿走自己整顆人頭",
+    "pkoSplitHint": "其中 {cash}% 拿現金，其餘加到擊殺者的人頭",
+    "headGrow": "人頭 +${amount}",
+    "headNow": "人頭 ${amount}",
+    "startHead": "起始人頭 ${amount}"
   },
   "room": {
     "cutoffShort": "截買 Lv {level}",

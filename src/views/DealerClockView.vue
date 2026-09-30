@@ -40,6 +40,7 @@
         :next-play-level-entry="nextPlayLevelEntry"
         :prize-pool="prizePool"
         :bounty-per-head="bountyPerHead"
+      :bounty-label="config?.bounty?.type === 'pko' ? 'PKO' : 'KO'"
         :payouts="payouts"
         :clock-style="clockStyle"
         :levels="levels"

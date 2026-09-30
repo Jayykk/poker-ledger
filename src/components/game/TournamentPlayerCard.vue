@@ -12,8 +12,11 @@
       <div class="t-sub">
         <template v-if="player.eliminated && knockedOutBy">{{ $t('room.knockedOutBy', { name: knockedOutBy }) }} · </template>
         <span v-if="entryCount > 1 || player.eliminated">{{ $t('room.buyInTimes', { n: entryCount }) }}</span>
+        <span v-if="headValue > 0 && !player.eliminated" class="text-amber-300">
+          <template v-if="entryCount > 1 || player.eliminated"> · </template>{{ $t('bounty.headNow', { amount: formatNumber(headValue) }) }}
+        </span>
         <span v-if="bountyPerHead > 0 && (player.knockouts || player.bountyWon)" class="text-rose-300">
-          <template v-if="entryCount > 1 || player.eliminated"> · </template>🎯 {{ player.knockouts || 0 }} · ${{ formatNumber(player.bountyWon || 0) }}
+          <template v-if="entryCount > 1 || player.eliminated || (headValue > 0 && !player.eliminated)"> · </template>🎯 {{ player.knockouts || 0 }} · ${{ formatNumber(player.bountyWon || 0) }}
         </span>
       </div>
     </div>
@@ -60,6 +63,8 @@ const props = defineProps({
   // KO games: head value (0 = no bounty) and who took this player's last head
   bountyPerHead: { type: Number, default: 0 },
   knockedOutBy: { type: String, default: '' },
+  // PKO: this player's current head (0 = don't show)
+  headValue: { type: Number, default: 0 },
 });
 
 const emit = defineEmits(['eliminate', 'reentry', 'edit', 'remove']);

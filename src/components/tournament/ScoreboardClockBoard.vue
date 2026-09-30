@@ -14,7 +14,7 @@
         <div class="sb-pills">
           <span class="sb-pill" :class="statusPillClass">{{ statusText }}</span>
           <span v-if="cutoffLevel > 0 || isTimed" class="sb-pill" :class="{ closed: buyInClosed }">{{ buyInText }}</span>
-          <span v-if="bountyPerHead > 0" class="sb-pill ko">🎯 KO ${{ fmt(bountyPerHead) }}</span>
+          <span v-if="bountyPerHead > 0" class="sb-pill ko">🎯 {{ bountyLabel }} ${{ fmt(bountyPerHead) }}</span>
           <slot name="pills-extra" />
         </div>
         <div class="sb-actions"><slot name="actions-right" /></div>
@@ -106,6 +106,8 @@ const props = defineProps({
   cutoffLevel: { type: Number, default: 0 },
   // KO games: head value per entry (0 = no bounty)
   bountyPerHead: { type: Number, default: 0 },
+  // 'KO' / 'PKO'
+  bountyLabel: { type: String, default: 'KO' },
   currentLevelIndex: { type: Number, default: 0 },
   currentLevel: { type: Number, default: 0 },
   currentBlinds: { type: Object, default: () => ({ small: 0, big: 0, ante: 0 }) },

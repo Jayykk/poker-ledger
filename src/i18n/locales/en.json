@@ -935,7 +935,7 @@
       "mystery": "Mystery bounty"
     },
     "comingSoon": "Coming soon",
-    "bountyHint": "Progressive KO and mystery bounties come later",
+    "bountyHint": "Mystery bounties come later",
     "errors": {
       "nameRequired": "Enter a template name",
       "structureRequired": "Pick a blind structure",
@@ -959,7 +959,14 @@
     "modePercent": "% of buy-in",
     "modeAmount": "Fixed amount",
     "splitPreview": "Each buy-in: bounty ${head} · prize pool ${pool}",
-    "koHint": "The eliminator takes the bounty; the champion (or everyone left in a deal) keeps their own"
+    "koHint": "The eliminator takes the bounty; the champion (or everyone left in a deal) keeps their own",
+    "cashShare": "Cash share of a knockout",
+    "cashSharePreview": "One bounty: ${cash} cash, ${grow} onto the eliminator's own bounty",
+    "pkoHint": "Bounties grow: a knockout pays part in cash and adds the rest to your own bounty; the champion takes their whole bounty",
+    "pkoSplitHint": "{cash}% paid in cash, the rest added to the eliminator's bounty",
+    "headGrow": "Bounty +${amount}",
+    "headNow": "Bounty ${amount}",
+    "startHead": "Starting bounty ${amount}"
   },
   "room": {
     "cutoffShort": "Closes Lv {level}",

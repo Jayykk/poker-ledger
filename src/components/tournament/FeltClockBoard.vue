@@ -15,7 +15,7 @@
           <span v-if="cutoffLevel > 0 || isTimed" class="pill" :class="{ closed: buyInClosed }">
             {{ buyInText }}
           </span>
-          <span v-if="bountyPerHead > 0" class="pill ko">🎯 KO ${{ fmt(bountyPerHead) }}</span>
+          <span v-if="bountyPerHead > 0" class="pill ko">🎯 {{ bountyLabel }} ${{ fmt(bountyPerHead) }}</span>
         </div>
         <div class="fb-actions">
           <slot name="actions-right" />
@@ -118,6 +118,8 @@ const props = defineProps({
   cutoffLevel: { type: Number, default: 0 },
   // KO games: head value per entry (0 = no bounty)
   bountyPerHead: { type: Number, default: 0 },
+  // 'KO' / 'PKO'
+  bountyLabel: { type: String, default: 'KO' },
   levels: { type: Array, default: () => [] },
   currentLevelIndex: { type: Number, default: 0 },
   currentLevel: { type: Number, default: 0 },

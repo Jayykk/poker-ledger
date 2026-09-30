@@ -935,7 +935,7 @@
       "mystery": "ミステリーバウンティ"
     },
     "comingSoon": "近日公開",
-    "bountyHint": "PKO / ミステリーバウンティは今後対応します",
+    "bountyHint": "ミステリーバウンティは今後対応します",
     "errors": {
       "nameRequired": "テンプレート名を入力してください",
       "structureRequired": "ストラクチャーを選択してください",
@@ -959,7 +959,14 @@
     "modePercent": "バイインの %",
     "modeAmount": "固定額",
     "splitPreview": "バイインごと：バウンティ ${head} · 賞金プール ${pool}",
-    "koHint": "ノックアウトした人がバウンティを獲得。優勝者（ディール時は残った全員）は自分のバウンティを保持"
+    "koHint": "ノックアウトした人がバウンティを獲得。優勝者（ディール時は残った全員）は自分のバウンティを保持",
+    "cashShare": "ノックアウト時の現金の割合",
+    "cashSharePreview": "1 つのバウンティ：現金 ${cash}、${grow} はノックアウトした人のバウンティに加算",
+    "pkoHint": "バウンティは成長：ノックアウトで一部を現金、残りは自分のバウンティに加算。優勝者は自分のバウンティをすべて獲得",
+    "pkoSplitHint": "{cash}% を現金、残りはノックアウトした人のバウンティに加算",
+    "headGrow": "バウンティ +${amount}",
+    "headNow": "バウンティ ${amount}",
+    "startHead": "初期バウンティ ${amount}"
   },
   "room": {
     "cutoffShort": "Lv {level} で締切",
