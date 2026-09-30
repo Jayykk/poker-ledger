@@ -7,7 +7,19 @@
 
       <!-- LINE Login (shown when LIFF is available) -->
       <div v-if="liffAvailable" class="bg-[#06C755]/10 p-5 rounded-2xl border border-[#06C755]/30 space-y-3">
+        <!-- Home-screen app: waiting for the LINE login confirmed in Safari/LINE -->
+        <div v-if="handoff.waiting.value" class="space-y-3">
+          <div class="flex items-center justify-center gap-2 text-white font-bold">
+            <i class="fas fa-spinner fa-spin text-[#06C755]"></i>
+            {{ $t('auth.lineHandoffWaiting') }}
+          </div>
+          <p class="text-xs text-gray-300 leading-relaxed">{{ $t('auth.lineHandoffHint') }}</p>
+          <BaseButton @click="handoff.cancel" variant="ghost" size="sm" fullWidth>
+            {{ $t('common.cancel') }}
+          </BaseButton>
+        </div>
         <BaseButton
+          v-else
           @click="handleLineLogin"
           :loading="loading"
           :disabled="loading"
@@ -20,6 +32,7 @@
             {{ $t('auth.lineLogin') }}
           </span>
         </BaseButton>
+        <div v-if="handoffMessage" class="text-rose-400 text-xs">{{ handoffMessage }}</div>
       </div>
 
       <!-- Divider (only if LINE is available) -->
@@ -102,13 +115,14 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
 import { useLiff } from '../composables/useLiff.js';
+import { useLineHandoff } from '../composables/useLineHandoff.js';
 import { useLoading } from '../composables/useLoading.js';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 
 const { t } = useI18n();
 const router = useRouter();
-const { login, register, guestLogin, loginWithLine, updateGuestDisplayName, loading, error } = useAuth();
+const { login, register, guestLogin, loginWithLine, claimLineHandoff, updateGuestDisplayName, loading, error } = useAuth();
 const { isInitialized, isLoggedIn: liffLoggedIn, getAccessToken, loginWithLiff: liffLogin, isInLineClient } = useLiff();
 const { withLoading } = useLoading();
 
@@ -123,7 +137,24 @@ const guestForm = ref({
   name: ''
 });
 
-const liffAvailable = computed(() => isInitialized.value);
+// Opened from the home-screen icon: LINE's redirect would land in Safari, so
+// log in through the backend hand-off instead of liff.login().
+const handoff = useLineHandoff({
+  claim: claimLineHandoff,
+  onSuccess: () => router.push('/lobby'),
+});
+
+const HANDOFF_MESSAGES = {
+  cancelled: 'auth.lineHandoffCancelled',
+  expired: 'auth.lineHandoffExpired',
+  failed: 'auth.lineHandoffFailed',
+};
+const handoffMessage = computed(() => {
+  const key = HANDOFF_MESSAGES[handoff.outcome.value];
+  return key ? t(key) : '';
+});
+
+const liffAvailable = computed(() => isInitialized.value || handoff.enabled);
 
 // Auto-login when opened inside LINE and LIFF is already logged in
 onMounted(async () => {
@@ -133,6 +164,10 @@ onMounted(async () => {
 });
 
 const handleLineLogin = async () => {
+  if (handoff.enabled && !getAccessToken()) {
+    handoff.start();
+    return;
+  }
   await withLoading(async () => {
     const token = getAccessToken();
     if (!token) {

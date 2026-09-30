@@ -348,5 +348,14 @@ service cloud.firestore {
       allow delete: if isAuthenticated()
         && resource.data.hostUid == request.auth.uid;
     }
+
+    // ============================================
+    // LINE Login hand-off (home-screen app)
+    // ============================================
+    // Parked authorization codes — only the Cloud Functions (Admin SDK)
+    // touch these; clients must never read them.
+    match /lineLoginHandoffs/{state} {
+      allow read, write: if false;
+    }
   }
 }

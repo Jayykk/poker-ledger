@@ -30,6 +30,10 @@ export function useAuth() {
     return await authStore.loginWithLine(accessToken);
   };
 
+  const claimLineHandoff = async (handoff) => {
+    return await authStore.claimLineHandoff(handoff);
+  };
+
   const logout = async () => {
     return await authStore.logout();
   };
@@ -53,6 +57,7 @@ export function useAuth() {
     login,
     guestLogin,
     loginWithLine,
+    claimLineHandoff,
     logout,
     updateGuestDisplayName,
     linkEmailToGuest

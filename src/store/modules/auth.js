@@ -178,6 +178,29 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
+  /**
+   * Home-screen app LINE login: claim the hand-off started by the app and, once
+   * the backend returns a custom token, sign in with it. Polled while waiting,
+   * so it leaves `loading` alone. Resolves to the backend status
+   * ('pending' | 'ok' | 'cancelled' | 'expired') or 'failed'.
+   */
+  const claimLineHandoff = async ({ state, codeVerifier }) => {
+    try {
+      const claimFn = httpsCallable(functions, 'claimLineLoginHandoff');
+      const { data } = await claimFn({ state, codeVerifier });
+      if (data.status !== 'ok') return data.status;
+
+      error.value = '';
+      await signInWithCustomToken(auth, data.customToken);
+      user.value = auth.currentUser;
+      return 'ok';
+    } catch (err) {
+      console.error('LINE hand-off claim error:', err);
+      error.value = 'LINE login failed: ' + err.message;
+      return 'failed';
+    }
+  };
+
   return {
     user,
     loading,
@@ -190,6 +213,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     guestLogin,
     loginWithLine,
+    claimLineHandoff,
     logout,
     updateGuestDisplayName,
     linkEmailToGuest

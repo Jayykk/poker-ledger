@@ -34,7 +34,8 @@ const FIRESTORE_DATABASE_ID = import.meta.env.VITE_FIRESTORE_DATABASE_ID || 'pok
 
 // Region the Cloud Functions are deployed to. Must match the backend or
 // httpsCallable() resolves to us-central1 and 404s. Override with VITE_FUNCTIONS_REGION.
-const FUNCTIONS_REGION = import.meta.env.VITE_FUNCTIONS_REGION || 'asia-east1';
+export const FUNCTIONS_REGION = import.meta.env.VITE_FUNCTIONS_REGION || 'asia-east1';
+export const FIREBASE_PROJECT_ID = firebaseConfig.projectId;
 
 // Firestore: same issue — use memory cache in LINE browser.
 let db;
