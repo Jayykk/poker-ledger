@@ -992,6 +992,12 @@
     "prizePool": "Prize pool",
     "payouts": "Payouts",
     "rename": "Rename",
-    "removePlayer": "Remove player"
+    "removePlayer": "Remove player",
+    "playersN": "Players {n}",
+    "stackTotal": "Chips {stack} / bought {pot}",
+    "buyIn": "Buy-in",
+    "stack": "Stack",
+    "addBuy": "Rebuy",
+    "totalBuyIn": "Total buy-in"
   }
 }

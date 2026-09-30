@@ -311,8 +311,9 @@ describe('GameView tournament integration', () => {
     expect(content).toContain('tournament');
   });
 
-  it('should use i18n for view clock button', () => {
-    expect(content).toContain("$t('tournament.viewClock')");
+  it('opens the linked clock from the clock card', () => {
+    expect(content).toContain('<RoomClockCard');
+    expect(content).toContain('@open="$router.push(`/tournament-clock/${game.tournamentSessionId}`)"');
   });
 });
 

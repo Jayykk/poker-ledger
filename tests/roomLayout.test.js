@@ -57,3 +57,25 @@ describe('row ⋯ menu', () => {
     expect(tournamentRoom).not.toContain('eliminatedHint');
   });
 });
+
+describe('cash room layout', () => {
+  const cashRow = read('src/components/game/PlayerCard.vue');
+
+  it('uses the shared header and bottom bar', () => {
+    expect(cashRoom).toContain('<RoomHeader');
+    expect(cashRoom).toContain('@close-room="handleCloseGame"');
+    expect(cashRoom).toMatch(/<RoomActionBar>[\s\S]*showAddPlayer = true[\s\S]*scrollToLog[\s\S]*showHandRecord = true[\s\S]*showSettlement = true/);
+  });
+
+  it('players are rows in one section, biggest winner first', () => {
+    expect(cashRoom).toContain('v-for="player in sortedPlayers"');
+    expect(cashRow).toContain("@click=\"$emit('add-buy', player)\"");
+    expect(cashRow).toContain(':disabled="buyInDisabled"');
+    expect(cashRow).toContain("@click=\"$emit('edit', player)\"");
+  });
+
+  it('no more English labels on the seat', () => {
+    expect(cashRow).not.toContain('Stack:');
+    expect(cashRow).not.toContain('Rebuys:');
+  });
+});
