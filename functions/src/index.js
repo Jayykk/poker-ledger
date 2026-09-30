@@ -43,6 +43,10 @@ import { POKER_ACTION_MIN_INSTANCES, FUNCTIONS_REGION } from './utils/config.js'
 import { FIRESTORE_DATABASE_ID } from './utils/db.js';
 import { lineLogin as lineLoginHandler } from './handlers/lineAuth.js';
 import {
+  handleLineLoginCallback,
+  claimLineLoginHandoff as claimLineLoginHandoffHandler,
+} from './handlers/lineLoginHandoff.js';
+import {
   recordBuyIn as recordBuyInHandler,
   undoBuyIn as undoBuyInHandler,
   getTransactionLog as getTransactionLogHandler,
@@ -620,6 +624,33 @@ export const lineLogin = onCall(async (request) => {
     return result;
   } catch (error) {
     console.error('Error in lineLogin:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * LINE Login redirect target for the home-screen app hand-off: parks the
+ * authorization code and asks the user to confirm (see lineLoginHandoff.js).
+ */
+export const lineLoginCallback = onRequest(async (req, res) => {
+  try {
+    await handleLineLoginCallback(req, res, { db: getFirestore() });
+  } catch (error) {
+    console.error('Error in lineLoginCallback:', error);
+    res.status(500).send('Internal error');
+  }
+});
+
+/**
+ * Home-screen app polls this after starting LINE Login; returns a Firebase
+ * custom token once the hand-off is confirmed.
+ */
+export const claimLineLoginHandoff = onCall(async (request) => {
+  const { state, codeVerifier } = request.data || {};
+  try {
+    return await claimLineLoginHandoffHandler({ state, codeVerifier }, { db: getFirestore() });
+  } catch (error) {
+    console.error('Error in claimLineLoginHandoff:', error);
     throw new HttpsError('internal', error.message);
   }
 });

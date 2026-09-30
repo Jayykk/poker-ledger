@@ -107,14 +107,25 @@ jobs:
       # 將 GitHub Secrets 寫入 functions/.env，部署時隨 Functions 上傳。
       # POKER_TASKS_SECRET 用於 Cloud Tasks HMAC 簽章驗證；未設定該
       # GitHub Secret 時不寫入，Functions 會跳過驗證（向後相容）。
+      # LINE_CHANNEL_ID / LINE_CHANNEL_SECRET 供主畫面 App 的 LINE 登入交接
+      # 用授權碼換 token（claimLineLoginHandoff）；設定 LINE_CHANNEL_ID 後
+      # lineLogin 也會驗證 access token 屬於本 channel。
       - name: Write functions runtime env
         run: |
           touch functions/.env
           if [ -n "$POKER_TASKS_SECRET" ]; then
             echo "POKER_TASKS_SECRET=$POKER_TASKS_SECRET" >> functions/.env
           fi
+          if [ -n "$LINE_CHANNEL_ID" ]; then
+            echo "LINE_CHANNEL_ID=$LINE_CHANNEL_ID" >> functions/.env
+          fi
+          if [ -n "$LINE_CHANNEL_SECRET" ]; then
+            echo "LINE_CHANNEL_SECRET=$LINE_CHANNEL_SECRET" >> functions/.env
+          fi
         env:
           POKER_TASKS_SECRET: ${{ secrets.POKER_TASKS_SECRET }}
+          LINE_CHANNEL_ID: ${{ secrets.LINE_CHANNEL_ID }}
+          LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
 
       # rules/indexes 一併部署：production 與 repo 已於 2026-07-20 人工比對並
       # 同步（TODO P0「rules 自動部署」前置條件解除）。emulator rules 測試在

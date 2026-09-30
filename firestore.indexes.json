@@ -27,6 +27,12 @@
   ],
   "fieldOverrides": [
     {
+      "collectionGroup": "lineLoginHandoffs",
+      "fieldPath": "expireAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "collectionGroup": "hands",
       "fieldPath": "createdAt",
       "indexes": [
