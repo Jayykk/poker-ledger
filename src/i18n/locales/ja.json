@@ -913,7 +913,7 @@
       "mystery": "ミステリーバウンティ"
     },
     "comingSoon": "近日公開",
-    "bountyHint": "ノックアウト / PKO / ミステリーバウンティは次のフェーズで対応します",
+    "bountyHint": "PKO / ミステリーバウンティは今後対応します",
     "errors": {
       "nameRequired": "テンプレート名を入力してください",
       "structureRequired": "ストラクチャーを選択してください",
@@ -923,5 +923,20 @@
       "cutoffBeyondStructure": "締切レベルがストラクチャーの最終レベルを超えています",
       "buyInInvalid": "有効なバイイン（チップと金額）を入力してください"
     }
+  },
+  "bounty": {
+    "perHead": "バウンティ ${amount}",
+    "knockoutsN": "KO {n}",
+    "knockoutTitle": "{name} を脱落",
+    "whoKnockedOut": "誰がノックアウト？バウンティ",
+    "splitHint": "複数選択で同時ノックアウトを均等に分配",
+    "noEliminator": "ノックアウトした人なし",
+    "toPool": "バウンティは賞金プールへ",
+    "confirmKnockout": "脱落を確定",
+    "sharePerEntry": "バイインごとのバウンティ",
+    "modePercent": "バイインの %",
+    "modeAmount": "固定額",
+    "splitPreview": "バイインごと：バウンティ ${head} · 賞金プール ${pool}",
+    "koHint": "ノックアウトした人がバウンティを獲得。優勝者（ディール時は残った全員）は自分のバウンティを保持"
   }
 }

@@ -217,7 +217,9 @@ const getPlayerProfitCash = (player) => rowCash(player, getRecordRate());
 const getSettlementSummary = (player) => {
   if (isTournamentRecord.value) {
     const placement = player?.placement ? `#${player.placement}` : '-';
-    return `${t('tournament.placement')}: ${placement} | ${t('game.buyIn')}: $${formatNumber(player?.buyIn || 0)} | ${t('tournament.prize')}: $${formatNumber(player?.prize || 0)}`;
+    // KO games: the bounty is part of profit, so show it next to the prize
+    const bounty = Number.isFinite(player?.bounty) ? ` | 🎯 $${formatNumber(player.bounty)}` : '';
+    return `${t('tournament.placement')}: ${placement} | ${t('game.buyIn')}: $${formatNumber(player?.buyIn || 0)} | ${t('tournament.prize')}: $${formatNumber(player?.prize || 0)}${bounty}`;
   }
 
   return `${t('game.buyIn')}: ${formatNumber(player?.buyIn || 0)} | ${t('game.stack')}: ${formatNumber(player?.stack || 0)}`;

@@ -21,6 +21,10 @@
               {{ $t('tournament.totalBuyIn') }}: ${{ formatNumber(player.buyIn || 0) }}
               <span v-if="entryCount > 1" class="text-gray-500 ml-1">({{ entryCount }}{{ $t('tournament.entryUnit') }})</span>
             </div>
+            <!-- KO: heads collected so far -->
+            <div v-if="bountyPerHead > 0 && (player.knockouts || player.bountyWon)" class="text-xs text-rose-300 mt-0.5">
+              🎯 {{ $t('bounty.knockoutsN', { n: player.knockouts || 0 }) }} · ${{ formatNumber(player.bountyWon || 0) }}
+            </div>
           </div>
 
           <!-- Placement badge -->
@@ -92,6 +96,8 @@ const props = defineProps({
   canReentry: { type: Boolean, default: false },
   baseBuyIn: { type: Number, default: 0 },
   isChampion: { type: Boolean, default: false },
+  // KO games: head value (0 = no bounty)
+  bountyPerHead: { type: Number, default: 0 },
 });
 
 defineEmits(['eliminate', 'reentry', 'edit']);

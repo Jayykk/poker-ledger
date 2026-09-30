@@ -11,6 +11,7 @@ import {
   onSnapshot, serverTimestamp, increment,
 } from 'firebase/firestore';
 import { useAuthStore } from '../store/modules/auth.js';
+import { bountyPerEntry, isKnockoutBounty } from '../utils/bounty.js';
 import {
   DEFAULT_STARTING_CHIPS, DEFAULT_REENTRY_LEVEL,
   DEFAULT_TOURNAMENT_LEVEL_DURATION,
@@ -179,8 +180,14 @@ export function useTournamentClock(options = {}) {
     return formatDuration(secondsToEnd(levels.value, currentLevelIndex.value, localTimeLeft.value));
   });
 
+  // KO games: each entry puts bountyPerHead on the player's head; the rest
+  // (plus heads nobody claimed) is the prize pool.
+  const bountyPerHead = computed(() => (isKnockoutBounty(config.value.bounty)
+    ? bountyPerEntry(config.value.bounty, config.value.buyIn || 0)
+    : 0));
   const prizePool = computed(() => {
-    return entries.value * (config.value.buyIn || 0);
+    return entries.value * ((config.value.buyIn || 0) - bountyPerHead.value)
+      + (bountyPerHead.value ? (state.value.bountyToPool ?? 0) : 0);
   });
 
   const payouts = computed(() => {
@@ -419,9 +426,16 @@ export function useTournamentClock(options = {}) {
         }
       }
 
+      // KO games: heads with no eliminator went to the prize pool
+      let toPool = null;
+      if (isKnockoutBounty(config.value.bounty)) {
+        const sum = uniquePlayers.reduce((acc, p) => acc + (Number(p.bountyToPool) || 0), 0);
+        if (sum !== (session.value?.state?.bountyToPool ?? 0)) toPool = sum;
+      }
+
       // Sync when player count or alive count diverges
-      if (playerCount !== currentRegistered || aliveCount !== currentRemaining || timedStats) {
-        updatePlayers(playerCount, aliveCount, timedStats);
+      if (playerCount !== currentRegistered || aliveCount !== currentRemaining || timedStats || toPool !== null) {
+        updatePlayers(playerCount, aliveCount, timedStats, toPool);
       }
     });
   }
@@ -463,6 +477,8 @@ export function useTournamentClock(options = {}) {
         maxReentries: config.maxReentries ?? 0,
         levels: config.levels || [],
         payoutRatios: config.payoutRatios || [],
+        // KO etc. — the clock shows the head value and a prize pool net of bounties
+        ...(config.bounty && config.bounty.type && config.bounty.type !== 'none' ? { bounty: config.bounty } : {}),
       },
       state: {
         status: 'waiting',
@@ -542,7 +558,7 @@ export function useTournamentClock(options = {}) {
     });
   }
 
-  async function updatePlayers(registered, remaining, timedStats = null) {
+  async function updatePlayers(registered, remaining, timedStats = null, bountyToPool = null) {
     if (!sessionId.value || !isHost.value) return;
     await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
       'state.playersRegistered': registered,
@@ -551,6 +567,7 @@ export function useTournamentClock(options = {}) {
         'state.chipsInPlay': timedStats.chipsInPlay,
         'state.buyIns': timedStats.buyIns,
       } : {}),
+      ...(bountyToPool !== null ? { 'state.bountyToPool': bountyToPool } : {}),
       updatedAt: serverTimestamp(),
     });
   }
@@ -644,6 +661,7 @@ export function useTournamentClock(options = {}) {
     averageStackBB,
     isRegistrationClosed,
     prizePool,
+    bountyPerHead,
     payouts,
     formattedTime,
     timeToBreak,

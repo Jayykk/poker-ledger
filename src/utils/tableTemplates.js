@@ -31,6 +31,7 @@ import {
 import { rateFromBuyIn, resolveBuyInAmount } from './buyInRate.js';
 import { normalizeCashDecimals } from './cashRounding.js';
 import { CLOCK_MODE_TIMED } from './timedStructure.js';
+import { bountyPerEntry } from '../../functions/src/utils/bountyMath.js';
 
 export const TEMPLATE_FORMAT_VERSION = 1;
 
@@ -40,7 +41,7 @@ export const TEMPLATE_KINDS = Object.values(TEMPLATE_KIND);
 /** Bounty formats. Only 'none' is playable until phase 2. */
 export const BOUNTY_TYPE = Object.freeze({ NONE: 'none', KO: 'ko', PKO: 'pko', MYSTERY: 'mystery' });
 export const BOUNTY_TYPES = Object.values(BOUNTY_TYPE);
-export const PLAYABLE_BOUNTY_TYPES = Object.freeze([BOUNTY_TYPE.NONE]);
+export const PLAYABLE_BOUNTY_TYPES = Object.freeze([BOUNTY_TYPE.NONE, BOUNTY_TYPE.KO]);
 
 /** Where legacy records live (users/{uid}/<collection>). */
 export const LEGACY_SOURCE = Object.freeze({
@@ -169,15 +170,8 @@ export function normalizeBounty(raw = {}) {
   return bounty;
 }
 
-/** Bounty part of one entry's buy-in (whole currency units). */
-export function bountyPerEntry(bounty, buyInAmount) {
-  if (!bounty || bounty.type === BOUNTY_TYPE.NONE || !bounty.share) return 0;
-  const amount = Math.max(0, num(buyInAmount));
-  const value = bounty.share.mode === 'percent'
-    ? Math.round((amount * bounty.share.value) / 100)
-    : Math.round(bounty.share.value);
-  return Math.min(amount, value);
-}
+/** Bounty part of one entry's buy-in (whole currency units) — shared with settlement. */
+export { bountyPerEntry };
 
 export const isBountyPlayable = (bounty) => PLAYABLE_BOUNTY_TYPES.includes(bounty?.type || BOUNTY_TYPE.NONE);
 
@@ -418,7 +412,11 @@ export function gameCreationFromTemplate(template, { tournamentSessionId = null 
   return {
     type: 'tournament',
     buyIn: t.buyIn.amount,
-    options: { tournamentSessionId },
+    options: {
+      tournamentSessionId,
+      // KO etc.: stored on the game — settlement pays bounties from it
+      ...(t.bounty.type !== BOUNTY_TYPE.NONE ? { bounty: t.bounty } : {}),
+    },
   };
 }
 
@@ -509,6 +507,7 @@ export function encodeTemplateShare(template) {
     n: t.name, s: t.subtitle, b: t.buyIn.amount, c: t.buyIn.chips,
     r: clock.reentryUntilLevel, m: clock.maxReentries, l: levels,
     p: t.payout.ratios.map((r) => [r.place, r.percentage]),
+    ...(t.bounty.type !== BOUNTY_TYPE.NONE ? { bo: t.bounty } : {}),
   }));
 }
 
@@ -525,12 +524,13 @@ export function decodeTemplateShare(b64) {
         entry: { cutoffLevel: c.x }, cash: { decimals: c.d },
       });
     }
-    return templateFromTournamentPreset({
+    const tpl = templateFromTournamentPreset({
       name: c.n, subtitle: c.s, buyIn: c.b, startingChips: c.c,
       reentryUntilLevel: c.r, maxReentries: c.m,
       levels: unpackLevels(c.l),
       payoutRatios: (c.p || []).map((p) => ({ place: p[0], percentage: p[1] })),
     });
+    return c.bo ? normalizeTemplate({ ...tpl, bounty: c.bo }) : tpl;
   } catch {
     return null;
   }

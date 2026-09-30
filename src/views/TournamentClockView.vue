@@ -42,6 +42,7 @@
       :average-stack="averageStack"
       :averageStackBB="Number(averageStackBB) || 0"
       :prize-pool="prizePool"
+      :bounty-per-head="bountyPerHead"
       :payouts="payouts"
     >
       <template #actions-left>
@@ -88,6 +89,7 @@
       :average-stack="averageStack"
       :averageStackBB="Number(averageStackBB) || 0"
       :prize-pool="prizePool"
+      :bounty-per-head="bountyPerHead"
       :payouts="payouts"
     >
       <template #actions-left>
@@ -195,7 +197,7 @@ const {
   currentLevelEntry, currentBlinds, nextPlayLevelEntry,
   isBreak, levels, playersRegistered, playersRemaining,
   reentries, entries, chipsInPlay, averageStack, averageStackBB,
-  isRegistrationClosed, prizePool, payouts,
+  isRegistrationClosed, prizePool, bountyPerHead, payouts,
   formattedTime, timeToBreak, dealerModeEnabled,
   isTimed, isBuyInClosed, timeToEnd, levelProgress, endsAt, clockStyle,
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
