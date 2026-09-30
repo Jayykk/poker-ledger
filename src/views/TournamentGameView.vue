@@ -33,6 +33,7 @@
       <div class="text-right">
         <div class="text-[10px] text-gray-400">{{ $t('tournament.prizePool') }}</div>
         <div class="font-mono text-amber-400 font-bold">${{ formatNumber(prizePool) }}</div>
+        <div v-if="bountyPerHead > 0" class="text-[10px] text-rose-300">🎯 {{ $t('bounty.perHead', { amount: formatNumber(bountyPerHead) }) }}</div>
       </div>
     </div>
 
@@ -47,6 +48,7 @@
         :can-reentry="canReentry(player)"
         :base-buy-in="game?.baseBuyIn || 0"
         :is-champion="isChampion(player)"
+        :bounty-per-head="bountyPerHead"
         @eliminate="handleEliminate"
         @reentry="handleReentry"
         @edit="handleEditPlayer"
@@ -196,6 +198,7 @@
             <div class="text-[10px] text-gray-500">
               {{ $t('tournament.totalBuyIn') }}: ${{ formatNumber(p.buyIn) }} |
               {{ $t('tournament.prize') }}: ${{ formatNumber(p.prize) }}
+              <template v-if="bountyPerHead > 0"> | 🎯 ${{ formatNumber(p.bounty) }}</template>
             </div>
           </div>
         </div>
@@ -219,6 +222,16 @@
         </BaseButton>
       </div>
     </BaseModal>
+
+    <!-- KO: who knocked the player out -->
+    <KnockoutModal
+      v-model="showKnockout"
+      :player="knockoutTarget"
+      :candidates="knockoutCandidates"
+      :per-entry="bountyPerHead"
+      :warning="knockoutWarning"
+      @confirm="handleKnockoutConfirm"
+    />
 
     <!-- Deal Settlement Modal (協議結算) -->
     <DealSettlementModal
@@ -268,12 +281,14 @@ import BaseModal from '../components/common/BaseModal.vue';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import TournamentPlayerCard from '../components/game/TournamentPlayerCard.vue';
 import DealSettlementModal from '../components/tournament/DealSettlementModal.vue';
+import KnockoutModal from '../components/tournament/KnockoutModal.vue';
 import TransactionLog from '../components/game/TransactionLog.vue';
 import HandRecordSheet from '../components/game/HandRecordSheet.vue';
 import HandHistoryList from '../components/game/HandHistoryList.vue';
 import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
 import { formatNumber } from '../utils/formatters.js';
 import { buildTournamentPrizeMap } from '../utils/settlementMath.js';
+import { gameBountyPerEntry, gamePrizePool, finalBounty } from '../utils/bounty.js';
 import { DEFAULT_BUY_IN } from '../utils/constants.js';
 import { consumeSessionReturn } from '../utils/sessionReturn.js';
 
@@ -325,9 +340,9 @@ const activePlayers = computed(() =>
   (game.value?.players || []).filter(p => !p.eliminated)
 );
 
-const prizePool = computed(() =>
-  (game.value?.players || []).reduce((sum, p) => sum + (p.buyIn || 0), 0)
-);
+// KO games: each entry's head comes out of the pool (utils/bounty.js)
+const bountyPerHead = computed(() => (game.value ? gameBountyPerEntry(game.value) : 0));
+const prizePool = computed(() => (game.value ? gamePrizePool(game.value) : 0));
 
 const payoutRatios = computed(() =>
   tournamentConfig.value?.payoutRatios || []
@@ -414,10 +429,10 @@ const sortedPlayers = computed(() => {
 });
 
 const payoutDetails = computed(() => {
-  const pool = prizePool.value;
+  const prizeMap = buildTournamentPrizeMap(prizePool.value, payoutRatios.value);
   const players = game.value?.players || [];
   return payoutRatios.value.map(r => {
-    const prize = Math.round(pool * r.percentage / 100);
+    const prize = prizeMap[r.place] || 0;
     const winner = players.find(p => p.placement === r.place);
     return { place: r.place, prize, playerName: winner?.name || null };
   });
@@ -461,20 +476,20 @@ const openDeal = () => {
 
 const settlementPlayers = computed(() => {
   if (!game.value) return [];
-  const pool = prizePool.value;
-  const prizeMap = {};
-  for (const r of payoutRatios.value) {
-    prizeMap[r.place] = Math.round(pool * r.percentage / 100);
-  }
+  // Same rounding as the settlement function (largest remainder)
+  const prizeMap = buildTournamentPrizeMap(prizePool.value, payoutRatios.value);
 
   return [...game.value.players]
     .sort((a, b) => (a.placement || 999) - (b.placement || 999))
     .map(p => {
       const prize = prizeMap[p.placement] || 0;
+      // KO: heads collected + own head if still alive (the champion keeps it)
+      const bounty = finalBounty(p, bountyPerHead.value);
       return {
         ...p,
         prize,
-        netProfit: prize - (p.buyIn || 0),
+        bounty,
+        netProfit: prize + bounty - (p.buyIn || 0),
       };
     });
 });
@@ -527,8 +542,38 @@ watch(() => gameId.value, (newGameId) => {
 
 // ── Handlers ──
 
+// ── KO: pick the eliminator(s) ──
+const showKnockout = ref(false);
+const knockoutTarget = ref(null);
+const knockoutCandidates = computed(() =>
+  activePlayers.value.filter((p) => p.id !== knockoutTarget.value?.id)
+);
+const knockoutWarning = computed(() =>
+  (activePlayers.value.length <= 2 && !reentriesOpen.value) ? t('tournament.lastTwoWarning') : ''
+);
+
+const runElimination = (player, eliminatorIds = []) => withLoading(async () => {
+  const ok = await eliminatePlayer(player.id, { eliminatorIds });
+  if (!ok) {
+    showError(gameError.value || 'Failed to eliminate player');
+    return;
+  }
+  success(t('tournament.eliminated'));
+}, t('loading.saving'));
+
+const handleKnockoutConfirm = (eliminatorIds) => {
+  if (knockoutTarget.value) runElimination(knockoutTarget.value, eliminatorIds);
+};
+
 const handleEliminate = async (player) => {
   if (isChampion(player)) return;
+
+  // KO games ask who knocked them out (the modal is the confirmation)
+  if (bountyPerHead.value > 0) {
+    knockoutTarget.value = player;
+    showKnockout.value = true;
+    return;
+  }
 
   const alive = activePlayers.value.length;
   const isFinalElimination = alive <= 2 && !reentriesOpen.value;

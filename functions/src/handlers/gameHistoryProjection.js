@@ -80,6 +80,9 @@ function normalizeSettlementRow(row) {
   if (Number.isFinite(row.cash)) normalized.cash = Number(row.cash.toFixed(2));
   if (Number.isInteger(row.entryCount)) normalized.entryCount = row.entryCount;
   if (Number.isInteger(row.rebuyCount)) normalized.rebuyCount = row.rebuyCount;
+  // KO bounty rows (already included in profit)
+  if (Number.isFinite(row.bounty)) normalized.bounty = roundNumber(row.bounty);
+  if (Number.isInteger(row.knockouts)) normalized.knockouts = row.knockouts;
   return normalized;
 }
 

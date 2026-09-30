@@ -51,6 +51,11 @@
             <template v-else-if="tx.type === 'eliminate'">
               <span>💀</span>
               {{ tx.actionName }} {{ $t('transaction.eliminatedPlayer') }} {{ tx.targetName }}
+              <!-- KO: who collected the head (or the pool) -->
+              <span v-if="tx.restore?.bounty?.awards?.length" class="text-rose-300">
+                · 🎯 {{ tx.restore.bounty.awards.map((a) => a.name || '?').join('、') }}
+              </span>
+              <span v-else-if="tx.restore?.bounty?.toPool" class="text-gray-400">· 🎯 {{ $t('bounty.toPool') }}</span>
             </template>
             <template v-else-if="tx.type === 'join'">
               <span>👤</span>

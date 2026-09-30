@@ -10,19 +10,19 @@ const clockViewContent = read('src/views/TournamentClockView.vue');
 
 describe('Tournament elimination integration', () => {
   it('should keep playersRemaining sync inside eliminatePlayer transaction', () => {
-    const eliminateFn = gameStoreContent.match(/const eliminatePlayer = async \(playerId\) => \{[\s\S]*?\n  \};/);
+    const eliminateFn = gameStoreContent.match(/const eliminatePlayer = async \(playerId[^)]*\) => \{[\s\S]*?\n  \};/);
     expect(eliminateFn).not.toBeNull();
     expect(eliminateFn[0]).toContain("'state.playersRemaining': aliveAfter");
   });
 
   it('should auto-crown the last remaining player when the tournament ends', () => {
-    const eliminateFn = gameStoreContent.match(/const eliminatePlayer = async \(playerId\) => \{[\s\S]*?\n  \};/);
+    const eliminateFn = gameStoreContent.match(/const eliminatePlayer = async \(playerId[^)]*\) => \{[\s\S]*?\n  \};/);
     expect(eliminateFn).not.toBeNull();
     expect(eliminateFn[0]).toMatch(/if \(shouldEndTournament\)[\s\S]*crownSurvivors\(/);
   });
 
   it('should log the elimination with a restore snapshot inside the same transaction', () => {
-    const eliminateFn = gameStoreContent.match(/const eliminatePlayer = async \(playerId\) => \{[\s\S]*?\n  \};/);
+    const eliminateFn = gameStoreContent.match(/const eliminatePlayer = async \(playerId[^)]*\) => \{[\s\S]*?\n  \};/);
     expect(eliminateFn[0]).toContain('type: TX_TYPE_ELIMINATE');
     expect(eliminateFn[0]).toContain('buildEliminationRestore(');
     expect(eliminateFn[0]).toContain('snapshotSessionClock(');

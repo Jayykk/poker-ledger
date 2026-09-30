@@ -187,7 +187,22 @@
             <span v-if="!isBountyPlayable({ type: b })" class="soon">{{ $t('template.comingSoon') }}</span>
           </button>
         </div>
-        <p class="hint">{{ $t('template.bountyHint') }}</p>
+        <!-- KO: how much of each buy-in goes on the player's head -->
+        <div v-if="form.bountyType === 'ko'" class="space-y-2 pt-1">
+          <label class="field-label">{{ $t('bounty.sharePerEntry') }}</label>
+          <div class="flex gap-2">
+            <select v-model="form.bountyMode" class="field-input flex-shrink-0" style="width: 8.5rem">
+              <option value="percent">{{ $t('bounty.modePercent') }}</option>
+              <option value="amount">{{ $t('bounty.modeAmount') }}</option>
+            </select>
+            <input v-model.number="form.bountyValue" type="number" min="0" class="field-input flex-1 min-w-0" style="width: auto" />
+            <span class="text-gray-400 text-sm self-center">{{ form.bountyMode === 'percent' ? '%' : '$' }}</span>
+          </div>
+          <p class="hint">
+            {{ $t('bounty.splitPreview', { head: formatNumber(headPreview), pool: formatNumber(Math.max(0, (Number(form.amount) || 0) - headPreview)) }) }}
+          </p>
+        </div>
+        <p class="hint">{{ form.bountyType === 'ko' ? $t('bounty.koHint') : $t('template.bountyHint') }}</p>
       </section>
 
       <!-- Share / import -->
@@ -236,8 +251,9 @@ import {
   TEMPLATE_KIND, TEMPLATE_KINDS, BOUNTY_TYPES, BUILT_IN_PREFIX,
   normalizeTemplate, validateTemplate, isBountyPlayable, maxLevelNumber,
   structureSnapshot, builtInStructures, templateFromBuiltInTournament,
-  encodeTemplateShare, decodeTemplateShare, templateFromImport,
+  encodeTemplateShare, decodeTemplateShare, templateFromImport, bountyPerEntry,
 } from '../utils/tableTemplates.js';
+import { formatNumber } from '../utils/formatters.js';
 import { structureSummary } from '../utils/templateDisplay.js';
 
 const KINDS = TEMPLATE_KINDS;
@@ -271,6 +287,8 @@ function formFrom(raw) {
     payout: cash ? [] : tpl.payout.ratios.map((r) => ({ ...r })),
     bountyType: cash ? 'none' : tpl.bounty.type,
     bounty: cash ? { type: 'none' } : tpl.bounty,
+    bountyMode: tpl.bounty?.share?.mode || 'percent',
+    bountyValue: tpl.bounty?.share?.value ?? 50,
     migratedFrom: tpl.migratedFrom || null,
   };
 }
@@ -285,7 +303,13 @@ function templateFrom(f) {
     entry: { cutoffLevel: f.cutoffLevel, reentry: { allowed: f.reentryAllowed, max: f.reentryMax } },
     cash: { decimals: f.decimals },
     payout: { ratios: f.payout },
-    bounty: f.bountyType === f.bounty?.type ? f.bounty : { type: f.bountyType },
+    bounty: f.bountyType === 'none'
+      ? { type: 'none' }
+      : {
+        ...(f.bountyType === f.bounty?.type ? f.bounty : {}),
+        type: f.bountyType,
+        share: { mode: f.bountyMode, value: f.bountyValue },
+      },
     migratedFrom: f.migratedFrom,
   });
 }
@@ -368,6 +392,12 @@ function onStructurePicked() {
 watch(maxLevel, (max) => {
   if (form.value.cutoffLevel && form.value.cutoffLevel > max) form.value.cutoffLevel = null;
 });
+
+// ── bounty ────────────────────────────────────────────
+const headPreview = computed(() => bountyPerEntry(
+  { type: form.value.bountyType, share: { mode: form.value.bountyMode, value: form.value.bountyValue } },
+  form.value.amount,
+));
 
 // ── settlement ────────────────────────────────────────
 function decimalsLabel(d) {

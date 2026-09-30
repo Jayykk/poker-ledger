@@ -5,7 +5,9 @@ import {
   buildDealSettlement,
   buildTournamentPrizeMap,
   buildTournamentSettlement,
+  tournamentPrizePool,
 } from '../utils/tournamentSettlementMath.js';
+import { gameBountyPerEntry } from '../utils/bountyMath.js';
 
 /**
  * Check authorization for a normal tournament finish.
@@ -47,8 +49,12 @@ export function validateNormalTournamentState(game) {
  * @param {Array<object>} players Current players.
  * @param {Array<object>} payoutRatios Payout configuration.
  * @param {Array<object>} allocations Proposed deal allocations.
+ * @param {number} baseBuyIn One entry's buy-in (to count KO heads).
+ * @param {number} perEntry KO head value per entry (0 = no bounty).
  */
-export function validateDealAllocations(players, payoutRatios, allocations) {
+export function validateDealAllocations(
+  players, payoutRatios, allocations, baseBuyIn = 0, perEntry = 0,
+) {
   const aliveIds = players
     .filter((player) => !player.eliminated)
     .map((player) => player.id)
@@ -71,8 +77,9 @@ export function validateDealAllocations(players, payoutRatios, allocations) {
     throw new HttpsError('invalid-argument', 'DEAL_PRIZE_INVALID');
   }
 
-  const totalBuyIns = players.reduce((sum, player) => sum + (Number(player.buyIn) || 0), 0);
-  const prizeMap = buildTournamentPrizeMap(totalBuyIns, payoutRatios);
+  // KO games pay placements from the pool left after the bounties
+  const pool = tournamentPrizePool(players, baseBuyIn, perEntry);
+  const prizeMap = buildTournamentPrizeMap(pool, payoutRatios);
   const expectedTotal = aliveIds.reduce((sum, _, index) => sum + (prizeMap[index + 1] || 0), 0);
   const allocationTotal = allocations.reduce(
     (sum, allocation) => sum + (Number(allocation.prize) || 0), 0,
@@ -154,7 +161,9 @@ export async function settleTournamentGame({ gameId, callerUid, db }) {
     const players = (game.players || []).map((player) => (
       !player.eliminated ? { ...player, placement: 1 } : player
     ));
-    const settlement = buildTournamentSettlement(players, payoutRatios, game.baseBuyIn);
+    const settlement = buildTournamentSettlement(
+      players, payoutRatios, game.baseBuyIn, gameBountyPerEntry(game),
+    );
     const syncToken = `settle-tournament-${randomUUID()}`;
     transaction.update(gameRef, completionPatch(players, payoutRatios, settlement, syncToken));
     return { success: true, gameId, settlement, syncToken, alreadySettled: false };
@@ -185,7 +194,10 @@ export async function settleTournamentDeal({ gameId, callerUid, deal, db }) {
     const payoutRatios = session?.config?.payoutRatios || game.payoutRatios || [];
     if (!payoutRatios.length) throw new HttpsError('failed-precondition', 'PAYOUT_RATIOS_NOT_CONFIGURED');
     const allocations = deal.allocations || [];
-    validateDealAllocations(game.players || [], payoutRatios, allocations);
+    const perEntry = gameBountyPerEntry(game);
+    validateDealAllocations(
+      game.players || [], payoutRatios, allocations, game.baseBuyIn, perEntry,
+    );
     const allocationMap = new Map(
       allocations.map((allocation) => [allocation.playerId, allocation]),
     );
@@ -193,7 +205,9 @@ export async function settleTournamentDeal({ gameId, callerUid, deal, db }) {
       const allocation = allocationMap.get(player.id);
       return allocation ? { ...player, placement: allocation.placement } : player;
     });
-    const settlement = buildDealSettlement(players, payoutRatios, allocations, game.baseBuyIn);
+    const settlement = buildDealSettlement(
+      players, payoutRatios, allocations, game.baseBuyIn, perEntry,
+    );
     const syncToken = `settle-tournament-${randomUUID()}`;
 
     if (sessionRef) {

@@ -913,7 +913,7 @@
       "mystery": "Mystery bounty"
     },
     "comingSoon": "Coming soon",
-    "bountyHint": "Knockout, progressive KO and mystery bounties arrive in the next phase",
+    "bountyHint": "Progressive KO and mystery bounties come later",
     "errors": {
       "nameRequired": "Enter a template name",
       "structureRequired": "Pick a blind structure",
@@ -923,5 +923,20 @@
       "cutoffBeyondStructure": "The cutoff level is past the last level of the structure",
       "buyInInvalid": "Enter a valid buy-in (chips and amount)"
     }
+  },
+  "bounty": {
+    "perHead": "Bounty ${amount}",
+    "knockoutsN": "{n} KO",
+    "knockoutTitle": "Eliminate {name}",
+    "whoKnockedOut": "Who knocked them out? Bounty",
+    "splitHint": "Pick several to split the bounty equally",
+    "noEliminator": "No eliminator",
+    "toPool": "Bounty goes to the prize pool",
+    "confirmKnockout": "Eliminate",
+    "sharePerEntry": "Bounty per buy-in",
+    "modePercent": "% of buy-in",
+    "modeAmount": "Fixed amount",
+    "splitPreview": "Each buy-in: bounty ${head} · prize pool ${pool}",
+    "koHint": "The eliminator takes the bounty; the champion (or everyone left in a deal) keeps their own"
   }
 }

@@ -27,6 +27,7 @@
       :average-stack="averageStack"
       :averageStackBB="averageStackBB"
       :prize-pool="prizePool"
+      :bounty-per-head="bountyPerHead"
       :payouts="payouts"
     >
       <template #actions-left>
@@ -71,6 +72,7 @@
       :average-stack="averageStack"
       :averageStackBB="averageStackBB"
       :prize-pool="prizePool"
+      :bounty-per-head="bountyPerHead"
       :payouts="payouts"
     >
       <template #actions-left>
@@ -138,6 +140,7 @@ defineProps({
   levelProgress: { type: Number, default: 0 },
   endsAt: { type: String, default: '' },
   cutoffLevel: { type: Number, default: 0 },
+  bountyPerHead: { type: Number, default: 0 },
 });
 </script>
 

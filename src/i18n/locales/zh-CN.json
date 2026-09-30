@@ -913,7 +913,7 @@
       "mystery": "神秘赏金"
     },
     "comingSoon": "即将推出",
-    "bountyHint": "KO / PKO / 神秘赏金将在下一阶段开放",
+    "bountyHint": "PKO / 神秘赏金将在之后开放",
     "errors": {
       "nameRequired": "请输入模板名称",
       "structureRequired": "请选择盲注结构",
@@ -923,5 +923,20 @@
       "cutoffBeyondStructure": "截买等级超过盲注结构的最后一级",
       "buyInInvalid": "请输入有效的买入筹码与金额"
     }
+  },
+  "bounty": {
+    "perHead": "人头 ${amount}",
+    "knockoutsN": "击杀 {n}",
+    "knockoutTitle": "淘汰 {name}",
+    "whoKnockedOut": "谁击杀的？赏金",
+    "splitHint": "可多选：多人同时击杀时平分赏金",
+    "noEliminator": "没有击杀者",
+    "toPool": "赏金并入奖池",
+    "confirmKnockout": "确认淘汰",
+    "sharePerEntry": "每次买入放上人头的赏金",
+    "modePercent": "买入的 %",
+    "modeAmount": "固定金额",
+    "splitPreview": "每次买入：人头 ${head} · 奖池 ${pool}",
+    "koHint": "击杀者拿走被淘汰玩家的人头；冠军（或协议时还在场的人）保留自己的人头"
   }
 }

@@ -1,4 +1,5 @@
 /* eslint-disable valid-jsdoc */
+import { finalBounty, knockoutPrizePool } from './bountyMath.js';
 
 /** Derive entry and rebuy counts when buy-in totals divide exactly. */
 export function deriveTournamentEntryMetrics(totalBuyIn, baseBuyIn) {
@@ -46,36 +47,53 @@ function withEntryMetrics(row, totalBuyIn, baseBuyIn) {
   return metrics ? { ...row, ...metrics } : row;
 }
 
+/**
+ * One settlement row. KO games (perEntry > 0) add the bounty the player ends
+ * with and their knockouts, and the bounty counts toward profit.
+ */
+function settlementRow(player, placement, prize, baseBuyIn, perEntry) {
+  const buyIn = player.buyIn || 0;
+  const bounty = finalBounty(player, perEntry);
+  return withEntryMetrics({
+    playerId: player.id || null,
+    odId: player.uid || null,
+    name: player.name,
+    placement,
+    buyIn,
+    prize,
+    ...(perEntry > 0 ? { bounty, knockouts: Number(player.knockouts) || 0 } : {}),
+    profit: prize + bounty - buyIn,
+  }, buyIn, baseBuyIn);
+}
+
+/**
+ * Prize pool to pay out by placement: every buy-in, minus the part that went
+ * on heads in a KO game (see bountyMath.js).
+ */
+export function tournamentPrizePool(players = [], baseBuyIn = 0, perEntry = 0) {
+  return knockoutPrizePool(players, baseBuyIn, perEntry);
+}
+
 /** Build settlement rows for a normally completed tournament. */
 export function buildTournamentSettlement(
-  players = [], payoutRatios = [], baseBuyIn = 0,
+  players = [], payoutRatios = [], baseBuyIn = 0, perEntry = 0,
 ) {
-  const totalBuyIns = players.reduce((sum, player) => sum + (player.buyIn || 0), 0);
-  const prizeMap = buildTournamentPrizeMap(totalBuyIns, payoutRatios);
+  const pool = tournamentPrizePool(players, baseBuyIn, perEntry);
+  const prizeMap = buildTournamentPrizeMap(pool, payoutRatios);
 
   return players
-    .map((player) => {
-      const buyIn = player.buyIn || 0;
-      const prize = prizeMap[player.placement] || 0;
-      return withEntryMetrics({
-        playerId: player.id || null,
-        odId: player.uid || null,
-        name: player.name,
-        placement: player.placement || null,
-        buyIn,
-        prize,
-        profit: prize - buyIn,
-      }, buyIn, baseBuyIn);
-    })
+    .map((player) => settlementRow(
+      player, player.placement || null, prizeMap[player.placement] || 0, baseBuyIn, perEntry,
+    ))
     .sort((a, b) => (a.placement || 999) - (b.placement || 999));
 }
 
 /** Build settlement rows for a negotiated tournament finish. */
 export function buildDealSettlement(
-  players = [], payoutRatios = [], allocations = [], baseBuyIn = 0,
+  players = [], payoutRatios = [], allocations = [], baseBuyIn = 0, perEntry = 0,
 ) {
-  const totalBuyIns = players.reduce((sum, player) => sum + (player.buyIn || 0), 0);
-  const prizeMap = buildTournamentPrizeMap(totalBuyIns, payoutRatios);
+  const pool = tournamentPrizePool(players, baseBuyIn, perEntry);
+  const prizeMap = buildTournamentPrizeMap(pool, payoutRatios);
   const allocationMap = new Map(
     allocations.map((allocation) => [allocation.playerId, allocation]),
   );
@@ -87,16 +105,7 @@ export function buildDealSettlement(
       const prize = allocation ?
         (Number(allocation.prize) || 0) :
         (prizeMap[player.placement] || 0);
-      const buyIn = player.buyIn || 0;
-      return withEntryMetrics({
-        playerId: player.id || null,
-        odId: player.uid || null,
-        name: player.name,
-        placement,
-        buyIn,
-        prize,
-        profit: prize - buyIn,
-      }, buyIn, baseBuyIn);
+      return settlementRow(player, placement, prize, baseBuyIn, perEntry);
     })
     .sort((a, b) => (a.placement || 999) - (b.placement || 999));
 }

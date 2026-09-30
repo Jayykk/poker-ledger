@@ -27,6 +27,7 @@ import { normalizeCashDecimals } from '../../utils/cashRounding.js';
 import { BUY_IN_CLOSED, isTimedClock, isTimedBuyInClosed } from '../../utils/timedStructure.js';
 import { tournamentSettlementErrorKey } from '../../utils/tournamentSettlementErrors.js';
 import { cashSettlementErrorKey } from '../../utils/cashSettlementErrors.js';
+import { gameBountyPerEntry, planKnockout, applyKnockout } from '../../utils/bounty.js';
 import {
   TX_TYPE_ELIMINATE,
   TX_TYPE_REENTRY,
@@ -143,6 +144,10 @@ export const useGameStore = defineStore('game', () => {
       if (type === GAME_TYPE.TOURNAMENT) {
         gameData.tournamentSessionId = options.tournamentSessionId || null;
         gameData.baseBuyIn = parseInt(buyInAmount);
+        // Bounty format (KO) from the template — see utils/bounty.js
+        if (options.bounty && options.bounty.type && options.bounty.type !== 'none') {
+          gameData.bounty = options.bounty;
+        }
       }
 
       // Optional cash settlement rate set at creation time (from cash preset).
@@ -703,7 +708,12 @@ export const useGameStore = defineStore('game', () => {
     timestamp: serverTimestamp(),
   });
 
-  const eliminatePlayer = async (playerId) => {
+  /**
+   * Eliminate a player. KO games: `eliminatorIds` (players still in) collect
+   * the head, split equally; none → the head goes to the prize pool. The
+   * bounty changes are logged on the record so undo reverses them exactly.
+   */
+  const eliminatePlayer = async (playerId, { eliminatorIds = [] } = {}) => {
     if (!gameId.value) return false;
 
     try {
@@ -718,6 +728,16 @@ export const useGameStore = defineStore('game', () => {
           players: eliminatedPlayers, placement, aliveAfter, seq, prevSeq,
         } = applyElimination(players, playerId, eliminatedAt);
         let updatedPlayers = eliminatedPlayers;
+
+        // KO: pay the head to the eliminator(s) (or the pool)
+        const perEntry = gameBountyPerEntry(gameData);
+        const planned = perEntry > 0 ? planKnockout(players, playerId, eliminatorIds, perEntry) : null;
+        // Names go on the log record so it reads without the roster
+        const knockout = planned && {
+          ...planned,
+          awards: planned.awards.map((a) => ({ ...a, name: players.find((p) => p.id === a.playerId)?.name || '' })),
+        };
+        if (knockout) updatedPlayers = applyKnockout(updatedPlayers, playerId, knockout, 1);
 
         const hasSingleWinner = aliveAfter === 1;
         const sessionId = gameData.tournamentSessionId;
@@ -756,14 +776,17 @@ export const useGameStore = defineStore('game', () => {
         transaction.set(txRef, buildTxRecord({
           target,
           type: TX_TYPE_ELIMINATE,
-          restore: buildEliminationRestore({
-            placement,
-            eliminatedAt,
-            endedTournament: shouldEndTournament,
-            sessionState: clockBeforeEnd,
-            seq,
-            prevSeq,
-          }),
+          restore: {
+            ...buildEliminationRestore({
+              placement,
+              eliminatedAt,
+              endedTournament: shouldEndTournament,
+              sessionState: clockBeforeEnd,
+              seq,
+              prevSeq,
+            }),
+            ...(knockout ? { bounty: knockout } : {}),
+          },
         }));
 
         return { players: updatedPlayers };
@@ -800,7 +823,12 @@ export const useGameStore = defineStore('game', () => {
         const target = findTxTarget(players, tx);
         if (!target) throw new Error('Player not found');
 
-        const { players: updatedPlayers, aliveAfter, reopensTournament } = revertElimination(players, tx);
+        const reverted = revertElimination(players, tx);
+        const { aliveAfter, reopensTournament } = reverted;
+        // KO: take the head back from whoever collected it
+        const updatedPlayers = tx.restore?.bounty
+          ? applyKnockout(reverted.players, target.id, tx.restore.bounty, -1)
+          : reverted.players;
 
         const sessionId = gameData.tournamentSessionId;
         if (sessionId) {

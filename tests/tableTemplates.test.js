@@ -133,10 +133,12 @@ describe('bounty module', () => {
     expect(bountyPerEntry(normalizeBounty({ type: 'ko', share: { value: 5000 } }), 1000)).toBe(1000);
   });
 
-  it('only "none" is playable in phase 1', () => {
+  it('none and KO are playable; PKO / mystery not yet', () => {
     expect(isBountyPlayable({ type: 'none' })).toBe(true);
     expect(isBountyPlayable(undefined)).toBe(true);
-    expect(isBountyPlayable({ type: 'ko' })).toBe(false);
+    expect(isBountyPlayable({ type: 'ko' })).toBe(true);
+    expect(isBountyPlayable({ type: 'pko' })).toBe(false);
+    expect(isBountyPlayable({ type: 'mystery' })).toBe(false);
   });
 });
 
@@ -195,10 +197,11 @@ describe('validateTemplate', () => {
     expect(validateTemplate({ ...tourney, entry: { cutoffLevel: 9 } })).toContain('cutoffBeyondStructure');
   });
 
-  it('bounties are not playable yet', () => {
-    const errs = validateTemplate({ ...tourney, buyIn: { amount: 1000 }, bounty: { type: 'ko', share: { value: 200 } } });
-    expect(errs).toEqual(['bountyNotAvailable']);
+  it('KO needs a bounty share; PKO / mystery are not playable yet', () => {
+    expect(validateTemplate({ ...tourney, buyIn: { amount: 1000 }, bounty: { type: 'ko', share: { value: 200 } } })).toEqual([]);
     expect(validateTemplate({ ...tourney, bounty: { type: 'ko' } })).toContain('bountyShareRequired');
+    expect(validateTemplate({ ...tourney, buyIn: { amount: 1000 }, bounty: { type: 'pko', share: { value: 200 } } }))
+      .toEqual(['bountyNotAvailable']);
   });
 });
 
@@ -463,5 +466,26 @@ describe('share links and import', () => {
     expect(templateFromImport({ name: 'T', levels: LEVELS, buyIn: 100 }).kind).toBe('tournament');
     expect(templateFromImport({ foo: 1 })).toBeNull();
     expect(templateFromImport(null)).toBeNull();
+  });
+});
+
+describe('KO templates', () => {
+  const ko = normalizeTemplate({
+    kind: 'tournament', name: 'KO', buyIn: { amount: 1000, chips: 20000 },
+    structure: { levels: LEVELS }, payout: { ratios: [{ place: 1, percentage: 100 }] },
+    bounty: { type: 'ko', share: { mode: 'percent', value: 30 } },
+  });
+
+  it('game creation carries the bounty; plain tournaments do not', () => {
+    expect(gameCreationFromTemplate(ko).options.bounty).toEqual({ type: 'ko', share: { mode: 'percent', value: 30 } });
+    expect(gameCreationFromTemplate({ ...ko, bounty: { type: 'none' } }).options).not.toHaveProperty('bounty');
+  });
+
+  it('the clock config carries it too', () => {
+    expect(clockConfigFromTemplate(ko).bounty.type).toBe('ko');
+  });
+
+  it('share links keep the bounty', () => {
+    expect(decodeTemplateShare(encodeTemplateShare(ko)).bounty).toEqual(ko.bounty);
   });
 });

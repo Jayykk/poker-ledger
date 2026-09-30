@@ -14,6 +14,7 @@
         <div class="sb-pills">
           <span class="sb-pill" :class="statusPillClass">{{ statusText }}</span>
           <span v-if="cutoffLevel > 0 || isTimed" class="sb-pill" :class="{ closed: buyInClosed }">{{ buyInText }}</span>
+          <span v-if="bountyPerHead > 0" class="sb-pill ko">🎯 KO ${{ fmt(bountyPerHead) }}</span>
           <slot name="pills-extra" />
         </div>
         <div class="sb-actions"><slot name="actions-right" /></div>
@@ -103,6 +104,8 @@ const props = defineProps({
   status: { type: String, default: 'waiting' },
   buyInClosed: { type: Boolean, default: false },
   cutoffLevel: { type: Number, default: 0 },
+  // KO games: head value per entry (0 = no bounty)
+  bountyPerHead: { type: Number, default: 0 },
   currentLevelIndex: { type: Number, default: 0 },
   currentLevel: { type: Number, default: 0 },
   currentBlinds: { type: Object, default: () => ({ small: 0, big: 0, ante: 0 }) },
@@ -265,6 +268,7 @@ watch(() => props.currentLevelIndex, async (v, old) => {
 .sb-pill.live { color: #7fe0a8; background: rgba(127, 224, 168, 0.12); }
 .sb-pill.closed { color: var(--red); background: rgba(255, 93, 108, 0.14); }
 .sb-pill.over { color: #fff; background: var(--red); }
+.sb-pill.ko { color: #fda4af; background: rgba(244, 63, 94, 0.14); }
 
 /* ── Centre ─────────────────────────────────── */
 .sb-main {

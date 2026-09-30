@@ -39,6 +39,7 @@
         :status="status"
         :next-play-level-entry="nextPlayLevelEntry"
         :prize-pool="prizePool"
+        :bounty-per-head="bountyPerHead"
         :payouts="payouts"
         :clock-style="clockStyle"
         :levels="levels"
@@ -111,7 +112,7 @@ const {
   currentBlinds, nextPlayLevelEntry,
   isBreak, levels, playersRegistered, playersRemaining,
   reentries, entries, chipsInPlay, averageStack, averageStackBB,
-  isRegistrationClosed, prizePool, payouts,
+  isRegistrationClosed, prizePool, bountyPerHead, payouts,
   formattedTime, timeToBreak,
   isTimed, isBuyInClosed, timeToEnd, levelProgress, endsAt, clockStyle,
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
