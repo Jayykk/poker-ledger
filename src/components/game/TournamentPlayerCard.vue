@@ -1,115 +1,96 @@
 <template>
-  <BaseCard padding="md" :clickable="false">
-    <div class="relative">
-      <!-- Color indicator -->
-      <div
-        class="absolute left-0 inset-y-0 w-1 rounded-l-2xl"
-        :class="colorBarClass"
-      ></div>
+  <div class="t-row" :class="{ out: player.eliminated && !champion }">
+    <span v-if="player.eliminated && player.placement && !champion" class="t-place">#{{ player.placement }}</span>
 
-      <div class="pl-4">
-        <!-- Player info header -->
-        <div class="flex justify-between items-start mb-2">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <span class="text-white font-bold truncate" :class="{ 'opacity-40': player.eliminated && player.placement !== 1 }">
-                {{ player.name }}
-              </span>
-              <span v-if="player.uid" class="text-blue-400 text-[10px]">●</span>
-            </div>
-            <div class="text-xs text-gray-400 mt-0.5">
-              {{ $t('tournament.totalBuyIn') }}: ${{ formatNumber(player.buyIn || 0) }}
-              <span v-if="entryCount > 1" class="text-gray-500 ml-1">({{ entryCount }}{{ $t('tournament.entryUnit') }})</span>
-            </div>
-            <!-- KO: heads collected so far -->
-            <div v-if="bountyPerHead > 0 && (player.knockouts || player.bountyWon)" class="text-xs text-rose-300 mt-0.5">
-              🎯 {{ $t('bounty.knockoutsN', { n: player.knockouts || 0 }) }} · ${{ formatNumber(player.bountyWon || 0) }}
-            </div>
-          </div>
-
-          <!-- Placement badge -->
-          <div class="text-right flex-shrink-0 ml-2">
-            <div v-if="isChampion || player.placement === 1" class="flex items-center gap-1">
-              <span class="text-2xl">🏆</span>
-              <span class="text-amber-400 font-bold text-sm">{{ $t('tournament.champion') }}</span>
-            </div>
-            <div v-else-if="player.placement" class="px-2 py-1 bg-slate-700 rounded text-gray-300 text-sm font-mono">
-              #{{ player.placement }}
-            </div>
-            <div v-else class="px-2 py-1 bg-emerald-500/20 rounded text-emerald-400 text-xs font-semibold">
-              {{ $t('tournament.inPlay') }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Action buttons -->
-        <div class="flex gap-2 mt-2">
-          <!-- Eliminate button (active players only) -->
-          <BaseButton
-            v-if="!player.eliminated && !isChampion"
-            @click="$emit('eliminate', player)"
-            variant="danger"
-            size="sm"
-            class="flex-1"
-          >
-            <i class="fas fa-skull-crossbones mr-1"></i>{{ $t('tournament.eliminate') }}
-          </BaseButton>
-
-          <!-- Re-entry button (eliminated + within level limit) -->
-          <BaseButton
-            v-if="player.eliminated && canReentry && player.placement !== 1"
-            @click="$emit('reentry', player)"
-            variant="secondary"
-            size="sm"
-            class="flex-1"
-          >
-            <i class="fas fa-redo mr-1"></i>{{ $t('tournament.reentryAction') }}
-          </BaseButton>
-
-          <!-- Edit button: name correction only -->
-          <BaseButton
-            v-if="!player.eliminated"
-            @click="$emit('edit', player)"
-            variant="ghost"
-            size="sm"
-          >
-            <i class="fas fa-edit"></i>
-          </BaseButton>
-        </div>
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-1.5">
+        <span class="t-name truncate">{{ player.name }}</span>
+        <span v-if="player.uid" class="text-blue-400 text-[10px]">●</span>
+        <span v-if="champion" class="text-amber-400 text-xs font-bold flex-shrink-0">🏆 {{ $t('tournament.champion') }}</span>
+      </div>
+      <div class="t-sub">
+        <template v-if="player.eliminated && knockedOutBy">{{ $t('room.knockedOutBy', { name: knockedOutBy }) }} · </template>
+        <span v-if="entryCount > 1 || player.eliminated">{{ $t('room.buyInTimes', { n: entryCount }) }}</span>
+        <span v-if="bountyPerHead > 0 && (player.knockouts || player.bountyWon)" class="text-rose-300">
+          <template v-if="entryCount > 1 || player.eliminated"> · </template>🎯 {{ player.knockouts || 0 }} · ${{ formatNumber(player.bountyWon || 0) }}
+        </span>
       </div>
     </div>
-  </BaseCard>
+
+    <!-- Still in: eliminate (+ name edit) -->
+    <template v-if="!player.eliminated && !champion">
+      <button type="button" class="t-btn elim" @click="$emit('eliminate', player)">
+        <i class="fas fa-user-times"></i>{{ $t('tournament.eliminate') }}
+      </button>
+      <button type="button" class="t-icon" :aria-label="$t('common.edit')" @click="$emit('edit', player)">
+        <i class="fas fa-pen"></i>
+      </button>
+    </template>
+
+    <!-- Out: re-entry straight from the row, or why not -->
+    <template v-else-if="player.eliminated && !champion">
+      <button v-if="canReentry" type="button" class="t-btn re" @click="$emit('reentry', player)">
+        <i class="fas fa-redo"></i>{{ $t('room.reentry') }}
+      </button>
+      <span v-else-if="reentryBlocked === 'limit'" class="t-note">{{ $t('room.limitReached') }}</span>
+    </template>
+  </div>
 </template>
 
 <script setup>
+// One tournament player as a compact row: players still in get 淘汰, players
+// out get 重新買入 while re-entry is open (or the reason it isn't).
 import { computed } from 'vue';
-import { useI18n } from 'vue-i18n';
-import BaseCard from '../common/BaseCard.vue';
-import BaseButton from '../common/BaseButton.vue';
 import { formatNumber } from '../../utils/formatters.js';
-
-const { t } = useI18n();
 
 const props = defineProps({
   player: { type: Object, required: true },
-  isHost: { type: Boolean, default: false },
   canReentry: { type: Boolean, default: false },
+  // Why an eliminated player can't re-enter while others still can ('limit')
+  reentryBlocked: { type: String, default: '' },
   baseBuyIn: { type: Number, default: 0 },
   isChampion: { type: Boolean, default: false },
-  // KO games: head value (0 = no bounty)
+  // KO games: head value (0 = no bounty) and who took this player's last head
   bountyPerHead: { type: Number, default: 0 },
+  knockedOutBy: { type: String, default: '' },
 });
 
 defineEmits(['eliminate', 'reentry', 'edit']);
+
+const champion = computed(() => props.isChampion || props.player.placement === 1);
 
 const entryCount = computed(() => {
   if (!props.baseBuyIn || props.baseBuyIn <= 0) return 1;
   return Math.max(1, Math.round((props.player.buyIn || 0) / props.baseBuyIn));
 });
-
-const colorBarClass = computed(() => {
-  if (props.isChampion || props.player.placement === 1) return 'bg-amber-400';
-  if (props.player.eliminated) return 'bg-gray-600';
-  return 'bg-emerald-500';
-});
 </script>
+
+<style scoped>
+.t-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.7);
+}
+.t-row:last-child { border-bottom: none; }
+.t-name { color: #fff; font-weight: 700; }
+.t-row.out .t-name { color: #94a3b8; font-weight: 500; }
+.t-place { width: 1.8rem; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #94a3b8; }
+.t-sub { font-size: 0.72rem; color: #94a3b8; margin-top: 0.1rem; }
+.t-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.t-btn.elim { color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.45); background: rgba(244, 63, 94, 0.08); }
+.t-btn.re { color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.5); background: rgba(16, 185, 129, 0.1); }
+.t-icon { flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 0.5rem; color: #94a3b8; }
+.t-note { flex-shrink: 0; font-size: 0.72rem; color: #64748b; }
+</style>

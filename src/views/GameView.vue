@@ -27,32 +27,26 @@
       </div>
     </div>
 
-    <!-- Timed game (structure applied): live level / countdown strip -->
-    <button
+    <!-- Timed game (structure applied): clock card — tap → full clock,
+         host can start / pause; shows the buy-in cutoff and time to the end -->
+    <RoomClockCard
       v-if="clockIsTimed"
-      type="button"
-      class="w-full mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs flex items-center justify-between gap-2 text-left"
-      @click="$router.push(`/tournament-clock/${game.tournamentSessionId}`)"
-    >
-      <span class="text-amber-300 font-semibold">
-        <template v-if="clockIsBreak">☕ {{ $t('tournament.breakTime') }}</template>
-        <template v-else>
-          {{ $t('tournament.level') }} {{ clockLevel }} ·
-          {{ formatNumber(clockBlinds.small) }}/{{ formatNumber(clockBlinds.big) }}<span v-if="clockBlinds.ante"> ({{ formatNumber(clockBlinds.ante) }})</span>
-        </template>
-      </span>
-      <span v-if="clockStatus === 'ended'" class="text-rose-300 font-semibold">{{ $t('timed.timeUp') }}</span>
-      <span v-else-if="clockStatus === 'waiting'" class="text-gray-400">{{ $t('tournament.waitingToStart') }}</span>
-      <span v-else class="text-gray-300">
-        {{ $t('timed.timeToEnd') }} <span class="font-mono text-white">{{ clockTimeToEnd }}</span>
-      </span>
-    </button>
-    <div
-      v-if="timedBuyInClosed"
-      class="mb-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs text-rose-200"
-    >
-      <i class="fas fa-lock mr-1"></i>{{ $t('timed.buyInClosed') }}
-    </div>
+      class="mt-2"
+      :status="clockStatus"
+      :is-break="clockIsBreak"
+      :level="clockLevel"
+      :blinds="clockBlinds"
+      :next-blinds="clockNextBlinds"
+      :formatted-time="clockFormattedTime"
+      :cutoff-level="Number(clockConfig?.reentryUntilLevel) || 0"
+      :closed="timedBuyInClosed"
+      :closed-label="$t('room.closed')"
+      :detail="$t('room.endsIn', { time: clockTimeToEnd || '—' })"
+      :ended-label="$t('timed.timeUp')"
+      :can-control="clockIsHost"
+      @open="$router.push(`/tournament-clock/${game.tournamentSessionId}`)"
+      @toggle="toggleClock"
+    />
 
     <!-- Player cards -->
     <div class="space-y-3 mt-2">
@@ -269,6 +263,7 @@ import { useConfirm } from '../composables/useConfirm.js';
 import { useLoading } from '../composables/useLoading.js';
 import { useUserStore } from '../store/modules/user.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
+import RoomClockCard from '../components/tournament/RoomClockCard.vue';
 import { BUY_IN_CLOSED } from '../utils/timedStructure.js';
 import { rateFromBuyIn, resolveBuyInAmount, formatRate } from '../utils/buyInRate.js';
 import {
@@ -318,9 +313,17 @@ const {
   currentBlinds: clockBlinds,
   isBreak: clockIsBreak,
   status: clockStatus,
+  nextPlayLevelEntry: clockNextBlinds,
+  formattedTime: clockFormattedTime,
+  config: clockConfig,
+  isHost: clockIsHost,
+  startClock,
+  pauseClock,
   joinSession: joinClock,
   cleanup: cleanupClock,
 } = useTournamentClock();
+
+const toggleClock = () => (clockStatus.value === 'running' ? pauseClock() : startClock());
 
 watch(
   () => (game.value?.type === 'live' ? game.value?.tournamentSessionId : null),

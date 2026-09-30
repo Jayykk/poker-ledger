@@ -13,7 +13,7 @@
   </div>
 
   <!-- Main view -->
-  <div v-else class="pt-16 px-4 pb-24">
+  <div v-else class="pt-16 px-4 pb-40">
     <div v-if="isSyncingHistory" class="mb-3 rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
       <div class="flex items-center gap-2">
         <i class="fas fa-spinner fa-spin"></i>
@@ -21,63 +21,80 @@
       </div>
     </div>
 
-    <!-- Fixed header -->
-    <div class="fixed top-0 inset-x-0 z-30 bg-slate-800/90 backdrop-blur px-4 py-3 border-b border-slate-700 flex justify-between items-center max-w-md mx-auto">
-      <div>
-        <div class="flex items-center gap-2">
-          <span class="text-white font-bold">{{ game.name }}</span>
-          <span class="text-[10px] px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded-full font-semibold">🏆</span>
-        </div>
-        <div class="text-[10px] text-gray-400">{{ $t('game.host') }}: {{ game.hostName || $t('common.unknown') }}</div>
-      </div>
-      <div class="text-right">
-        <div class="text-[10px] text-gray-400">{{ $t('tournament.prizePool') }}</div>
-        <div class="font-mono text-amber-400 font-bold">${{ formatNumber(prizePool) }}</div>
-        <div v-if="bountyPerHead > 0" class="text-[10px] text-rose-300">🎯 {{ $t('bounty.perHead', { amount: formatNumber(bountyPerHead) }) }}</div>
-      </div>
-    </div>
+    <!-- Fixed header: prize pool, share, host menu (解散房間) -->
+    <RoomHeader
+      :name="game.name"
+      :host-name="game.hostName"
+      badge="🏆"
+      :value-label="$t('room.prizePool')"
+      :value="`$${formatNumber(prizePool)}`"
+      :sub-value="bountyPerHead > 0 ? `🎯 ${$t('bounty.perHead', { amount: formatNumber(bountyPerHead) })}` : ''"
+      :is-host="isHost"
+      :can-share-line="liffReady"
+      @copy-id="handleCopyId"
+      @share-line="handleShareToLine"
+      @close-room="handleCloseGame"
+    />
 
-    <!-- Player cards -->
-    <div class="space-y-3 mt-2">
-      <!-- Active players first, then eliminated (sorted by placement desc) -->
+    <!-- Clock card: tap → full clock; host can start / pause here -->
+    <RoomClockCard
+      v-if="game.tournamentSessionId && tournamentSession"
+      class="mt-2"
+      :status="clockStatus"
+      :is-break="clockIsBreak"
+      :level="clockLevel"
+      :blinds="clockBlinds"
+      :next-blinds="clockNextBlinds"
+      :formatted-time="clockFormattedTime"
+      :cutoff-level="reentryUntilLevel"
+      :closed="reentryUntilLevel > 0 && !reentriesOpen"
+      :closed-label="$t('room.closed')"
+      :detail="$t('room.playersLeft', { left: activePlayers.length, total: (game.players || []).length })"
+      :ended-label="$t('room.ended')"
+      :can-control="clockIsHost"
+      @open="$router.push(`/tournament-clock/${game.tournamentSessionId}`)"
+      @toggle="toggleClock"
+    />
+
+    <!-- Still in -->
+    <div class="room-section mt-2">
+      <div class="room-section-head">
+        <span class="font-bold">{{ $t('room.inPlayN', { n: activePlayers.length }) }}</span>
+      </div>
       <TournamentPlayerCard
-        v-for="player in sortedPlayers"
+        v-for="player in activePlayers"
         :key="player.id"
         :player="player"
-        :is-host="isHost"
-        :can-reentry="canReentry(player)"
         :base-buy-in="game?.baseBuyIn || 0"
         :is-champion="isChampion(player)"
         :bounty-per-head="bountyPerHead"
         @eliminate="handleEliminate"
-        @reentry="handleReentry"
         @edit="handleEditPlayer"
       />
     </div>
 
-    <!-- Action buttons -->
-    <div class="mt-8 flex gap-3 justify-center flex-wrap">
-      <BaseButton @click="handleCopyId" variant="ghost" size="sm">
-        <i class="fas fa-copy mr-1"></i>{{ $t('game.copyId') }}
-      </BaseButton>
-      <BaseButton v-if="liffReady" @click="handleShareToLine" variant="ghost" size="sm" class="!text-[#06C755]">
-        <i class="fab fa-line mr-1"></i>{{ $t('game.shareToLine') }}
-      </BaseButton>
-      <BaseButton
-        v-if="game.tournamentSessionId"
-        @click="$router.push(`/tournament-clock/${game.tournamentSessionId}`)"
-        variant="ghost"
-        size="sm"
-      >
-        <i class="fas fa-trophy mr-1 text-amber-400"></i>{{ $t('tournament.viewClock') }}
-      </BaseButton>
-      <BaseButton v-if="isParticipant" @click="showSettlement = true" variant="secondary">
-        {{ $t('tournament.settleTournament') }}
-      </BaseButton>
+    <!-- Out: re-entry straight from the row while it's open -->
+    <div v-if="eliminatedPlayers.length" class="room-section mt-3">
+      <div class="room-section-head">
+        <span class="font-bold">{{ $t('room.eliminatedN', { n: eliminatedPlayers.length }) }}</span>
+        <span class="text-[11px]" :class="reentriesOpen ? 'text-emerald-400' : 'text-gray-500'">{{ eliminatedHint }}</span>
+      </div>
+      <TournamentPlayerCard
+        v-for="player in eliminatedPlayers"
+        :key="player.id"
+        :player="player"
+        :can-reentry="canReentry(player)"
+        :reentry-blocked="reentryBlocked(player)"
+        :base-buy-in="game?.baseBuyIn || 0"
+        :is-champion="isChampion(player)"
+        :bounty-per-head="bountyPerHead"
+        :knocked-out-by="knockedOutBy[player.id] || ''"
+        @reentry="handleReentry"
+      />
     </div>
 
-    <!-- Transaction Log -->
-    <div class="mt-6">
+    <!-- Transaction Log (底部列「紀錄」捲到這裡) -->
+    <div ref="logSection" class="mt-6 scroll-mt-20">
       <TransactionLog
         :transactions="transactions"
         :host-uid="game.hostUid"
@@ -87,40 +104,26 @@
       />
     </div>
 
-    <!-- Record hand button -->
-    <BaseButton
-      @click="showHandRecord = true"
-      variant="primary"
-      fullWidth
-      class="mt-4"
-    >
-      <i class="fas fa-save mr-2"></i>{{ $t('hand.recordHand') }}
-    </BaseButton>
-
     <!-- Hand history -->
     <div v-if="hands.length > 0" class="mt-6">
       <HandHistoryList :hands="hands" @select="handleSelectHand" />
     </div>
 
-    <!-- Add player button (host only, only while re-entries are still open) -->
-    <button
-      v-if="isHost && reentriesOpen"
-      @click="showAddPlayer = true"
-      class="fixed bottom-24 right-4 w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center text-xl shadow-lg hover:bg-amber-600 transition active:scale-95"
-    >
-      <i class="fas fa-plus"></i>
-    </button>
-
-    <BaseButton
-      v-if="isHost"
-      @click="handleCloseGame"
-      variant="danger"
-      fullWidth
-      class="mt-4"
-      size="sm"
-    >
-      {{ $t('game.closeGame') }}
-    </BaseButton>
+    <!-- Room actions above the bottom navigation -->
+    <RoomActionBar>
+      <button v-if="isHost && reentriesOpen" type="button" class="bar-btn" @click="showAddPlayer = true">
+        <i class="fas fa-plus"></i>{{ $t('room.addPlayer') }}
+      </button>
+      <button type="button" class="bar-btn" @click="scrollToLog">
+        <i class="fas fa-list"></i>{{ $t('room.records') }}
+      </button>
+      <button type="button" class="bar-btn" @click="showHandRecord = true">
+        <i class="fas fa-save"></i>{{ $t('room.hands') }}
+      </button>
+      <button v-if="isParticipant" type="button" class="bar-btn primary" @click="showSettlement = true">
+        {{ $t('room.settle') }}
+      </button>
+    </RoomActionBar>
 
     <!-- Add Player Modal -->
     <BaseModal v-model="showAddPlayer" :title="$t('tournament.addPlayer')">
@@ -155,13 +158,17 @@
     <BaseModal v-model="showSettlement" :title="$t('tournament.settleTournament')">
       <!-- Prize Pool -->
       <div class="flex justify-between bg-slate-900 p-3 rounded mb-4">
-        <span class="text-gray-400 text-sm">{{ $t('tournament.prizePool') }}</span>
+        <span class="text-gray-400 text-sm">{{ $t('room.prizePool') }}</span>
         <span class="text-amber-400 font-bold font-mono">${{ formatNumber(prizePool) }}</span>
+      </div>
+      <div v-if="bountyPerHead > 0" class="flex justify-between bg-slate-900 p-3 rounded mb-4 -mt-2">
+        <span class="text-gray-400 text-sm">🎯 {{ $t('room.bountyTotal') }}</span>
+        <span class="text-rose-300 font-bold font-mono">${{ formatNumber(settlementTotals.bounty) }}</span>
       </div>
 
       <!-- Payout table -->
       <div v-if="payoutRatios.length > 0" class="mb-4">
-        <div class="text-xs text-gray-400 mb-2">{{ $t('tournament.payouts') }}</div>
+        <div class="text-xs text-gray-400 mb-2">{{ $t('room.payouts') }}</div>
         <div class="space-y-1">
           <div
             v-for="p in payoutDetails"
@@ -178,29 +185,32 @@
         </div>
       </div>
 
-      <!-- Player results -->
-      <div class="space-y-2 mb-4 max-h-60 overflow-y-auto">
-        <div class="text-xs text-gray-400 mb-1">{{ $t('tournament.placement') }}</div>
+      <!-- Player results: 名次 / 玩家 / 獎金 / 賞金 / 損益 -->
+      <div class="mb-4 max-h-72 overflow-y-auto">
+        <div class="settle-grid settle-head" :class="{ ko: bountyPerHead > 0 }">
+          <span>{{ $t('room.colPlace') }}</span>
+          <span>{{ $t('room.colPlayer') }}</span>
+          <span class="text-right">{{ $t('room.colPrize') }}</span>
+          <span v-if="bountyPerHead > 0" class="text-right">{{ $t('room.colBounty') }}</span>
+          <span class="text-right">{{ $t('room.colProfit') }}</span>
+        </div>
         <div
           v-for="p in settlementPlayers"
           :key="p.id"
-          class="flex justify-between text-sm py-1 border-b border-slate-700"
+          class="settle-grid"
+          :class="{ ko: bountyPerHead > 0 }"
         >
-          <div class="flex items-center gap-2">
-            <span v-if="p.placement" class="text-gray-300 font-mono w-6">#{{ p.placement }}</span>
-            <span v-else class="text-gray-500 w-6 text-center">—</span>
-            <span class="text-white">{{ p.name }}</span>
-          </div>
-          <div class="text-right">
-            <div :class="p.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'" class="font-mono">
-              {{ p.netProfit > 0 ? '+' : '' }}${{ formatNumber(p.netProfit) }}
-            </div>
-            <div class="text-[10px] text-gray-500">
-              {{ $t('tournament.totalBuyIn') }}: ${{ formatNumber(p.buyIn) }} |
-              {{ $t('tournament.prize') }}: ${{ formatNumber(p.prize) }}
-              <template v-if="bountyPerHead > 0"> | 🎯 ${{ formatNumber(p.bounty) }}</template>
-            </div>
-          </div>
+          <span class="font-mono text-gray-400">{{ p.placement || '—' }}</span>
+          <span class="text-white truncate">{{ p.name }}</span>
+          <span class="text-right font-mono">${{ formatNumber(p.prize) }}</span>
+          <span v-if="bountyPerHead > 0" class="text-right font-mono text-rose-300">${{ formatNumber(p.bounty) }}</span>
+          <span class="text-right font-mono" :class="p.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'">
+            {{ p.netProfit > 0 ? '+' : p.netProfit < 0 ? '−' : '' }}${{ formatNumber(Math.abs(p.netProfit)) }}
+          </span>
+        </div>
+        <div class="flex justify-between text-[11px] text-gray-500 mt-2">
+          <span>{{ $t('tournament.totalBuyIn') }} ${{ formatNumber(settlementTotals.buyIn) }}</span>
+          <span>{{ $t('room.sumCheck', { amount: formatNumber(settlementTotals.profit) }) }}</span>
         </div>
       </div>
 
@@ -282,6 +292,9 @@ import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import TournamentPlayerCard from '../components/game/TournamentPlayerCard.vue';
 import DealSettlementModal from '../components/tournament/DealSettlementModal.vue';
 import KnockoutModal from '../components/tournament/KnockoutModal.vue';
+import RoomClockCard from '../components/tournament/RoomClockCard.vue';
+import RoomHeader from '../components/game/RoomHeader.vue';
+import RoomActionBar from '../components/game/RoomActionBar.vue';
 import TransactionLog from '../components/game/TransactionLog.vue';
 import HandRecordSheet from '../components/game/HandRecordSheet.vue';
 import HandHistoryList from '../components/game/HandHistoryList.vue';
@@ -319,7 +332,19 @@ const {
   joinSession: joinTournamentSession,
   config: tournamentConfig,
   currentLevelIndex: clockLevelIndex,
+  // clock card
+  status: clockStatus,
+  isBreak: clockIsBreak,
+  currentLevel: clockLevel,
+  currentBlinds: clockBlinds,
+  nextPlayLevelEntry: clockNextBlinds,
+  formattedTime: clockFormattedTime,
+  isHost: clockIsHost,
+  startClock,
+  pauseClock,
 } = useTournamentClock();
+
+const toggleClock = () => (clockStatus.value === 'running' ? pauseClock() : startClock());
 
 const showAddPlayer = ref(false);
 const showEditPlayer = ref(false);
@@ -340,6 +365,34 @@ const activePlayers = computed(() =>
   (game.value?.players || []).filter(p => !p.eliminated)
 );
 
+// Out, best finish first
+const eliminatedPlayers = computed(() =>
+  (game.value?.players || [])
+    .filter((p) => p.eliminated)
+    .sort((a, b) => (a.placement || 999) - (b.placement || 999))
+);
+
+// Active elimination records, latest first (seq is the global status order)
+const eliminationRecords = computed(() =>
+  (transactions.value || [])
+    .filter((tx) => tx.type === 'eliminate' && tx.status === 'active')
+    .sort((a, b) => (Number(b.restore?.seq) || 0) - (Number(a.restore?.seq) || 0))
+);
+
+// KO: who took each eliminated player's last head
+const knockedOutBy = computed(() => {
+  const out = {};
+  for (const tx of eliminationRecords.value) {
+    if (!tx.targetId || out[tx.targetId] !== undefined) continue;
+    const names = (tx.restore?.bounty?.awards || []).map((a) => a.name).filter(Boolean);
+    out[tx.targetId] = names.join('、');
+  }
+  return out;
+});
+
+const logSection = ref(null);
+const scrollToLog = () => logSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
 // KO games: each entry's head comes out of the pool (utils/bounty.js)
 const bountyPerHead = computed(() => (game.value ? gameBountyPerEntry(game.value) : 0));
 const prizePool = computed(() => (game.value ? gamePrizePool(game.value) : 0));
@@ -359,6 +412,18 @@ const maxReentries = computed(() =>
 const getPlayerReentryCount = (player) => {
   const baseBuyIn = game.value?.baseBuyIn || 1;
   return Math.max(0, Math.round((player.buyIn || 0) / baseBuyIn) - 1);
+};
+
+// Header hint over the eliminated list
+const eliminatedHint = computed(() => {
+  if (!reentryUntilLevel.value) return t('room.noReentry');
+  return reentriesOpen.value ? t('room.canReentry') : t('room.reentryClosed');
+});
+
+// Re-entry still open for others, but this player used them all up
+const reentryBlocked = (player) => {
+  if (!player.eliminated || !reentriesOpen.value || maxReentries.value <= 0) return '';
+  return getPlayerReentryCount(player) + 1 >= maxReentries.value ? 'limit' : '';
 };
 
 // Check if reentries are globally still open (before cutoff level)
@@ -416,17 +481,6 @@ const isParticipant = computed(() =>
   (game.value?.players || []).some(player => player.uid === user.value?.uid)
 );
 
-const sortedPlayers = computed(() => {
-  if (!game.value) return [];
-  const players = [...game.value.players];
-  // Active first, then eliminated sorted by placement (ascending = best first)
-  return players.sort((a, b) => {
-    if (!a.eliminated && !b.eliminated) return 0;
-    if (!a.eliminated) return -1;
-    if (!b.eliminated) return 1;
-    return (a.placement || 999) - (b.placement || 999);
-  });
-});
 
 const payoutDetails = computed(() => {
   const prizeMap = buildTournamentPrizeMap(prizePool.value, payoutRatios.value);
@@ -494,6 +548,12 @@ const settlementPlayers = computed(() => {
     });
 });
 
+const settlementTotals = computed(() => settlementPlayers.value.reduce((acc, p) => ({
+  buyIn: acc.buyIn + (p.buyIn || 0),
+  bounty: acc.bounty + (p.bounty || 0),
+  profit: acc.profit + (p.netProfit || 0),
+}), { buyIn: 0, bounty: 0, profit: 0 }));
+
 // ── Auto-join (deep link) ──
 
 onMounted(async () => {
@@ -545,9 +605,19 @@ watch(() => gameId.value, (newGameId) => {
 // ── KO: pick the eliminator(s) ──
 const showKnockout = ref(false);
 const knockoutTarget = ref(null);
-const knockoutCandidates = computed(() =>
-  activePlayers.value.filter((p) => p.id !== knockoutTarget.value?.id)
-);
+// Players still in, the most recent eliminators first
+const knockoutCandidates = computed(() => {
+  const recent = [];
+  for (const tx of eliminationRecords.value) {
+    for (const a of tx.restore?.bounty?.awards || []) {
+      if (!recent.includes(a.playerId)) recent.push(a.playerId);
+    }
+  }
+  const rank = (p) => (recent.includes(p.id) ? recent.indexOf(p.id) : recent.length);
+  return activePlayers.value
+    .filter((p) => p.id !== knockoutTarget.value?.id)
+    .sort((a, b) => rank(a) - rank(b));
+});
 const knockoutWarning = computed(() =>
   (activePlayers.value.length <= 2 && !reentriesOpen.value) ? t('tournament.lastTwoWarning') : ''
 );
@@ -861,3 +931,31 @@ const handleCloseGame = async () => {
   }
 };
 </script>
+
+<style scoped>
+.room-section {
+  border-radius: 0.9rem;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  overflow: hidden;
+}
+.room-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8rem;
+  color: #e2e8f0;
+  background: rgba(51, 65, 85, 0.45);
+}
+.settle-grid {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) 4.6rem 5.2rem;
+  gap: 0.35rem;
+  padding: 0.45rem 0;
+  font-size: 0.82rem;
+  border-bottom: 1px solid #334155;
+}
+.settle-grid.ko { grid-template-columns: 2rem minmax(0, 1fr) 4.4rem 3.8rem 4.8rem; }
+.settle-head { font-size: 0.7rem; color: #94a3b8; }
+</style>
