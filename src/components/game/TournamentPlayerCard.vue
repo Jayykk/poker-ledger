@@ -84,14 +84,14 @@ const entryCount = computed(() => {
   align-items: center;
   gap: 0.6rem;
   padding: 0.65rem 0.9rem;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.7);
+  border-bottom: 1px solid rgb(var(--tw-slate-700) / 0.7);
 }
 .t-wrap:last-child .t-row { border-bottom: none; }
 .t-menu {
   display: flex;
   gap: 0.5rem;
   padding: 0 0.9rem 0.65rem;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.7);
+  border-bottom: 1px solid rgb(var(--tw-slate-700) / 0.7);
 }
 .t-menu button {
   flex: 1;
@@ -102,14 +102,14 @@ const entryCount = computed(() => {
   padding: 0.45rem;
   border-radius: 0.55rem;
   font-size: 0.8rem;
-  color: #e2e8f0;
-  background: rgba(51, 65, 85, 0.7);
+  color: rgb(var(--tw-slate-200));
+  background: rgb(var(--tw-slate-700) / 0.7);
 }
-.t-menu button.danger { color: #fda4af; }
-.t-name { color: #fff; font-weight: 700; }
-.t-row.out .t-name { color: #94a3b8; font-weight: 500; }
-.t-place { width: 1.8rem; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #94a3b8; }
-.t-sub { font-size: 0.72rem; color: #94a3b8; margin-top: 0.1rem; }
+.t-menu button.danger { color: rgb(var(--tw-rose-300)); }
+.t-name { color: rgb(var(--tw-white)); font-weight: 700; }
+.t-row.out .t-name { color: rgb(var(--tw-slate-400)); font-weight: 500; }
+.t-place { width: 1.8rem; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: rgb(var(--tw-slate-400)); }
+.t-sub { font-size: 0.72rem; color: rgb(var(--tw-slate-400)); margin-top: 0.1rem; }
 .t-btn {
   flex-shrink: 0;
   display: inline-flex;
@@ -121,8 +121,8 @@ const entryCount = computed(() => {
   font-weight: 600;
   white-space: nowrap;
 }
-.t-btn.elim { color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.45); background: rgba(244, 63, 94, 0.08); }
-.t-btn.re { color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.5); background: rgba(16, 185, 129, 0.1); }
-.t-icon { flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 0.5rem; color: #94a3b8; }
-.t-note { flex-shrink: 0; font-size: 0.72rem; color: #64748b; }
+.t-btn.elim { color: rgb(var(--tw-rose-300)); border: 1px solid rgb(var(--tw-rose-500) / 0.45); background: rgb(var(--tw-rose-500) / 0.08); }
+.t-btn.re { color: rgb(var(--tw-emerald-300)); border: 1px solid rgb(var(--tw-emerald-500) / 0.5); background: rgb(var(--tw-emerald-500) / 0.1); }
+.t-icon { flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 0.5rem; color: rgb(var(--tw-slate-400)); }
+.t-note { flex-shrink: 0; font-size: 0.72rem; color: rgb(var(--tw-slate-500)); }
 </style>

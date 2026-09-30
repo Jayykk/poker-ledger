@@ -83,30 +83,30 @@ defineEmits(['open', 'toggle']);
   padding: 0.75rem 0.9rem;
   margin-bottom: 0.75rem;
   border-radius: 0.9rem;
-  background: rgba(30, 41, 59, 0.85);
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  background: rgb(var(--tw-slate-800) / 0.85);
+  border: 1px solid rgb(var(--tw-amber-500) / 0.25);
   cursor: pointer;
 }
-.rc-sub { font-size: 0.72rem; color: rgba(255, 255, 255, 0.55); }
-.rc-blinds { font-size: 1.15rem; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
-.rc-ante { font-size: 0.8rem; color: rgba(255, 255, 255, 0.6); font-weight: 500; }
+.rc-sub { font-size: 0.72rem; color: rgb(var(--tw-white) / 0.55); }
+.rc-blinds { font-size: 1.15rem; font-weight: 700; color: rgb(var(--tw-white)); font-variant-numeric: tabular-nums; }
+.rc-ante { font-size: 0.8rem; color: rgb(var(--tw-white) / 0.6); font-weight: 500; }
 .rc-right { margin-left: auto; text-align: right; flex-shrink: 0; }
 .rc-time {
   font-family: 'JetBrains Mono', monospace;
   font-size: 1.6rem;
   font-weight: 700;
   line-height: 1.1;
-  color: #fbbf24;
+  color: rgb(var(--tw-amber-400));
   font-variant-numeric: tabular-nums;
 }
-.rc-time.ended { font-size: 1rem; color: #fb7185; }
+.rc-time.ended { font-size: 1rem; color: rgb(var(--tw-rose-400)); }
 .rc-toggle {
   flex-shrink: 0;
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 50%;
-  background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgb(var(--tw-amber-500) / 0.2);
+  color: rgb(var(--tw-amber-400));
+  border: 1px solid rgb(var(--tw-amber-500) / 0.4);
 }
 </style>

@@ -223,10 +223,6 @@
     "language": "Language",
     "sound": "Sound",
     "notifications": "Push Notifications",
-    "themeOptions": {
-      "dark": "Dark",
-      "light": "Light"
-    },
     "version": "Version",
     "upgradeAccount": "Upgrade Account",
     "upgradeDescription": "Link your email to save your game records",
@@ -239,7 +235,33 @@
       "notificationDenied": "Notification permission was denied. Please enable notifications in your browser settings.",
       "notificationUnsupported": "This browser does not support notifications"
     },
-    "lineNotify": "LINE Push Notifications"
+    "lineNotify": "LINE Push Notifications",
+    "themes": {
+      "classic": {
+        "name": "Classic",
+        "desc": "The original navy and amber"
+      },
+      "premium": {
+        "name": "Premium",
+        "desc": "Warm charcoal and champagne"
+      },
+      "burgundy": {
+        "name": "Burgundy",
+        "desc": "Deep wine and cream gold"
+      },
+      "neon": {
+        "name": "Neon night",
+        "desc": "Indigo and hot pink"
+      },
+      "graphite": {
+        "name": "Graphite",
+        "desc": "Graphite and tangerine"
+      },
+      "ivory": {
+        "name": "Ivory",
+        "desc": "Warm paper and ink blue (light)"
+      }
+    }
   },
   "friends": {
     "title": "Friends",

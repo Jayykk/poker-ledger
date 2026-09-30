@@ -136,13 +136,13 @@ async function handleDelete(s) {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgb(var(--tw-slate-800) / 0.6);
+  border: 1px solid rgb(var(--tw-white) / 0.08);
   border-radius: 0.75rem;
   padding: 1rem;
   transition: border-color 0.2s;
 }
-.preset-card:hover { border-color: rgba(245, 158, 11, 0.3); }
+.preset-card:hover { border-color: rgb(var(--tw-amber-500) / 0.3); }
 .action-btn {
   width: 36px;
   height: 36px;

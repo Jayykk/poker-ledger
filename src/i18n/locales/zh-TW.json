@@ -223,10 +223,6 @@
     "language": "語言",
     "sound": "音效",
     "notifications": "推播通知",
-    "themeOptions": {
-      "dark": "深色",
-      "light": "淺色"
-    },
     "version": "版本",
     "upgradeAccount": "升級帳號",
     "upgradeDescription": "綁定 Email 以保存您的遊戲紀錄",
@@ -239,7 +235,33 @@
       "notificationDenied": "通知權限已被拒絕。請在瀏覽器設定中啟用通知。",
       "notificationUnsupported": "此瀏覽器不支援通知功能"
     },
-    "lineNotify": "LINE 推播通知"
+    "lineNotify": "LINE 推播通知",
+    "themes": {
+      "classic": {
+        "name": "經典",
+        "desc": "原本的深藍配琥珀"
+      },
+      "premium": {
+        "name": "質感",
+        "desc": "暖炭黑＋香檳金"
+      },
+      "burgundy": {
+        "name": "酒紅復古",
+        "desc": "深酒紅＋奶油金"
+      },
+      "neon": {
+        "name": "霓虹夜店",
+        "desc": "深靛紫＋桃紅"
+      },
+      "graphite": {
+        "name": "石墨橘",
+        "desc": "石墨灰＋橘色"
+      },
+      "ivory": {
+        "name": "暖白紙感",
+        "desc": "米白＋墨藍（淺色）"
+      }
+    }
   },
   "friends": {
     "title": "好友",

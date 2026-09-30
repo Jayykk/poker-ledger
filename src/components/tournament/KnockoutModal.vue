@@ -105,15 +105,15 @@ function confirm() {
   gap: 0.5rem;
   padding: 0.65rem 0.75rem;
   border-radius: 0.5rem;
-  border: 1px solid #475569;
-  background: rgba(51, 65, 85, 0.5);
-  color: #fff;
+  border: 1px solid rgb(var(--tw-slate-600));
+  background: rgb(var(--tw-slate-700) / 0.5);
+  color: rgb(var(--tw-white));
   font-size: 0.9rem;
   text-align: left;
   min-width: 0;
 }
 .ko-opt.active {
-  border-color: #fb7185;
-  background: rgba(244, 63, 94, 0.15);
+  border-color: rgb(var(--tw-rose-400));
+  background: rgb(var(--tw-rose-500) / 0.15);
 }
 </style>

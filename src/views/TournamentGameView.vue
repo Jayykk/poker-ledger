@@ -936,8 +936,8 @@ const handleCloseGame = async () => {
 <style scoped>
 .room-section {
   border-radius: 0.9rem;
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(71, 85, 105, 0.5);
+  background: rgb(var(--tw-slate-800) / 0.6);
+  border: 1px solid rgb(var(--tw-slate-600) / 0.5);
   overflow: hidden;
 }
 .room-section-head {
@@ -946,8 +946,8 @@ const handleCloseGame = async () => {
   justify-content: space-between;
   padding: 0.5rem 0.9rem;
   font-size: 0.8rem;
-  color: #e2e8f0;
-  background: rgba(51, 65, 85, 0.45);
+  color: rgb(var(--tw-slate-200));
+  background: rgb(var(--tw-slate-700) / 0.45);
 }
 .settle-grid {
   display: grid;
@@ -955,8 +955,8 @@ const handleCloseGame = async () => {
   gap: 0.35rem;
   padding: 0.45rem 0;
   font-size: 0.82rem;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid rgb(var(--tw-slate-700));
 }
 .settle-grid.ko { grid-template-columns: 2rem minmax(0, 1fr) 4.4rem 3.8rem 4.8rem; }
-.settle-head { font-size: 0.7rem; color: #94a3b8; }
+.settle-head { font-size: 0.7rem; color: rgb(var(--tw-slate-400)); }
 </style>

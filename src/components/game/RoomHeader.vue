@@ -80,16 +80,16 @@ const pick = (action) => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.6rem 1rem;
-  background: rgba(30, 41, 59, 0.92);
+  background: rgb(var(--tw-slate-800) / 0.92);
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid rgb(var(--tw-slate-700));
 }
 .hdr-btn {
   width: 2.1rem;
   height: 2.1rem;
   border-radius: 0.6rem;
-  color: #cbd5e1;
-  background: rgba(51, 65, 85, 0.6);
+  color: rgb(var(--tw-slate-300));
+  background: rgb(var(--tw-slate-700) / 0.6);
 }
 .hdr-menu {
   position: absolute;
@@ -99,8 +99,8 @@ const pick = (action) => {
   min-width: 10rem;
   padding: 0.3rem;
   border-radius: 0.6rem;
-  background: #1e293b;
-  border: 1px solid #475569;
+  background: rgb(var(--tw-slate-800));
+  border: 1px solid rgb(var(--tw-slate-600));
   display: flex;
   flex-direction: column;
 }
@@ -112,7 +112,7 @@ const pick = (action) => {
   border-radius: 0.4rem;
   font-size: 0.85rem;
   text-align: left;
-  color: #fff;
+  color: rgb(var(--tw-white));
 }
-.hdr-menu button:hover { background: rgba(71, 85, 105, 0.5); }
+.hdr-menu button:hover { background: rgb(var(--tw-slate-600) / 0.5); }
 </style>

@@ -2,19 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CSS Variables for theming */
-:root {
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --text-primary: #f1f5f9;
-  --text-secondary: #cbd5e1;
-  --text-tertiary: #94a3b8;
-  --border-color: #475569;
-  --accent-primary: #f59e0b;
-  --accent-secondary: #10b981;
-  --accent-danger: #ef4444;
-}
+/* Theme variables (--bg-primary, --tw-slate-800, …) are injected per theme
+   by src/utils/themes.js (main.js). */
 
 /* Base styles */
 body {
@@ -38,9 +27,9 @@ body.poker-game-active {
 
 /* Glass morphism effect */
 .glass {
-  background: rgba(30, 41, 59, 0.95);
+  background: rgb(var(--tw-slate-800) / 0.95);
   backdrop-filter: blur(10px);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgb(var(--tw-white) / 0.05);
 }
 
 /* Loading spinner */
@@ -130,7 +119,7 @@ select:focus {
   outline: none;
   border-color: var(--accent-primary);
   ring: 2px;
-  ring-color: rgba(245, 158, 11, 0.3);
+  ring-color: rgb(var(--tw-amber-500) / 0.3);
 }
 
 /* Fade transition */
