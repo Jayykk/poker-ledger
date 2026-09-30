@@ -992,6 +992,12 @@
     "prizePool": "奖池",
     "payouts": "名次奖金",
     "rename": "改名",
-    "removePlayer": "移除玩家"
+    "removePlayer": "移除玩家",
+    "playersN": "玩家 {n}",
+    "stackTotal": "筹码 {stack} / 买入 {pot}",
+    "buyIn": "买入",
+    "stack": "筹码",
+    "addBuy": "加买",
+    "totalBuyIn": "总买入"
   }
 }

@@ -992,6 +992,12 @@
     "prizePool": "賞金プール",
     "payouts": "順位別賞金",
     "rename": "名前を変更",
-    "removePlayer": "プレイヤーを削除"
+    "removePlayer": "プレイヤーを削除",
+    "playersN": "プレイヤー {n}",
+    "stackTotal": "チップ {stack} / バイイン {pot}",
+    "buyIn": "バイイン",
+    "stack": "スタック",
+    "addBuy": "追加",
+    "totalBuyIn": "合計バイイン"
   }
 }
