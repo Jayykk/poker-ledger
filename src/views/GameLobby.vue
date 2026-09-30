@@ -159,7 +159,7 @@ const handleCreateRoom = async () => {
 <style scoped>
 .game-lobby {
   min-height: 100vh;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: linear-gradient(135deg, rgb(var(--tw-slate-900)) 0%, rgb(var(--tw-slate-800)) 100%);
   padding: 40px 20px;
 }
 
@@ -172,13 +172,13 @@ const handleCreateRoom = async () => {
 }
 
 .lobby-header h1 {
-  color: white;
+  color: rgb(var(--tw-white));
   font-size: 36px;
   margin: 0;
 }
 
 .btn-create {
-  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  background: linear-gradient(135deg, rgb(var(--tw-emerald-500)) 0%, rgb(var(--tw-emerald-600)) 100%);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -191,7 +191,7 @@ const handleCreateRoom = async () => {
 
 .btn-create:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+  box-shadow: 0 4px 12px rgb(var(--tw-emerald-500) / 0.4);
 }
 
 .games-list {
@@ -202,7 +202,7 @@ const handleCreateRoom = async () => {
 .loading,
 .no-games {
   text-align: center;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgb(var(--tw-white) / 0.6);
   padding: 60px 20px;
   font-size: 18px;
 }
@@ -214,8 +214,8 @@ const handleCreateRoom = async () => {
 }
 
 .game-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgb(var(--tw-white) / 0.05);
+  border: 1px solid rgb(var(--tw-white) / 0.1);
   border-radius: 12px;
   padding: 24px;
   cursor: pointer;
@@ -223,8 +223,8 @@ const handleCreateRoom = async () => {
 }
 
 .game-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgb(var(--tw-white) / 0.08);
+  border-color: rgb(var(--tw-white) / 0.2);
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
@@ -237,7 +237,7 @@ const handleCreateRoom = async () => {
 }
 
 .game-header h3 {
-  color: white;
+  color: rgb(var(--tw-white));
   margin: 0;
   font-size: 18px;
 }
@@ -251,12 +251,12 @@ const handleCreateRoom = async () => {
 }
 
 .game-status.waiting {
-  background: #4CAF50;
+  background: rgb(var(--tw-emerald-500));
   color: white;
 }
 
 .game-status.playing {
-  background: #ff9800;
+  background: rgb(var(--tw-amber-500));
   color: white;
 }
 
@@ -267,7 +267,7 @@ const handleCreateRoom = async () => {
 .info-row {
   display: flex;
   justify-content: space-between;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgb(var(--tw-white) / 0.8);
   margin-bottom: 8px;
   font-size: 14px;
 }
@@ -303,7 +303,7 @@ const handleCreateRoom = async () => {
 }
 
 .modal-content {
-  background: #1e1e1e;
+  background: rgb(var(--tw-slate-900));
   border-radius: 16px;
   padding: 32px;
   max-width: 500px;
@@ -313,7 +313,7 @@ const handleCreateRoom = async () => {
 }
 
 .modal-content h2 {
-  color: white;
+  color: rgb(var(--tw-white));
   margin-top: 0;
   margin-bottom: 24px;
 }
@@ -324,7 +324,7 @@ const handleCreateRoom = async () => {
 
 .form-group label {
   display: block;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgb(var(--tw-white) / 0.8);
   margin-bottom: 8px;
   font-weight: bold;
 }
@@ -333,17 +333,17 @@ const handleCreateRoom = async () => {
 .form-group select {
   width: 100%;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgb(var(--tw-white) / 0.1);
+  border: 1px solid rgb(var(--tw-white) / 0.2);
   border-radius: 6px;
-  color: white;
+  color: rgb(var(--tw-white));
   font-size: 16px;
 }
 
 .field-hint {
   display: block;
   margin-top: 6px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgb(var(--tw-white) / 0.5);
   font-size: 12px;
 }
 
@@ -365,12 +365,12 @@ const handleCreateRoom = async () => {
 }
 
 .btn-cancel {
-  background: #666;
-  color: white;
+  background: rgb(var(--tw-gray-500));
+  color: rgb(var(--tw-white));
 }
 
 .btn-confirm {
-  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  background: linear-gradient(135deg, rgb(var(--tw-emerald-500)) 0%, rgb(var(--tw-emerald-600)) 100%);
   color: white;
 }
 

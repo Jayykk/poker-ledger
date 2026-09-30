@@ -215,15 +215,15 @@ const notes = fieldModel('notes');
 
 <style scoped>
 .card {
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgb(var(--tw-slate-800) / 0.6);
+  border: 1px solid rgb(var(--tw-white) / 0.08);
   border-radius: 0.75rem;
   padding: 1rem;
 }
 .section-title {
   font-size: 0.9rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgb(var(--tw-white) / 0.7);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: 0.75rem;
@@ -231,21 +231,21 @@ const notes = fieldModel('notes');
 .field-label {
   display: block;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgb(var(--tw-white) / 0.6);
   margin-bottom: 0.25rem;
 }
 .field-input {
   width: 100%;
-  background: #0f172a;
-  border: 1px solid #475569;
+  background: rgb(var(--tw-slate-900));
+  border: 1px solid rgb(var(--tw-slate-600));
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
-  color: white;
+  color: rgb(var(--tw-white));
   font-size: 0.9rem;
 }
 .field-input:focus {
   outline: none;
-  border-color: #f59e0b;
+  border-color: rgb(var(--tw-amber-500));
 }
 .field-input:disabled {
   opacity: 0.5;

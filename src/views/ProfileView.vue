@@ -76,24 +76,25 @@
 
       <!-- Theme -->
       <BaseCard padding="md">
-        <div class="flex justify-between items-center">
-          <span class="text-white">{{ $t('profile.theme') }}</span>
-          <div class="flex gap-2">
-            <button
-              @click="setTheme('dark')"
-              class="px-3 py-1 rounded-lg text-sm transition"
-              :class="currentTheme === 'dark' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
-            >
-              {{ $t('profile.themeOptions.dark') }}
-            </button>
-            <button
-              @click="setTheme('light')"
-              class="px-3 py-1 rounded-lg text-sm transition"
-              :class="currentTheme === 'light' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300'"
-            >
-              {{ $t('profile.themeOptions.light') }}
-            </button>
-          </div>
+        <div class="text-white mb-3">{{ $t('profile.theme') }}</div>
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            v-for="th in themeOptions"
+            :key="th.id"
+            type="button"
+            @click="setTheme(th.id)"
+            class="theme-opt"
+            :class="{ active: currentTheme === th.id }"
+          >
+            <span class="theme-swatches">
+              <span v-for="(c, i) in th.swatches" :key="i" :style="{ background: c }"></span>
+            </span>
+            <span class="flex items-center justify-between gap-1">
+              <span class="text-sm font-semibold text-white">{{ $t(`profile.themes.${th.id}.name`) }}</span>
+              <i v-if="currentTheme === th.id" class="fas fa-check text-amber-400 text-xs"></i>
+            </span>
+            <span class="text-[11px] text-gray-400 leading-snug">{{ $t(`profile.themes.${th.id}.desc`) }}</span>
+          </button>
         </div>
       </BaseCard>
 
@@ -171,7 +172,8 @@ import { useLiff } from '../composables/useLiff.js';
 import BaseCard from '../components/common/BaseCard.vue';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
-import { STORAGE_KEYS, THEMES } from '../utils/constants.js';
+import { STORAGE_KEYS } from '../utils/constants.js';
+import { THEMES as THEME_LIST, applyTheme, resolveThemeId, themeSwatches } from '../utils/themes.js';
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -184,7 +186,8 @@ const userAvatar = computed(() => user.value?.photoURL || null);
 const isLineUser = computed(() => user.value?.uid?.startsWith('line_') ?? false);
 
 const selectedLanguage = ref(locale.value);
-const currentTheme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
+const currentTheme = ref(resolveThemeId(localStorage.getItem(STORAGE_KEYS.THEME)));
+const themeOptions = THEME_LIST.map((th) => ({ id: th.id, swatches: themeSwatches(th) }));
 const soundEnabled = ref(localStorage.getItem(STORAGE_KEYS.SOUND_ENABLED) !== 'false');
 
 const upgradeForm = ref({
@@ -201,10 +204,8 @@ const handleLanguageChange = () => {
   localStorage.setItem(STORAGE_KEYS.LANGUAGE, selectedLanguage.value);
 };
 
-const setTheme = (theme) => {
-  currentTheme.value = theme;
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem(STORAGE_KEYS.THEME, theme);
+const setTheme = (id) => {
+  currentTheme.value = applyTheme(id, { storageKey: STORAGE_KEYS.THEME });
 };
 
 const toggleSound = () => {
@@ -263,6 +264,19 @@ const handleLogout = async () => {
 </script>
 
 <style scoped>
+.theme-opt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem;
+  border-radius: 0.75rem;
+  text-align: left;
+  border: 1px solid rgb(var(--tw-slate-600));
+  background: rgb(var(--tw-slate-900) / 0.5);
+}
+.theme-opt.active { border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.08); }
+.theme-swatches { display: flex; gap: 3px; }
+.theme-swatches span { flex: 1; height: 14px; border-radius: 4px; border: 1px solid rgb(0 0 0 / 0.15); }
 .expand-enter-active,
 .expand-leave-active {
   transition: all 0.3s ease;

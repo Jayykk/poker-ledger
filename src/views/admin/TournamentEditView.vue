@@ -545,15 +545,15 @@ onMounted(async () => {
 
 <style scoped>
 .card {
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgb(var(--tw-slate-800) / 0.6);
+  border: 1px solid rgb(var(--tw-white) / 0.08);
   border-radius: 0.75rem;
   padding: 1rem;
 }
 .section-title {
   font-size: 0.9rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgb(var(--tw-white) / 0.7);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: 0.75rem;
@@ -561,21 +561,21 @@ onMounted(async () => {
 .field-label {
   display: block;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgb(var(--tw-white) / 0.6);
   margin-bottom: 0.25rem;
 }
 .field-input {
   width: 100%;
-  background: #0f172a;
-  border: 1px solid #475569;
+  background: rgb(var(--tw-slate-900));
+  border: 1px solid rgb(var(--tw-slate-600));
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
-  color: white;
+  color: rgb(var(--tw-white));
   font-size: 0.9rem;
 }
 .field-input:focus {
   outline: none;
-  border-color: #f59e0b;
+  border-color: rgb(var(--tw-amber-500));
 }
 .field-input:disabled {
   opacity: 0.5;
@@ -587,15 +587,15 @@ onMounted(async () => {
   gap: 0.4rem;
   align-items: center;
   padding: 0.3rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgb(var(--tw-white) / 0.04);
 }
 .blind-grid.header {
   font-size: 0.7rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgb(var(--tw-white) / 0.5);
   text-transform: uppercase;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgb(var(--tw-white) / 0.1);
   margin-bottom: 0.25rem;
 }
 .blind-grid.break-row {
@@ -605,17 +605,17 @@ onMounted(async () => {
 .break-row .col-span-3 { grid-column: span 3; }
 .level-input {
   width: 100%;
-  background: #0f172a;
-  border: 1px solid #334155;
+  background: rgb(var(--tw-slate-900));
+  border: 1px solid rgb(var(--tw-slate-700));
   border-radius: 0.375rem;
   padding: 0.3rem 0.4rem;
-  color: white;
+  color: rgb(var(--tw-white));
   font-size: 0.8rem;
   text-align: center;
 }
 .level-input:focus {
   outline: none;
-  border-color: #f59e0b;
+  border-color: rgb(var(--tw-amber-500));
 }
 .level-input:disabled {
   opacity: 0.5;

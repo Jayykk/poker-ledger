@@ -78,15 +78,15 @@ function formatTimestamp(ts) {
 
 <style scoped>
 .card {
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgb(var(--tw-slate-800) / 0.6);
+  border: 1px solid rgb(var(--tw-white) / 0.08);
   border-radius: 0.75rem;
   padding: 1rem;
 }
 .section-title {
   font-size: 0.9rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgb(var(--tw-white) / 0.7);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: 0.75rem;

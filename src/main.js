@@ -8,6 +8,19 @@ import { useNotificationStore } from './store/modules/notification.js';
 import './styles/main.css';
 import './styles/themes/dark.css';
 import './styles/themes/light.css';
+import { buildThemeCss, applyTheme } from './utils/themes.js';
+import { STORAGE_KEYS as THEME_STORAGE_KEYS } from './utils/constants.js';
+
+// ── Color themes: every theme's variables, then the saved choice ─────
+{
+  const style = document.createElement('style');
+  style.id = 'app-themes';
+  style.textContent = buildThemeCss();
+  document.head.appendChild(style);
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_STORAGE_KEYS.THEME); } catch { /* private mode */ }
+  applyTheme(saved);
+}
 
 // ── Service Worker registration with update detection ────────────────
 if ('serviceWorker' in navigator) {

@@ -170,7 +170,7 @@ import ActionModal from './components/common/ActionModal.vue';
 import BaseModal from './components/common/BaseModal.vue';
 import BaseInput from './components/common/BaseInput.vue';
 import BaseButton from './components/common/BaseButton.vue';
-import { STORAGE_KEYS, THEMES } from './utils/constants.js';
+import { STORAGE_KEYS } from './utils/constants.js';
 
 const router = useRouter();
 const route = useRoute();
@@ -190,7 +190,6 @@ const loading = ref(true);
 const isDev = import.meta.env.DEV;
 const debugLogs = ref([]);
 const showDebugPanel = ref(false);
-const theme = ref(localStorage.getItem(STORAGE_KEYS.THEME) || THEMES.DARK);
 const pendingInvite = ref(null);
 const inviteProcessedInMount = ref(false);
 const showActionModal = ref(false);
@@ -455,14 +454,7 @@ watch(() => authStore.user, async (newUser, oldUser) => {
   }
 });
 
-// Apply theme
-watch(theme, (newTheme) => {
-  document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem(STORAGE_KEYS.THEME, newTheme);
-});
-
-// Set initial theme
-document.documentElement.setAttribute('data-theme', theme.value);
+// Theme: applied in main.js before mount, switched in 個人設定 (utils/themes.js)
 </script>
 
 <style>
@@ -484,7 +476,7 @@ document.documentElement.setAttribute('data-theme', theme.value);
   width: 40px;
   height: 40px;
   background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgb(var(--tw-white) / 0.2);
   border-radius: 50%;
   color: white;
   display: flex;

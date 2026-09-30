@@ -223,10 +223,6 @@
     "language": "言語",
     "sound": "サウンド",
     "notifications": "プッシュ通知",
-    "themeOptions": {
-      "dark": "ダーク",
-      "light": "ライト"
-    },
     "version": "バージョン",
     "upgradeAccount": "アカウントをアップグレード",
     "upgradeDescription": "メールをリンクしてゲーム記録を保存",
@@ -239,7 +235,33 @@
       "notificationDenied": "通知の許可が拒否されました。ブラウザの設定で通知を有効にしてください。",
       "notificationUnsupported": "このブラウザは通知をサポートしていません"
     },
-    "lineNotify": "LINE プッシュ通知"
+    "lineNotify": "LINE プッシュ通知",
+    "themes": {
+      "classic": {
+        "name": "クラシック",
+        "desc": "元の紺とアンバー"
+      },
+      "premium": {
+        "name": "プレミアム",
+        "desc": "暖かいチャコールとシャンパンゴールド"
+      },
+      "burgundy": {
+        "name": "バーガンディ",
+        "desc": "深いワインとクリームゴールド"
+      },
+      "neon": {
+        "name": "ネオン",
+        "desc": "インディゴとホットピンク"
+      },
+      "graphite": {
+        "name": "グラファイト",
+        "desc": "グラファイトとオレンジ"
+      },
+      "ivory": {
+        "name": "アイボリー",
+        "desc": "温かい紙色とインクブルー（ライト）"
+      }
+    }
   },
   "friends": {
     "title": "友達",

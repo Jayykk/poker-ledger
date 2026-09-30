@@ -209,10 +209,10 @@
       <section class="card space-y-2">
         <h2 class="section-title">{{ $t('tournament.shareImport') }}</h2>
         <div class="flex gap-2">
-          <button type="button" @click="shareByLink" class="ctrl-btn bg-amber-600 hover:bg-amber-500 flex-1">
+          <button type="button" @click="shareByLink" class="ctrl-btn text-white bg-amber-600 hover:bg-amber-500 flex-1">
             <i class="fas fa-link mr-1"></i>{{ $t('tournament.copyLink') }}
           </button>
-          <button type="button" @click="shareByLine" class="ctrl-btn bg-emerald-600 hover:bg-emerald-500 flex-1">
+          <button type="button" @click="shareByLine" class="ctrl-btn text-white bg-emerald-600 hover:bg-emerald-500 flex-1">
             <i class="fab fa-line mr-1"></i>LINE
           </button>
         </div>
@@ -543,43 +543,43 @@ function importConfig(e) {
 
 <style scoped>
 .card {
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgb(var(--tw-slate-800) / 0.6);
+  border: 1px solid rgb(var(--tw-white) / 0.08);
   border-radius: 0.75rem;
   padding: 1rem;
 }
 .section-title {
   font-size: 0.9rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgb(var(--tw-white) / 0.8);
   letter-spacing: 0.04em;
 }
 .field-label {
   display: block;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgb(var(--tw-white) / 0.6);
   margin-bottom: 0.25rem;
 }
 .field-input {
   width: 100%;
-  background: #0f172a;
-  border: 1px solid #475569;
+  background: rgb(var(--tw-slate-900));
+  border: 1px solid rgb(var(--tw-slate-600));
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
-  color: white;
+  color: rgb(var(--tw-white));
   font-size: 0.9rem;
 }
-.field-input:focus { outline: none; border-color: #f59e0b; }
-.hint { font-size: 0.75rem; color: rgba(255, 255, 255, 0.45); }
+.field-input:focus { outline: none; border-color: rgb(var(--tw-amber-500)); }
+.hint { font-size: 0.75rem; color: rgb(var(--tw-white) / 0.45); }
 .step-btn {
   flex-shrink: 0;
   padding: 0.5rem 0.6rem;
   border-radius: 0.5rem;
-  background: #334155;
+  background: rgb(var(--tw-slate-700));
   font-size: 0.8rem;
   font-weight: 600;
 }
-.step-btn:hover { background: #475569; }
+.step-btn:hover { background: rgb(var(--tw-slate-600)); }
 .bounty-opt {
   display: flex;
   flex-direction: column;
@@ -587,14 +587,14 @@ function importConfig(e) {
   gap: 0.15rem;
   padding: 0.6rem 0.75rem;
   border-radius: 0.5rem;
-  border: 1px solid #475569;
-  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgb(var(--tw-slate-600));
+  background: rgb(var(--tw-slate-900) / 0.6);
   font-size: 0.85rem;
   text-align: left;
 }
-.bounty-opt.active { border-color: #f59e0b; background: rgba(245, 158, 11, 0.12); }
+.bounty-opt.active { border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.12); }
 .bounty-opt:disabled { opacity: 0.5; cursor: not-allowed; }
-.bounty-opt .soon { font-size: 0.7rem; color: #fbbf24; }
+.bounty-opt .soon { font-size: 0.7rem; color: rgb(var(--tw-amber-400)); }
 .ctrl-btn {
   display: inline-flex;
   align-items: center;
@@ -603,7 +603,7 @@ function importConfig(e) {
   border-radius: 0.5rem;
   font-size: 0.85rem;
   font-weight: 600;
-  color: white;
+  color: rgb(var(--tw-white));
   border: none;
   cursor: pointer;
   transition: all 0.15s;
