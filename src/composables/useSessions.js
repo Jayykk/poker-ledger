@@ -26,7 +26,11 @@ import { useGameStore } from '../store/modules/game.js';
 import { useTournamentClock } from './useTournamentClock.js';
 import { GAME_TYPE, GAME_STATUS } from '../utils/constants.js';
 import { defaultSessionName, aggregateSessionSummary } from '../utils/sessionFlow.js';
-import { buildTimedClockConfig } from '../utils/timedStructure.js';
+import {
+  templateFromPeriodSnapshot,
+  clockConfigFromTemplate,
+  gameCreationFromTemplate,
+} from '../utils/tableTemplates.js';
 
 // Live/scheduling events float to the top of the "my events" list; finished
 // ones sink. Within a status group, newest first.
@@ -370,43 +374,25 @@ export function useSessions() {
   }
 
   // ── Period activation (lazy create for linked periods) ──
-  async function createTableRoom(sessionDoc, period) {
-    const snapshot = period.presetSnapshot || {};
-    const buyIn = Number(snapshot.buyIn) || 0;
-    const name = snapshot.name || period.label || sessionDoc.name || 'Table';
+  // The period stores a template (older periods: legacy preset fields —
+  // templateFromPeriodSnapshot reads both), so every period starts through
+  // the same clock / createGame conversion as the lobby.
+  const periodTemplate = (period) => templateFromPeriodSnapshot(period.type, period.presetSnapshot || {});
 
-    if (period.type === 'tournament') {
-      const tournamentSessionId = await clock.createSession({
-        name,
-        subtitle: snapshot.subtitle || '',
-        buyIn,
-        startingChips: snapshot.startingChips,
-        reentryUntilLevel: snapshot.reentryUntilLevel,
-        maxReentries: snapshot.maxReentries,
-        levels: snapshot.levels,
-        payoutRatios: snapshot.payoutRatios,
-      });
-      const gameId = await gameStore.createGame(name, buyIn, GAME_TYPE.TOURNAMENT, { tournamentSessionId });
-      if (gameId) await updateDoc(doc(db, 'tournamentSessions', tournamentSessionId), { gameId });
-      return { gameId, tournamentSessionId };
-    }
-    // Cash preset with a blind structure → timed game with its own clock.
-    let tournamentSessionId = null;
-    if (snapshot.structure) {
-      tournamentSessionId = await clock.createSession(
-        buildTimedClockConfig({ name, buyIn, structure: snapshot.structure })
-      );
-    }
-    const gameId = await gameStore.createGame(name, buyIn, GAME_TYPE.LIVE, {
-      rate: snapshot.rate,
-      buyInAmount: snapshot.buyInAmount,
-      cashDecimals: snapshot.cashDecimals,
-      tournamentSessionId,
-    });
+  async function createTableRoom(sessionDoc, period) {
+    const template = periodTemplate(period);
+    const name = template.name || period.label || sessionDoc.name || 'Table';
+
+    // Tournaments always have a clock; cash tables only with a blind structure (timed).
+    const clockConfig = clockConfigFromTemplate(template, { name });
+    const tournamentSessionId = clockConfig ? await clock.createSession(clockConfig) : null;
+    const game = gameCreationFromTemplate(template, { tournamentSessionId });
+    const type = game.type === GAME_TYPE.TOURNAMENT ? GAME_TYPE.TOURNAMENT : GAME_TYPE.LIVE;
+    const gameId = await gameStore.createGame(name, game.buyIn, type, game.options);
     if (gameId && tournamentSessionId) {
       await updateDoc(doc(db, 'tournamentSessions', tournamentSessionId), { gameId });
     }
-    return { gameId, tournamentSessionId };
+    return { gameId, tournamentSessionId, buyIn: game.buyIn };
   }
 
   /** Seat everyone signed up for this period (host is already seated; dedup by uid). */
@@ -446,8 +432,9 @@ export function useSessions() {
     let gameId = null;
     let tournamentSessionId = null;
     if (period.type !== 'custom') {
-      ({ gameId, tournamentSessionId } = await createTableRoom(s, period));
-      await addSignedUpPlayers(gameId, period, Number(period.presetSnapshot?.buyIn) || 0);
+      let buyIn = 0;
+      ({ gameId, tournamentSessionId, buyIn } = await createTableRoom(s, period));
+      await addSignedUpPlayers(gameId, period, buyIn);
     }
 
     const newPeriods = periods.map((e, i) => {

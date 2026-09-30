@@ -87,16 +87,38 @@ export function maxLevelNumber(levels = []) {
 }
 
 /**
- * A blind-structure library item: name + levels, nothing else.
+ * A blind-structure library item: name + levels, plus the cutoff level the
+ * structure is designed around (截買, null = none). The cutoff is only a
+ * suggestion — a template copies it when the structure is picked and the
+ * template's own entry.cutoffLevel is what tables use.
  * @param {object} raw
- * @returns {{id: ?string, name: string, levels: Array}}
+ * @returns {{id: ?string, name: string, cutoffLevel: ?number, levels: Array}}
  */
 export function normalizeStructure(raw = {}) {
+  const levels = normalizeLevels(raw.levels);
+  const cutoff = wholeOrNull(raw.cutoffLevel);
   return {
     id: raw.id || null,
     name: str(raw.name).trim(),
-    levels: normalizeLevels(raw.levels),
+    cutoffLevel: cutoff != null && cutoff <= maxLevelNumber(levels) ? cutoff : null,
+    levels,
   };
+}
+
+/** Problems that block saving a structure (i18n-key-shaped codes). */
+export function validateStructure(structure) {
+  const s = normalizeStructure(structure);
+  const errors = [];
+  if (!s.name) errors.push('nameRequired');
+  if (!s.levels.some((l) => !l.isBreak)) errors.push('levelsRequired');
+  return errors;
+}
+
+/** Renumber playable levels 1..n in order (breaks stay 0). Mutates + returns. */
+export function renumberLevels(levels) {
+  let n = 1;
+  for (const l of levels) if (!l.isBreak) l.level = n++;
+  return levels;
 }
 
 /** Snapshot of a structure as stored inside a template (or null). */
@@ -294,16 +316,40 @@ export function templateFromBuiltInTournament(builtIn, translate = (k) => k) {
 
 /** The blind structure inside a tournament preset, as a library item. */
 export function structureFromTournamentPreset(preset = {}, displayName) {
-  return normalizeStructure({ id: preset.id, name: displayName || preset.name, levels: preset.levels });
+  const until = num(preset.reentryUntilLevel ?? DEFAULT_REENTRY_LEVEL);
+  return normalizeStructure({
+    id: preset.id,
+    name: displayName || preset.name,
+    cutoffLevel: until > 0 ? until : null,
+    levels: preset.levels,
+  });
+}
+
+/** Built-in structures (the levels of the built-in tournament templates). */
+export function builtInStructures(builtIns = [], translate = (k) => k) {
+  return builtIns.map((b) => ({
+    ...structureFromTournamentPreset({ ...b, id: `${BUILT_IN_PREFIX}${b.id}` }, translate(b.nameKey)),
+    source: 'builtin',
+  }));
 }
 
 /**
- * An event period's stored preset snapshot (useSessions) as a template, so
- * periods created before templates start through the same path.
+ * An event period's stored snapshot (sessions/{id}.periods[].presetSnapshot)
+ * as a template. New periods store a template there (it has formatVersion);
+ * periods made before templates hold the legacy preset fields.
  */
 export function templateFromPeriodSnapshot(type, snapshot = {}) {
+  if (snapshot && snapshot.formatVersion) {
+    return normalizeTemplate({ ...snapshot, kind: type === TEMPLATE_KIND.TOURNAMENT ? type : TEMPLATE_KIND.CASH });
+  }
   if (type === TEMPLATE_KIND.TOURNAMENT) return templateFromTournamentPreset(snapshot);
   return templateFromCashPreset(snapshot);
+}
+
+/** What an event period stores for the template it was set up with. */
+export function periodSnapshotFromTemplate(template) {
+  const { id: _i, migratedFrom: _m, ...t } = normalizeTemplate(template);
+  return t;
 }
 
 // ── into what the clock and game creation consume ──────────────────────
@@ -423,4 +469,80 @@ export function templateForSave(template, source = 'template') {
   const t = normalizeTemplate(template);
   if (source === 'template' || !source) return t;
   return { ...t, id: null, migratedFrom: `${source}/${template.id}` };
+}
+
+// ── share links / JSON import ──────────────────────────────────────────
+
+const toBase64 = (text) => {
+  const bytes = new TextEncoder().encode(text);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+};
+const fromBase64 = (b64) => {
+  const bin = atob(b64);
+  return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+};
+const packLevels = (levels = []) => levels.map((l) => (l.isBreak
+  ? [0, 0, 0, 0, l.duration, 1]
+  : [l.level, l.small, l.big, l.ante, l.duration, 0]));
+const unpackLevels = (rows = []) => rows.map((r) => ({
+  level: r[0], small: r[1], big: r[2], ante: r[3], duration: r[4], isBreak: !!r[5],
+}));
+
+/**
+ * Compact base64 payload for a share link. Tournaments keep the format the
+ * old 賽制設定 share links used (so those links still import); cash
+ * templates add k: 'c'.
+ */
+export function encodeTemplateShare(template) {
+  const t = normalizeTemplate(template);
+  const levels = packLevels(t.structure?.levels);
+  if (t.kind === TEMPLATE_KIND.CASH) {
+    return toBase64(JSON.stringify({
+      k: 'c', n: t.name, b: t.buyIn.chips, a: t.buyIn.amount, d: t.cash.decimals,
+      x: t.entry.cutoffLevel, sn: t.structure?.name || '', l: levels,
+    }));
+  }
+  const clock = clockConfigFromTemplate(t);
+  return toBase64(JSON.stringify({
+    n: t.name, s: t.subtitle, b: t.buyIn.amount, c: t.buyIn.chips,
+    r: clock.reentryUntilLevel, m: clock.maxReentries, l: levels,
+    p: t.payout.ratios.map((r) => [r.place, r.percentage]),
+  }));
+}
+
+/** Template from a share payload, or null if it can't be read. */
+export function decodeTemplateShare(b64) {
+  try {
+    const c = JSON.parse(fromBase64(b64));
+    if (c.k === 'c') {
+      const levels = unpackLevels(c.l);
+      return normalizeTemplate({
+        kind: TEMPLATE_KIND.CASH, name: c.n,
+        buyIn: { chips: c.b, amount: c.a },
+        structure: levels.length ? { name: c.sn, levels } : null,
+        entry: { cutoffLevel: c.x }, cash: { decimals: c.d },
+      });
+    }
+    return templateFromTournamentPreset({
+      name: c.n, subtitle: c.s, buyIn: c.b, startingChips: c.c,
+      reentryUntilLevel: c.r, maxReentries: c.m,
+      levels: unpackLevels(c.l),
+      payoutRatios: (c.p || []).map((p) => ({ place: p[0], percentage: p[1] })),
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Template from an exported JSON file: a template (has kind) or an old
+ * 賽制設定 export (tournament preset fields). null if it's neither.
+ */
+export function templateFromImport(data) {
+  if (!data || typeof data !== 'object') return null;
+  if (TEMPLATE_KINDS.includes(data.kind)) return normalizeTemplate({ ...data, id: null });
+  if (Array.isArray(data.levels)) return templateFromTournamentPreset({ ...data, id: null });
+  return null;
 }

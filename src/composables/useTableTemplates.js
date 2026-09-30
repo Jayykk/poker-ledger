@@ -16,9 +16,14 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
+  getDocs,
+  limit,
   onSnapshot,
+  query,
   serverTimestamp,
   setDoc,
+  where,
 } from 'firebase/firestore';
 import { db } from '../firebase-init.js';
 import { useAuthStore } from '../store/modules/auth.js';
@@ -27,7 +32,9 @@ import {
   mergeStructureSources,
   mergeTemplateSources,
   normalizeStructure,
+  structureFromTournamentPreset,
   templateForSave,
+  templateFromTournamentPreset,
 } from '../utils/tableTemplates.js';
 
 const TEMPLATES = 'tableTemplates';
@@ -100,49 +107,88 @@ export function useTableTemplates() {
     return docRef.id;
   }
 
+  const isLegacy = (source) => Object.values(LEGACY_SOURCE).includes(source);
+
+  async function writeCopy(uid, collectionName, data) {
+    const ref_ = doc(collection(db, 'users', uid, collectionName));
+    await setDoc(ref_, { ...data, updatedAt: serverTimestamp() });
+  }
+
   /**
-   * Delete a template. A legacy item deletes its legacy doc; a stored
-   * template made from a legacy one deletes that too, so it can't reappear.
+   * Remove a legacy doc ('<collection>/<id>') once one of its list items is
+   * deleted. A tournament preset shows up twice — as a template and as a
+   * structure — so the side that is NOT being deleted is first saved as a
+   * copy of its own (unless it already was), then the legacy doc goes.
+   * @param {'template'|'structure'} deleting
+   */
+  async function retireLegacy(uid, legacyPath, deleting) {
+    const [col, legacyId] = String(legacyPath || '').split('/');
+    if (!isLegacy(col) || !legacyId) return;
+    const legacyRef = doc(db, 'users', uid, col, legacyId);
+    if (col === LEGACY_SOURCE.TOURNAMENT_PRESETS) {
+      const snap = await getDoc(legacyRef);
+      if (snap.exists()) {
+        const preset = { id: legacyId, ...snap.data() };
+        const keep = deleting === 'template' ? STRUCTURES : TEMPLATES;
+        const kept = await getDocs(query(
+          collection(db, 'users', uid, keep), where('migratedFrom', '==', legacyPath), limit(1)
+        ));
+        if (kept.empty) {
+          if (keep === STRUCTURES) {
+            const { id: _id, ...structure } = structureFromTournamentPreset(preset);
+            await writeCopy(uid, STRUCTURES, { ...structure, migratedFrom: legacyPath });
+          } else {
+            const { id: _id, ...template } = templateForSave(templateFromTournamentPreset(preset), col);
+            await writeCopy(uid, TEMPLATES, template);
+          }
+        }
+      }
+    }
+    await deleteDoc(legacyRef);
+  }
+
+  /**
+   * Delete a template. Legacy items (and templates saved from one) also
+   * retire the legacy doc, so it can't reappear in the list.
    */
   async function deleteTemplate(template) {
     const uid = requireUid();
-    if (template.source && template.source !== 'template') {
-      await deleteDoc(doc(db, 'users', uid, template.source, template.id));
+    if (isLegacy(template.source)) {
+      await retireLegacy(uid, `${template.source}/${template.id}`, 'template');
       return;
     }
     await deleteDoc(doc(db, 'users', uid, TEMPLATES, template.id));
-    if (template.migratedFrom) {
-      const [col, legacyId] = template.migratedFrom.split('/');
-      if (Object.values(LEGACY_SOURCE).includes(col) && legacyId) {
-        await deleteDoc(doc(db, 'users', uid, col, legacyId));
-      }
-    }
+    if (template.migratedFrom) await retireLegacy(uid, template.migratedFrom, 'template');
   }
 
   /** Save a blind structure (a legacy one becomes a stored copy). */
   async function saveStructure(structure, source = 'structure') {
     const uid = requireUid();
     const { id, ...data } = normalizeStructure(structure);
-    const fromLegacy = source && source !== 'structure';
     const colRef = collection(db, 'users', uid, STRUCTURES);
-    const docRef = !fromLegacy && id ? doc(colRef, id) : doc(colRef);
+    const isStored = !source || source === 'structure';
+    const docRef = isStored && id ? doc(colRef, id) : doc(colRef);
     await setDoc(docRef, {
       ...data,
-      migratedFrom: fromLegacy ? `${source}/${structure.id}` : (structure.migratedFrom || null),
+      migratedFrom: isLegacy(source) ? `${source}/${structure.id}` : (isStored ? structure.migratedFrom || null : null),
       updatedAt: serverTimestamp(),
     });
     return docRef.id;
   }
 
   /**
-   * Delete a stored blind structure. Templates keep their own snapshot, so
-   * nothing else changes. Legacy structures live inside a tournament preset
-   * and go away with it (deleteTemplate).
+   * Delete a blind structure. Templates keep their own snapshot, so tables
+   * and templates made from it don't change. Built-ins can't be deleted.
    */
   async function deleteStructure(structure) {
     const uid = requireUid();
+    if (isLegacy(structure.source)) {
+      await retireLegacy(uid, `${structure.source}/${structure.id}`, 'structure');
+      return;
+    }
     if (structure.source && structure.source !== 'structure') return;
     await deleteDoc(doc(db, 'users', uid, STRUCTURES, structure.id));
+    if (structure.migratedFrom) await retireLegacy(uid, structure.migratedFrom, 'structure');
   }
 
   return {

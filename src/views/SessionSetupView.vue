@@ -142,26 +142,26 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useSessions } from '../composables/useSessions.js';
-import { useCashPresets } from '../composables/useCashPresets.js';
-import { useTournamentClock } from '../composables/useTournamentClock.js';
+import { useTableTemplates } from '../composables/useTableTemplates.js';
 import { useLiff } from '../composables/useLiff.js';
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
+import { templateFromBuiltInTournament, periodSnapshotFromTemplate } from '../utils/tableTemplates.js';
+import { templateSummary } from '../utils/templateDisplay.js';
 import { defaultSessionName, renameForDate } from '../utils/sessionFlow.js';
 
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
 const { createSession, updateSession, getSession, getSessionQuickSetup, saveSessionQuickSetup } = useSessions();
-const cashPresetsApi = useCashPresets();
-const tournamentApi = useTournamentClock();
+const templatesApi = useTableTemplates();
 const { sendSessionUpdateMessage } = useLiff();
 
 const isEdit = computed(() => !!route.params.sessionId);
 // Follows the chosen date (placeholder + save fallback).
 const defaultName = computed(() => defaultSessionName(form.dateTimeMs));
 
-const cashPresets = ref([]);
-const userTournamentPresets = ref([]);
+// Table templates (開桌範本): a period stores a snapshot of the one picked.
+const userTemplates = ref([]);
 const saving = ref(false);
 const errorMsg = ref('');
 let loadedSig = '';
@@ -198,12 +198,15 @@ const dateTimeLocal = computed({
 
 // ── Preset option lists ────────────────────────────────
 function presetOptions(type) {
-  if (type === 'tournament') {
-    const builtin = TOURNAMENT_TEMPLATES.map((tpl) => ({ id: `tpl:${tpl.id}`, label: `${tpl.name} (${tpl.buyIn})`, source: tpl }));
-    const user = userTournamentPresets.value.map((p) => ({ id: `usr:${p.id}`, label: p.name || p.id, source: p }));
-    return [...builtin, ...user];
-  }
-  return cashPresets.value.map((p) => ({ id: p.id, label: `${p.name} (${p.buyIn})${p.structure ? ` ⏱ ${p.structure.name}` : ''}`, source: p }));
+  const option = (tpl) => ({
+    id: `${tpl.source || 'builtin'}:${tpl.id}`,
+    label: `${tpl.name || t('cashPreset.untitled')} (${templateSummary(tpl, t)})`,
+    source: tpl,
+  });
+  const mine = userTemplates.value.filter((tpl) => tpl.kind === type).map(option);
+  if (type !== 'tournament') return mine;
+  const builtin = TOURNAMENT_TEMPLATES.map((b) => option(templateFromBuiltInTournament(b, t)));
+  return [...mine, ...builtin];
 }
 function findOption(type, id) {
   return presetOptions(type).find((o) => o.id === id) || null;
@@ -293,22 +296,9 @@ function toggleAllCopy(row) {
 function onPresetSelect(row) {
   const opt = findOption(row.type, row.presetId);
   if (!opt) { row.presetSnapshot = {}; return; }
-  const s = opt.source;
-  if (row.type === 'tournament') {
-    row.presetSnapshot = {
-      name: s.name || '', subtitle: s.subtitle || '', buyIn: Number(s.buyIn) || 0,
-      startingChips: s.startingChips, reentryUntilLevel: s.reentryUntilLevel,
-      maxReentries: s.maxReentries, levels: s.levels, payoutRatios: s.payoutRatios,
-    };
-  } else {
-    row.presetSnapshot = {
-      name: s.name || '', buyIn: Number(s.buyIn) || 0, rate: Number(s.rate) || 1,
-      buyInAmount: Number(s.buyInAmount) || null,
-      // Blind structure (timed game) — createTableRoom starts a clock for it
-      structure: s.structure || null,
-      cashDecimals: s.cashDecimals ?? null,
-    };
-  }
+  // The whole template (with its blind structure, if any) — createTableRoom
+  // starts the table from it.
+  row.presetSnapshot = periodSnapshotFromTemplate(opt.source);
 }
 
 // ── Personal quick-setup (load / save "the usual" event) ──
@@ -366,12 +356,10 @@ function periodsSig(periods) {
 }
 
 // ── Load (edit mode) ───────────────────────────────────
-let unsubCash = null;
-let unsubTour = null;
+let unsubTemplates = null;
 
 onMounted(async () => {
-  unsubCash = cashPresetsApi.listenPresets((list) => { cashPresets.value = list; });
-  unsubTour = tournamentApi.listenPresets((list) => { userTournamentPresets.value = list; });
+  unsubTemplates = templatesApi.listenTemplates((list) => { userTemplates.value = list; });
 
   if (isEdit.value) {
     const s = await getSession(route.params.sessionId);
@@ -403,8 +391,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  if (unsubCash) unsubCash();
-  if (unsubTour) unsubTour();
+  if (unsubTemplates) unsubTemplates();
 });
 
 // ── Save ───────────────────────────────────────────────

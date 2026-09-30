@@ -85,7 +85,7 @@
     "tournament": "賽制時鐘",
     "tournamentDesc": "設定錦標賽結構，大螢幕倒數計時",
     "tournamentSetup": "賽制設定",
-    "tournamentSetupDesc": "管理盲注結構與模板（錦標賽、限時賽共用）",
+    "tournamentSetupDesc": "管理盲注結構（錦標賽、限時賽共用）",
     "timeBank": "Time Bank",
     "timeBankDesc": "獨立倒數計時器，荷官操控"
   },
@@ -860,5 +860,68 @@
     "prizePool": "Prize pool",
     "payouts": "Payouts",
     "place": "{ord}"
+  },
+  "structure": {
+    "title": "賽制設定",
+    "intro": "這裡只放盲注結構（級別、盲注、時長）。買入、Re-entry、獎池分配改在「開桌範本」設定。",
+    "new": "新增結構",
+    "mine": "我的盲注結構",
+    "none": "尚無自訂盲注結構",
+    "confirmDelete": "確定要刪除「{name}」嗎？已套用這個結構的範本不受影響。",
+    "create": "新增盲注結構",
+    "edit": "編輯盲注結構",
+    "name": "結構名稱",
+    "namePlaceholder": "例：週五 Turbo",
+    "cutoff": "建議截買等級",
+    "cutoffHint": "範本選用這個結構時預設帶入，範本裡仍可改",
+    "levelsCount": "{n} 個級別",
+    "totalTime": "共 {duration}",
+    "errors": {
+      "nameRequired": "請輸入結構名稱",
+      "levelsRequired": "至少需要一個級別"
+    }
+  },
+  "template": {
+    "title": "開桌範本",
+    "new": "新增範本",
+    "create": "新增開桌範本",
+    "edit": "編輯開桌範本",
+    "kindCash": "現金桌",
+    "kindTournament": "錦標賽",
+    "kindCashDesc": "結算＝籌碼 − 買入，依匯率換算。套用盲注結構就是限時賽。",
+    "kindTournamentDesc": "獎池依名次分配，一定要有盲注結構。",
+    "mine": "我的範本",
+    "none": "尚無範本",
+    "confirmDelete": "確定要刪除「{name}」嗎？",
+    "name": "範本名稱",
+    "moduleBuyIn": "買入",
+    "moduleStructure": "盲注結構",
+    "structureRequiredHint": "錦標賽一定要選一個盲注結構",
+    "pickStructure": "選擇盲注結構",
+    "manageStructures": "管理盲注結構",
+    "moduleEntry": "報名 / 截買",
+    "reentryAllowed": "允許 Re-entry",
+    "reentryNoCutoff": "不截止（到最後一級）",
+    "noReentry": "不可 Re-entry",
+    "reentryMaxN": "最多 {n} 次",
+    "moduleSettlement": "結算",
+    "moduleBounty": "賞金",
+    "bounty": {
+      "none": "無",
+      "ko": "KO 獵頭",
+      "pko": "PKO 累進獵頭",
+      "mystery": "神秘賞金"
+    },
+    "comingSoon": "即將推出",
+    "bountyHint": "KO / PKO / 神秘賞金會在下一階段開放",
+    "errors": {
+      "nameRequired": "請輸入範本名稱",
+      "structureRequired": "請選擇盲注結構",
+      "payoutNot100": "獎池分配比例合計必須為 100%",
+      "bountyNotAvailable": "賞金賽即將推出，目前請選「無」",
+      "bountyShareRequired": "請設定每次買入的賞金金額",
+      "cutoffBeyondStructure": "截買等級超過盲注結構的最後一級",
+      "buyInInvalid": "請輸入有效的買入籌碼與金額"
+    }
   }
 }

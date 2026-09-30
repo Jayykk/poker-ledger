@@ -113,10 +113,10 @@ import GameLobby from './views/GameLobby.vue';
 import PokerGame from './views/PokerGame.vue';
 import DailyReportView from './views/DailyReportView.vue';
 import TournamentClockView from './views/TournamentClockView.vue';
-import TournamentSetupView from './views/TournamentSetupView.vue';
-import TournamentPresetsView from './views/TournamentPresetsView.vue';
-import CashPresetsView from './views/CashPresetsView.vue';
-import CashPresetSetupView from './views/CashPresetSetupView.vue';
+import BlindStructuresView from './views/BlindStructuresView.vue';
+import BlindStructureSetupView from './views/BlindStructureSetupView.vue';
+import TableTemplatesView from './views/TableTemplatesView.vue';
+import TableTemplateSetupView from './views/TableTemplateSetupView.vue';
 import TimeBankView from './views/TimeBankView.vue';
 import DealerClockView from './views/DealerClockView.vue';
 import DealerClockDemoView from './views/DealerClockDemoView.vue';
@@ -174,12 +174,27 @@ import { logger } from "./utils/logger.js";
       { path: '/friends', name: 'Friends', component: FriendsView, meta: { requiresAuth: true } },
       { path: '/poker-lobby', name: 'GameLobby', component: GameLobby, meta: { requiresAuth: true } },
       { path: '/poker-game/:gameId', name: 'PokerGame', component: PokerGame, meta: { requiresAuth: true } },
-      { path: '/tournament-presets', name: 'TournamentPresets', component: TournamentPresetsView, meta: { requiresAuth: true } },
-      { path: '/tournament-setup', name: 'TournamentSetup', component: TournamentSetupView, meta: { requiresAuth: true } },
-      { path: '/tournament-setup/:presetId', name: 'TournamentSetupEdit', component: TournamentSetupView, meta: { requiresAuth: true } },
-      { path: '/cash-presets', name: 'CashPresets', component: CashPresetsView, meta: { requiresAuth: true } },
-      { path: '/cash-preset-setup', name: 'CashPresetSetup', component: CashPresetSetupView, meta: { requiresAuth: true } },
-      { path: '/cash-preset-setup/:presetId', name: 'CashPresetSetupEdit', component: CashPresetSetupView, meta: { requiresAuth: true } },
+      // 賽制設定 = blind-structure library; 開桌範本 = table templates
+      { path: '/structures', name: 'BlindStructures', component: BlindStructuresView, meta: { requiresAuth: true } },
+      { path: '/structure-setup', name: 'StructureSetup', component: BlindStructureSetupView, meta: { requiresAuth: true } },
+      { path: '/structure-setup/:structureId', name: 'StructureSetupEdit', component: BlindStructureSetupView, meta: { requiresAuth: true } },
+      { path: '/templates', name: 'TableTemplates', component: TableTemplatesView, meta: { requiresAuth: true } },
+      { path: '/template-setup', name: 'TemplateSetup', component: TableTemplateSetupView, meta: { requiresAuth: true } },
+      { path: '/template-setup/:templateId', name: 'TemplateSetupEdit', component: TableTemplateSetupView, meta: { requiresAuth: true } },
+      // Old preset pages (bookmarks, shared 賽制 links) → their new homes
+      { path: '/tournament-presets', redirect: '/structures' },
+      {
+        path: '/tournament-setup',
+        redirect: (to) => {
+          if (to.query.preset) return { path: '/template-setup', query: { kind: 'tournament', preset: to.query.preset } };
+          if (to.query.template) return { path: '/template-setup', query: { kind: 'tournament', builtin: `builtin:${to.query.template}` } };
+          return '/structure-setup';
+        },
+      },
+      { path: '/tournament-setup/:presetId', redirect: (to) => ({ path: `/structure-setup/${to.params.presetId}`, query: { source: 'tournamentPresets' } }) },
+      { path: '/cash-presets', redirect: { path: '/templates', query: { kind: 'cash' } } },
+      { path: '/cash-preset-setup', redirect: { path: '/template-setup', query: { kind: 'cash' } } },
+      { path: '/cash-preset-setup/:presetId', redirect: (to) => ({ path: `/template-setup/${to.params.presetId}`, query: { source: 'cashPresets' } }) },
       { path: '/tournament-clock/:sessionId', name: 'TournamentClock', component: TournamentClockView, meta: { requiresAuth: true } },
       { path: '/time-bank/:sessionId', name: 'TimeBank', component: TimeBankView, meta: { requiresAuth: true } },
       { path: '/tournament-game', name: 'TournamentGame', component: TournamentGameView, meta: { requiresAuth: true } },

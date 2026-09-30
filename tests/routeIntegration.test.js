@@ -15,9 +15,12 @@ describe('Route definitions', () => {
   const mainContent = readFileSync(resolve(__dirname, '../src/main.js'), 'utf-8');
 
   const expectedRoutes = [
-    { path: '/tournament-presets', name: 'TournamentPresets' },
-    { path: '/tournament-setup', name: 'TournamentSetup' },
-    { path: '/tournament-setup/:presetId', name: 'TournamentSetupEdit' },
+    { path: '/structures', name: 'BlindStructures' },
+    { path: '/structure-setup', name: 'StructureSetup' },
+    { path: '/structure-setup/:structureId', name: 'StructureSetupEdit' },
+    { path: '/templates', name: 'TableTemplates' },
+    { path: '/template-setup', name: 'TemplateSetup' },
+    { path: '/template-setup/:templateId', name: 'TemplateSetupEdit' },
     { path: '/tournament-clock/:sessionId', name: 'TournamentClock' },
     { path: '/time-bank/:sessionId', name: 'TimeBank' },
   ];
@@ -34,6 +37,18 @@ describe('Route definitions', () => {
         `path:\\s*'${route.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'[^}]*requiresAuth:\\s*true`
       );
       expect(mainContent).toMatch(routeRegex);
+    });
+  }
+
+  // Old preset pages redirect, so bookmarks and shared 賽制 links keep working
+  const oldPaths = [
+    '/tournament-presets', '/tournament-setup', '/tournament-setup/:presetId',
+    '/cash-presets', '/cash-preset-setup', '/cash-preset-setup/:presetId',
+  ];
+  for (const oldPath of oldPaths) {
+    it(`old route "${oldPath}" redirects`, () => {
+      const escaped = oldPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      expect(mainContent).toMatch(new RegExp(`path:\\s*'${escaped}',\\s*redirect`));
     });
   }
 
@@ -88,8 +103,10 @@ describe('View files exist and have correct structure', () => {
 
   const viewFiles = [
     { file: 'src/views/TournamentClockView.vue', composable: 'useTournamentClock' },
-    { file: 'src/views/TournamentSetupView.vue', composable: 'useTournamentClock' },
-    { file: 'src/views/TournamentPresetsView.vue', composable: 'useTournamentClock' },
+    { file: 'src/views/BlindStructuresView.vue', composable: 'useTableTemplates' },
+    { file: 'src/views/BlindStructureSetupView.vue', composable: 'useTableTemplates' },
+    { file: 'src/views/TableTemplatesView.vue', composable: 'useTableTemplates' },
+    { file: 'src/views/TableTemplateSetupView.vue', composable: 'useTableTemplates' },
     { file: 'src/views/TimeBankView.vue', composable: 'useTimeBank' },
   ];
 
