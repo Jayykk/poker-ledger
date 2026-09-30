@@ -37,10 +37,11 @@ export function templateSummary(template, t) {
     if (template.structure) parts.push(`⏱ ${template.structure.name || t('cashPreset.structure')}`);
     return parts.join(' · ');
   }
-  const head = template.bounty?.type === BOUNTY_TYPE.KO ? bountyPerEntry(template.bounty, template.buyIn.amount) : 0;
+  const bountyType = template.bounty?.type;
+  const head = bountyType === BOUNTY_TYPE.KO || bountyType === BOUNTY_TYPE.PKO ? bountyPerEntry(template.bounty, template.buyIn.amount) : 0;
   return [
     `$${formatNumber(template.buyIn.amount)}`,
-    ...(head > 0 ? [`🎯 KO $${formatNumber(head)}`] : []),
+    ...(head > 0 ? [`🎯 ${bountyType === BOUNTY_TYPE.PKO ? 'PKO' : 'KO'} $${formatNumber(head)}`] : []),
     `${formatNumber(template.buyIn.chips)} ${t('game.chips')}`,
     t('structure.levelsCount', { n: playLevels(template.structure?.levels) }),
     reentrySummary(template, t),
