@@ -1061,6 +1061,22 @@
     "finalDrawsDealHint": "Before a deal: everyone left draws one",
     "finalDrawsDealConfirm": "Let the {n} players left each draw an envelope? Only needed before a deal.",
     "sharePerEntry": "Mystery pool per buy-in",
-    "splitPreview": "Each buy-in: mystery pool ${head} · prize pool ${pool}"
+    "splitPreview": "Each buy-in: mystery pool ${head} · prize pool ${pool}",
+    "backToClock": "Back to clock",
+    "drawingNow": "Drawing now",
+    "stageHint": "Tap a name to draw, or have them tap \"your turn\" on their phone",
+    "openStage": "Open the TV draw stage",
+    "closeStage": "Close stage",
+    "stageIsOpen": "The TV draw stage is open",
+    "stageIsClosed": "The TV draw stage is closed",
+    "stageOpenHint": "Players waiting can draw from their own phones",
+    "stageClosedHint": "Draws here are still revealed on the TV",
+    "playOnTv": "Reveal on the TV (the phone waits)",
+    "pauseFirst": "The clock is running",
+    "pauseFirstHint": "Draw while paused or on a break, or open the TV draw stage",
+    "watchTv": "Watch the TV!",
+    "watchTvHint": "Revealing…",
+    "yourTurn": "Your mystery bounty draw!",
+    "yourTurnHint": "Tap to draw — it's revealed on the TV"
   }
 }

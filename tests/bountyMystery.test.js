@@ -18,6 +18,7 @@ import {
   gameBountyPerEntry,
   gamePrizePool,
   tournamentBountyView,
+  canDrawTicket,
 } from '../src/utils/bounty.js';
 import { buildTournamentSettlement, buildDealSettlement } from '../src/utils/settlementMath.js';
 import { applyElimination, applyReentry } from '../src/utils/tournamentElimination.js';
@@ -188,5 +189,34 @@ describe('mystery settlement', () => {
     expect(row.B.bounty).toBe(150);
     expect(row.C).toMatchObject({ bounty: 0, prize: 390 });
     expect(sum(rows, 'profit')).toBe(0);
+  });
+});
+
+describe('who may draw, and when', () => {
+  const tk = { id: 't', by: ['a', 'b'], envelope: null };
+  it('the host: only while paused / on a break / with the TV stage open', () => {
+    expect(canDrawTicket(tk, { isHost: true })).toBe(false);
+    expect(canDrawTicket(tk, { isHost: true, clockPaused: true })).toBe(true);
+    expect(canDrawTicket(tk, { isHost: true, onBreak: true })).toBe(true);
+    expect(canDrawTicket(tk, { isHost: true, stageOpen: true })).toBe(true);
+  });
+
+  it('a player: their own draw, only with the stage open, never with physical envelopes', () => {
+    expect(canDrawTicket(tk, { mySeatId: 'a', stageOpen: false })).toBe(false);
+    expect(canDrawTicket(tk, { mySeatId: 'a', stageOpen: true })).toBe(true);
+    expect(canDrawTicket(tk, { mySeatId: 'b', stageOpen: true })).toBe(true); // a shared knockout: either one
+    expect(canDrawTicket(tk, { mySeatId: 'c', stageOpen: true })).toBe(false);
+    expect(canDrawTicket(tk, { mySeatId: 'a', stageOpen: true, drawMode: 'manual' })).toBe(false);
+  });
+
+  it('a drawn ticket can\'t be drawn again', () => {
+    expect(canDrawTicket({ ...tk, envelope: 2 }, { isHost: true, stageOpen: true })).toBe(false);
+  });
+
+  it('drawing stamps drawnAt; undoing clears it', () => {
+    const players = [{ id: 'a', mysteryTickets: [{ id: 't', by: ['a'], envelope: null }] }];
+    const drawn = setTicketEnvelope(players, 't', 1, 12345);
+    expect(drawn[0].mysteryTickets[0]).toMatchObject({ envelope: 1, drawnAt: 12345 });
+    expect(setTicketEnvelope(drawn, 't', null)[0].mysteryTickets[0]).toMatchObject({ envelope: null, drawnAt: null });
   });
 });

@@ -176,11 +176,35 @@ export function removeTicket(players, ticketIdToRemove) {
     : p));
 }
 
-/** Record (or clear, envelope = null) the envelope a ticket drew. */
-export function setTicketEnvelope(players, id, envelope) {
-  return players.map((p) => (p.mysteryTickets?.some((t) => t.id === id)
-    ? { ...p, mysteryTickets: p.mysteryTickets.map((t) => (t.id === id ? { ...t, envelope } : t)) }
-    : p));
+/**
+ * Record (or clear, envelope = null) the envelope a ticket drew. drawnAt
+ * lets screens showing the draw (the TV stage) tell a new draw from an old one.
+ */
+export function setTicketEnvelope(players, id, envelope, now = Date.now()) {
+  const drawn = envelope !== null && envelope !== undefined;
+  return players.map((p) => (p.mysteryTickets?.some((t) => t.id === id) ?
+    {
+      ...p,
+      mysteryTickets: p.mysteryTickets.map((t) => (t.id === id ?
+        { ...t, envelope: drawn ? envelope : null, drawnAt: drawn ? now : null } :
+        t)),
+    } :
+    p));
+}
+
+/**
+ * When may a draw be made, and by whom (the rules on the draw screens):
+ *   - the host: while the clock is paused or on a break, or the TV stage is
+ *     open (they're presenting it)
+ *   - a player, for their own draw: only while the TV stage is open, and
+ *     not with physical envelopes (the host records those)
+ * @param {object} ctx { isHost, mySeatId, clockPaused, onBreak, stageOpen, drawMode }
+ */
+export function canDrawTicket(ticket, ctx = {}) {
+  if (!ticket || (ticket.envelope !== null && ticket.envelope !== undefined)) return false;
+  if (ctx.isHost) return !!(ctx.clockPaused || ctx.onBreak || ctx.stageOpen);
+  if (ctx.drawMode === 'manual') return false;
+  return !!ctx.stageOpen && (ticket.by || []).includes(ctx.mySeatId);
 }
 
 /** A random free slot (system draw). `random` returns [0, 1). */

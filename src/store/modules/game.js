@@ -1076,10 +1076,11 @@ export const useGameStore = defineStore('game', () => {
    * (random pick, or the tier the host chose for a physical envelope); the
    * transaction re-checks that it's still free.
    */
-  const mysteryDraw = async (ticketId, slot) => {
-    if (!gameId.value) return false;
+  // targetGameId: draw screens outside the room (the TV stage on the clock)
+  const mysteryDraw = async (ticketId, slot, targetGameId = gameId.value) => {
+    if (!targetGameId) return false;
     try {
-      await commitRoster(gameId.value, (players, gameData) => {
+      await commitRoster(targetGameId, (players, gameData) => {
         const ticket = allTickets(players).find((t) => t.id === ticketId);
         if (!ticket) throw new Error('Draw not found');
         if (ticket.envelope !== null && ticket.envelope !== undefined) throw new Error('Already drawn');

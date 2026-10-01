@@ -58,7 +58,7 @@
         <button v-if="isHost" @click="handleToggleDealerMode" class="hud-control-btn felt-btn" :class="{ 'dealer-active': dealerModeEnabled }" :title="$t('tournament.dealerMode')">
           <i class="fas fa-user-shield"></i>
         </button>
-        <button v-if="config?.bounty?.type === 'mystery' && session?.gameId" @click="$router.push(`/mystery-draw/${session.gameId}`)" class="hud-control-btn felt-btn" :title="$t('mystery.title')">
+        <button v-if="config?.bounty?.type === 'mystery' && session?.gameId && (isHost || dealerModeEnabled)" @click="setMysteryStage(true)" class="hud-control-btn felt-btn" :title="$t('mystery.openStage')">
           🎁
         </button>
       </template>
@@ -106,7 +106,7 @@
         <button v-if="isHost" @click="handleToggleDealerMode" class="hud-control-btn" :class="{ 'dealer-active': dealerModeEnabled }" :title="$t('tournament.dealerMode')">
           <i class="fas fa-user-shield"></i>
         </button>
-        <button v-if="config?.bounty?.type === 'mystery' && session?.gameId" @click="$router.push(`/mystery-draw/${session.gameId}`)" class="hud-control-btn" :title="$t('mystery.title')">
+        <button v-if="config?.bounty?.type === 'mystery' && session?.gameId && (isHost || dealerModeEnabled)" @click="setMysteryStage(true)" class="hud-control-btn" :title="$t('mystery.openStage')">
           🎁
         </button>
       </template>
@@ -156,6 +156,19 @@
       </div>
     </div>
 
+    <!-- Mystery bounty: TV draw stage — reveals every new draw (from any
+         device) and, when opened with 🎁, lets players draw from their phones -->
+    <MysteryStage
+      v-if="showStage"
+      :game="stageGame"
+      :current="stageCurrent"
+      :can-control="canControlStage"
+      :subtitle="stageSubtitle"
+      @done="onStageDone"
+      @close="setMysteryStage(false)"
+      @draw="onStageDraw"
+    />
+
     <!-- Audio element for alerts -->
     <audio ref="audioRef" preload="auto"></audio>
   </div>
@@ -166,6 +179,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
+import { useMysteryStage } from '../composables/useMysteryStage.js';
+import MysteryStage from '../components/tournament/MysteryStage.vue';
 import { useTournamentAudio, unlockAudio, startAudioHeartbeat, stopAudioHeartbeat } from '../composables/useTournamentAudio.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useWakeLock } from '../composables/useWakeLock.js';
@@ -203,8 +218,28 @@ const {
   formattedTime, timeToBreak, dealerModeEnabled,
   isTimed, isBuyInClosed, timeToEnd, levelProgress, endsAt, clockStyle,
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
-  updatePlayers, endTournament, toggleDealerMode, setClockStyle, cleanup,
+  updatePlayers, endTournament, toggleDealerMode, setClockStyle, setMysteryStage, cleanup,
 } = useTournamentClock();
+
+// ── Mystery bounty TV stage ─────────────────────────
+const stageGameId = computed(() => (config.value?.bounty?.type === 'mystery' ? session.value?.gameId || null : null));
+const { game: stageGame, current: stageCurrent, next: stageNext } = useMysteryStage(stageGameId);
+const stageOpen = computed(() => session.value?.state?.mysteryStage?.open === true);
+// Open with 🎁, or on its own while a draw is being revealed (8 s, then back)
+const showStage = computed(() => !!stageGameId.value && !!stageGame.value && (stageOpen.value || !!stageCurrent.value));
+const canControlStage = computed(() => isHost.value || session.value?.dealerModeEnabled === true);
+const stageSubtitle = computed(() => [
+  config.value?.name,
+  isBreak.value ? t('tournament.breakTime') : `Level ${currentLevel.value}`,
+  status.value === 'paused' ? t('clockFace.paused') : '',
+].filter(Boolean).join(' · '));
+const onStageDone = () => stageNext();
+const gameStoreForStage = useGameStore();
+async function onStageDraw(ticket, slot) {
+  const ok = await gameStoreForStage.mysteryDraw(ticket.id, slot, stageGameId.value);
+  if (!ok) console.warn('Stage draw failed:', gameStoreForStage.error);
+}
+
 
 // Bounty pill on the clock faces: KO / PKO head, or the mystery pool
 const bountyLabel = computed(() => ({ pko: '🎯 PKO', mystery: `🎁 ${t('mystery.short')}` }[config.value?.bounty?.type] || '🎯 KO'));
