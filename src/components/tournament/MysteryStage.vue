@@ -82,11 +82,15 @@
     <div ref="rays" class="ms-rays"></div>
     <div ref="card" class="ms-card">
       <div class="ms-card-back"><span ref="qmark" class="ms-q-mark">?</span></div>
+      <!-- Until the flash the front is just the "?" — sized and centred like the
+           back's, so the faces swapping during the spin don't jump -->
       <div class="ms-card-front">
-        <div v-if="revealed" class="ms-card-amt">${{ fmt(shownAmount) }}</div>
-        <div v-else class="ms-card-amt ms-card-hidden">?</div>
-        <div class="ms-card-name" :class="{ on: nameShown }">{{ reveal?.names }} {{ $t('mystery.youDrew') }}！</div>
-        <div v-if="reveal?.split" class="ms-card-split" :class="{ on: nameShown }">{{ reveal.split }}</div>
+        <template v-if="revealed">
+          <div class="ms-card-amt">${{ fmt(shownAmount) }}</div>
+          <div class="ms-card-name" :class="{ on: nameShown }">{{ reveal?.names }} {{ $t('mystery.youDrew') }}！</div>
+          <div v-if="reveal?.split" class="ms-card-split" :class="{ on: nameShown }">{{ reveal.split }}</div>
+        </template>
+        <span v-else class="ms-q-mark ms-card-hidden">?</span>
       </div>
     </div>
     <div ref="flash" class="ms-flash"></div>
@@ -530,14 +534,14 @@ onUnmounted(() => {
   clip-path: polygon(0 0, 100% 0, 50% 100%);
   border-radius: 1.4cqw 1.4cqw 0 0;
 }
-.ms-q-mark { position: relative; font-size: 9cqh; font-weight: 900; color: #fff7dc; text-shadow: 0 0.5cqh 1.5cqh rgba(0, 0, 0, 0.35); }
+.ms-q-mark { position: relative; font-size: 9cqh; font-weight: 900; line-height: 1; color: #fff7dc; text-shadow: 0 0.5cqh 1.5cqh rgba(0, 0, 0, 0.35); }
 .ms-card-front {
   transform: rotateY(180deg);
   background: linear-gradient(160deg, #fffaf0, #f4e6c4);
   box-shadow: 0 0 6cqh rgba(245, 196, 81, 0.65), 0 2cqh 5cqh rgba(0, 0, 0, 0.5);
 }
 .ms-card-amt { font-family: 'JetBrains Mono', monospace; font-size: 11cqh; font-weight: 900; color: #b07d10; line-height: 1; font-variant-numeric: tabular-nums; }
-.ms-card-hidden { color: #d9b763; }
+.ms-q-mark.ms-card-hidden { color: #c9a44e; text-shadow: none; }
 .ms-card-name, .ms-card-split { margin-top: 1.6cqh; font-size: 3.2cqh; font-weight: 800; color: #3a2a08; opacity: 0; transform: translateY(1cqh); transition: all 0.5s; }
 .ms-card-split { font-size: 2.2cqh; font-weight: 600; margin-top: 0.6cqh; }
 .ms-card-name.on, .ms-card-split.on { opacity: 1; transform: none; }
