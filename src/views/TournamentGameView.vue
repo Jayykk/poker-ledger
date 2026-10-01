@@ -13,7 +13,7 @@
   </div>
 
   <!-- Main view -->
-  <div v-else class="pt-16 px-4 pb-44">
+  <div v-else class="pt-16 px-4 pb-44 max-w-md mx-auto">
     <div v-if="isSyncingHistory" class="mb-3 rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
       <div class="flex items-center gap-2">
         <i class="fas fa-spinner fa-spin"></i>
@@ -298,7 +298,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
@@ -332,7 +332,7 @@ import { buildTournamentPrizeMap } from '../utils/settlementMath.js';
 import {
   gameBountyPerEntry, gamePrizePool, headValue, isProgressiveBounty, bountyCashShare,
   isMysteryBounty, mysteryPhaseActive, freeSlotCount, pendingTickets, bountyPool, tournamentBountyView,
-  canDrawTicket, remainingSlots, envelopeAmounts,
+  canDrawTicket, remainingSlots, envelopeAmounts, isTvOn,
 } from '../utils/bounty.js';
 import { DEFAULT_BUY_IN } from '../utils/constants.js';
 import { consumeSessionReturn } from '../utils/sessionReturn.js';
@@ -446,15 +446,23 @@ const mysteryActive = computed(() => isMystery.value && mysteryPhaseActive(game.
 const mySeat = computed(() => (game.value?.players || []).find((p) => p.uid && p.uid === user.value?.uid) || null);
 const myStageTicket = computed(() => {
   if (!isMystery.value || !mySeat.value) return null;
+  const st = tournamentSession.value?.state || {};
   const ctx = {
     isHost: false,
     mySeatId: mySeat.value.id,
-    stageOpen: tournamentSession.value?.state?.mysteryStage?.open === true,
+    stageOpen: st.mysteryStage?.open === true,
+    tvOn: isTvOn(st.tvPresence, presenceNow.value),
+    clockPaused: ['paused', 'waiting'].includes(clockStatus.value),
+    onBreak: clockIsBreak.value,
     drawMode: game.value.bounty?.drawMode || 'system',
   };
   return pendingTickets(game.value.players || []).find((tk) => canDrawTicket(tk, ctx)) || null;
 });
 const drawingMine = ref(false);
+// Re-check the TV's presence report as time passes
+const presenceNow = ref(Date.now());
+const presenceTimer = setInterval(() => { presenceNow.value = Date.now(); }, 10 * 1000);
+onUnmounted(() => clearInterval(presenceTimer));
 const myReveal = ref(null);
 async function drawMine() {
   const tk = myStageTicket.value;

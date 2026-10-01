@@ -127,3 +127,25 @@ describe('mystery bounty wiring', () => {
     expect(tournamentRoom).toContain(':disabled="playersStillInPlay.length > 0 || mysteryPending > 0"');
   });
 });
+
+describe('anyone in the room can record knockouts and re-entries', () => {
+  const store = read('src/store/modules/game.js');
+  const clockComposable = read('src/composables/useTournamentClock.js');
+
+  it('the clock is only written by those the session rules allow', () => {
+    expect(store).toContain('sessionData.hostUid === authStore.user?.uid || sessionData.dealerModeEnabled === true');
+    expect(store).toContain('if (canWriteSession(sessionData)) transaction.update(sessionRef, sessionUpdates);');
+    expect((store.match(/canWriteSession\(sessionSnap\.data\(\)\)/g) || []).length).toBe(2); // undo knockout / re-entry
+    expect(store).toContain('if (sessionRef && mayWriteSession) {');
+  });
+
+  it("the host's device mirrors re-entries and the end into the clock", () => {
+    expect(clockComposable).toContain("extra['state.reentries'] = reentriesNow");
+    expect(clockComposable).toContain("'state.endedBySync': true");
+  });
+
+  it('the room content lines up with the header and bottom bar', () => {
+    expect(tournamentRoom).toContain('class="pt-16 px-4 pb-44 max-w-md mx-auto"');
+    expect(cashRoom).toContain('class="pt-16 px-4 pb-44 max-w-md mx-auto"');
+  });
+});

@@ -218,7 +218,7 @@ const {
   formattedTime, timeToBreak, dealerModeEnabled,
   isTimed, isBuyInClosed, timeToEnd, levelProgress, endsAt, clockStyle,
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
-  updatePlayers, endTournament, toggleDealerMode, setClockStyle, setMysteryStage, cleanup,
+  updatePlayers, endTournament, toggleDealerMode, setClockStyle, setMysteryStage, setTvPresence, cleanup,
 } = useTournamentClock();
 
 // ── Mystery bounty TV stage ─────────────────────────
@@ -235,6 +235,22 @@ const stageSubtitle = computed(() => [
 ].filter(Boolean).join(' · '));
 const onStageDone = () => stageNext();
 const gameStoreForStage = useGameStore();
+
+// Mystery: tell the players' phones the clock is on the TV (every 30 s)
+let tvTimer = null;
+watch(stageGameId, (id) => {
+  clearInterval(tvTimer);
+  tvTimer = null;
+  if (!id) return;
+  const ping = () => setTvPresence(true).catch(() => {});
+  ping();
+  tvTimer = setInterval(ping, 30 * 1000);
+}, { immediate: true });
+onUnmounted(() => {
+  clearInterval(tvTimer);
+  if (stageGameId.value) setTvPresence(false).catch(() => {});
+});
+
 async function onStageDraw(ticket, slot) {
   const ok = await gameStoreForStage.mysteryDraw(ticket.id, slot, stageGameId.value);
   if (!ok) console.warn('Stage draw failed:', gameStoreForStage.error);

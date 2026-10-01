@@ -433,9 +433,33 @@ export function useTournamentClock(options = {}) {
         if (sum !== (session.value?.state?.bountyToPool ?? 0)) toPool = sum;
       }
 
+      // Tournaments: knockouts / re-entries recorded by other players (who
+      // can't write the clock) — mirror the re-entry count and the end
+      const extra = {};
+      if (!isTimed.value) {
+        const base = Number(gameData.baseBuyIn) || 0;
+        if (base > 0) {
+          const reentriesNow = uniquePlayers.reduce(
+            (sum, p) => sum + Math.max(0, Math.round((Number(p.buyIn) || 0) / base) - 1), 0,
+          );
+          if (reentriesNow !== (session.value?.state?.reentries ?? 0)) extra['state.reentries'] = reentriesNow;
+        }
+        const st = session.value?.state || {};
+        const crowned = uniquePlayers.some((p) => !p.eliminated && p.placement === 1);
+        if (crowned && aliveCount === 1 && st.status !== 'ended') {
+          Object.assign(extra, {
+            'state.status': 'ended', 'state.timeLeftSeconds': 0, 'state.lastTickAt': null, 'state.endedBySync': true,
+          });
+        } else if (!crowned && aliveCount > 1 && st.status === 'ended' && st.endedBySync) {
+          // that last knockout was undone: reopen, paused
+          Object.assign(extra, { 'state.status': 'paused', 'state.endedBySync': false });
+        }
+      }
+
       // Sync when player count or alive count diverges
-      if (playerCount !== currentRegistered || aliveCount !== currentRemaining || timedStats || toPool !== null) {
-        updatePlayers(playerCount, aliveCount, timedStats, toPool);
+      if (playerCount !== currentRegistered || aliveCount !== currentRemaining || timedStats || toPool !== null
+        || Object.keys(extra).length) {
+        updatePlayers(playerCount, aliveCount, timedStats, toPool, extra);
       }
     });
   }
@@ -558,7 +582,7 @@ export function useTournamentClock(options = {}) {
     });
   }
 
-  async function updatePlayers(registered, remaining, timedStats = null, bountyToPool = null) {
+  async function updatePlayers(registered, remaining, timedStats = null, bountyToPool = null, extra = {}) {
     if (!sessionId.value || !isHost.value) return;
     await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
       'state.playersRegistered': registered,
@@ -568,6 +592,7 @@ export function useTournamentClock(options = {}) {
         'state.buyIns': timedStats.buyIns,
       } : {}),
       ...(bountyToPool !== null ? { 'state.bountyToPool': bountyToPool } : {}),
+      ...extra,
       updatedAt: serverTimestamp(),
     });
   }
@@ -614,6 +639,19 @@ export function useTournamentClock(options = {}) {
     await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
       'state.mysteryStage': { open: !!open, at: Date.now() },
       updatedAt: serverTimestamp(),
+    });
+  }
+
+  /**
+   * Mystery bounty: the clock screen (the iPad on the TV) says it's up, so
+   * players' phones know a draw made now will be shown there. Same writers as
+   * the stage flag. on = false clears it (the screen is closing).
+   */
+  async function setTvPresence(on) {
+    if (!sessionId.value) return;
+    if (!isHost.value && session.value?.dealerModeEnabled !== true) return;
+    await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
+      'state.tvPresence': on ? { at: Date.now() } : null,
     });
   }
 
@@ -702,6 +740,7 @@ export function useTournamentClock(options = {}) {
     toggleDealerMode,
     setClockStyle,
     setMysteryStage,
+    setTvPresence,
     cleanup,
 
     // Presets
