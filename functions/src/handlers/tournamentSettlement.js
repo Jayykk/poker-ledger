@@ -8,6 +8,17 @@ import {
   tournamentPrizePool,
 } from '../utils/tournamentSettlementMath.js';
 import { gameBountyPerEntry } from '../utils/bountyMath.js';
+import { pendingTickets } from '../utils/mysteryBounty.js';
+
+/**
+ * Mystery bounty: every earned draw must have been drawn before settling.
+ * @param {Array<object>} players Current players.
+ */
+export function assertMysteryDrawsDone(players) {
+  if (pendingTickets(players).length) {
+    throw new HttpsError('failed-precondition', 'MYSTERY_DRAWS_PENDING');
+  }
+}
 
 /**
  * Check authorization for a normal tournament finish.
@@ -50,10 +61,11 @@ export function validateNormalTournamentState(game) {
  * @param {Array<object>} payoutRatios Payout configuration.
  * @param {Array<object>} allocations Proposed deal allocations.
  * @param {number} baseBuyIn One entry's buy-in (to count KO heads).
- * @param {number} perEntry KO head value per entry (0 = no bounty).
+ * @param {number} perEntry Bounty part of one entry (0 = no bounty).
+ * @param {object} bounty The game's bounty setting (mystery needs it).
  */
 export function validateDealAllocations(
-  players, payoutRatios, allocations, baseBuyIn = 0, perEntry = 0,
+  players, payoutRatios, allocations, baseBuyIn = 0, perEntry = 0, bounty = null,
 ) {
   const aliveIds = players
     .filter((player) => !player.eliminated)
@@ -78,7 +90,7 @@ export function validateDealAllocations(
   }
 
   // KO games pay placements from the pool left after the bounties
-  const pool = tournamentPrizePool(players, baseBuyIn, perEntry);
+  const pool = tournamentPrizePool(players, baseBuyIn, perEntry, bounty);
   const prizeMap = buildTournamentPrizeMap(pool, payoutRatios);
   const expectedTotal = aliveIds.reduce((sum, _, index) => sum + (prizeMap[index + 1] || 0), 0);
   const allocationTotal = allocations.reduce(
@@ -161,8 +173,9 @@ export async function settleTournamentGame({ gameId, callerUid, db }) {
     const players = (game.players || []).map((player) => (
       !player.eliminated ? { ...player, placement: 1 } : player
     ));
+    assertMysteryDrawsDone(players);
     const settlement = buildTournamentSettlement(
-      players, payoutRatios, game.baseBuyIn, gameBountyPerEntry(game),
+      players, payoutRatios, game.baseBuyIn, gameBountyPerEntry(game), game.bounty,
     );
     const syncToken = `settle-tournament-${randomUUID()}`;
     transaction.update(gameRef, completionPatch(players, payoutRatios, settlement, syncToken));
@@ -195,8 +208,9 @@ export async function settleTournamentDeal({ gameId, callerUid, deal, db }) {
     if (!payoutRatios.length) throw new HttpsError('failed-precondition', 'PAYOUT_RATIOS_NOT_CONFIGURED');
     const allocations = deal.allocations || [];
     const perEntry = gameBountyPerEntry(game);
+    assertMysteryDrawsDone(game.players || []);
     validateDealAllocations(
-      game.players || [], payoutRatios, allocations, game.baseBuyIn, perEntry,
+      game.players || [], payoutRatios, allocations, game.baseBuyIn, perEntry, game.bounty,
     );
     const allocationMap = new Map(
       allocations.map((allocation) => [allocation.playerId, allocation]),
@@ -206,7 +220,7 @@ export async function settleTournamentDeal({ gameId, callerUid, deal, db }) {
       return allocation ? { ...player, placement: allocation.placement } : player;
     });
     const settlement = buildDealSettlement(
-      players, payoutRatios, allocations, game.baseBuyIn, perEntry,
+      players, payoutRatios, allocations, game.baseBuyIn, perEntry, game.bounty,
     );
     const syncToken = `settle-tournament-${randomUUID()}`;
 

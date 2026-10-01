@@ -5,5 +5,7 @@ const ERROR_KEYS = {
 };
 
 export function tournamentSettlementErrorKey(error) {
+  // Mystery bounty: a knockout's envelope hasn't been drawn yet
+  if (String(error?.message || '').includes('MYSTERY_DRAWS_PENDING')) return 'mystery.drawsPending';
   return ERROR_KEYS[error?.code] || 'tournament.settlementFailed';
 }

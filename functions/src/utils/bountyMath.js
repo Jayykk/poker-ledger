@@ -21,6 +21,8 @@
 //   bountyHead    PKO: current head value (missing = perEntry; 0 once
 //                 knocked out until a re-entry buys a new head)
 
+import { isMysteryBounty, mysteryResults, allTickets } from './mysteryBounty.js';
+
 export const BOUNTY_NONE = 'none';
 export const BOUNTY_KO = 'ko';
 export const BOUNTY_PKO = 'pko';
@@ -59,9 +61,15 @@ export function bountyPerEntry(bounty, buyInAmount) {
   return Math.min(amount, perEntry);
 }
 
-/** Starting head value of a bounty game (0 when the game has no bounty). */
+/** Does every entry put money aside for bounties (KO, PKO or mystery)? */
+export const hasBountyPool = (bounty) => isKnockoutBounty(bounty) || isMysteryBounty(bounty);
+
+/**
+ * Bounty part of one entry in a game — a KO / PKO starting head, or a
+ * mystery game's contribution to the envelopes (0 when there's no bounty).
+ */
 export function gameBountyPerEntry(game = {}) {
-  return isKnockoutBounty(game.bounty) ? bountyPerEntry(game.bounty, game.baseBuyIn) : 0;
+  return hasBountyPool(game.bounty) ? bountyPerEntry(game.bounty, game.baseBuyIn) : 0;
 }
 
 /** A player's current head (PKO heads grow; KO heads stay perEntry). */
@@ -191,9 +199,44 @@ export function knockoutPrizePool(players = [], baseBuyIn = 0, perEntry = 0) {
   return buyIns - bountyPool(players, baseBuyIn, perEntry) + toPool;
 }
 
+/**
+ * How a tournament's money splits between placements and bounties:
+ *   prizePool       paid by placement
+ *   bountyOf(p)     what player p gets from bounties
+ *   knockoutsOf(p)  knockouts credited to p
+ * KO / PKO: heads (see above). Mystery: drawn envelopes; envelopes nobody
+ * drew go into the prize pool (mysteryBounty.js).
+ */
+export function tournamentBountyView(players = [], baseBuyIn = 0, perEntry = 0, bounty = null) {
+  if (perEntry > 0 && isMysteryBounty(bounty)) {
+    const heads = bountyPool(players, baseBuyIn, perEntry);
+    const result = mysteryResults(players, bounty, heads);
+    const buyIns = players.reduce((sum, p) => sum + num(p.buyIn), 0);
+    const knockouts = {};
+    for (const t of allTickets(players)) {
+      if (t.final) continue;
+      for (const id of t.by || []) knockouts[id] = (knockouts[id] || 0) + 1;
+    }
+    return {
+      prizePool: buyIns - heads + result.undrawn,
+      bountyOf: (p) => result.bountyByPlayer[p.id] || 0,
+      knockoutsOf: (p) => knockouts[p.id] || 0,
+      mystery: result,
+    };
+  }
+  return {
+    prizePool: knockoutPrizePool(players, baseBuyIn, perEntry),
+    bountyOf: (p) => finalBounty(p, perEntry),
+    knockoutsOf: (p) => num(p.knockouts),
+  };
+}
+
 /** Prize pool of a game (plain buy-in total when it has no bounty). */
 export function gamePrizePool(game = {}) {
-  return knockoutPrizePool(game.players || [], game.baseBuyIn, gameBountyPerEntry(game));
+  const view = tournamentBountyView(
+    game.players || [], game.baseBuyIn, gameBountyPerEntry(game), game.bounty,
+  );
+  return view.prizePool;
 }
 
 /**

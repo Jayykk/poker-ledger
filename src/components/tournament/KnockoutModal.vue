@@ -2,8 +2,11 @@
   <BaseModal :model-value="modelValue" :title="$t('bounty.knockoutTitle', { name: player?.name || '' })" @update:model-value="close">
     <div class="space-y-4">
       <p class="text-sm text-gray-300">
+        <template v-if="mystery">{{ $t('bounty.whoKnockedOut').replace(/[？?].*$/, '？') }} <span class="text-amber-300 font-semibold">🎁 {{ $t('mystery.willDraw') }}</span></template>
+        <template v-else>
         {{ $t('bounty.whoKnockedOut') }}
         <span class="text-rose-300 font-semibold">🎯 ${{ formatNumber(perEntry) }}</span>
+        </template>
         <span v-if="cashShare < 1" class="block text-xs text-gray-400 mt-1">{{ $t('bounty.pkoSplitHint', { cash: Math.round(cashShare * 100) }) }}</span>
       </p>
 
@@ -17,7 +20,7 @@
           @click="toggle(p.id)"
         >
           <span class="truncate">{{ p.name }}</span>
-          <span v-if="selected.includes(p.id)" class="text-xs text-rose-300 text-right leading-tight">
+          <span v-if="selected.includes(p.id) && !mystery" class="text-xs text-rose-300 text-right leading-tight">
             +${{ formatNumber(shareOf(p.id)) }}
             <span v-if="growOf(p.id)" class="block text-[10px] text-amber-300">{{ $t('bounty.headGrow', { amount: formatNumber(growOf(p.id)) }) }}</span>
           </span>
@@ -27,7 +30,7 @@
 
       <button type="button" class="ko-opt w-full" :class="{ active: noEliminator }" @click="chooseNone">
         <span>{{ $t('bounty.noEliminator') }}</span>
-        <span class="text-xs text-gray-400">{{ $t('bounty.toPool') }}</span>
+        <span class="text-xs text-gray-400">{{ mystery ? $t('mystery.toPoolNoDraw') : $t('bounty.toPool') }}</span>
       </button>
 
       <p v-if="warning" class="text-amber-400 text-xs text-center">
@@ -62,6 +65,8 @@ const props = defineProps({
   // Value of this player's head (PKO heads grow) and the part paid in cash
   perEntry: { type: Number, default: 0 },
   cashShare: { type: Number, default: 1 },
+  // Mystery: the knockout earns a draw instead of a known amount
+  mystery: { type: Boolean, default: false },
   warning: { type: String, default: '' },
 });
 const emit = defineEmits(['update:modelValue', 'confirm']);

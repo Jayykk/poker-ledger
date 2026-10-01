@@ -41,7 +41,7 @@ export const TEMPLATE_KINDS = Object.values(TEMPLATE_KIND);
 /** Bounty formats. Only 'none' is playable until phase 2. */
 export const BOUNTY_TYPE = Object.freeze({ NONE: 'none', KO: 'ko', PKO: 'pko', MYSTERY: 'mystery' });
 export const BOUNTY_TYPES = Object.values(BOUNTY_TYPE);
-export const PLAYABLE_BOUNTY_TYPES = Object.freeze([BOUNTY_TYPE.NONE, BOUNTY_TYPE.KO, BOUNTY_TYPE.PKO]);
+export const PLAYABLE_BOUNTY_TYPES = Object.freeze(BOUNTY_TYPES);
 
 /** Where legacy records live (users/{uid}/<collection>). */
 export const LEGACY_SOURCE = Object.freeze({
@@ -161,10 +161,8 @@ export function normalizeBounty(raw = {}) {
     bounty.envelopes = (Array.isArray(raw.envelopes) ? raw.envelopes : [])
       .map((e) => ({ share: Math.max(0, num(e?.share)), count: Math.max(1, Math.floor(num(e?.count, 1))) }))
       .filter((e) => e.share > 0);
-    bounty.start = {
-      mode: raw.start?.mode === 'players' ? 'players' : 'level',
-      value: Math.max(0, Math.floor(num(raw.start?.value))),
-    };
+    const mode = ['players', 'level', 'cutoff'].includes(raw.start?.mode) ? raw.start.mode : 'players';
+    bounty.start = { mode, value: mode === 'cutoff' ? 0 : Math.max(1, Math.floor(num(raw.start?.value, 1))) };
     bounty.drawMode = raw.drawMode === 'manual' ? 'manual' : 'system';
   }
   return bounty;
@@ -245,6 +243,10 @@ export function validateTemplate(template) {
     if (t.payout.ratios.length && Math.abs(total - 100) > 0.001) errors.push('payoutNot100');
     if (!isBountyPlayable(t.bounty)) errors.push('bountyNotAvailable');
     if (t.bounty.type !== BOUNTY_TYPE.NONE && bountyPerEntry(t.bounty, t.buyIn.amount) <= 0) errors.push('bountyShareRequired');
+    if (t.bounty.type === BOUNTY_TYPE.MYSTERY) {
+      const total = t.bounty.envelopes.reduce((sum, e) => sum + e.share * e.count, 0);
+      if (!t.bounty.envelopes.length || Math.abs(total - 100) >= 0.05) errors.push('envelopesNot100');
+    }
   }
   if (t.entry.cutoffLevel != null && t.structure && t.entry.cutoffLevel > maxLevelNumber(t.structure.levels)) {
     errors.push('cutoffBeyondStructure');

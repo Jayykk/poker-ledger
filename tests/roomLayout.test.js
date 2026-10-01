@@ -102,3 +102,26 @@ describe('cash room layout', () => {
     expect(cashRow).not.toContain('Rebuys:');
   });
 });
+
+describe('mystery bounty wiring', () => {
+  const store = read('src/store/modules/game.js');
+  const main = read('src/main.js');
+  const clockView = read('src/views/TournamentClockView.vue');
+
+  it('the draw screen has a route and is reachable from the room and the clock', () => {
+    expect(main).toContain("path: '/mystery-draw/:gameId'");
+    expect(tournamentRoom).toContain('$router.push(`/mystery-draw/${gameId}`)');
+    expect(clockView).toContain('$router.push(`/mystery-draw/${session.gameId}`)');
+  });
+
+  it('knockouts earn a ticket only once the draw phase is on; undo removes it', () => {
+    expect(store).toMatch(/isMysteryBounty\(bounty\) && eliminatorIds\.length[\s\S]*mysteryPhaseActive\(bounty[\s\S]*addTicket\(updatedPlayers, playerId, eliminatorIds\)/);
+    expect(store).toContain('removeTicket(updatedPlayers, tx.restore.mysteryTicket)');
+    // KO / PKO math never runs for a mystery game
+    expect(store).toContain('perEntry > 0 && isKnockoutBounty(gameData.bounty)');
+  });
+
+  it('settling waits for every earned draw', () => {
+    expect(tournamentRoom).toContain(':disabled="playersStillInPlay.length > 0 || mysteryPending > 0"');
+  });
+});

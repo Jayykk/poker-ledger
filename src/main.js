@@ -130,6 +130,7 @@ import BlindStructuresView from './views/BlindStructuresView.vue';
 import BlindStructureSetupView from './views/BlindStructureSetupView.vue';
 import TableTemplatesView from './views/TableTemplatesView.vue';
 import TableTemplateSetupView from './views/TableTemplateSetupView.vue';
+import MysteryDrawView from './views/MysteryDrawView.vue';
 import TimeBankView from './views/TimeBankView.vue';
 import DealerClockView from './views/DealerClockView.vue';
 import DealerClockDemoView from './views/DealerClockDemoView.vue';
@@ -194,6 +195,8 @@ import { logger } from "./utils/logger.js";
       { path: '/templates', name: 'TableTemplates', component: TableTemplatesView, meta: { requiresAuth: true } },
       { path: '/template-setup', name: 'TemplateSetup', component: TableTemplateSetupView, meta: { requiresAuth: true } },
       { path: '/template-setup/:templateId', name: 'TemplateSetupEdit', component: TableTemplateSetupView, meta: { requiresAuth: true } },
+      // 神秘賞金抽獎 (from the room or the clock, any time)
+      { path: '/mystery-draw/:gameId', name: 'MysteryDraw', component: MysteryDrawView, meta: { requiresAuth: true } },
       // Old preset pages (bookmarks, shared 賽制 links) → their new homes
       { path: '/tournament-presets', redirect: '/structures' },
       {

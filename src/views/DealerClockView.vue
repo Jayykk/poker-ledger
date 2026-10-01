@@ -39,8 +39,8 @@
         :status="status"
         :next-play-level-entry="nextPlayLevelEntry"
         :prize-pool="prizePool"
-        :bounty-per-head="bountyPerHead"
-      :bounty-label="config?.bounty?.type === 'pko' ? 'PKO' : 'KO'"
+        :bounty-per-head="config?.bounty?.type === 'mystery' ? entries * bountyPerHead : bountyPerHead"
+      :bounty-label="bountyLabel"
         :payouts="payouts"
         :clock-style="clockStyle"
         :levels="levels"
@@ -119,6 +119,9 @@ const {
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
   updatePlayers, addReentry, endTournament, setClockStyle, cleanup,
 } = useTournamentClock({ dealerMode: true });
+
+// Bounty pill on the clock faces: KO / PKO head, or the mystery pool
+const bountyLabel = computed(() => ({ pko: '🎯 PKO', mystery: `🎁 ${t('mystery.short')}` }[config.value?.bounty?.type] || '🎯 KO'));
 
 const headerSubtitleText = computed(() => {
   if (isTimed.value) {

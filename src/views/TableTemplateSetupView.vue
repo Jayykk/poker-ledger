@@ -188,8 +188,8 @@
           </button>
         </div>
         <!-- KO: how much of each buy-in goes on the player's head -->
-        <div v-if="form.bountyType === 'ko' || form.bountyType === 'pko'" class="space-y-2 pt-1">
-          <label class="field-label">{{ $t('bounty.sharePerEntry') }}</label>
+        <div v-if="form.bountyType === 'ko' || form.bountyType === 'pko' || form.bountyType === 'mystery'" class="space-y-2 pt-1">
+          <label class="field-label">{{ $t(form.bountyType === 'mystery' ? 'mystery.sharePerEntry' : 'bounty.sharePerEntry') }}</label>
           <div class="flex gap-2">
             <select v-model="form.bountyMode" class="field-input flex-shrink-0" style="width: 8.5rem">
               <option value="percent">{{ $t('bounty.modePercent') }}</option>
@@ -199,9 +199,37 @@
             <span class="text-gray-400 text-sm self-center">{{ form.bountyMode === 'percent' ? '%' : '$' }}</span>
           </div>
           <p class="hint">
-            {{ $t('bounty.splitPreview', { head: formatNumber(headPreview), pool: formatNumber(Math.max(0, (Number(form.amount) || 0) - headPreview)) }) }}
+            {{ $t(form.bountyType === 'mystery' ? 'mystery.splitPreview' : 'bounty.splitPreview', { head: formatNumber(headPreview), pool: formatNumber(Math.max(0, (Number(form.amount) || 0) - headPreview)) }) }}
           </p>
           <!-- PKO: how much of a collected head is paid in cash (the rest grows your own head) -->
+          <!-- Mystery: envelopes, when the draws start, how they're drawn -->
+          <template v-if="form.bountyType === 'mystery'">
+            <label class="field-label">{{ $t('mystery.envelopes') }}</label>
+            <EnvelopeEditor v-model:envelopes="form.mysteryEnvelopes" />
+            <label class="field-label">{{ $t('mystery.start') }}</label>
+            <div class="flex gap-2">
+              <select v-model="form.mysteryStartMode" class="field-input flex-shrink-0" style="width: 9.5rem">
+                <option value="players">{{ $t('mystery.startPlayers') }}</option>
+                <option value="level">{{ $t('mystery.startLevel') }}</option>
+                <option value="cutoff">{{ $t('mystery.startCutoff') }}</option>
+              </select>
+              <input
+                v-if="form.mysteryStartMode !== 'cutoff'"
+                v-model.number="form.mysteryStartValue"
+                type="number"
+                min="1"
+                class="field-input flex-1 min-w-0"
+                style="width: auto"
+              />
+            </div>
+            <label class="field-label">{{ $t('mystery.drawMode') }}</label>
+            <select v-model="form.mysteryDrawMode" class="field-input">
+              <option value="system">{{ $t('mystery.drawSystem') }}</option>
+              <option value="manual">{{ $t('mystery.drawManual') }}</option>
+            </select>
+            <p class="hint">{{ $t('mystery.rulesHint') }}</p>
+            <p v-if="mysteryWarning" class="hint text-amber-400">⚠️ {{ mysteryWarning }}</p>
+          </template>
           <template v-if="form.bountyType === 'pko'">
             <label class="field-label">{{ $t('bounty.cashShare') }}</label>
             <div class="flex gap-2 items-center">
@@ -211,7 +239,7 @@
             <p class="hint">{{ $t('bounty.cashSharePreview', { cash: formatNumber(Math.round(headPreview * pkoShare)), grow: formatNumber(headPreview - Math.round(headPreview * pkoShare)) }) }}</p>
           </template>
         </div>
-        <p class="hint">{{ form.bountyType === 'ko' ? $t('bounty.koHint') : form.bountyType === 'pko' ? $t('bounty.pkoHint') : $t('template.bountyHint') }}</p>
+        <p v-if="form.bountyType !== 'mystery'" class="hint">{{ form.bountyType === 'ko' ? $t('bounty.koHint') : form.bountyType === 'pko' ? $t('bounty.pkoHint') : $t('template.bountyHint') }}</p>
       </section>
 
       <!-- Share / import -->
@@ -263,6 +291,8 @@ import {
   encodeTemplateShare, decodeTemplateShare, templateFromImport, bountyPerEntry,
 } from '../utils/tableTemplates.js';
 import { formatNumber } from '../utils/formatters.js';
+import EnvelopeEditor from '../components/templates/EnvelopeEditor.vue';
+import { suggestEnvelopes } from '../utils/bounty.js';
 import { structureSummary } from '../utils/templateDisplay.js';
 
 const KINDS = TEMPLATE_KINDS;
@@ -299,6 +329,10 @@ function formFrom(raw) {
     bountyMode: tpl.bounty?.share?.mode || 'percent',
     bountyValue: tpl.bounty?.share?.value ?? 50,
     bountyCashShare: Math.round((tpl.bounty?.cashShare ?? 0.5) * 100),
+    mysteryEnvelopes: (tpl.bounty?.envelopes?.length ? tpl.bounty.envelopes : suggestEnvelopes(9)).map((e) => ({ ...e })),
+    mysteryStartMode: tpl.bounty?.start?.mode || 'players',
+    mysteryStartValue: tpl.bounty?.start?.value || 9,
+    mysteryDrawMode: tpl.bounty?.drawMode || 'system',
     migratedFrom: tpl.migratedFrom || null,
   };
 }
@@ -320,6 +354,11 @@ function templateFrom(f) {
         type: f.bountyType,
         share: { mode: f.bountyMode, value: f.bountyValue },
         ...(f.bountyType === 'pko' ? { cashShare: (Number(f.bountyCashShare) || 0) / 100 } : {}),
+        ...(f.bountyType === 'mystery' ? {
+          envelopes: f.mysteryEnvelopes,
+          start: { mode: f.mysteryStartMode, value: f.mysteryStartValue },
+          drawMode: f.mysteryDrawMode,
+        } : {}),
       },
     migratedFrom: f.migratedFrom,
   });
@@ -405,6 +444,18 @@ watch(maxLevel, (max) => {
 });
 
 // ── bounty ────────────────────────────────────────────
+// Mystery: say what happens when the envelopes and the start don't line up
+const mysteryWarning = computed(() => {
+  if (form.value.bountyType !== 'mystery') return '';
+  const n = form.value.mysteryEnvelopes.reduce((sum, e) => sum + (Math.floor(Number(e.count)) || 0), 0);
+  if (form.value.mysteryStartMode === 'players' && Number(form.value.mysteryStartValue) < n) {
+    return t('mystery.warnMoreEnvelopes', { n, start: form.value.mysteryStartValue });
+  }
+  if (form.value.reentryAllowed || form.value.mysteryStartMode !== 'players') {
+    return t('mystery.warnLeftover');
+  }
+  return '';
+});
 const pkoShare = computed(() => Math.min(1, Math.max(0, (Number(form.value.bountyCashShare) || 0) / 100)));
 const headPreview = computed(() => bountyPerEntry(
   { type: form.value.bountyType, share: { mode: form.value.bountyMode, value: form.value.bountyValue } },

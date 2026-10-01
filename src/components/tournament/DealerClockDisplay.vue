@@ -143,7 +143,7 @@ defineProps({
   endsAt: { type: String, default: '' },
   cutoffLevel: { type: Number, default: 0 },
   bountyPerHead: { type: Number, default: 0 },
-  bountyLabel: { type: String, default: 'KO' },
+  bountyLabel: { type: String, default: '🎯 KO' },
 });
 </script>
 

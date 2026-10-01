@@ -29,6 +29,8 @@ import { tournamentSettlementErrorKey } from '../../utils/tournamentSettlementEr
 import { cashSettlementErrorKey } from '../../utils/cashSettlementErrors.js';
 import {
   gameBountyPerEntry, planKnockout, applyKnockout, resetHeadForReentry, restoreHeadAfterReentryUndo,
+  isKnockoutBounty, isMysteryBounty, mysteryPhaseActive, freeSlotCount, addTicket, removeTicket,
+  setTicketEnvelope, remainingSlots, allTickets,
 } from '../../utils/bounty.js';
 import {
   TX_TYPE_ELIMINATE,
@@ -740,7 +742,9 @@ export const useGameStore = defineStore('game', () => {
 
         // KO: pay the head to the eliminator(s) (or the pool)
         const perEntry = gameBountyPerEntry(gameData);
-        const planned = perEntry > 0 ? planKnockout(players, playerId, eliminatorIds, perEntry, gameData.bounty) : null;
+        const planned = perEntry > 0 && isKnockoutBounty(gameData.bounty)
+          ? planKnockout(players, playerId, eliminatorIds, perEntry, gameData.bounty)
+          : null;
         // Names go on the log record so it reads without the roster
         const knockout = planned && {
           ...planned,
@@ -752,12 +756,13 @@ export const useGameStore = defineStore('game', () => {
         const sessionId = gameData.tournamentSessionId;
         let shouldEndTournament = hasSingleWinner && !sessionId;
         let clockBeforeEnd = null;
+        let sessionData = null;
 
         if (sessionId) {
           const sessionRef = doc(db, 'tournamentSessions', sessionId);
           const sessionSnap = await transaction.get(sessionRef);
           if (sessionSnap.exists()) {
-            const sessionData = sessionSnap.data();
+            sessionData = sessionSnap.data();
             shouldEndTournament = hasSingleWinner && isTournamentReentryClosed(sessionData);
 
             const sessionUpdates = {
@@ -781,6 +786,28 @@ export const useGameStore = defineStore('game', () => {
           updatedPlayers = crownSurvivors(updatedPlayers);
         }
 
+        // Mystery: once the draw phase has started, a knockout with an
+        // eliminator earns one draw (a ticket on the knocked-out player).
+        let mysteryTicket = null;
+        const bounty = gameData.bounty;
+        if (isMysteryBounty(bounty) && eliminatorIds.length) {
+          const aliveIds = new Set(players.filter((p) => !p.eliminated && p.id !== playerId).map((p) => p.id));
+          if (eliminatorIds.some((id) => !aliveIds.has(id))) {
+            throw new Error('Eliminator must be another player still in the tournament');
+          }
+          const cfg = sessionData?.config || {};
+          const active = mysteryPhaseActive(bounty, {
+            aliveBefore: players.filter((p) => !p.eliminated).length,
+            reentryClosed: sessionData ? isTournamentReentryClosed(sessionData) : true,
+            level: getEffectiveTournamentLevel(cfg.levels || [], sessionData?.state?.currentLevelIndex ?? 0),
+          });
+          if (active && freeSlotCount(bounty, players) > 0) {
+            const added = addTicket(updatedPlayers, playerId, eliminatorIds);
+            updatedPlayers = added.players;
+            mysteryTicket = added.ticket.id;
+          }
+        }
+
         // Log the elimination (amount 0) with everything needed to revert it.
         transaction.set(txRef, buildTxRecord({
           target,
@@ -795,6 +822,7 @@ export const useGameStore = defineStore('game', () => {
               prevSeq,
             }),
             ...(knockout ? { bounty: knockout } : {}),
+            ...(mysteryTicket ? { mysteryTicket } : {}),
           },
         }));
 
@@ -835,9 +863,11 @@ export const useGameStore = defineStore('game', () => {
         const reverted = revertElimination(players, tx);
         const { aliveAfter, reopensTournament } = reverted;
         // KO: take the head back from whoever collected it
-        const updatedPlayers = tx.restore?.bounty
+        let updatedPlayers = tx.restore?.bounty
           ? applyKnockout(reverted.players, target.id, tx.restore.bounty, -1)
           : reverted.players;
+        // Mystery: the draw this knockout earned goes too (its envelope returns)
+        if (tx.restore?.mysteryTicket) updatedPlayers = removeTicket(updatedPlayers, tx.restore.mysteryTicket);
 
         const sessionId = gameData.tournamentSessionId;
         if (sessionId) {
@@ -1039,6 +1069,95 @@ export const useGameStore = defineStore('game', () => {
     }
   };
 
+  // ── Mystery bounty draws ──────────────────────────────────────────
+
+  /**
+   * Draw an envelope for a waiting ticket. `slot` comes from the draw screen
+   * (random pick, or the tier the host chose for a physical envelope); the
+   * transaction re-checks that it's still free.
+   */
+  const mysteryDraw = async (ticketId, slot) => {
+    if (!gameId.value) return false;
+    try {
+      await commitRoster(gameId.value, (players, gameData) => {
+        const ticket = allTickets(players).find((t) => t.id === ticketId);
+        if (!ticket) throw new Error('Draw not found');
+        if (ticket.envelope !== null && ticket.envelope !== undefined) throw new Error('Already drawn');
+        if (!remainingSlots(gameData.bounty, players).some((r) => r.slot === slot)) {
+          throw new Error('That envelope is already taken');
+        }
+        return { players: setTicketEnvelope(players, ticketId, slot) };
+      });
+      return true;
+    } catch (err) {
+      console.error('Mystery draw error:', err);
+      error.value = err.message;
+      return false;
+    }
+  };
+
+  /** Put a drawn envelope back (the ticket waits again). */
+  const mysteryUndoDraw = async (ticketId) => {
+    if (!gameId.value) return false;
+    try {
+      await commitRoster(gameId.value, (players) => ({ players: setTicketEnvelope(players, ticketId, null) }));
+      return true;
+    } catch (err) {
+      console.error('Mystery undo draw error:', err);
+      error.value = err.message;
+      return false;
+    }
+  };
+
+  /**
+   * End of the tournament: the champion (or, before a deal, everyone still in)
+   * draws one envelope each, while envelopes last.
+   */
+  const mysteryFinalDraws = async () => {
+    if (!gameId.value) return false;
+    try {
+      await commitRoster(gameId.value, (players, gameData) => {
+        let next = players;
+        let free = freeSlotCount(gameData.bounty, players);
+        for (const p of players.filter((x) => !x.eliminated)) {
+          if (free <= 0) break;
+          if ((p.mysteryTickets || []).some((t) => t.final)) continue;
+          next = addTicket(next, p.id, [p.id], { final: true }).players;
+          free -= 1;
+        }
+        return { players: next };
+      });
+      return true;
+    } catch (err) {
+      console.error('Mystery final draws error:', err);
+      error.value = err.message;
+      return false;
+    }
+  };
+
+  /** Host: change the envelopes before anything has been drawn. */
+  const updateMysteryEnvelopes = async (envelopes) => {
+    if (!gameId.value) return false;
+    try {
+      await runTransaction(db, async (transaction) => {
+        const ref_ = doc(db, 'games', gameId.value);
+        const snap = await transaction.get(ref_);
+        if (!snap.exists()) throw new Error('Game not found');
+        const data = snap.data();
+        if (data.hostUid !== authStore.user?.uid) throw new Error('Only the host can change the envelopes');
+        if (allTickets(data.players || []).some((t) => t.envelope !== null && t.envelope !== undefined)) {
+          throw new Error('Envelopes are locked after the first draw');
+        }
+        transaction.update(ref_, { 'bounty.envelopes': envelopes, updatedAt: serverTimestamp() });
+      });
+      return true;
+    } catch (err) {
+      console.error('Update envelopes error:', err);
+      error.value = err.message;
+      return false;
+    }
+  };
+
   /**
    * Settle a tournament game.
    * Uses payoutRatios from the tournament session config to distribute the prize pool.
@@ -1196,6 +1315,10 @@ export const useGameStore = defineStore('game', () => {
     reentryPlayer,
     undoEliminationTx,
     undoReentryTx,
+    mysteryDraw,
+    mysteryUndoDraw,
+    mysteryFinalDraws,
+    updateMysteryEnvelopes,
     settleTournament,
     settleTournamentWithDeal,
     clearCurrentGame,
