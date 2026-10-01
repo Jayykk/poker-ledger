@@ -93,3 +93,15 @@ describe('TV stage reveal', () => {
     });
   }
 });
+
+describe('TV stage card on a phone', () => {
+  const stage = fs.readFileSync('src/components/tournament/MysteryStage.vue', 'utf8');
+  it('portrait screens get a wider card', () => {
+    expect(stage).toMatch(/s\.height > s\.width\s*\?\s*Math\.min\(s\.width \* 0\.8, s\.height \* 0\.4\)/);
+  });
+  it('the card text is sized off the card (--cw), not the screen height', () => {
+    expect(stage).toContain("cardEl.style.setProperty('--cw', `${W}px`);");
+    expect(stage).toMatch(/\.ms-card-amt \{[^}]*font-size: calc\(var\(--cw, 30cqw\) \* 0\.18\)/);
+    expect(stage).toMatch(/\.ms-card-name, \.ms-card-split \{[^}]*overflow-wrap: anywhere/);
+  });
+});
