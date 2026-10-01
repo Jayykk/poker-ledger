@@ -1,10 +1,21 @@
 import { initializeApp } from 'firebase/app';
 import { initializeAuth, browserLocalPersistence } from 'firebase/auth';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache } from 'firebase/firestore';
+import {
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
+  disableNetwork, enableNetwork,
+} from 'firebase/firestore';
 import { getFunctions } from 'firebase/functions';
 
 // Detect LINE's in-app browser (blocks IndexedDB / BroadcastChannel)
 const isLineClient = /Line\//i.test(navigator.userAgent);
+// iPhone / iPad home-screen app. iOS drops its IndexedDB connection while the
+// app sits in the background, which wedges Firestore's persistent cache:
+// reads never arrive (a room that won't load) and writes never resolve
+// (建立中 spinning forever). Same fix as the LINE webview: memory cache.
+const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIosHomeScreenApp = isIos && isStandalone;
 
 // Firebase configuration
 // Note: These credentials are safe to expose in client-side code as they identify
@@ -40,7 +51,7 @@ export const FIREBASE_PROJECT_ID = firebaseConfig.projectId;
 // Firestore: same issue — use memory cache in LINE browser.
 let db;
 try {
-  if (isLineClient) {
+  if (isLineClient || isIosHomeScreenApp) {
     db = initializeFirestore(app, { localCache: memoryLocalCache() }, FIRESTORE_DATABASE_ID);
   } else {
     db = initializeFirestore(app, {
@@ -54,6 +65,23 @@ try {
   db = initializeFirestore(app, { localCache: memoryLocalCache() }, FIRESTORE_DATABASE_ID);
 }
 export { db };
+
+// Back from the background after a while: start a fresh Firestore connection
+// (a stream that went stale while suspended can hang without erroring).
+const RECONNECT_AFTER_HIDDEN_MS = 20 * 1000;
+let hiddenAt = 0;
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now();
+      return;
+    }
+    if (hiddenAt && Date.now() - hiddenAt >= RECONNECT_AFTER_HIDDEN_MS) {
+      disableNetwork(db).then(() => enableNetwork(db)).catch((e) => console.warn('Firestore reconnect:', e));
+    }
+    hiddenAt = 0;
+  });
+}
 
 // Shared Functions instance pinned to the backend region. Import this
 // everywhere instead of calling getFunctions() so the region stays consistent.

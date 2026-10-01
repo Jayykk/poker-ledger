@@ -189,40 +189,80 @@ export const useGameStore = defineStore('game', () => {
     }
   };
 
+  // Waiting for a room's first snapshot (rooms show "loading", not "no room")
+  const gameLoading = ref(false);
+  // permission-denied retries (auth can still be restoring when a
+  // home-screen app reopens straight into a room)
+  let deniedRetries = 0;
+  let joinSeq = 0; // the latest joinGameListener call owns gameLoading
+  const MAX_DENIED_RETRIES = 3;
+  const FIRST_SNAPSHOT_TIMEOUT_MS = 10000;
+
   /**
-   * Join game listener (realtime updates)
+   * Join game listener (realtime updates). Resolves once the first snapshot
+   * is in (true = an active game is on screen), or false on error / after
+   * 10 s — the listener keeps running either way.
    */
-  const joinGameListener = async (id) => {
+  const joinGameListener = (id) => new Promise((resolve) => {
     if (unsubscribeGame) {
       unsubscribeGame();
       unsubscribeGame = null;
     }
-    if (id !== listenedGameId) localRev = 0;
+    if (id !== listenedGameId) {
+      localRev = 0;
+      deniedRetries = 0;
+    }
     listenedGameId = id;
+    const seq = ++joinSeq;
+    gameLoading.value = true;
+    let settled = false;
+    const settle = (ok) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(firstTimer);
+      if (seq === joinSeq) gameLoading.value = false;
+      resolve(ok);
+    };
+    const firstTimer = setTimeout(() => settle(false), FIRST_SNAPSHOT_TIMEOUT_MS);
 
     unsubscribeGame = onSnapshot(doc(db, 'games', id), (snap) => {
       if (snap.exists() && snap.data().status === GAME_STATUS.ACTIVE) {
         const data = snap.data();
         // Our own commit is already on screen — don't let a snapshot that
         // predates it roll the roster back.
-        if (gameId.value === snap.id && !isSnapshotCurrent(data.rev, localRev)) return;
+        if (gameId.value === snap.id && !isSnapshotCurrent(data.rev, localRev)) {
+          settle(!!game.value);
+          return;
+        }
         localRev = Number(data.rev) || 0;
         game.value = { id: snap.id, ...data };
         gameId.value = snap.id;
+        deniedRetries = 0;
         localStorage.setItem(STORAGE_KEYS.LAST_GAME_ID, id);
+        settle(true);
       } else {
         game.value = null;
         gameId.value = null;
         listenedGameId = null;
         localStorage.removeItem(STORAGE_KEYS.LAST_GAME_ID);
+        settle(false);
       }
     }, (err) => {
       // A dead listener leaves the screen frozen on stale data — retry.
       console.error('[game] snapshot error:', err);
       unsubscribeGame = null;
-      if (err?.code !== 'permission-denied') scheduleResubscribe();
+      if (err?.code !== 'permission-denied') {
+        scheduleResubscribe();
+      } else if (deniedRetries < MAX_DENIED_RETRIES) {
+        // Usually the sign-in is still being restored: try again shortly
+        deniedRetries += 1;
+        scheduleResubscribe(1500 * deniedRetries);
+      }
+      const retrying = !!resubscribeTimer;
+      settle(false);
+      if (retrying && seq === joinSeq) gameLoading.value = true;
     });
-  };
+  });
 
   const resubscribe = () => {
     if (resubscribeTimer) {
@@ -1312,6 +1352,7 @@ export const useGameStore = defineStore('game', () => {
     gap,
     createGame,
     joinGameListener,
+    gameLoading,
     checkGameStatus,
     joinByBinding,
     joinAsNewPlayer,

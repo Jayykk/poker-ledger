@@ -1,6 +1,6 @@
 <template>
   <!-- Loading -->
-  <div v-if="autoJoinLoading" class="h-[80vh] flex flex-col items-center justify-center text-gray-500 gap-4">
+  <div v-if="autoJoinLoading || (!game && gameLoading)" class="h-[80vh] flex flex-col items-center justify-center text-gray-500 gap-4">
     <LoadingSpinner :text="$t('loading.joining')" />
   </div>
 
@@ -346,7 +346,7 @@ const route = useRoute();
 const { user, displayName } = useAuth();
 const userStore = useUserStore();
 const gameStore = useGameStore();
-const { game, gameId, isHost, error: gameError } = storeToRefs(gameStore);
+const { game, gameId, isHost, error: gameError, gameLoading } = storeToRefs(gameStore);
 const {
   addPlayer, updatePlayer, removePlayer,
   checkGameStatus, joinAsNewPlayer, joinGameListener,
