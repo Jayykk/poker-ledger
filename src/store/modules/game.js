@@ -724,6 +724,15 @@ export const useGameStore = defineStore('game', () => {
    * the head, split equally; none → the head goes to the prize pool. The
    * bounty changes are logged on the record so undo reverses them exactly.
    */
+  /**
+   * May this device write the linked clock? The session rules allow the host
+   * and dealer-mode clocks. Anyone else in the room still records knockouts
+   * and re-entries on the roster; the host's device (startGameSync in
+   * useTournamentClock) brings the clock's counters — and its end — in line.
+   */
+  const canWriteSession = (sessionData) => !!sessionData
+    && (sessionData.hostUid === authStore.user?.uid || sessionData.dealerModeEnabled === true);
+
   const eliminatePlayer = async (playerId, { eliminatorIds = [] } = {}) => {
     if (!gameId.value) return false;
 
@@ -778,7 +787,7 @@ export const useGameStore = defineStore('game', () => {
               sessionUpdates['state.lastTickAt'] = null;
             }
 
-            transaction.update(sessionRef, sessionUpdates);
+            if (canWriteSession(sessionData)) transaction.update(sessionRef, sessionUpdates);
           }
         }
 
@@ -873,7 +882,7 @@ export const useGameStore = defineStore('game', () => {
         if (sessionId) {
           const sessionRef = doc(db, 'tournamentSessions', sessionId);
           const sessionSnap = await transaction.get(sessionRef);
-          if (sessionSnap.exists()) {
+          if (sessionSnap.exists() && canWriteSession(sessionSnap.data())) {
             transaction.update(sessionRef, {
               'state.playersRemaining': aliveAfter,
               ...(reopensTournament ? buildReopenedSessionUpdates(tx.restore?.sessionState) : {}),
@@ -935,7 +944,7 @@ export const useGameStore = defineStore('game', () => {
         if (sessionId) {
           const sessionRef = doc(db, 'tournamentSessions', sessionId);
           const sessionSnap = await transaction.get(sessionRef);
-          if (sessionSnap.exists()) {
+          if (sessionSnap.exists() && canWriteSession(sessionSnap.data())) {
             const st = sessionSnap.data().state || {};
             transaction.update(sessionRef, {
               'state.playersRemaining': aliveAfter,
@@ -977,6 +986,7 @@ export const useGameStore = defineStore('game', () => {
       const sessionId = game.value.tournamentSessionId;
       let cfg = {};
       let sessionRef = null;
+      let mayWriteSession = false;
 
       if (sessionId) {
         sessionRef = doc(db, 'tournamentSessions', sessionId);
@@ -984,6 +994,7 @@ export const useGameStore = defineStore('game', () => {
         if (sessionSnap.exists()) {
           const sessionData = sessionSnap.data();
           cfg = sessionData.config || {};
+          mayWriteSession = canWriteSession(sessionData);
           const st = sessionData.state || {};
 
           // Check level limit (session state is authoritative)
@@ -1049,7 +1060,7 @@ export const useGameStore = defineStore('game', () => {
       // and sets playersRemaining to the new count, then increment(1) overshoots by 1.
       // NOTE: playersRegistered is NOT incremented — re-entry revives an existing player,
       // it does not add a new unique participant.
-      if (sessionRef) {
+      if (sessionRef && mayWriteSession) {
         await updateDoc(sessionRef, {
           'state.playersRemaining': aliveAfterReentry,
           'state.reentries': increment(1),

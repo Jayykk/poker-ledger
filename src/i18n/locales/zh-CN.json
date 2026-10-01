@@ -1077,6 +1077,13 @@
     "watchTv": "看电视！",
     "watchTvHint": "揭晓中…",
     "yourTurn": "轮到你抽神秘赏金！",
-    "yourTurnHint": "点这里抽，结果在电视上揭晓"
+    "yourTurnHint": "点这里抽，结果在电视上揭晓",
+    "tvOn": "电视上正在显示锦标赛时钟",
+    "tvOff": "电视上没有开锦标赛时钟",
+    "tvOnHint": "暂停或休息时，等着抽的人可以用自己手机抽，电视会播放揭晓",
+    "yourDrawWaiting": "你有一个信封等着抽",
+    "waitForTv": "等房主在 iPad 打开锦标赛时钟（投到电视），并在暂停或休息时，就能在这里抽",
+    "waitForPause": "电视已经在显示时钟了，等暂停或休息时就能抽",
+    "manualByHost": "这场用实体信封，抽完后由房主登记"
   }
 }

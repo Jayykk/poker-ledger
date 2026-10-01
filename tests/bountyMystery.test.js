@@ -19,6 +19,7 @@ import {
   gamePrizePool,
   tournamentBountyView,
   canDrawTicket,
+  isTvOn,
 } from '../src/utils/bounty.js';
 import { buildTournamentSettlement, buildDealSettlement } from '../src/utils/settlementMath.js';
 import { applyElimination, applyReentry } from '../src/utils/tournamentElimination.js';
@@ -218,5 +219,22 @@ describe('who may draw, and when', () => {
     const drawn = setTicketEnvelope(players, 't', 1, 12345);
     expect(drawn[0].mysteryTickets[0]).toMatchObject({ envelope: 1, drawnAt: 12345 });
     expect(setTicketEnvelope(drawn, 't', null)[0].mysteryTickets[0]).toMatchObject({ envelope: null, drawnAt: null });
+  });
+});
+
+describe('drawing on your own phone while the clock is on the TV', () => {
+  const tk = { id: 't', by: ['a'], envelope: null };
+  it('needs the clock on the TV and a pause / break', () => {
+    expect(canDrawTicket(tk, { mySeatId: 'a', tvOn: true })).toBe(false);
+    expect(canDrawTicket(tk, { mySeatId: 'a', tvOn: true, clockPaused: true })).toBe(true);
+    expect(canDrawTicket(tk, { mySeatId: 'a', tvOn: true, onBreak: true })).toBe(true);
+    expect(canDrawTicket(tk, { mySeatId: 'a', tvOn: false, clockPaused: true })).toBe(false);
+    expect(canDrawTicket(tk, { mySeatId: 'b', tvOn: true, clockPaused: true })).toBe(false);
+  });
+
+  it('the clock screen counts as on for 75 s after its last report', () => {
+    expect(isTvOn({ at: 1000 }, 1000 + 74 * 1000)).toBe(true);
+    expect(isTvOn({ at: 1000 }, 1000 + 76 * 1000)).toBe(false);
+    expect(isTvOn(null)).toBe(false);
   });
 });

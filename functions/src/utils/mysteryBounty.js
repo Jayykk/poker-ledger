@@ -196,16 +196,24 @@ export function setTicketEnvelope(players, id, envelope, now = Date.now()) {
  * When may a draw be made, and by whom (the rules on the draw screens):
  *   - the host: while the clock is paused or on a break, or the TV stage is
  *     open (they're presenting it)
- *   - a player, for their own draw: only while the TV stage is open, and
- *     not with physical envelopes (the host records those)
- * @param {object} ctx { isHost, mySeatId, clockPaused, onBreak, stageOpen, drawMode }
+ *   - a player, for their own draw, with the clock on the TV (the host's
+ *     clock screen is open) and paused / on a break — or the TV stage open.
+ *     Not with physical envelopes (the host records those).
+ * @param {object} ctx { isHost, mySeatId, clockPaused, onBreak, stageOpen, tvOn, drawMode }
  */
 export function canDrawTicket(ticket, ctx = {}) {
   if (!ticket || (ticket.envelope !== null && ticket.envelope !== undefined)) return false;
-  if (ctx.isHost) return !!(ctx.clockPaused || ctx.onBreak || ctx.stageOpen);
+  const quiet = !!(ctx.clockPaused || ctx.onBreak);
+  if (ctx.isHost) return quiet || !!ctx.stageOpen;
   if (ctx.drawMode === 'manual') return false;
-  return !!ctx.stageOpen && (ticket.by || []).includes(ctx.mySeatId);
+  if (!(ticket.by || []).includes(ctx.mySeatId)) return false;
+  return !!ctx.stageOpen || (!!ctx.tvOn && quiet);
 }
+
+/** The clock screen reports itself every 30 s; a report this recent means it's up. */
+export const TV_PRESENCE_MS = 75 * 1000;
+export const isTvOn = (presence, now = Date.now()) =>
+  !!presence && Number(presence.at) > 0 && now - Number(presence.at) < TV_PRESENCE_MS;
 
 /** A random free slot (system draw). `random` returns [0, 1). */
 export function pickRandomSlot(bounty, players, random = Math.random) {

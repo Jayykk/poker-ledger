@@ -1077,6 +1077,13 @@
     "watchTv": "Watch the TV!",
     "watchTvHint": "Revealing…",
     "yourTurn": "Your mystery bounty draw!",
-    "yourTurnHint": "Tap to draw — it's revealed on the TV"
+    "yourTurnHint": "Tap to draw — it's revealed on the TV",
+    "tvOn": "The tournament clock is on the TV",
+    "tvOff": "The tournament clock isn't on the TV",
+    "tvOnHint": "While paused or on a break, players waiting can draw on their own phones; the TV shows the reveal",
+    "yourDrawWaiting": "You have an envelope to draw",
+    "waitForTv": "Once the host has the tournament clock on the TV and it's paused or on a break, you can draw here",
+    "waitForPause": "The clock is on the TV — you can draw once it's paused or on a break",
+    "manualByHost": "Physical envelopes this time — the host records what you draw"
   }
 }

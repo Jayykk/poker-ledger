@@ -25,8 +25,8 @@
         <div class="flex items-center gap-2">
           <span class="text-lg">📺</span>
           <div class="min-w-0 flex-1">
-            <div class="font-bold">{{ stageOpen ? $t('mystery.stageIsOpen') : $t('mystery.stageIsClosed') }}</div>
-            <div class="md-sub">{{ stageOpen ? $t('mystery.stageOpenHint') : $t('mystery.stageClosedHint') }}</div>
+            <div class="font-bold">{{ stageOpen ? $t('mystery.stageIsOpen') : tvOn ? $t('mystery.tvOn') : $t('mystery.tvOff') }}</div>
+            <div class="md-sub">{{ stageOpen ? $t('mystery.stageOpenHint') : tvOn ? $t('mystery.tvOnHint') : $t('mystery.stageClosedHint') }}</div>
           </div>
           <button v-if="isHost" type="button" class="md-tier-btn" :disabled="busy" @click="toggleStage">
             {{ stageOpen ? $t('mystery.closeStage') : $t('mystery.openStage') }}
@@ -36,6 +36,10 @@
           <input v-model="onTv" type="checkbox" class="accent-amber-500" />
           {{ $t('mystery.playOnTv') }}
         </label>
+      </div>
+      <div v-if="myBlockedHint" class="md-card md-status">
+        <div class="font-bold">🎁 {{ $t('mystery.yourDrawWaiting') }}</div>
+        <div class="md-sub">{{ myBlockedHint }}</div>
       </div>
       <div v-if="isHost && pending.length && !hostMayDraw" class="md-card md-status">
         <div class="font-bold">⏸ {{ $t('mystery.pauseFirst') }}</div>
@@ -140,7 +144,7 @@
 // draws (random, or records a physical envelope), can undo a draw, starts the
 // champion's / a deal's final draws, and can adjust the envelopes until the
 // first one is drawn. See functions/src/utils/mysteryBounty.js.
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
@@ -154,7 +158,7 @@ import { useAuthStore } from '../store/modules/auth.js';
 import { formatNumber } from '../utils/formatters.js';
 import {
   envelopeSlots, envelopeAmounts, envelopeTotalShare, remainingSlots, allTickets, freeSlotCount,
-  gameBountyPerEntry, bountyPool, mysteryPhaseActive, slotOfTier, canDrawTicket,
+  gameBountyPerEntry, bountyPool, mysteryPhaseActive, slotOfTier, canDrawTicket, isTvOn,
 } from '../utils/bounty.js';
 
 const route = useRoute();
@@ -202,6 +206,11 @@ const aliveCount = computed(() => players.value.filter((p) => !p.eliminated).len
 // ── who may draw now (canDrawTicket) ──
 const hasClock = computed(() => !!game.value?.tournamentSessionId);
 const stageOpen = computed(() => clock.session.value?.state?.mysteryStage?.open === true);
+// The clock is on the TV (its screen reports in every 30 s)
+const now = ref(Date.now());
+const nowTimer = setInterval(() => { now.value = Date.now(); }, 10 * 1000);
+onUnmounted(() => clearInterval(nowTimer));
+const tvOn = computed(() => isTvOn(clock.session.value?.state?.tvPresence, now.value));
 const mySeatId = computed(() => players.value.find((p) => p.uid && p.uid === authStore.user?.uid)?.id || null);
 const drawCtx = computed(() => ({
   isHost: isHost.value,
@@ -209,8 +218,16 @@ const drawCtx = computed(() => ({
   clockPaused: ['paused', 'waiting', 'ended'].includes(clock.status.value),
   onBreak: clock.isBreak.value,
   stageOpen: stageOpen.value,
+  tvOn: tvOn.value,
   drawMode: drawMode.value,
 }));
+// A player with a draw waiting who can't draw right now: say what it takes
+const myWaiting = computed(() => !isHost.value && pending.value.some((tk) => (tk.by || []).includes(mySeatId.value)));
+const myBlockedHint = computed(() => {
+  if (!myWaiting.value || pending.value.some((tk) => mayDraw(tk))) return '';
+  if (drawMode.value === 'manual') return t('mystery.manualByHost');
+  return tvOn.value ? t('mystery.waitForPause') : t('mystery.waitForTv');
+});
 const mayDraw = (tk) => canDrawTicket(tk, drawCtx.value);
 // Host: a running clock blocks draws from the phone (pause / break / stage)
 const hostMayDraw = computed(() => !hasClock.value || drawCtx.value.clockPaused || drawCtx.value.onBreak || stageOpen.value);
