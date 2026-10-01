@@ -41,7 +41,6 @@
       :ends-at="demoTimed && demoMode !== 'ended' ? '21:50' : ''"
       :cutoff-level="6"
       :show-settings-button="false"
-      :show-time-bank-button="false"
       @request-fullscreen="requestFullscreen"
     />
   </div>
