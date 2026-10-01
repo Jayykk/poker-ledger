@@ -1,5 +1,5 @@
 /**
- * useTableTemplates — a user's table templates (開桌範本) and blind-structure
+ * useTableTemplates — a user's table templates (開桌設定) and blind-structure
  * library (盲注結構).
  *
  * Stored at:

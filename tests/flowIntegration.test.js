@@ -282,7 +282,7 @@ describe('Lobby layout', () => {
       expect(lobbyContent).toContain("$t('lobby.tools')");
     });
 
-    it('lobby should link to 賽制設定 (structures) and 開桌範本 (templates)', () => {
+    it('lobby should link to 盲注結構 (structures) and 開桌設定 (templates)', () => {
       expect(lobbyContent).toContain("'/structures'");
       expect(lobbyContent).toContain("'/templates'");
     });
