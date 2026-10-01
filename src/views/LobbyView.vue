@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-8 px-4 pb-24">
+  <div class="pt-8 px-4 pb-nav">
     <h2 class="text-2xl font-bold text-white mb-6">{{ $t('lobby.title') }}</h2>
     
     <!-- Stats Card -->
@@ -174,19 +174,19 @@
         <h3 class="text-lg font-bold text-white">{{ $t('session.myEvents') }}</h3>
         <div class="flex items-center gap-3">
           <button
+            type="button"
+            @click="$router.push('/session-setup')"
+            class="text-sm text-sky-400 hover:text-sky-300 transition"
+          >
+            <i class="fas fa-plus text-xs"></i> {{ $t('session.createShort') }}
+          </button>
+          <button
             v-if="endedSessionsCount > 0"
             type="button"
             @click="$router.push('/session-history')"
             class="text-sm text-emerald-400 hover:text-emerald-300 transition"
           >
             {{ $t('session.historyEvents') }} <i class="fas fa-chevron-right text-xs"></i>
-          </button>
-          <button
-            type="button"
-            @click="$router.push('/session-setup')"
-            class="text-sm text-sky-400 hover:text-sky-300 transition"
-          >
-            <i class="fas fa-plus text-xs"></i> {{ $t('session.createShort') }}
           </button>
         </div>
       </div>

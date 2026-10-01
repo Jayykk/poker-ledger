@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-slate-900 text-white pb-24">
+  <div class="min-h-screen bg-slate-900 text-white pb-nav">
     <!-- Header -->
     <div class="sticky top-0 z-10 bg-slate-900/95 backdrop-blur border-b border-slate-700 px-4 py-3">
       <div class="flex items-center gap-3 max-w-2xl mx-auto">

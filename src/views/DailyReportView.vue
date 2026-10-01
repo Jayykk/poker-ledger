@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-8 px-4 pb-24">
+  <div class="pt-8 px-4 pb-nav">
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div class="flex items-center gap-3">

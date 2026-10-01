@@ -311,7 +311,7 @@ describe('Lobby layout', () => {
 
     it('events are always shown, with create and history in the header', () => {
       expect(lobbyContent).not.toContain('v-if="mySessions.length > 0 || endedSessionsCount > 0"');
-      expect(lobbyContent).toMatch(/session\.historyEvents[\s\S]*?'\/session-setup'[\s\S]*?session\.createShort/);
+      expect(lobbyContent).toMatch(/'\/session-setup'[\s\S]*?session\.createShort[\s\S]*?session\.historyEvents/);
       expect(lobbyContent).toContain("$t('session.noActiveEvents')");
     });
 

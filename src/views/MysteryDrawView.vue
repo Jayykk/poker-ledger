@@ -345,7 +345,7 @@ function goBack() {
 </script>
 
 <style scoped>
-.md-page { min-height: 100vh; padding: 1rem 1rem 7rem; max-width: 40rem; margin: 0 auto; }
+.md-page { min-height: 100vh; padding: 1rem 1rem calc(4rem + env(safe-area-inset-bottom, 0px) + 2rem); max-width: 40rem; margin: 0 auto; }
 .md-head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
 .md-title { font-size: 1.15rem; font-weight: 800; color: rgb(var(--tw-white)); }
 .md-sub { font-size: 0.75rem; color: rgb(var(--tw-slate-400)); }

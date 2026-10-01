@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-8 px-4 pb-24">
+  <div class="pt-8 px-4 pb-nav">
     <div class="flex items-center justify-between mb-6">
       <h2 class="text-2xl font-bold text-white">{{ $t('report.title') }}</h2>
       <router-link

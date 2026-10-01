@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-8 px-4 pb-24">
+  <div class="pt-8 px-4 pb-nav">
     <h2 class="text-2xl font-bold text-white mb-6">{{ $t('friends.title') }}</h2>
 
     <!-- Friend List Component -->
