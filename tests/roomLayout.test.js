@@ -145,7 +145,7 @@ describe('anyone in the room can record knockouts and re-entries', () => {
   });
 
   it('the room content lines up with the header and bottom bar', () => {
-    expect(tournamentRoom).toContain('class="pt-16 px-4 pb-44 max-w-md mx-auto"');
-    expect(cashRoom).toContain('class="pt-16 px-4 pb-44 max-w-md mx-auto"');
+    expect(tournamentRoom).toContain('class="pt-16 px-4 pb-44 w-full max-w-md mx-auto"');
+    expect(cashRoom).toContain('class="pt-16 px-4 pb-44 w-full max-w-md mx-auto"');
   });
 });

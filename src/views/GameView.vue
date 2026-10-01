@@ -10,7 +10,7 @@
     </BaseButton>
   </div>
   
-  <div v-else class="pt-16 px-4 pb-44 max-w-md mx-auto">
+  <div v-else class="pt-16 px-4 pb-44 w-full max-w-md mx-auto">
     <!-- Fixed header: total buy-in, share, host menu (解散房間) -->
     <RoomHeader
       :name="game.name"
