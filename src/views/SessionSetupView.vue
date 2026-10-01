@@ -453,7 +453,7 @@ function goBack() {
   min-height: 100vh;
   background: linear-gradient(135deg, rgb(var(--tw-slate-900)) 0%, rgb(var(--tw-slate-800)) 100%);
   /* clear the fixed bottom nav + FAB */
-  padding: 32px 16px 120px;
+  padding: 32px 16px calc(4rem + env(safe-area-inset-bottom, 0px) + 2rem);
 }
 
 .setup-card {

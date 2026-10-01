@@ -62,6 +62,12 @@ body.poker-game-active {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Pages under the bottom nav: its height (4rem) + the home indicator, plus a
+   margin so the last card can scroll clear of it */
+.pb-nav {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px) + 2rem);
+}
+
 /* Fix for Safari mobile bottom navigation */
 .fixed-bottom-nav {
   position: fixed;

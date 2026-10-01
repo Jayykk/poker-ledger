@@ -339,7 +339,7 @@ onUnmounted(() => { if (unsubGame) { unsubGame(); unsubGame = null; } });
 .session-view {
   min-height: 100vh;
   background: linear-gradient(135deg, rgb(var(--tw-slate-900)) 0%, rgb(var(--tw-slate-800)) 100%);
-  padding: 32px 16px 120px;
+  padding: 32px 16px calc(4rem + env(safe-area-inset-bottom, 0px) + 2rem);
   color: rgb(var(--tw-white));
 }
 .state-msg { max-width: 560px; margin: 80px auto; text-align: center; color: rgb(var(--tw-white) / 0.7); font-size: 18px; }

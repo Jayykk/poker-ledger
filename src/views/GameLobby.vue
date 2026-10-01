@@ -160,7 +160,7 @@ const handleCreateRoom = async () => {
 .game-lobby {
   min-height: 100vh;
   background: linear-gradient(135deg, rgb(var(--tw-slate-900)) 0%, rgb(var(--tw-slate-800)) 100%);
-  padding: 40px 20px;
+  padding: 40px 20px calc(4rem + env(safe-area-inset-bottom, 0px) + 2rem);
 }
 
 .lobby-header {

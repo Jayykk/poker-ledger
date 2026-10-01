@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-8 px-4 pb-24 text-center">
+  <div class="pt-8 px-4 pb-nav text-center">
     <!-- Avatar -->
     <div class="w-20 h-20 bg-slate-700 rounded-full mx-auto overflow-hidden flex items-center justify-center text-3xl mb-4">
       <img v-if="userAvatar" :src="userAvatar" :alt="displayName" class="w-full h-full object-cover rounded-full" />
