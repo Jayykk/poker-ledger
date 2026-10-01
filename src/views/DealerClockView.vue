@@ -50,7 +50,6 @@
         :ends-at="endsAt || ''"
         :cutoff-level="Number(config.reentryUntilLevel) || 0"
         @toggle-settings="showControls = !showControls"
-        @open-time-bank="showTimeBankFromClock"
         @request-fullscreen="requestFullscreen"
       />
 
@@ -92,7 +91,7 @@
 
 <script setup>
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { signInAnonymously } from 'firebase/auth';
 import { auth } from '../firebase-init.js';
@@ -111,7 +110,6 @@ import {
 } from '../utils/constants.js';
 
 const route = useRoute();
-const router = useRouter();
 const { t } = useI18n();
 const { error: showError } = useNotification();
 const { playSound } = useTournamentAudio();
@@ -217,11 +215,6 @@ function handleUpdatePlayers({ registered, remaining }) {
 async function handleEnd() {
   await endTournament();
   showControls.value = false;
-}
-
-function showTimeBankFromClock() {
-  const url = router.resolve('/time-bank/new').href;
-  window.open(url, '_blank');
 }
 
 function requestFullscreen() {

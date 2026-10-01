@@ -263,14 +263,6 @@
             <span class="text-white text-sm font-semibold">{{ $t('template.title') }}</span>
           </div>
         </BaseCard>
-        <BaseCard padding="md" clickable @click="$router.push('/time-bank/new')">
-          <div class="flex flex-col items-center gap-2 text-center py-1">
-            <div class="w-10 h-10 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg">
-              ⏱
-            </div>
-            <span class="text-white text-sm font-semibold">{{ $t('action.timeBank') }}</span>
-          </div>
-        </BaseCard>
         <BaseCard padding="md" clickable @click="$router.push('/admin/tables')">
           <div class="flex flex-col items-center gap-2 text-center py-1">
             <div class="w-10 h-10 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-lg">

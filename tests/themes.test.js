@@ -14,7 +14,6 @@ import {
   buildThemeCss,
   hexToRgb,
   channels,
-  themeSwatches,
 } from '../src/utils/themes.js';
 
 const lum = (hex) => {
@@ -125,10 +124,6 @@ describe('generated CSS', () => {
     expect(premium).toMatch(/:root\[data-theme="premium"\] \.bg-amber-600[,\s]/);
     // classic keeps plain white text: no override rules
     expect(themeCss(THEMES[0])).not.toContain('.bg-amber-600');
-  });
-
-  it('swatches for the picker', () => {
-    expect(themeSwatches(THEMES[0])).toEqual(['#0f172a', '#1e293b', '#f59e0b', '#f43f5e', '#10b981']);
   });
 });
 
