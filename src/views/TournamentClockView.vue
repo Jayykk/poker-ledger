@@ -42,8 +42,8 @@
       :average-stack="averageStack"
       :averageStackBB="Number(averageStackBB) || 0"
       :prize-pool="prizePool"
-      :bounty-per-head="bountyPerHead"
-      :bounty-label="config?.bounty?.type === 'pko' ? 'PKO' : 'KO'"
+      :bounty-per-head="config?.bounty?.type === 'mystery' ? entries * bountyPerHead : bountyPerHead"
+      :bounty-label="bountyLabel"
       :payouts="payouts"
     >
       <template #actions-left>
@@ -57,6 +57,9 @@
       <template #actions-right>
         <button v-if="isHost" @click="handleToggleDealerMode" class="hud-control-btn felt-btn" :class="{ 'dealer-active': dealerModeEnabled }" :title="$t('tournament.dealerMode')">
           <i class="fas fa-user-shield"></i>
+        </button>
+        <button v-if="config?.bounty?.type === 'mystery' && session?.gameId" @click="$router.push(`/mystery-draw/${session.gameId}`)" class="hud-control-btn felt-btn" :title="$t('mystery.title')">
+          🎁
         </button>
       </template>
     </FeltClockBoard>
@@ -87,8 +90,8 @@
       :average-stack="averageStack"
       :averageStackBB="Number(averageStackBB) || 0"
       :prize-pool="prizePool"
-      :bounty-per-head="bountyPerHead"
-      :bounty-label="config?.bounty?.type === 'pko' ? 'PKO' : 'KO'"
+      :bounty-per-head="config?.bounty?.type === 'mystery' ? entries * bountyPerHead : bountyPerHead"
+      :bounty-label="bountyLabel"
       :payouts="payouts"
     >
       <template #actions-left>
@@ -102,6 +105,9 @@
       <template #actions-right>
         <button v-if="isHost" @click="handleToggleDealerMode" class="hud-control-btn" :class="{ 'dealer-active': dealerModeEnabled }" :title="$t('tournament.dealerMode')">
           <i class="fas fa-user-shield"></i>
+        </button>
+        <button v-if="config?.bounty?.type === 'mystery' && session?.gameId" @click="$router.push(`/mystery-draw/${session.gameId}`)" class="hud-control-btn" :title="$t('mystery.title')">
+          🎁
         </button>
       </template>
     </ScoreboardClockBoard>
@@ -156,7 +162,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
@@ -199,6 +205,9 @@ const {
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
   updatePlayers, endTournament, toggleDealerMode, setClockStyle, cleanup,
 } = useTournamentClock();
+
+// Bounty pill on the clock faces: KO / PKO head, or the mystery pool
+const bountyLabel = computed(() => ({ pko: '🎯 PKO', mystery: `🎁 ${t('mystery.short')}` }[config.value?.bounty?.type] || '🎯 KO'));
 
 // Unlock audio on first interaction to prevent iOS blocking
 function _handleFirstInteraction() {

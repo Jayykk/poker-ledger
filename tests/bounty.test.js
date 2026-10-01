@@ -27,11 +27,11 @@ describe('bounty per entry', () => {
     expect(bountyPerEntry(null, 1000)).toBe(0);
   });
 
-  it('a game has a head value only when it is KO', () => {
+  it('a game has a bounty part only with a bounty format', () => {
     expect(gameBountyPerEntry({ bounty: KO, baseBuyIn: 1000 })).toBe(300);
     expect(gameBountyPerEntry({ baseBuyIn: 1000 })).toBe(0);
     expect(gameBountyPerEntry({ bounty: { type: 'pko', share: { value: 300 } }, baseBuyIn: 1000 })).toBe(300);
-    expect(gameBountyPerEntry({ bounty: { type: 'mystery', share: { value: 300 } }, baseBuyIn: 1000 })).toBe(0);
+    expect(gameBountyPerEntry({ bounty: { type: 'mystery', share: { value: 300 } }, baseBuyIn: 1000 })).toBe(300); // mystery: contribution to the envelopes
   });
 
   it('counts entries from the total buy-in', () => {

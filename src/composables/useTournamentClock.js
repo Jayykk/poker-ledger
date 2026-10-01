@@ -11,7 +11,7 @@ import {
   onSnapshot, serverTimestamp, increment,
 } from 'firebase/firestore';
 import { useAuthStore } from '../store/modules/auth.js';
-import { bountyPerEntry, isKnockoutBounty } from '../utils/bounty.js';
+import { bountyPerEntry, isKnockoutBounty, hasBountyPool } from '../utils/bounty.js';
 import {
   DEFAULT_STARTING_CHIPS, DEFAULT_REENTRY_LEVEL,
   DEFAULT_TOURNAMENT_LEVEL_DURATION,
@@ -182,7 +182,7 @@ export function useTournamentClock(options = {}) {
 
   // KO games: each entry puts bountyPerHead on the player's head; the rest
   // (plus heads nobody claimed) is the prize pool.
-  const bountyPerHead = computed(() => (isKnockoutBounty(config.value.bounty)
+  const bountyPerHead = computed(() => (hasBountyPool(config.value.bounty)
     ? bountyPerEntry(config.value.bounty, config.value.buyIn || 0)
     : 0));
   const prizePool = computed(() => {

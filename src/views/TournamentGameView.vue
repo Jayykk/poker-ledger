@@ -28,7 +28,7 @@
       badge="🏆"
       :value-label="$t('room.prizePool')"
       :value="`$${formatNumber(prizePool)}`"
-      :sub-value="bountyPerHead > 0 ? `🎯 ${$t(isPko ? 'bounty.startHead' : 'bounty.perHead', { amount: formatNumber(bountyPerHead) })}` : ''"
+      :sub-value="bountyPerHead > 0 ? (isMystery ? `🎁 ${$t('mystery.perHeadPool', { amount: formatNumber(mysteryPool) })}` : `🎯 ${$t(isPko ? 'bounty.startHead' : 'bounty.perHead', { amount: formatNumber(bountyPerHead) })}`) : ''"
       :is-host="isHost"
       :can-share-line="liffReady"
       @copy-id="handleCopyId"
@@ -120,6 +120,10 @@
       </button>
       <button type="button" class="bar-btn" @click="showHandRecord = true">
         <i class="fas fa-save"></i>{{ $t('room.hands') }}
+      </button>
+      <!-- Mystery: the draw screen (with how many draws are waiting) -->
+      <button v-if="isMystery" type="button" class="bar-btn" @click="$router.push(`/mystery-draw/${gameId}`)">
+        🎁<span v-if="mysteryPending > 0" class="font-bold text-amber-300">{{ mysteryPending }}</span>
       </button>
       <button v-if="isParticipant" type="button" class="bar-btn primary" @click="showSettlement = true">
         {{ $t('room.settle') }}
@@ -216,6 +220,10 @@
       </div>
 
       <!-- Warnings -->
+      <div v-if="isMystery && (mysteryPending > 0 || mysteryFinalMissing)" class="text-amber-400 text-center text-xs mb-4">
+        🎁 {{ mysteryPending > 0 ? $t('mystery.drawsPending') : $t('mystery.finalDraws') }}
+        <button type="button" class="underline ml-1" @click="$router.push(`/mystery-draw/${gameId}`)">{{ $t('mystery.open') }}</button>
+      </div>
       <div v-if="playersStillInPlay.length > 0" class="text-amber-400 text-center text-xs mb-4">
         <i class="fas fa-exclamation-triangle mr-1"></i>
         {{ playersStillInPlay.length }} {{ $t('tournament.inPlay') }}
@@ -225,7 +233,7 @@
       </div>
 
       <div class="grid gap-3">
-        <BaseButton @click="handleSettle" variant="primary" fullWidth :disabled="playersStillInPlay.length > 0">
+        <BaseButton @click="handleSettle" variant="primary" fullWidth :disabled="playersStillInPlay.length > 0 || mysteryPending > 0">
           {{ $t('common.confirm') }}
         </BaseButton>
         <BaseButton v-if="canDeal" @click="openDeal" variant="secondary" fullWidth>
@@ -241,6 +249,7 @@
       :candidates="knockoutCandidates"
       :per-entry="knockoutTarget ? (isPko ? headOf(knockoutTarget) : bountyPerHead) : 0"
       :cash-share="bountyCashShare(game?.bounty)"
+      :mystery="isMystery"
       :warning="knockoutWarning"
       @confirm="handleKnockoutConfirm"
     />
@@ -304,7 +313,8 @@ import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
 import { formatNumber } from '../utils/formatters.js';
 import { buildTournamentPrizeMap } from '../utils/settlementMath.js';
 import {
-  gameBountyPerEntry, gamePrizePool, finalBounty, headValue, isProgressiveBounty, bountyCashShare,
+  gameBountyPerEntry, gamePrizePool, headValue, isProgressiveBounty, bountyCashShare,
+  isMysteryBounty, mysteryPhaseActive, freeSlotCount, pendingTickets, bountyPool, tournamentBountyView,
 } from '../utils/bounty.js';
 import { DEFAULT_BUY_IN } from '../utils/constants.js';
 import { consumeSessionReturn } from '../utils/sessionReturn.js';
@@ -403,6 +413,22 @@ const bountyPerHead = computed(() => (game.value ? gameBountyPerEntry(game.value
 // PKO: heads grow, so rows and the knockout picker show each player's own head
 const isPko = computed(() => isProgressiveBounty(game.value?.bounty));
 const headOf = (player) => (isPko.value ? headValue(player, bountyPerHead.value) : 0);
+
+// Mystery bounty: draws start after the cutoff + start condition; knockouts
+// then earn a draw on the draw screen (MysteryDrawView)
+const isMystery = computed(() => isMysteryBounty(game.value?.bounty));
+const mysteryPool = computed(() => bountyPool(game.value?.players || [], game.value?.baseBuyIn, bountyPerHead.value));
+const mysteryPending = computed(() => (isMystery.value ? pendingTickets(game.value?.players || []).length : 0));
+const mysteryActive = computed(() => isMystery.value && mysteryPhaseActive(game.value.bounty, {
+  aliveBefore: activePlayers.value.length,
+  reentryClosed: !reentriesOpen.value,
+  level: clockLevel.value || 0,
+}) && freeSlotCount(game.value.bounty, game.value.players || []) > 0);
+// The champion hasn't drawn the last envelope yet (it would go to the prize pool)
+const mysteryFinalMissing = computed(() => isMystery.value
+  && (game.value?.players || []).some((p) => (p.mysteryTickets || []).length)
+  && freeSlotCount(game.value.bounty, game.value.players || []) > 0
+  && activePlayers.value.some((p) => !(p.mysteryTickets || []).some((tk) => tk.final)));
 const prizePool = computed(() => (game.value ? gamePrizePool(game.value) : 0));
 
 const payoutRatios = computed(() =>
@@ -530,6 +556,11 @@ const openDeal = () => {
   showDeal.value = true;
 };
 
+// Bounties per player (KO / PKO heads, or drawn mystery envelopes)
+const bountyView = computed(() => tournamentBountyView(
+  game.value?.players || [], game.value?.baseBuyIn, bountyPerHead.value, game.value?.bounty,
+));
+
 const settlementPlayers = computed(() => {
   if (!game.value) return [];
   // Same rounding as the settlement function (largest remainder)
@@ -540,7 +571,7 @@ const settlementPlayers = computed(() => {
     .map(p => {
       const prize = prizeMap[p.placement] || 0;
       // KO: heads collected + own head if still alive (the champion keeps it)
-      const bounty = finalBounty(p, bountyPerHead.value);
+      const bounty = bountyView.value.bountyOf(p);
       return {
         ...p,
         prize,
@@ -640,8 +671,9 @@ const handleKnockoutConfirm = (eliminatorIds) => {
 const handleEliminate = async (player) => {
   if (isChampion(player)) return;
 
-  // KO games ask who knocked them out (the modal is the confirmation)
-  if (bountyPerHead.value > 0) {
+  // KO games (and mystery games once draws have started) ask who knocked
+  // them out — the modal is the confirmation
+  if (bountyPerHead.value > 0 && (!isMystery.value || mysteryActive.value)) {
     knockoutTarget.value = player;
     showKnockout.value = true;
     return;
