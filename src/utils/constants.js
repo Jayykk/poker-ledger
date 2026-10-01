@@ -87,7 +87,8 @@ export const STORAGE_KEYS = {
   SOUND_ENABLED: 'poker_sound_enabled',
   NOTIFICATIONS_ENABLED: 'poker_notifications_enabled',
   LINE_NOTIFY_ENABLED: 'line_notify_enabled',
-  PENDING_INVITE: 'pending_invite'
+  PENDING_INVITE: 'pending_invite',
+  HIDE_CAREER_PROFIT: 'poker_hide_career_profit'
 };
 
 // Theme options

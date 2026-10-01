@@ -123,7 +123,9 @@
     "stats": {
       "totalProfit": "累計損益",
       "games": "ゲーム数",
-      "winRate": "勝率"
+      "winRate": "勝率",
+      "hideProfit": "通算損益を隠す",
+      "showProfit": "通算損益を表示"
     }
   },
   "game": {

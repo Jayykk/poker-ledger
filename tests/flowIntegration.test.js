@@ -566,3 +566,12 @@ describe('Game type and status constants usage', () => {
     expect(gameStoreContent).toMatch(/loadMyRooms[\s\S]*?GAME_STATUS\.ACTIVE/);
   });
 });
+
+describe('Lobby career profit can be hidden', () => {
+  it('has an eye toggle that masks the amount and remembers the choice', () => {
+    expect(lobbyContent).toContain('@click="toggleHideProfit"');
+    expect(lobbyContent).toContain("hideProfit ? '••••••' : formatNumber(stats.totalProfit)");
+    expect(lobbyContent).toContain('localStorage.setItem(STORAGE_KEYS.HIDE_CAREER_PROFIT');
+    expect(lobbyContent).toContain('localStorage.getItem(STORAGE_KEYS.HIDE_CAREER_PROFIT)');
+  });
+});
