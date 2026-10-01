@@ -130,6 +130,7 @@ export const useGameStore = defineStore('game', () => {
           id: Date.now().toString(),
           name: hostName,
           uid: authStore.user.uid,
+          ...(authStore.isGuest ? { isGuest: true } : {}),
           buyIn: parseInt(buyInAmount),
           stack: 0
         }]
@@ -439,7 +440,12 @@ export const useGameStore = defineStore('game', () => {
         const newPlayers = players.map(p => {
           if (p.id === playerId) {
             if (p.uid) throw new Error('Seat already taken');
-            return { ...p, uid: authStore.user.uid, name: authStore.displayName };
+            return {
+              ...p,
+              uid: authStore.user.uid,
+              name: authStore.displayName,
+              ...(authStore.isGuest ? { isGuest: true } : {}),
+            };
           }
           return p;
         });
@@ -484,6 +490,7 @@ export const useGameStore = defineStore('game', () => {
           id: Date.now().toString(),
           name: finalName,
           uid: authStore.user.uid,
+          ...(authStore.isGuest ? { isGuest: true } : {}),
           buyIn: parseInt(buyInAmount),
           stack: 0
         };

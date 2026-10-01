@@ -6,6 +6,8 @@
 
 <script setup>
 // Room actions pinned above the app's bottom navigation (h-16 + safe area).
+// The nav's centre "+" rises 1.5rem above it, so the bar's bottom padding
+// leaves room for it and the buttons sit clear of it.
 </script>
 
 <style scoped>
@@ -20,7 +22,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.55rem 1rem;
+  padding: 0.55rem 1rem calc(0.55rem + 1.75rem);
   background: rgb(var(--tw-slate-900) / 0.94);
   backdrop-filter: blur(8px);
   border-top: 1px solid rgb(var(--tw-slate-700));

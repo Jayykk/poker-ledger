@@ -13,7 +13,7 @@
   </div>
 
   <!-- Main view -->
-  <div v-else class="pt-16 px-4 pb-40">
+  <div v-else class="pt-16 px-4 pb-44">
     <div v-if="isSyncingHistory" class="mb-3 rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
       <div class="flex items-center gap-2">
         <i class="fas fa-spinner fa-spin"></i>
@@ -308,6 +308,7 @@ import {
 } from '../utils/bounty.js';
 import { DEFAULT_BUY_IN } from '../utils/constants.js';
 import { consumeSessionReturn } from '../utils/sessionReturn.js';
+import { canRenamePlayer } from '../utils/ledgerOps.js';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -693,6 +694,7 @@ const handleReentry = async (player) => {
 };
 
 const handleEditPlayer = (player) => {
+  if (!canRenamePlayer(player)) return;
   editingPlayer.value = { ...player };
   showEditPlayer.value = true;
 };

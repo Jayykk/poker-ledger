@@ -58,6 +58,29 @@ describe('row ⋯ menu', () => {
   });
 });
 
+describe('rename rule and bottom bar spacing', () => {
+  const bar = read('src/components/game/RoomActionBar.vue');
+  const gameStore = read('src/store/modules/game.js');
+
+  it('only hand-added and guest seats can be renamed', async () => {
+    const { canRenamePlayer } = await import('../src/utils/ledgerOps.js');
+    expect(canRenamePlayer({ uid: null, name: 'Player' })).toBe(true);
+    expect(canRenamePlayer({ uid: 'anon1', isGuest: true })).toBe(true);
+    expect(canRenamePlayer({ uid: 'line_123' })).toBe(false);
+    expect(row).toContain('v-if="canRename" type="button" @click="pick(\'edit\')"');
+    expect(tournamentRoom).toMatch(/const handleEditPlayer = \(player\) => \{\s*if \(!canRenamePlayer\(player\)\) return;/);
+  });
+
+  it('seats remember a guest login when they are created', () => {
+    const guestFlags = gameStore.match(/\.\.\.\(authStore\.isGuest \? \{ isGuest: true \} : \{\}\)/g) || [];
+    expect(guestFlags.length).toBe(3); // host seat, bound seat, new seat
+  });
+
+  it('the bottom bar leaves room for the nav\'s raised + button', () => {
+    expect(bar).toContain('padding: 0.55rem 1rem calc(0.55rem + 1.75rem);');
+  });
+});
+
 describe('cash room layout', () => {
   const cashRow = read('src/components/game/PlayerCard.vue');
 
