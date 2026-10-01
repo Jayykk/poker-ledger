@@ -288,13 +288,13 @@ describe('Lobby layout', () => {
       expect(lobbyContent).toContain("'/templates'");
     });
 
-    it('lobby should have time-bank link', () => {
-      expect(lobbyContent).toContain("'/time-bank/new'");
+    it('Time Bank is no longer linked from the lobby', () => {
+      expect(lobbyContent).not.toContain("'/time-bank/new'");
     });
 
     it('lobby tools should show tournamentSetup and timeBank labels', () => {
       expect(lobbyContent).toContain("$t('action.tournamentSetup')");
-      expect(lobbyContent).toContain("$t('action.timeBank')");
+      expect(lobbyContent).not.toContain("$t('action.timeBank')");
     });
 
     it('lobby should use 2-column grid for tools', () => {
@@ -471,9 +471,9 @@ describe('Tournament clock view', () => {
       expect(clockViewContent).toContain('fa-arrow-left');
     });
 
-    it('should have time-bank shortcut button for host', () => {
-      expect(clockViewContent).toContain('showTimeBankFromClock');
-      expect(clockViewContent).toContain('fa-hourglass-half');
+    it('no longer links to Time Bank', () => {
+      expect(clockViewContent).not.toContain('showTimeBankFromClock');
+      expect(clockViewContent).not.toContain('fa-hourglass-half');
     });
 
     it('host controls should be gated by isHost', () => {

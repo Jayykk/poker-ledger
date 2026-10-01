@@ -86,9 +86,6 @@
             class="theme-opt"
             :class="{ active: currentTheme === th.id }"
           >
-            <span class="theme-swatches">
-              <span v-for="(c, i) in th.swatches" :key="i" :style="{ background: c }"></span>
-            </span>
             <span class="flex items-center justify-between gap-1">
               <span class="text-sm font-semibold text-white">{{ $t(`profile.themes.${th.id}.name`) }}</span>
               <i v-if="currentTheme === th.id" class="fas fa-check text-amber-400 text-xs"></i>
@@ -173,7 +170,7 @@ import BaseCard from '../components/common/BaseCard.vue';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import { STORAGE_KEYS } from '../utils/constants.js';
-import { THEMES as THEME_LIST, applyTheme, resolveThemeId, themeSwatches } from '../utils/themes.js';
+import { THEMES as THEME_LIST, applyTheme, resolveThemeId } from '../utils/themes.js';
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -187,7 +184,7 @@ const isLineUser = computed(() => user.value?.uid?.startsWith('line_') ?? false)
 
 const selectedLanguage = ref(locale.value);
 const currentTheme = ref(resolveThemeId(localStorage.getItem(STORAGE_KEYS.THEME)));
-const themeOptions = THEME_LIST.map((th) => ({ id: th.id, swatches: themeSwatches(th) }));
+const themeOptions = THEME_LIST.map((th) => ({ id: th.id }));
 const soundEnabled = ref(localStorage.getItem(STORAGE_KEYS.SOUND_ENABLED) !== 'false');
 
 const upgradeForm = ref({
@@ -275,8 +272,6 @@ const handleLogout = async () => {
   background: rgb(var(--tw-slate-900) / 0.5);
 }
 .theme-opt.active { border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.08); }
-.theme-swatches { display: flex; gap: 3px; }
-.theme-swatches span { flex: 1; height: 14px; border-radius: 4px; border: 1px solid rgb(0 0 0 / 0.15); }
 .expand-enter-active,
 .expand-leave-active {
   transition: all 0.3s ease;

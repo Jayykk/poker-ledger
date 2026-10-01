@@ -61,9 +61,6 @@
         <button v-if="config?.bounty?.type === 'mystery' && session?.gameId" @click="$router.push(`/mystery-draw/${session.gameId}`)" class="hud-control-btn felt-btn" :title="$t('mystery.title')">
           🎁
         </button>
-        <button v-if="isHost" @click="showTimeBankFromClock" class="hud-control-btn felt-btn" :title="$t('timeBank.title')">
-          <i class="fas fa-hourglass-half"></i>
-        </button>
       </template>
     </FeltClockBoard>
 
@@ -111,9 +108,6 @@
         </button>
         <button v-if="config?.bounty?.type === 'mystery' && session?.gameId" @click="$router.push(`/mystery-draw/${session.gameId}`)" class="hud-control-btn" :title="$t('mystery.title')">
           🎁
-        </button>
-        <button v-if="isHost" @click="showTimeBankFromClock" class="hud-control-btn" :title="$t('timeBank.title')">
-          <i class="fas fa-hourglass-half"></i>
         </button>
       </template>
     </ScoreboardClockBoard>
@@ -279,12 +273,6 @@ function handleUpdatePlayers({ registered, remaining }) {
 async function handleEnd() {
   await endTournament();
   showControls.value = false;
-}
-
-function showTimeBankFromClock() {
-  // Open time bank in a new window/tab so clock keeps running
-  const url = router.resolve('/time-bank/new').href;
-  window.open(url, '_blank');
 }
 
 async function handleToggleDealerMode() {

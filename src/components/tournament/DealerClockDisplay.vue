@@ -37,9 +37,6 @@
         </button>
       </template>
       <template #actions-right>
-        <button v-if="showTimeBankButton" class="dc-btn felt" :title="$t('timeBank.title')" @click="$emit('open-time-bank')">
-          <i class="fas fa-hourglass-half"></i>
-        </button>
         <button v-if="showFullscreenButton" class="dc-btn felt" @click="$emit('request-fullscreen')">
           <i class="fas fa-expand"></i>
         </button>
@@ -88,9 +85,6 @@
         </span>
       </template>
       <template #actions-right>
-        <button v-if="showTimeBankButton" class="dc-btn" :title="$t('timeBank.title')" @click="$emit('open-time-bank')">
-          <i class="fas fa-hourglass-half"></i>
-        </button>
         <button v-if="showFullscreenButton" class="dc-btn" @click="$emit('request-fullscreen')">
           <i class="fas fa-expand"></i>
         </button>
@@ -104,7 +98,7 @@
 import FeltClockBoard from './FeltClockBoard.vue';
 import ScoreboardClockBoard from './ScoreboardClockBoard.vue';
 
-defineEmits(['toggle-settings', 'open-time-bank', 'request-fullscreen']);
+defineEmits(['toggle-settings', 'request-fullscreen']);
 
 defineProps({
   title: { type: String, default: 'Tournament' },
@@ -132,7 +126,6 @@ defineProps({
   payouts: { type: Array, default: () => [] },
   showDealerBadge: { type: Boolean, default: true },
   showSettingsButton: { type: Boolean, default: true },
-  showTimeBankButton: { type: Boolean, default: true },
   showFullscreenButton: { type: Boolean, default: true },
   // Face style ('classic' → scoreboard | 'felt') + what the faces need
   clockStyle: { type: String, default: 'classic' },
