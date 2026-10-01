@@ -6,12 +6,24 @@
     <BaseCard variant="gradient" padding="lg" class="mb-6">
       <div class="flex justify-between items-start mb-4">
         <div>
-          <div class="text-xs text-gray-400">{{ $t('lobby.stats.totalProfit') }}</div>
+          <div class="flex items-center gap-2 text-xs text-gray-400">
+            {{ $t('lobby.stats.totalProfit') }}
+            <!-- 👁 hide / show — remembered, so the lobby can open hidden -->
+            <button
+              type="button"
+              class="profit-eye"
+              :aria-label="hideProfit ? $t('lobby.stats.showProfit') : $t('lobby.stats.hideProfit')"
+              :aria-pressed="hideProfit"
+              @click="toggleHideProfit"
+            >
+              <i class="fas" :class="hideProfit ? 'fa-eye-slash' : 'fa-eye'"></i>
+            </button>
+          </div>
           <div
             class="text-3xl font-mono font-bold"
-            :class="stats.totalProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'"
+            :class="hideProfit ? 'text-gray-400' : (stats.totalProfit >= 0 ? 'text-emerald-400' : 'text-rose-400')"
           >
-            {{ formatNumber(stats.totalProfit) }}
+            {{ hideProfit ? '••••••' : formatNumber(stats.totalProfit) }}
           </div>
         </div>
         <div class="text-right">
@@ -561,7 +573,7 @@ import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
 import { formatNumber, formatShortDate } from '../utils/formatters.js';
-import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP, GAME_TYPE } from '../utils/constants.js';
+import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP, GAME_TYPE, STORAGE_KEYS } from '../utils/constants.js';
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
 import {
   TEMPLATE_KIND, normalizeTemplate, templateFromBuiltInTournament,
@@ -594,6 +606,16 @@ const {
 } = useInvitation();
 
 const stats = computed(() => userStore.stats);
+
+// Career P&L can be hidden (the 👁 next to it); the choice is remembered.
+const readHideProfit = () => {
+  try { return localStorage.getItem(STORAGE_KEYS.HIDE_CAREER_PROFIT) === '1'; } catch { return false; }
+};
+const hideProfit = ref(readHideProfit());
+const toggleHideProfit = () => {
+  hideProfit.value = !hideProfit.value;
+  try { localStorage.setItem(STORAGE_KEYS.HIDE_CAREER_PROFIT, hideProfit.value ? '1' : '0'); } catch { /* private mode */ }
+};
 const myRooms = computed(() => gameStore.myRooms);
 
 const showCreateModal = ref(false);
@@ -971,6 +993,14 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.profit-eye {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  color: rgb(var(--tw-gray-400));
+  background: rgb(var(--tw-white) / 0.06);
+}
+.profit-eye:hover { color: rgb(var(--tw-white)); }
 /* Smooth expansion for sections that appear after async data arrives (e.g.
    "My events"): animate height + opacity so the content below slides down
    instead of being shoved in a single frame. */

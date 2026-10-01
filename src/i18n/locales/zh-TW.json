@@ -123,7 +123,9 @@
     "stats": {
       "totalProfit": "生涯損益",
       "games": "場次",
-      "winRate": "勝率"
+      "winRate": "勝率",
+      "hideProfit": "隱藏生涯損益",
+      "showProfit": "顯示生涯損益"
     }
   },
   "game": {

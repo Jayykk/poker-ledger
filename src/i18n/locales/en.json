@@ -123,7 +123,9 @@
     "stats": {
       "totalProfit": "Total Profit",
       "games": "Games",
-      "winRate": "Win Rate"
+      "winRate": "Win Rate",
+      "hideProfit": "Hide career profit",
+      "showProfit": "Show career profit"
     }
   },
   "game": {
