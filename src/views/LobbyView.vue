@@ -556,7 +556,7 @@ const { createGame, checkGameStatus, joinByBinding, joinAsNewPlayer, joinGameLis
 const userStore = useUserStore();
 const { success, error: showError } = useNotification();
 const { sendInvitationNotification } = usePushNotification();
-const { withLoading } = useLoading();
+const { withLoading, stopLoading } = useLoading();
 
 // Invitation composable
 const {
@@ -764,10 +764,13 @@ const decrementCreateBuyIn = () => {
   }
 };
 
+// A stuck connection would leave "建立中" over the screen forever
+const CREATE_TIMEOUT_MS = 20 * 1000;
+
 const handleCreateGame = async () => {
   if (isCreating.value) return;
   isCreating.value = true;
-  await withLoading(async () => {
+  const work = withLoading(async () => {
     // Every table starts from a template: the picked one, or (custom cash)
     // one made from the chips / amount entered here.
     const tournament = selectedGameType.value === 'tournament';
@@ -803,7 +806,22 @@ const handleCreateGame = async () => {
       router.push(type === GAME_TYPE.TOURNAMENT ? '/tournament-game' : '/game');
     }
   }, t('loading.creating'));
-  isCreating.value = false;
+  let timer = null;
+  try {
+    const stuck = await Promise.race([
+      work.then(() => false),
+      new Promise((r) => { timer = setTimeout(() => r(true), CREATE_TIMEOUT_MS); }),
+    ]);
+    if (stuck) {
+      // The write may still land: say so, and free the screen
+      stopLoading();
+      showCreateModal.value = false;
+      showError(t('lobby.createStuck'));
+    }
+  } finally {
+    clearTimeout(timer);
+    isCreating.value = false;
+  }
 };
 
 const handleCheckGame = async () => {

@@ -126,7 +126,8 @@
       "winRate": "胜率",
       "hideProfit": "隐藏生涯损益",
       "showProfit": "显示生涯损益"
-    }
+    },
+    "createStuck": "连接好像卡住了。房间可能已经建好，请关掉 App 重新打开，先看看「我的房间」再决定要不要重建"
   },
   "game": {
     "title": "牌局",

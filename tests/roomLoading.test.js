@@ -92,3 +92,22 @@ describe('charts', () => {
     expect(c).not.toMatch(/const chartInstance = ref\(/);
   });
 });
+
+describe('a stuck connection never freezes the screen', () => {
+  const init = readFileSync(resolve(__dirname, '..', 'src/firebase-init.js'), 'utf-8');
+  const lobby = readFileSync(resolve(__dirname, '..', 'src/views/LobbyView.vue'), 'utf-8');
+
+  it('the iOS home-screen app uses the memory cache, like the LINE webview', () => {
+    expect(init).toContain('if (isLineClient || isIosHomeScreenApp) {');
+    expect(init).toMatch(/isIosHomeScreenApp = isIos && isStandalone/);
+  });
+
+  it('back from the background (20 s+): a fresh Firestore connection', () => {
+    expect(init).toMatch(/RECONNECT_AFTER_HIDDEN_MS[\s\S]*?disableNetwork\(db\)\.then\(\(\) => enableNetwork\(db\)\)/);
+  });
+
+  it('creating a table gives up waiting after 20 s and frees the screen', () => {
+    expect(lobby).toMatch(/Promise\.race\(\[[\s\S]*?CREATE_TIMEOUT_MS[\s\S]*?if \(stuck\) \{[\s\S]*?stopLoading\(\);[\s\S]*?lobby\.createStuck/);
+    expect(lobby).toMatch(/finally \{\s*clearTimeout\(timer\);\s*isCreating\.value = false;/);
+  });
+});

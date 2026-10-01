@@ -126,7 +126,8 @@
       "winRate": "Win Rate",
       "hideProfit": "Hide career profit",
       "showProfit": "Show career profit"
-    }
+    },
+    "createStuck": "The connection seems stuck. The table may already exist — reopen the app and check My rooms before creating it again"
   },
   "game": {
     "title": "Game",
