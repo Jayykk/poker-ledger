@@ -1089,5 +1089,14 @@
     "waitForPause": "The clock is on the TV — you can draw once it's paused or on a break",
     "manualByHost": "Physical envelopes this time — the host records what you draw",
     "drawFailed": "The draw didn't go through — tap again"
+  },
+  "share": {
+    "invite": "Share invite link",
+    "copied": "Copied — paste it into LINE or any app",
+    "failed": "Couldn't share. Copy the room ID instead",
+    "settledTitle": "Settled",
+    "settledAsk": "Share the results?",
+    "shareResult": "Share results",
+    "noThanks": "Not now"
   }
 }

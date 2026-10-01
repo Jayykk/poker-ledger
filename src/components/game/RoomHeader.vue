@@ -25,7 +25,8 @@
         </button>
         <div v-if="open === 'share'" class="hdr-menu">
           <button type="button" @click="pick('copy-id')"><i class="fas fa-copy w-4"></i>{{ $t('room.copyId') }}</button>
-          <button v-if="canShareLine" type="button" class="text-[#06C755]" @click="pick('share-line')"><i class="fab fa-line w-4"></i>{{ $t('room.lineInvite') }}</button>
+          <button v-if="inLine" type="button" class="text-[#06C755]" @click="pick('share-invite')"><i class="fab fa-line w-4"></i>{{ $t('room.lineInvite') }}</button>
+          <button v-else type="button" @click="pick('share-invite')"><i class="fas fa-share-square w-4"></i>{{ $t('share.invite') }}</button>
         </div>
       </div>
 
@@ -58,9 +59,11 @@ defineProps({
   value: { type: String, default: '' },
   subValue: { type: String, default: '' },
   isHost: { type: Boolean, default: false },
-  canShareLine: { type: Boolean, default: false },
+  // Running inside LINE: the invite goes out as a LINE card; elsewhere
+  // through the system share sheet (useShare)
+  inLine: { type: Boolean, default: false },
 });
-const emit = defineEmits(['copy-id', 'share-line', 'close-room']);
+const emit = defineEmits(['copy-id', 'share-invite', 'close-room']);
 
 const open = ref(null);
 const toggle = (menu) => { open.value = open.value === menu ? null : menu; };

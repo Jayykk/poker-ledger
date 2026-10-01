@@ -30,9 +30,9 @@
       :value="`$${formatNumber(prizePool)}`"
       :sub-value="bountyPerHead > 0 ? (isMystery ? `🎁 ${$t('mystery.perHeadPool', { amount: formatNumber(mysteryPool) })}` : `🎯 ${$t(isPko ? 'bounty.startHead' : 'bounty.perHead', { amount: formatNumber(bountyPerHead) })}`) : ''"
       :is-host="isHost"
-      :can-share-line="liffReady"
+      :in-line="isInLineClient"
       @copy-id="handleCopyId"
-      @share-line="handleShareToLine"
+      @share-invite="handleShareInvite"
       @close-room="handleCloseGame"
     />
 
@@ -310,6 +310,8 @@ import { useLiff } from '../composables/useLiff.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
+import { useShare, appLink } from '../composables/useShare.js';
+import { inviteText, tournamentSettlementText } from '../utils/shareText.js';
 import { useLoading } from '../composables/useLoading.js';
 import { useUserStore } from '../store/modules/user.js';
 import BaseButton from '../components/common/BaseButton.vue';
@@ -351,7 +353,8 @@ const {
   closeGame, eliminatePlayer, reentryPlayer, settleTournament, settleTournamentWithDeal, clearCurrentGame,
   undoEliminationTx, undoReentryTx,
 } = gameStore;
-const { sendBuyInMessage, sendUndoMessage, sendTournamentSettlementMessage, shareGameInvite, isInitialized: liffReady } = useLiff();
+const { sendBuyInMessage, sendUndoMessage, sendTournamentSettlementMessage, shareGameInvite, isInLineClient } = useLiff();
+const { shareOut } = useShare();
 const { success, warning, error: showError, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
@@ -846,16 +849,27 @@ const handleCopyId = async () => {
   await copyWithNotification(game.value.id, t('game.copyId'));
 };
 
-const handleShareToLine = async () => {
-  const shared = await shareGameInvite(
-    game.value.name,
-    game.value.id,
-    game.value.hostName || displayName.value,
-    true,
-  );
-  if (shared) {
-    success(t('game.shareSuccess'));
+// Invite: a LINE card inside LINE, else the system share sheet
+const handleShareInvite = async () => {
+  if (isInLineClient.value) {
+    const shared = await shareGameInvite(
+      game.value.name,
+      game.value.id,
+      game.value.hostName || displayName.value,
+      true,
+    );
+    if (shared) success(t('game.shareSuccess'));
+    return;
   }
+  await shareOut({
+    title: game.value.name,
+    text: inviteText({
+      gameName: game.value.name,
+      hostName: game.value.hostName || displayName.value,
+      isTournament: true,
+      url: appLink(`tournament-game/${game.value.id}`),
+    }),
+  });
 };
 
 const findTxPlayer = (tx) => game.value?.players?.find(
@@ -963,11 +977,29 @@ const finalizeSettlement = async (settleResult) => {
   if (syncResult.source === 'timeout') {
     warning(t('loading.syncingPending'));
   }
-  sendTournamentSettlementMessage({
-    gameName,
-    gameId: gId,
-    players: settleResult.settlement,
-  });
+  if (isInLineClient.value) {
+    // Inside LINE: the result card goes to this chat
+    sendTournamentSettlementMessage({
+      gameName,
+      gameId: gId,
+      players: settleResult.settlement,
+    });
+  } else if (await confirm({
+    title: t('share.settledTitle'),
+    message: t('share.settledAsk'),
+    confirmText: t('share.shareResult'),
+    cancelText: t('share.noThanks'),
+    type: 'info',
+  })) {
+    await shareOut({
+      title: gameName,
+      text: tournamentSettlementText({
+        gameName,
+        players: settleResult.settlement,
+        url: gId ? appLink(`report/${gId}`) : undefined,
+      }),
+    });
+  }
   const back = consumeSessionReturn(gId);
   clearCurrentGame();
   router.push(back || '/report');
