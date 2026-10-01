@@ -283,13 +283,19 @@ async function sequence(tk) {
   const s = stageEl.getBoundingClientRect();
   const r = src ? src.getBoundingClientRect() : { left: s.left + s.width / 2, top: s.top + s.height / 2, width: 10, height: 10 };
   // Final card: about a third of the stage wide
-  const W = Math.min(s.width * 0.34, s.height * 0.62);
+  // Landscape (the TV): about a third of the stage wide. Portrait (a phone):
+  // most of its width, so the amount and names fit
+  const W = s.height > s.width
+    ? Math.min(s.width * 0.8, s.height * 0.4)
+    : Math.min(s.width * 0.34, s.height * 0.62);
   const H = W * 0.72;
   const fromX = r.left - s.left + r.width / 2 - W / 2;
   const fromY = r.top - s.top + r.height / 2 - H / 2;
   const toX = s.width / 2 - W / 2;
   const toY = s.height / 2 - H / 2;
   Object.assign(cardEl.style, { width: `${W}px`, height: `${H}px`, left: '0px', top: '0px', display: 'block' });
+  // The card's text is sized off the card itself (--cw), not the screen
+  cardEl.style.setProperty('--cw', `${W}px`);
   const scale0 = r.width / W;
   flown.value = true;
 
@@ -534,16 +540,16 @@ onUnmounted(() => {
   clip-path: polygon(0 0, 100% 0, 50% 100%);
   border-radius: 1.4cqw 1.4cqw 0 0;
 }
-.ms-q-mark { position: relative; font-size: 9cqh; font-weight: 900; line-height: 1; color: #fff7dc; text-shadow: 0 0.5cqh 1.5cqh rgba(0, 0, 0, 0.35); }
+.ms-q-mark { position: relative; font-size: calc(var(--cw, 30cqw) * 0.15); font-weight: 900; line-height: 1; color: #fff7dc; text-shadow: 0 0.5cqh 1.5cqh rgba(0, 0, 0, 0.35); }
 .ms-card-front {
   transform: rotateY(180deg);
   background: linear-gradient(160deg, #fffaf0, #f4e6c4);
   box-shadow: 0 0 6cqh rgba(245, 196, 81, 0.65), 0 2cqh 5cqh rgba(0, 0, 0, 0.5);
 }
-.ms-card-amt { font-family: 'JetBrains Mono', monospace; font-size: 11cqh; font-weight: 900; color: #b07d10; line-height: 1; font-variant-numeric: tabular-nums; }
+.ms-card-amt { font-family: 'JetBrains Mono', monospace; font-size: calc(var(--cw, 30cqw) * 0.18); max-width: 92%; font-weight: 900; color: #b07d10; line-height: 1; font-variant-numeric: tabular-nums; }
 .ms-q-mark.ms-card-hidden { color: #c9a44e; text-shadow: none; }
-.ms-card-name, .ms-card-split { margin-top: 1.6cqh; font-size: 3.2cqh; font-weight: 800; color: #3a2a08; opacity: 0; transform: translateY(1cqh); transition: all 0.5s; }
-.ms-card-split { font-size: 2.2cqh; font-weight: 600; margin-top: 0.6cqh; }
+.ms-card-name, .ms-card-split { max-width: 90%; text-align: center; overflow-wrap: anywhere; line-height: 1.3; margin-top: calc(var(--cw, 30cqw) * 0.026); font-size: calc(var(--cw, 30cqw) * 0.053); font-weight: 800; color: #3a2a08; opacity: 0; transform: translateY(1cqh); transition: all 0.5s; }
+.ms-card-split { font-size: calc(var(--cw, 30cqw) * 0.036); font-weight: 600; margin-top: calc(var(--cw, 30cqw) * 0.01); }
 .ms-card-name.on, .ms-card-split.on { opacity: 1; transform: none; }
 .ms-flash { position: absolute; inset: 0; background: #fffbe8; opacity: 0; pointer-events: none; z-index: 7; }
 :deep(.ms-conf) { position: absolute; left: 50%; top: 50%; width: 0.8cqw; height: 1.3cqw; z-index: 8; pointer-events: none; }
