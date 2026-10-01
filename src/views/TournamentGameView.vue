@@ -13,7 +13,7 @@
   </div>
 
   <!-- Main view -->
-  <div v-else class="pt-16 px-4 pb-44 max-w-md mx-auto">
+  <div v-else class="pt-16 px-4 pb-44 w-full max-w-md mx-auto">
     <div v-if="isSyncingHistory" class="mb-3 rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
       <div class="flex items-center gap-2">
         <i class="fas fa-spinner fa-spin"></i>
