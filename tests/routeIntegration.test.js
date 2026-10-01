@@ -233,23 +233,6 @@ describe('App.vue immersive mode', () => {
   });
 });
 
-describe('ActionModal integration', () => {
-  const { readFileSync } = require('fs');
-  const { resolve } = require('path');
-  const content = readFileSync(resolve(__dirname, '../src/components/common/ActionModal.vue'), 'utf-8');
-
-  it('should not have tournament/timebank actions (moved to lobby)', () => {
-    expect(content).not.toContain('tournament-presets');
-    expect(content).not.toContain('time-bank');
-  });
-
-  it('should have live track and join-room actions (online create removed)', () => {
-    expect(content).toContain("$t('action.liveTrack')");
-    expect(content).not.toContain("$t('action.createOnline')");
-    expect(content).toContain("$t('action.joinOnline')");
-  });
-});
-
 describe('No hardcoded magic numbers in composables', () => {
   const { readFileSync } = require('fs');
   const { resolve } = require('path');

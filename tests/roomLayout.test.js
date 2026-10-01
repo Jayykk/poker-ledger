@@ -76,8 +76,17 @@ describe('rename rule and bottom bar spacing', () => {
     expect(guestFlags.length).toBe(3); // host seat, bound seat, new seat
   });
 
-  it('the bottom bar leaves room for the nav\'s raised + button', () => {
-    expect(bar).toContain('padding: 0.55rem 1rem calc(0.55rem + 1.75rem);');
+  it('the bottom bar sits at the bottom (no app nav in rooms)', () => {
+    expect(bar).toContain('bottom: 0;');
+    expect(bar).toContain('padding: 0.55rem 1rem calc(0.55rem + env(safe-area-inset-bottom, 0px));');
+  });
+
+  it('the header goes back to the lobby, and rooms hide the app nav', () => {
+    const header = read('src/components/game/RoomHeader.vue');
+    expect(header).toContain(`@click="$router.push('/lobby')"`);
+    expect(header).toContain("$t('room.backToLobby')");
+    const app = read('src/App.vue');
+    expect(app).toMatch(/hideBottomNav[\s\S]*?\(game\|tournament-game\)/);
   });
 });
 
@@ -145,7 +154,7 @@ describe('anyone in the room can record knockouts and re-entries', () => {
   });
 
   it('the room content lines up with the header and bottom bar', () => {
-    expect(tournamentRoom).toContain('class="pt-16 px-4 pb-44 w-full max-w-md mx-auto"');
-    expect(cashRoom).toContain('class="pt-16 px-4 pb-44 w-full max-w-md mx-auto"');
+    expect(tournamentRoom).toContain('class="pt-16 px-4 pb-28 w-full max-w-md mx-auto"');
+    expect(cashRoom).toContain('class="pt-16 px-4 pb-28 w-full max-w-md mx-auto"');
   });
 });

@@ -821,7 +821,9 @@
     "copyClear": "Clear",
     "copySelected": "{count}/{max} selected",
     "copyRosterHint": "Tick members already signed up for this event to seat them in this new period — no need to RSVP again",
-    "copyOverCap": "\"{label}\" has more copied members than its player cap"
+    "copyOverCap": "\"{label}\" has more copied members than its player cap",
+    "createShort": "New",
+    "noActiveEvents": "No events in progress"
   },
   "timed": {
     "label": "Timed game",
@@ -1008,7 +1010,8 @@
     "buyIn": "Buy-in",
     "stack": "Stack",
     "addBuy": "Rebuy",
-    "totalBuyIn": "Total buy-in"
+    "totalBuyIn": "Total buy-in",
+    "backToLobby": "Back to lobby"
   },
   "mystery": {
     "short": "Mystery",

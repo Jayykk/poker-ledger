@@ -5,9 +5,8 @@
 </template>
 
 <script setup>
-// Room actions pinned above the app's bottom navigation (h-16 + safe area).
-// The nav's centre "+" rises 1.5rem above it, so the bar's bottom padding
-// leaves room for it and the buttons sit clear of it.
+// Room actions pinned to the bottom of the screen (the app's navigation is
+// hidden in rooms), clear of the home indicator.
 </script>
 
 <style scoped>
@@ -15,14 +14,14 @@
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+  bottom: 0;
   z-index: 40;
   max-width: 28rem;
   margin: 0 auto;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.55rem 1rem calc(0.55rem + 1.75rem);
+  padding: 0.55rem 1rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
   background: rgb(var(--tw-slate-900) / 0.94);
   backdrop-filter: blur(8px);
   border-top: 1px solid rgb(var(--tw-slate-700));

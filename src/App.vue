@@ -76,17 +76,6 @@
           <span class="text-[10px]">{{ $t('nav.stats') }}</span>
         </router-link>
         
-        <!-- Center Action Button (Elevated) -->
-        <div class="flex flex-col items-center gap-1 w-full h-full justify-center relative">
-          <button
-            @click="showActionModal = true"
-            class="absolute -top-6 w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center text-white text-2xl shadow-lg hover:shadow-xl active:scale-95 transition-all"
-          >
-            <i class="fas fa-plus"></i>
-          </button>
-          <span class="text-[10px] text-gray-500 mt-6">{{ $t('nav.action') }}</span>
-        </div>
-        
         <!-- Friends -->
         <router-link
           to="/friends"
@@ -108,25 +97,6 @@
         </router-link>
       </div>
     </nav>
-
-    <!-- Action Modal -->
-    <ActionModal
-      v-model="showActionModal"
-      @create-live="handleCreateLive"
-      @join-online="handleJoinOnline"
-    />
-
-    <!-- Join Room Modal -->
-    <BaseModal v-model="showJoinRoomModal" :title="$t('action.joinOnline')">
-      <BaseInput
-        v-model="joinRoomCode"
-        :placeholder="$t('game.enterGameId')"
-        class="mb-4"
-      />
-      <BaseButton @click="handleJoinRoom" variant="primary" fullWidth>
-        {{ $t('common.confirm') }}
-      </BaseButton>
-    </BaseModal>
 
     <!-- Toast notifications -->
     <ToastNotification />
@@ -159,17 +129,11 @@ import { useUserStore } from './store/modules/user.js';
 import { useNotificationStore } from './store/modules/notification.js';
 import { useLoadingStore } from './store/modules/loading.js';
 import { useConfirm } from './composables/useConfirm.js';
-import { useNotification } from './composables/useNotification.js';
 import { useLiff } from './composables/useLiff.js';
-import { parsePokerGameId } from './utils/pokerEntry.js';
 import LoadingSpinner from './components/common/LoadingSpinner.vue';
 import ToastNotification from './components/common/ToastNotification.vue';
 import ActionNotification from './components/common/ActionNotification.vue';
 import ConfirmDialog from './components/common/ConfirmDialog.vue';
-import ActionModal from './components/common/ActionModal.vue';
-import BaseModal from './components/common/BaseModal.vue';
-import BaseInput from './components/common/BaseInput.vue';
-import BaseButton from './components/common/BaseButton.vue';
 import { STORAGE_KEYS } from './utils/constants.js';
 
 const router = useRouter();
@@ -181,7 +145,6 @@ const userStore = useUserStore();
 const notificationStore = useNotificationStore();
 const loadingStore = useLoadingStore();
 const { confirm } = useConfirm();
-const { error: showError } = useNotification();
 const { isInLineClient, isLoggedIn: liffLoggedIn, initLiff, getAccessToken, closeLiff } = useLiff();
 
 const loading = ref(true);
@@ -192,9 +155,6 @@ const debugLogs = ref([]);
 const showDebugPanel = ref(false);
 const pendingInvite = ref(null);
 const inviteProcessedInMount = ref(false);
-const showActionModal = ref(false);
-const showJoinRoomModal = ref(false);
-const joinRoomCode = ref('');
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const isInGame = computed(() => gameStore.isInGame);
@@ -219,6 +179,8 @@ const hideBottomNav = computed(() => {
   if (route.path.startsWith('/tournament-clock')) return true;
   if (route.path.startsWith('/dealer-clock')) return true;
   if (route.path.startsWith('/time-bank')) return true;
+  // Rooms have their own bottom bar and a back-to-lobby button
+  if (/^\/(game|tournament-game)(\/|$)/.test(route.path)) return true;
   return false;
 });
 
@@ -238,30 +200,6 @@ const handleHudMenu = () => {
 
 const handleConfirm = (result) => {
   notificationStore.resolveConfirm(result);
-};
-
-const handleCreateLive = () => {
-  // Navigate to lobby and auto-open the unified create-game modal at step 1
-  // (game type selection: cash or tournament), same as the lobby’s 「開新局」 button.
-  router.push({ path: '/lobby', query: { create: '1' } });
-};
-
-const handleJoinOnline = () => {
-  showJoinRoomModal.value = true;
-};
-
-const handleJoinRoom = async () => {
-  // Online rooms are 20-char Firestore ids, not 6-digit codes — accept a pasted
-  // invite link OR a bare id and extract the game id from it.
-  const gameId = parsePokerGameId(joinRoomCode.value);
-  if (!gameId) {
-    showError(t('action.joinOnline') + ': ' + t('game.enterGameId'));
-    return;
-  }
-
-  router.push(`/poker-game/${gameId}`);
-  showJoinRoomModal.value = false;
-  joinRoomCode.value = '';
 };
 
 

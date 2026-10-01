@@ -821,7 +821,9 @@
     "copyClear": "清除",
     "copySelected": "已選 {count}/{max} 人",
     "copyRosterHint": "從本活動已報名的成員直接帶入這個新時段，成員不必再報名一次",
-    "copyOverCap": "「{label}」帶入人數超過上限"
+    "copyOverCap": "「{label}」帶入人數超過上限",
+    "createShort": "建立",
+    "noActiveEvents": "目前沒有進行中的活動"
   },
   "timed": {
     "label": "限時賽",
@@ -1008,7 +1010,8 @@
     "buyIn": "買入",
     "stack": "籌碼",
     "addBuy": "加買",
-    "totalBuyIn": "總買入"
+    "totalBuyIn": "總買入",
+    "backToLobby": "返回大廳"
   },
   "mystery": {
     "short": "神秘",

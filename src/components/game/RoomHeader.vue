@@ -1,6 +1,9 @@
 <template>
   <div class="room-header">
-    <div class="min-w-0">
+    <button type="button" class="hdr-btn flex-shrink-0" :aria-label="$t('room.backToLobby')" @click="$router.push('/lobby')">
+      <i class="fas fa-arrow-left"></i>
+    </button>
+    <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2">
         <span class="text-white font-bold truncate">{{ name }}</span>
         <span class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0" :class="badgeClass">{{ badge }}</span>
@@ -42,7 +45,8 @@
 
 <script setup>
 // Fixed room header (tournament and cash rooms): name, host, the headline
-// number (prize pool / pot) and the share + host menus.
+// number (prize pool / pot) and the share + host menus. The app's bottom
+// navigation is hidden in rooms, so the ← here goes back to the lobby.
 import { ref } from 'vue';
 
 defineProps({

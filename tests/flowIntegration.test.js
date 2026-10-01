@@ -9,7 +9,7 @@
  * - App.vue route guards (HUD, bottom nav)
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import {
   GAME_TYPE, GAME_STATUS, DEFAULT_BUY_IN, DEFAULT_TOURNAMENT_LEVEL_DURATION,
@@ -21,7 +21,6 @@ import { TOURNAMENT_TEMPLATES, cloneTemplate, createBlankTournamentConfig } from
 const read = (relPath) => readFileSync(resolve(__dirname, '..', relPath), 'utf-8');
 
 const lobbyContent = read('src/views/LobbyView.vue');
-const actionModalContent = read('src/components/common/ActionModal.vue');
 const appContent = read('src/App.vue');
 const clockViewContent = read('src/views/TournamentClockView.vue');
 const structuresViewContent = read('src/views/BlindStructuresView.vue');
@@ -297,38 +296,33 @@ describe('Lobby layout', () => {
       expect(lobbyContent).not.toContain("$t('action.timeBank')");
     });
 
-    it('lobby should use 2-column grid for tools', () => {
-      expect(lobbyContent).toContain('grid-cols-2');
+    it('lobby tools sit in one row of three', () => {
+      expect(lobbyContent).toContain('grid grid-cols-3 gap-2');
     });
   });
 
-  describe('ActionModal should only contain game actions', () => {
-    it('should NOT contain tournament-presets route', () => {
-      expect(actionModalContent).not.toContain('tournament-presets');
+  describe('lobby: create / join first, no centre "+" in the nav', () => {
+    it('create and join sit right under the stats, before rooms and events', () => {
+      const main = lobbyContent.indexOf('<!-- Main actions');
+      expect(main).toBeGreaterThan(lobbyContent.indexOf('<!-- Stats Card -->'));
+      expect(main).toBeLessThan(lobbyContent.indexOf('<!-- My Rooms -->'));
+      expect(main).toBeLessThan(lobbyContent.indexOf('<!-- My Live Events'));
     });
 
-    it('should NOT contain time-bank route', () => {
-      expect(actionModalContent).not.toContain('time-bank');
+    it('events are always shown, with create and history in the header', () => {
+      expect(lobbyContent).not.toContain('v-if="mySessions.length > 0 || endedSessionsCount > 0"');
+      expect(lobbyContent).toMatch(/session\.historyEvents[\s\S]*?'\/session-setup'[\s\S]*?session\.createShort/);
+      expect(lobbyContent).toContain("$t('session.noActiveEvents')");
     });
 
-    it('should NOT contain tournamentSetup handler', () => {
-      expect(actionModalContent).not.toContain('handleTournamentSetup');
+    it('join takes an online table invite link', () => {
+      expect(lobbyContent).toMatch(/includes\('poker-game\/'\)[\s\S]*?parsePokerGameId/);
     });
 
-    it('should NOT contain timeBank handler', () => {
-      expect(actionModalContent).not.toContain('handleTimeBank');
-    });
-
-    it('should contain exactly 2 game actions (online create removed)', () => {
-      expect(actionModalContent).toContain('handleLiveTrack');
-      expect(actionModalContent).not.toContain('handleCreateOnline');
-      expect(actionModalContent).toContain('handleJoinOnline');
-    });
-
-    it('should emit create-live, join-online events', () => {
-      expect(actionModalContent).toContain("emit('create-live')");
-      expect(actionModalContent).not.toContain("emit('create-online')");
-      expect(actionModalContent).toContain("emit('join-online')");
+    it('the nav has no centre action button or action modal', () => {
+      expect(appContent).not.toContain('ActionModal');
+      expect(appContent).not.toContain('showActionModal');
+      expect(existsSync(resolve(__dirname, '..', 'src/components/common/ActionModal.vue'))).toBe(false);
     });
   });
 
