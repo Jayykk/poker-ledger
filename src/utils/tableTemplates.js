@@ -41,7 +41,7 @@ export const TEMPLATE_KINDS = Object.values(TEMPLATE_KIND);
 /** Bounty formats. Only 'none' is playable until phase 2. */
 export const BOUNTY_TYPE = Object.freeze({ NONE: 'none', KO: 'ko', PKO: 'pko', MYSTERY: 'mystery' });
 export const BOUNTY_TYPES = Object.values(BOUNTY_TYPE);
-export const PLAYABLE_BOUNTY_TYPES = Object.freeze([BOUNTY_TYPE.NONE, BOUNTY_TYPE.KO]);
+export const PLAYABLE_BOUNTY_TYPES = Object.freeze([BOUNTY_TYPE.NONE, BOUNTY_TYPE.KO, BOUNTY_TYPE.PKO]);
 
 /** Where legacy records live (users/{uid}/<collection>). */
 export const LEGACY_SOURCE = Object.freeze({

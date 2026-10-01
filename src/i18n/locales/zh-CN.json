@@ -935,7 +935,7 @@
       "mystery": "神秘赏金"
     },
     "comingSoon": "即将推出",
-    "bountyHint": "PKO / 神秘赏金将在之后开放",
+    "bountyHint": "神秘赏金将在之后开放",
     "errors": {
       "nameRequired": "请输入模板名称",
       "structureRequired": "请选择盲注结构",
@@ -959,7 +959,14 @@
     "modePercent": "买入的 %",
     "modeAmount": "固定金额",
     "splitPreview": "每次买入：人头 ${head} · 奖池 ${pool}",
-    "koHint": "击杀者拿走被淘汰玩家的人头；冠军（或协议时还在场的人）保留自己的人头"
+    "koHint": "击杀者拿走被淘汰玩家的人头；冠军（或协议时还在场的人）保留自己的人头",
+    "cashShare": "击杀时拿现金的比例",
+    "cashSharePreview": "一颗人头：现金 ${cash}，${grow} 加到击杀者自己的人头",
+    "pkoHint": "人头会长大：击杀拿一部分现金，其余加到自己的人头；冠军拿走自己整颗人头",
+    "pkoSplitHint": "其中 {cash}% 拿现金，其余加到击杀者的人头",
+    "headGrow": "人头 +${amount}",
+    "headNow": "人头 ${amount}",
+    "startHead": "起始人头 ${amount}"
   },
   "room": {
     "cutoffShort": "截买 Lv {level}",
@@ -992,6 +999,12 @@
     "prizePool": "奖池",
     "payouts": "名次奖金",
     "rename": "改名",
-    "removePlayer": "移除玩家"
+    "removePlayer": "移除玩家",
+    "playersN": "玩家 {n}",
+    "stackTotal": "筹码 {stack} / 买入 {pot}",
+    "buyIn": "买入",
+    "stack": "筹码",
+    "addBuy": "加买",
+    "totalBuyIn": "总买入"
   }
 }

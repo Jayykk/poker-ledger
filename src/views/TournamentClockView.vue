@@ -43,6 +43,7 @@
       :averageStackBB="Number(averageStackBB) || 0"
       :prize-pool="prizePool"
       :bounty-per-head="bountyPerHead"
+      :bounty-label="config?.bounty?.type === 'pko' ? 'PKO' : 'KO'"
       :payouts="payouts"
     >
       <template #actions-left>
@@ -90,6 +91,7 @@
       :averageStackBB="Number(averageStackBB) || 0"
       :prize-pool="prizePool"
       :bounty-per-head="bountyPerHead"
+      :bounty-label="config?.bounty?.type === 'pko' ? 'PKO' : 'KO'"
       :payouts="payouts"
     >
       <template #actions-left>

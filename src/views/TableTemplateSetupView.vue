@@ -188,7 +188,7 @@
           </button>
         </div>
         <!-- KO: how much of each buy-in goes on the player's head -->
-        <div v-if="form.bountyType === 'ko'" class="space-y-2 pt-1">
+        <div v-if="form.bountyType === 'ko' || form.bountyType === 'pko'" class="space-y-2 pt-1">
           <label class="field-label">{{ $t('bounty.sharePerEntry') }}</label>
           <div class="flex gap-2">
             <select v-model="form.bountyMode" class="field-input flex-shrink-0" style="width: 8.5rem">
@@ -201,8 +201,17 @@
           <p class="hint">
             {{ $t('bounty.splitPreview', { head: formatNumber(headPreview), pool: formatNumber(Math.max(0, (Number(form.amount) || 0) - headPreview)) }) }}
           </p>
+          <!-- PKO: how much of a collected head is paid in cash (the rest grows your own head) -->
+          <template v-if="form.bountyType === 'pko'">
+            <label class="field-label">{{ $t('bounty.cashShare') }}</label>
+            <div class="flex gap-2 items-center">
+              <input v-model.number="form.bountyCashShare" type="number" min="0" max="100" step="5" class="field-input flex-1 min-w-0" style="width: auto" />
+              <span class="text-gray-400 text-sm">%</span>
+            </div>
+            <p class="hint">{{ $t('bounty.cashSharePreview', { cash: formatNumber(Math.round(headPreview * pkoShare)), grow: formatNumber(headPreview - Math.round(headPreview * pkoShare)) }) }}</p>
+          </template>
         </div>
-        <p class="hint">{{ form.bountyType === 'ko' ? $t('bounty.koHint') : $t('template.bountyHint') }}</p>
+        <p class="hint">{{ form.bountyType === 'ko' ? $t('bounty.koHint') : form.bountyType === 'pko' ? $t('bounty.pkoHint') : $t('template.bountyHint') }}</p>
       </section>
 
       <!-- Share / import -->
@@ -289,6 +298,7 @@ function formFrom(raw) {
     bounty: cash ? { type: 'none' } : tpl.bounty,
     bountyMode: tpl.bounty?.share?.mode || 'percent',
     bountyValue: tpl.bounty?.share?.value ?? 50,
+    bountyCashShare: Math.round((tpl.bounty?.cashShare ?? 0.5) * 100),
     migratedFrom: tpl.migratedFrom || null,
   };
 }
@@ -309,6 +319,7 @@ function templateFrom(f) {
         ...(f.bountyType === f.bounty?.type ? f.bounty : {}),
         type: f.bountyType,
         share: { mode: f.bountyMode, value: f.bountyValue },
+        ...(f.bountyType === 'pko' ? { cashShare: (Number(f.bountyCashShare) || 0) / 100 } : {}),
       },
     migratedFrom: f.migratedFrom,
   });
@@ -394,6 +405,7 @@ watch(maxLevel, (max) => {
 });
 
 // ── bounty ────────────────────────────────────────────
+const pkoShare = computed(() => Math.min(1, Math.max(0, (Number(form.value.bountyCashShare) || 0) / 100)));
 const headPreview = computed(() => bountyPerEntry(
   { type: form.value.bountyType, share: { mode: form.value.bountyMode, value: form.value.bountyValue } },
   form.value.amount,

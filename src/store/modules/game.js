@@ -27,7 +27,9 @@ import { normalizeCashDecimals } from '../../utils/cashRounding.js';
 import { BUY_IN_CLOSED, isTimedClock, isTimedBuyInClosed } from '../../utils/timedStructure.js';
 import { tournamentSettlementErrorKey } from '../../utils/tournamentSettlementErrors.js';
 import { cashSettlementErrorKey } from '../../utils/cashSettlementErrors.js';
-import { gameBountyPerEntry, planKnockout, applyKnockout } from '../../utils/bounty.js';
+import {
+  gameBountyPerEntry, planKnockout, applyKnockout, resetHeadForReentry, restoreHeadAfterReentryUndo,
+} from '../../utils/bounty.js';
 import {
   TX_TYPE_ELIMINATE,
   TX_TYPE_REENTRY,
@@ -738,7 +740,7 @@ export const useGameStore = defineStore('game', () => {
 
         // KO: pay the head to the eliminator(s) (or the pool)
         const perEntry = gameBountyPerEntry(gameData);
-        const planned = perEntry > 0 ? planKnockout(players, playerId, eliminatorIds, perEntry) : null;
+        const planned = perEntry > 0 ? planKnockout(players, playerId, eliminatorIds, perEntry, gameData.bounty) : null;
         // Names go on the log record so it reads without the roster
         const knockout = planned && {
           ...planned,
@@ -893,7 +895,10 @@ export const useGameStore = defineStore('game', () => {
         const target = findTxTarget(players, tx);
         if (!target) throw new Error('Player not found');
 
-        const { players: updatedPlayers, aliveAfter, refunded } = revertReentry(players, tx, Date.now());
+        const reverted = revertReentry(players, tx, Date.now());
+        const { aliveAfter, refunded } = reverted;
+        // PKO: back to the head the player had before re-entering
+        const updatedPlayers = restoreHeadAfterReentryUndo(reverted.players, target.id, tx.restore?.bountyHead);
         refundedAmount = refunded;
 
         const sessionId = gameData.tournamentSessionId;
@@ -975,7 +980,7 @@ export const useGameStore = defineStore('game', () => {
       // validate reentry count, update elimination state + buyIn, and log the
       // re-entry (with a snapshot of the eliminated state it replaces so the
       // log's undo can put the player back exactly where they were).
-      await commitRoster(gameId.value, (players, _data, transaction) => {
+      await commitRoster(gameId.value, (players, gameData, transaction) => {
         const player = players.find(p => p.id === playerId);
         if (!player) throw new Error('Player not found');
         if (!player.eliminated) throw new Error('Player is not eliminated');
@@ -991,7 +996,12 @@ export const useGameStore = defineStore('game', () => {
         // applyReentry stamps the next global statusSeq on the player and
         // snapshots the eliminated state (placement / eliminatedAt / seq) so the
         // log's undo can put them back exactly where they were.
-        const { players: updatedPlayers, aliveAfter, restore } = applyReentry(players, playerId, baseBuyIn);
+        const reentered = applyReentry(players, playerId, baseBuyIn);
+        const { aliveAfter, restore } = reentered;
+        // PKO: the re-entry buys a fresh head (remember the old one for undo)
+        const head = resetHeadForReentry(reentered.players, playerId, gameBountyPerEntry(gameData), gameData.bounty);
+        const updatedPlayers = head.players;
+        if (head.previousHead !== null) restore.bountyHead = head.previousHead;
 
         aliveAfterReentry = aliveAfter;
         transaction.set(txRef, buildTxRecord({

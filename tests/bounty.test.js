@@ -30,7 +30,8 @@ describe('bounty per entry', () => {
   it('a game has a head value only when it is KO', () => {
     expect(gameBountyPerEntry({ bounty: KO, baseBuyIn: 1000 })).toBe(300);
     expect(gameBountyPerEntry({ baseBuyIn: 1000 })).toBe(0);
-    expect(gameBountyPerEntry({ bounty: { type: 'pko', share: { value: 300 } }, baseBuyIn: 1000 })).toBe(0);
+    expect(gameBountyPerEntry({ bounty: { type: 'pko', share: { value: 300 } }, baseBuyIn: 1000 })).toBe(300);
+    expect(gameBountyPerEntry({ bounty: { type: 'mystery', share: { value: 300 } }, baseBuyIn: 1000 })).toBe(0);
   });
 
   it('counts entries from the total buy-in', () => {
@@ -50,8 +51,10 @@ describe('splitting a head', () => {
 
   it('eliminators must be other players still in', () => {
     const players = [{ id: 'a' }, { id: 'b' }, { id: 'c', eliminated: true }];
-    expect(planKnockout(players, 'a', ['b'], 300)).toEqual({ awards: [{ playerId: 'b', amount: 300 }], toPool: 0 });
-    expect(planKnockout(players, 'a', [], 300)).toEqual({ awards: [], toPool: 300 });
+    expect(planKnockout(players, 'a', ['b'], 300)).toMatchObject({
+      head: 300, awards: [{ playerId: 'b', amount: 300, headGain: 0 }], toPool: 0, progressive: false,
+    });
+    expect(planKnockout(players, 'a', [], 300)).toMatchObject({ awards: [], toPool: 300 });
     expect(() => planKnockout(players, 'a', ['a'], 300)).toThrow();
     expect(() => planKnockout(players, 'a', ['c'], 300)).toThrow();
   });

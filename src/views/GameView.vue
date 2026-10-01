@@ -10,22 +10,21 @@
     </BaseButton>
   </div>
   
-  <div v-else class="pt-16 px-4 pb-24">
-    <!-- Fixed header -->
-    <div class="fixed top-0 inset-x-0 z-30 bg-slate-800/90 backdrop-blur px-4 py-3 border-b border-slate-700 flex justify-between items-center max-w-md mx-auto">
-      <div>
-        <div class="flex items-center gap-2">
-          <span class="text-white font-bold">{{ game.name }}</span>
-          <span v-if="game.type === 'tournament'" class="text-[10px] px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded-full font-semibold">🏆</span>
-          <span v-else class="text-[10px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full font-semibold">💵</span>
-        </div>
-        <div class="text-[10px] text-gray-400">{{ $t('game.host') }}: {{ game.hostName || $t('common.unknown') }}</div>
-      </div>
-      <div class="text-right">
-        <div class="text-[10px] text-gray-400">{{ $t('game.pot') }}</div>
-        <div class="font-mono text-amber-400 font-bold">{{ formatNumber(totalPot) }}</div>
-      </div>
-    </div>
+  <div v-else class="pt-16 px-4 pb-44">
+    <!-- Fixed header: total buy-in, share, host menu (解散房間) -->
+    <RoomHeader
+      :name="game.name"
+      :host-name="game.hostName"
+      badge="💵"
+      badge-class="bg-emerald-500/20 text-emerald-400"
+      :value-label="$t('room.totalBuyIn')"
+      :value="formatNumber(totalPot)"
+      :is-host="isHost"
+      :can-share-line="liffReady"
+      @copy-id="handleCopyId"
+      @share-line="handleShareToLine"
+      @close-room="handleCloseGame"
+    />
 
     <!-- Timed game (structure applied): clock card — tap → full clock,
          host can start / pause; shows the buy-in cutoff and time to the end -->
@@ -48,15 +47,20 @@
       @toggle="toggleClock"
     />
 
-    <!-- Player cards -->
-    <div class="space-y-3 mt-2">
+    <!-- Players, biggest winner first -->
+    <div class="room-section mt-2">
+      <div class="room-section-head">
+        <span class="font-bold">{{ $t('room.playersN', { n: game.players.length }) }}</span>
+        <span class="text-[11px] text-gray-400">{{ $t('room.stackTotal', { stack: formatNumber(totalStack), pot: formatNumber(totalPot) }) }}</span>
+      </div>
       <PlayerCard
-        v-for="player in game.players"
+        v-for="player in sortedPlayers"
         :key="player.id"
         :player="player"
         :can-bind="!myPlayer && !player.uid"
         :is-my-card="player.uid === user?.uid"
         :buy-in-disabled="timedBuyInClosed"
+        :base-buy-in="game.baseBuyIn || DEFAULT_BUY_IN"
         @bind="handleBind"
         @invite="handleInvite"
         @add-buy="handleAddBuy"
@@ -64,29 +68,8 @@
       />
     </div>
 
-    <!-- Action buttons -->
-    <div class="mt-8 flex gap-3 justify-center flex-wrap">
-      <BaseButton @click="handleCopyId" variant="ghost" size="sm">
-        <i class="fas fa-copy mr-1"></i>{{ $t('game.copyId') }}
-      </BaseButton>
-      <BaseButton v-if="liffReady" @click="handleShareToLine" variant="ghost" size="sm" class="!text-[#06C755]">
-        <i class="fab fa-line mr-1"></i>{{ $t('game.shareToLine') }}
-      </BaseButton>
-      <BaseButton @click="showSettlement = true" variant="secondary">
-        {{ $t('game.settlement') }}
-      </BaseButton>
-      <BaseButton
-        v-if="game.tournamentSessionId"
-        @click="$router.push(`/tournament-clock/${game.tournamentSessionId}`)"
-        variant="ghost"
-        size="sm"
-      >
-        <i class="fas mr-1 text-amber-400" :class="clockIsTimed ? 'fa-clock' : 'fa-trophy'"></i>{{ $t('tournament.viewClock') }}
-      </BaseButton>
-    </div>
-
-    <!-- Transaction Log -->
-    <div class="mt-6">
+    <!-- Transaction Log (底部列「紀錄」捲到這裡) -->
+    <div ref="logSection" class="mt-6 scroll-mt-20">
       <TransactionLog
         :transactions="transactions"
         :host-uid="game.hostUid"
@@ -96,40 +79,27 @@
       />
     </div>
 
-    <!-- Record hand button -->
-    <BaseButton
-      @click="showHandRecord = true"
-      variant="primary"
-      fullWidth
-      class="mt-4"
-    >
-      <i class="fas fa-save mr-2"></i>{{ $t('hand.recordHand') }}
-    </BaseButton>
-
     <!-- Hand history -->
     <div v-if="hands.length > 0" class="mt-6">
       <HandHistoryList :hands="hands" @select="handleSelectHand" />
     </div>
 
-    <BaseButton
-      v-if="isHost"
-      @click="handleCloseGame"
-      variant="danger"
-      fullWidth
-      class="mt-4"
-      size="sm"
-    >
-      {{ $t('game.closeGame') }}
-    </BaseButton>
-
-    <!-- Add player button (a new seat brings a buy-in: hidden past a timed cutoff) -->
-    <button
-      v-if="!timedBuyInClosed"
-      @click="showAddPlayer = true"
-      class="fixed bottom-24 right-4 w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center text-xl shadow-lg hover:bg-amber-600 transition active:scale-95"
-    >
-      <i class="fas fa-plus"></i>
-    </button>
+    <!-- Room actions above the bottom navigation (a new seat brings a
+         buy-in: 加人 is hidden past a timed cutoff) -->
+    <RoomActionBar>
+      <button v-if="!timedBuyInClosed" type="button" class="bar-btn" @click="showAddPlayer = true">
+        <i class="fas fa-plus"></i>{{ $t('room.addPlayer') }}
+      </button>
+      <button type="button" class="bar-btn" @click="scrollToLog">
+        <i class="fas fa-list"></i>{{ $t('room.records') }}
+      </button>
+      <button type="button" class="bar-btn" @click="showHandRecord = true">
+        <i class="fas fa-save"></i>{{ $t('room.hands') }}
+      </button>
+      <button type="button" class="bar-btn primary" @click="showSettlement = true">
+        {{ $t('room.settle') }}
+      </button>
+    </RoomActionBar>
 
     <!-- Add Player Modal -->
     <BaseModal v-model="showAddPlayer" :title="$t('game.addPlayer')">
@@ -204,14 +174,19 @@
         </select>
       </div>
       
-      <div class="space-y-2 mb-4 max-h-60 overflow-y-auto">
-        <div
-          v-for="p in settlementPreview"
-          :key="p.id"
-          class="flex justify-between text-sm py-1 border-b border-slate-700"
-        >
-          <span class="text-white">{{ p.name }}</span>
-          <span :class="p.cash >= 0 ? 'text-emerald-400' : 'text-rose-400'">
+      <!-- 玩家 / 買入 / 籌碼 / 損益 (cash) -->
+      <div class="mb-4 max-h-72 overflow-y-auto">
+        <div class="cash-grid cash-head">
+          <span>{{ $t('room.colPlayer') }}</span>
+          <span class="text-right">{{ $t('room.buyIn') }}</span>
+          <span class="text-right">{{ $t('room.stack') }}</span>
+          <span class="text-right">{{ $t('room.colProfit') }}</span>
+        </div>
+        <div v-for="p in settlementPreview" :key="p.id" class="cash-grid">
+          <span class="text-white truncate">{{ p.name }}</span>
+          <span class="text-right font-mono text-gray-400">{{ formatNumber(p.buyIn) }}</span>
+          <span class="text-right font-mono text-gray-300">{{ formatNumber(p.stack) }}</span>
+          <span class="text-right font-mono" :class="p.cash >= 0 ? 'text-emerald-400' : 'text-rose-400'">
             {{ formatCashAmount(p.cash, settleDecimals) }}
           </span>
         </div>
@@ -264,6 +239,8 @@ import { useLoading } from '../composables/useLoading.js';
 import { useUserStore } from '../store/modules/user.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import RoomClockCard from '../components/tournament/RoomClockCard.vue';
+import RoomHeader from '../components/game/RoomHeader.vue';
+import RoomActionBar from '../components/game/RoomActionBar.vue';
 import { BUY_IN_CLOSED } from '../utils/timedStructure.js';
 import { rateFromBuyIn, resolveBuyInAmount, formatRate } from '../utils/buyInRate.js';
 import {
@@ -476,11 +453,16 @@ function decimalsLabel(d) {
 
 const settlementPreview = computed(() => {
   if (!game.value) return [];
-  const rows = game.value.players.map((p) => ({ id: p.id, name: p.name, profit: calculateNet(p) }));
+  const rows = game.value.players.map((p) => ({
+    id: p.id, name: p.name, buyIn: p.buyIn || 0, stack: p.stack || 0, profit: calculateNet(p),
+  }));
   return withCashAmounts(rows, exchangeRate.value, settleDecimals.value)
     .map((row) => ({ ...row, cash: rowCash(row, exchangeRate.value) }))
     .sort((a, b) => b.cash - a.cash);
 });
+
+const logSection = ref(null);
+const scrollToLog = () => logSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
 const sortedPlayers = computed(() => {
   if (!game.value) return [];
@@ -741,3 +723,31 @@ const handleSelectHand = (hand) => {
   showHandDetail.value = true;
 };
 </script>
+
+<style scoped>
+.room-section {
+  border-radius: 0.9rem;
+  background: rgb(var(--tw-slate-800) / 0.6);
+  border: 1px solid rgb(var(--tw-slate-600) / 0.5);
+  overflow: hidden;
+}
+.room-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8rem;
+  color: rgb(var(--tw-slate-200));
+  background: rgb(var(--tw-slate-700) / 0.45);
+}
+.cash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4.2rem 4.2rem 5rem;
+  gap: 0.35rem;
+  padding: 0.45rem 0;
+  font-size: 0.82rem;
+  border-bottom: 1px solid rgb(var(--tw-slate-700));
+}
+.cash-head { font-size: 0.7rem; color: rgb(var(--tw-slate-400)); }
+</style>

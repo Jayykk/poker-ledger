@@ -28,7 +28,7 @@
       badge="🏆"
       :value-label="$t('room.prizePool')"
       :value="`$${formatNumber(prizePool)}`"
-      :sub-value="bountyPerHead > 0 ? `🎯 ${$t('bounty.perHead', { amount: formatNumber(bountyPerHead) })}` : ''"
+      :sub-value="bountyPerHead > 0 ? `🎯 ${$t(isPko ? 'bounty.startHead' : 'bounty.perHead', { amount: formatNumber(bountyPerHead) })}` : ''"
       :is-host="isHost"
       :can-share-line="liffReady"
       @copy-id="handleCopyId"
@@ -68,6 +68,7 @@
         :base-buy-in="game?.baseBuyIn || 0"
         :is-champion="isChampion(player)"
         :bounty-per-head="bountyPerHead"
+        :head-value="headOf(player)"
         @eliminate="handleEliminate"
         @edit="handleEditPlayer"
         @remove="handleRemoveFromRow"
@@ -238,7 +239,8 @@
       v-model="showKnockout"
       :player="knockoutTarget"
       :candidates="knockoutCandidates"
-      :per-entry="bountyPerHead"
+      :per-entry="knockoutTarget ? (isPko ? headOf(knockoutTarget) : bountyPerHead) : 0"
+      :cash-share="bountyCashShare(game?.bounty)"
       :warning="knockoutWarning"
       @confirm="handleKnockoutConfirm"
     />
@@ -301,7 +303,9 @@ import HandHistoryList from '../components/game/HandHistoryList.vue';
 import HandHistoryDetail from '../components/game/HandHistoryDetail.vue';
 import { formatNumber } from '../utils/formatters.js';
 import { buildTournamentPrizeMap } from '../utils/settlementMath.js';
-import { gameBountyPerEntry, gamePrizePool, finalBounty } from '../utils/bounty.js';
+import {
+  gameBountyPerEntry, gamePrizePool, finalBounty, headValue, isProgressiveBounty, bountyCashShare,
+} from '../utils/bounty.js';
 import { DEFAULT_BUY_IN } from '../utils/constants.js';
 import { consumeSessionReturn } from '../utils/sessionReturn.js';
 import { canRenamePlayer } from '../utils/ledgerOps.js';
@@ -396,6 +400,9 @@ const scrollToLog = () => logSection.value?.scrollIntoView({ behavior: 'smooth',
 
 // KO games: each entry's head comes out of the pool (utils/bounty.js)
 const bountyPerHead = computed(() => (game.value ? gameBountyPerEntry(game.value) : 0));
+// PKO: heads grow, so rows and the knockout picker show each player's own head
+const isPko = computed(() => isProgressiveBounty(game.value?.bounty));
+const headOf = (player) => (isPko.value ? headValue(player, bountyPerHead.value) : 0);
 const prizePool = computed(() => (game.value ? gamePrizePool(game.value) : 0));
 
 const payoutRatios = computed(() =>
