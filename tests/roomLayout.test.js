@@ -154,7 +154,18 @@ describe('anyone in the room can record knockouts and re-entries', () => {
   });
 
   it('the room content lines up with the header and bottom bar', () => {
-    expect(tournamentRoom).toContain('class="pt-16 px-4 pb-28 w-full max-w-md mx-auto"');
-    expect(cashRoom).toContain('class="pt-16 px-4 pb-28 w-full max-w-md mx-auto"');
+    expect(tournamentRoom).toContain('class="pt-16 px-4 pb-28 w-full max-w-md md:max-w-3xl lg:max-w-5xl mx-auto"');
+    expect(cashRoom).toContain('class="pt-16 px-4 pb-28 w-full max-w-md md:max-w-3xl lg:max-w-5xl mx-auto"');
+  });
+
+  it('wider screens: players in a grid; header and bar follow the width', () => {
+    expect(tournamentRoom.match(/<div class="room-grid">/g)).toHaveLength(2);
+    expect(cashRoom.match(/<div class="room-grid">/g)).toHaveLength(1);
+    const css = read('src/styles/main.css');
+    expect(css).toMatch(/@media \(min-width: 768px\) \{\s*\.room-grid \{\s*display: grid;\s*grid-template-columns: repeat\(2/);
+    expect(css).toMatch(/@media \(min-width: 1024px\) \{\s*\.room-grid \{ grid-template-columns: repeat\(3/);
+    for (const f of ['src/components/game/RoomHeader.vue', 'src/components/game/RoomActionBar.vue']) {
+      expect(read(f)).toMatch(/@media \(min-width: 1024px\) \{ \.room-(header|action-bar) \{ max-width: 64rem; \} \}/);
+    }
   });
 });

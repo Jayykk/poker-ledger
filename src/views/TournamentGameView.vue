@@ -13,7 +13,7 @@
   </div>
 
   <!-- Main view -->
-  <div v-else class="pt-16 px-4 pb-28 w-full max-w-md mx-auto">
+  <div v-else class="pt-16 px-4 pb-28 w-full max-w-md md:max-w-3xl lg:max-w-5xl mx-auto">
     <div v-if="isSyncingHistory" class="mb-3 rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
       <div class="flex items-center gap-2">
         <i class="fas fa-spinner fa-spin"></i>
@@ -77,6 +77,7 @@
       <div class="room-section-head">
         <span class="font-bold">{{ $t('room.inPlayN', { n: activePlayers.length }) }}</span>
       </div>
+      <div class="room-grid">
       <TournamentPlayerCard
         v-for="player in activePlayers"
         :key="player.id"
@@ -89,6 +90,7 @@
         @edit="handleEditPlayer"
         @remove="handleRemoveFromRow"
       />
+      </div>
     </div>
 
     <!-- Out: re-entry straight from the row while it's open -->
@@ -96,6 +98,7 @@
       <div class="room-section-head">
         <span class="font-bold">{{ $t('room.eliminatedN', { n: eliminatedPlayers.length }) }}</span>
       </div>
+      <div class="room-grid">
       <TournamentPlayerCard
         v-for="player in eliminatedPlayers"
         :key="player.id"
@@ -108,6 +111,7 @@
         :knocked-out-by="knockedOutBy[player.id] || ''"
         @reentry="handleReentry"
       />
+      </div>
     </div>
 
     <!-- Transaction Log (底部列「紀錄」捲到這裡) -->

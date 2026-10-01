@@ -122,4 +122,7 @@ const pick = (action) => {
   color: rgb(var(--tw-white));
 }
 .hdr-menu button:hover { background: rgb(var(--tw-slate-600) / 0.5); }
+/* Wider screens: the room widens (max-w-3xl / max-w-5xl) and this follows */
+@media (min-width: 768px) { .room-header { max-width: 48rem; } }
+@media (min-width: 1024px) { .room-header { max-width: 64rem; } }
 </style>

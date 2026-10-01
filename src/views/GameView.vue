@@ -10,7 +10,7 @@
     </BaseButton>
   </div>
   
-  <div v-else class="pt-16 px-4 pb-28 w-full max-w-md mx-auto">
+  <div v-else class="pt-16 px-4 pb-28 w-full max-w-md md:max-w-3xl lg:max-w-5xl mx-auto">
     <!-- Fixed header: total buy-in, share, host menu (解散房間) -->
     <RoomHeader
       :name="game.name"
@@ -53,6 +53,7 @@
         <span class="font-bold">{{ $t('room.playersN', { n: game.players.length }) }}</span>
         <span class="text-[11px] text-gray-400">{{ $t('room.stackTotal', { stack: formatNumber(totalStack), pot: formatNumber(totalPot) }) }}</span>
       </div>
+      <div class="room-grid">
       <PlayerCard
         v-for="player in sortedPlayers"
         :key="player.id"
@@ -66,6 +67,7 @@
         @add-buy="handleAddBuy"
         @edit="handleEditPlayer"
       />
+      </div>
     </div>
 
     <!-- Transaction Log (底部列「紀錄」捲到這裡) -->
