@@ -210,9 +210,3 @@ export function applyTheme(id, { storageKey } = {}) {
   }
   return theme.id;
 }
-
-/** A few swatches for the picker: page, card, accent, danger, success. */
-export function themeSwatches(theme) {
-  const p = themePalettes(theme);
-  return [p.slate[900], p.slate[800], p.amber[500], p.rose[500], p.emerald[500]];
-}
