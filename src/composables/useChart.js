@@ -1,4 +1,4 @@
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { shallowRef, onUnmounted } from 'vue';
 import { Chart, registerables } from 'chart.js';
 
 Chart.register(...registerables);
@@ -22,7 +22,11 @@ function debounce(fn, delay) {
  * Composable for Chart.js integration
  */
 export function useChart() {
-  const chartInstance = ref(null);
+  // shallowRef, not ref: a deep ref wraps the chart in a Proxy, so stop() /
+  // destroy() ran on the proxy while Chart.js's animator holds the raw chart —
+  // it was never removed and kept drawing on the destroyed (null) ctx:
+  // "Cannot read properties of null (reading 'save')".
+  const chartInstance = shallowRef(null);
 
   const safeDestroy = () => {
     if (chartInstance.value) {
