@@ -135,7 +135,9 @@ const {
 
 // ── Mystery bounty TV stage ─────────────────────────
 const stageGameId = computed(() => (config.value?.bounty?.type === 'mystery' ? session.value?.gameId || null : null));
-const { game: stageGame, current: stageCurrent, next: stageNext } = useMysteryStage(stageGameId);
+const {
+  game: stageGame, current: stageCurrent, next: stageNext, markDrawn: stageMarkDrawn, pendingCount: stagePending,
+} = useMysteryStage(stageGameId);
 const stageOpen = computed(() => session.value?.state?.mysteryStage?.open === true);
 // Open with 🎁, or on its own while a draw is being revealed (8 s, then back)
 const showStage = computed(() => !!stageGameId.value && !!stageGame.value && (stageOpen.value || !!stageCurrent.value));
@@ -145,7 +147,13 @@ const stageSubtitle = computed(() => [
   isBreak.value ? t('tournament.breakTime') : `Level ${currentLevel.value}`,
   status.value === 'paused' ? t('clockFace.paused') : '',
 ].filter(Boolean).join(' · '));
-const onStageDone = () => stageNext();
+const onStageDone = () => {
+  stageNext();
+  // Everyone's drawn: back to the clock (🎁 opens the stage again)
+  if (canControlStage.value && stageOpen.value && !stageCurrent.value && !stagePending.value) {
+    setMysteryStage(false).catch(() => {});
+  }
+};
 const gameStoreForStage = useGameStore();
 
 // Mystery: tell the players' phones the clock is on the TV (every 30 s)
@@ -165,7 +173,9 @@ onUnmounted(() => {
 
 async function onStageDraw(ticket, slot) {
   const ok = await gameStoreForStage.mysteryDraw(ticket.id, slot, stageGameId.value);
-  if (!ok) console.warn('Stage draw failed:', gameStoreForStage.error);
+  if (ok) stageMarkDrawn(ticket.id, slot); // reveal now, don't wait for the listener
+  else console.warn('Stage draw failed:', gameStoreForStage.error);
+  return ok;
 }
 
 

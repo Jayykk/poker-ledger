@@ -1084,6 +1084,7 @@
     "yourDrawWaiting": "你有一个信封等着抽",
     "waitForTv": "等房主在 iPad 打开锦标赛时钟（投到电视），并在暂停或休息时，就能在这里抽",
     "waitForPause": "电视已经在显示时钟了，等暂停或休息时就能抽",
-    "manualByHost": "这场用实体信封，抽完后由房主登记"
+    "manualByHost": "这场用实体信封，抽完后由房主登记",
+    "drawFailed": "抽奖没有成功，请再点一次"
   }
 }
