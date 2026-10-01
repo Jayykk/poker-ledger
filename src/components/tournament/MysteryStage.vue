@@ -63,6 +63,7 @@
             </button>
           </div>
           <div v-if="canControl && drawMode !== 'manual' && pending.length" class="ms-hint">{{ $t('mystery.stageHint') }}</div>
+          <div v-if="failed" class="ms-err">{{ $t('mystery.drawFailed') }}</div>
         </template>
       </div>
       <div class="ms-box ms-hist">
@@ -112,8 +113,11 @@ const props = defineProps({
   // Host / dealer-mode clock: may draw here and close the stage
   canControl: { type: Boolean, default: false },
   subtitle: { type: String, default: '' },
+  // @draw="(ticket, slot) => Promise<boolean>": writes the draw (awaited, so
+  // a name can't be tapped twice and a failure shows here)
+  onDraw: { type: Function, default: null },
 });
-const emit = defineEmits(['done', 'close', 'draw']);
+const emit = defineEmits(['done', 'close']);
 const { t } = useI18n();
 
 const fmt = (n) => formatNumber(Math.round(Number(n) || 0));
@@ -146,6 +150,22 @@ const namesOf = (ids = []) => ids.map(nameOf).join('、');
 // ── host draws on the stage ──────────────────────────
 const busy = ref(false);
 const picking = ref(null);
+const failed = ref(false);
+let failTimer = null;
+async function draw(tk, slot) {
+  if (!props.onDraw || busy.value) return;
+  busy.value = true;
+  failed.value = false;
+  clearTimeout(failTimer);
+  try {
+    if (!(await props.onDraw(tk, slot))) throw new Error('draw failed');
+  } catch {
+    failed.value = true;
+    failTimer = setTimeout(() => { failed.value = false; }, 5000);
+  } finally {
+    busy.value = false;
+  }
+}
 function randomSlot() {
   const free = remaining.value;
   if (!free.length) return null;
@@ -160,13 +180,13 @@ function onPick(tk) {
     return;
   }
   const slot = randomSlot();
-  if (slot !== null) emit('draw', tk, slot);
+  if (slot !== null) draw(tk, slot);
 }
 function drawTier(tier) {
   const tk = pending.value.find((x) => x.id === picking.value);
   const slot = slotOfTier(bounty.value, players.value, tier);
   picking.value = null;
-  if (tk && slot !== null) emit('draw', tk, slot);
+  if (tk && slot !== null) draw(tk, slot);
 }
 
 // ── reveal ──────────────────────────────────────────
@@ -185,6 +205,12 @@ const revealed = ref(false);
 let timers = [];
 let raf = 0;
 const wait = (ms) => new Promise((r) => { timers.push(setTimeout(r, ms)); });
+// An animation step: done when it finishes — or, if the browser never says so
+// (a backgrounded home-screen app, a cancelled animation), shortly after
+const step = (anim, ms) => Promise.race([
+  anim?.finished?.catch(() => {}) ?? Promise.resolve(),
+  wait(ms + 400),
+]);
 
 function confetti(n) {
   const el = stage.value;
@@ -218,6 +244,20 @@ function countUp(target, ms) {
 }
 
 async function play(tk) {
+  try {
+    await sequence(tk);
+  } catch (err) {
+    console.warn('Mystery reveal:', err);
+  } finally {
+    // Whatever happened, the result lands and the stage moves on
+    landed.value = true;
+    cleanupCard();
+    reveal.value = null;
+    emit('done', tk);
+  }
+}
+
+async function sequence(tk) {
   const slot = tk.envelope;
   reveal.value = {
     id: tk.id,
@@ -250,21 +290,21 @@ async function play(tk) {
   flown.value = true;
 
   // 1 · lift off the wall and fly to the centre
-  await cardEl.animate([
-    { transform: `translate(${fromX}px, ${fromY}px) scale(${scale0}) rotateY(0)` },
-    { transform: `translate(${toX}px, ${toY}px) scale(1.06) rotateY(0) rotateZ(-4deg)` },
-  ], { duration: 900, easing: 'cubic-bezier(.3,.7,.2,1)', fill: 'forwards' }).finished;
+  await step(cardEl.animate([
+    { transform: `translate(${fromX}px, ${fromY}px) scale(${scale0}) rotateY(0deg)` },
+    { transform: `translate(${toX}px, ${toY}px) scale(1.06) rotateY(0deg) rotateZ(-4deg)` },
+  ], { duration: 900, easing: 'cubic-bezier(.3,.7,.2,1)', fill: 'forwards' }), 900);
 
   // 2 · tension: shake, pulsing "?"
   qmark.value?.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }],
     { duration: 420, iterations: 3, easing: 'ease-in-out' });
-  await cardEl.animate([
+  await step(cardEl.animate([
     { transform: `translate(${toX}px, ${toY}px) scale(1.06) rotateZ(-4deg)` },
     { transform: `translate(${toX}px, ${toY}px) scale(1.08) rotateZ(4deg)` },
     { transform: `translate(${toX}px, ${toY}px) scale(1.06) rotateZ(-3deg)` },
     { transform: `translate(${toX}px, ${toY}px) scale(1.1) rotateZ(3deg)` },
-    { transform: `translate(${toX}px, ${toY}px) scale(1.06) rotateZ(0)` },
-  ], { duration: 1100, easing: 'ease-in-out', fill: 'forwards' }).finished;
+    { transform: `translate(${toX}px, ${toY}px) scale(1.06) rotateZ(0deg)` },
+  ], { duration: 1100, easing: 'ease-in-out', fill: 'forwards' }), 1100);
 
   // 3 · the spin: fast, then slowing; rays brightening behind it
   rays.value?.animate([
@@ -272,10 +312,10 @@ async function play(tk) {
     { opacity: 0.55, transform: 'translate(-50%, -50%) scale(1.1) rotate(120deg)', offset: 0.6 },
     { opacity: 0.95, transform: 'translate(-50%, -50%) scale(1.35) rotate(220deg)' },
   ], { duration: 2800, easing: 'ease-in', fill: 'forwards' });
-  await cardEl.animate([
-    { transform: `translate(${toX}px, ${toY}px) scale(1.06) rotateY(0)` },
+  await step(cardEl.animate([
+    { transform: `translate(${toX}px, ${toY}px) scale(1.06) rotateY(0deg)` },
     { transform: `translate(${toX}px, ${toY}px) scale(1.12) rotateY(1980deg)` },
-  ], { duration: 2800, easing: 'cubic-bezier(.35,.05,.15,1)', fill: 'forwards' }).finished;
+  ], { duration: 2800, easing: 'cubic-bezier(.35,.05,.15,1)', fill: 'forwards' }), 2800);
 
   // 4 · flash, then the amount counts up
   flash.value?.animate([{ opacity: 0 }, { opacity: 0.95, offset: 0.25 }, { opacity: 0 }],
@@ -302,14 +342,11 @@ async function play(tk) {
   cardEl.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 400, fill: 'forwards' });
   rays.value?.animate([{ opacity: 0.6 }, { opacity: 0 }], { duration: 400, fill: 'forwards' });
   await wait(400);
-  landed.value = true;
-  cleanupCard();
-  reveal.value = null;
-  emit('done', tk);
 }
 
 function cleanupCard() {
   cancelAnimationFrame(raf);
+  shownAmount.value = reveal.value?.amount ?? shownAmount.value;
   for (const el of [card.value, rays.value]) el?.getAnimations().forEach((a) => a.cancel());
   if (card.value) card.value.style.display = 'none';
 }
@@ -320,6 +357,7 @@ watch(() => props.current, (tk) => {
 
 onUnmounted(() => {
   timers.forEach(clearTimeout);
+  clearTimeout(failTimer);
   cleanupCard();
 });
 </script>
@@ -439,6 +477,7 @@ onUnmounted(() => {
 .ms-q-empty { font-size: max(12px, 1.5cqw); color: #8f9bb3; padding: 1cqh 0; }
 .ms-gift { font-size: max(16px, 2.4cqw); }
 .ms-hint { margin-top: 1cqh; font-size: max(11px, 1.2cqw); color: #8f9bb3; }
+.ms-err { margin-top: 0.6cqh; font-size: max(11px, 1.2cqw); font-weight: 700; color: #ff8a8a; }
 .ms-tiers { display: flex; flex-wrap: wrap; gap: 0.6cqw; margin-top: 1.2cqh; }
 .ms-tiers .ms-k { width: 100%; margin-bottom: 0; }
 .ms-tier { padding: 0.8cqh 1cqw; border-radius: 0.6cqw; font-family: 'JetBrains Mono', monospace; font-size: max(12px, 1.5cqw); color: #f5c451; border: 1px solid rgba(245, 196, 81, 0.5); }
