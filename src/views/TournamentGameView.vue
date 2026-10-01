@@ -36,6 +36,22 @@
       @close-room="handleCloseGame"
     />
 
+    <!-- Mystery: the TV stage is open and it's my draw — draw from here -->
+    <button
+      v-if="myStageTicket"
+      type="button"
+      class="mystery-my-turn"
+      :disabled="drawingMine"
+      @click="drawMine"
+    >
+      <span class="text-3xl">🎁</span>
+      <span class="text-left">
+        <span class="block font-black text-lg">{{ $t('mystery.yourTurn') }}</span>
+        <span class="block text-xs opacity-80">{{ $t('mystery.yourTurnHint') }}</span>
+      </span>
+    </button>
+    <MysteryPhoneReveal :result="myReveal" projected @close="myReveal = null" />
+
     <!-- Clock card: tap → full clock; host can start / pause here -->
     <RoomClockCard
       v-if="game.tournamentSessionId && tournamentSession"
@@ -303,6 +319,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import TournamentPlayerCard from '../components/game/TournamentPlayerCard.vue';
 import DealSettlementModal from '../components/tournament/DealSettlementModal.vue';
 import KnockoutModal from '../components/tournament/KnockoutModal.vue';
+import MysteryPhoneReveal from '../components/tournament/MysteryPhoneReveal.vue';
 import RoomClockCard from '../components/tournament/RoomClockCard.vue';
 import RoomHeader from '../components/game/RoomHeader.vue';
 import RoomActionBar from '../components/game/RoomActionBar.vue';
@@ -315,6 +332,7 @@ import { buildTournamentPrizeMap } from '../utils/settlementMath.js';
 import {
   gameBountyPerEntry, gamePrizePool, headValue, isProgressiveBounty, bountyCashShare,
   isMysteryBounty, mysteryPhaseActive, freeSlotCount, pendingTickets, bountyPool, tournamentBountyView,
+  canDrawTicket, remainingSlots, envelopeAmounts,
 } from '../utils/bounty.js';
 import { DEFAULT_BUY_IN } from '../utils/constants.js';
 import { consumeSessionReturn } from '../utils/sessionReturn.js';
@@ -424,6 +442,44 @@ const mysteryActive = computed(() => isMystery.value && mysteryPhaseActive(game.
   reentryClosed: !reentriesOpen.value,
   level: clockLevel.value || 0,
 }) && freeSlotCount(game.value.bounty, game.value.players || []) > 0);
+// My own draw while the TV stage is open (the host opened it on the clock)
+const mySeat = computed(() => (game.value?.players || []).find((p) => p.uid && p.uid === user.value?.uid) || null);
+const myStageTicket = computed(() => {
+  if (!isMystery.value || !mySeat.value) return null;
+  const ctx = {
+    isHost: false,
+    mySeatId: mySeat.value.id,
+    stageOpen: tournamentSession.value?.state?.mysteryStage?.open === true,
+    drawMode: game.value.bounty?.drawMode || 'system',
+  };
+  return pendingTickets(game.value.players || []).find((tk) => canDrawTicket(tk, ctx)) || null;
+});
+const drawingMine = ref(false);
+const myReveal = ref(null);
+async function drawMine() {
+  const tk = myStageTicket.value;
+  if (!tk || drawingMine.value) return;
+  const free = remainingSlots(game.value.bounty, game.value.players || []);
+  if (!free.length) return;
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  const slot = free[buf[0] % free.length].slot;
+  drawingMine.value = true;
+  try {
+    const ok = await gameStore.mysteryDraw(tk.id, slot);
+    if (!ok) { showError(gameError.value || t('common.unexpectedError')); return; }
+    const pool = bountyPool(game.value.players || [], game.value.baseBuyIn, bountyPerHead.value);
+    const names = tk.by.map((id) => (game.value.players || []).find((p) => p.id === id)?.name || '?').join('、');
+    myReveal.value = {
+      names,
+      amount: envelopeAmounts(game.value.bounty, pool)[slot] || 0,
+      split: tk.by.length > 1 ? t('mystery.split', { names }) : '',
+    };
+  } finally {
+    drawingMine.value = false;
+  }
+}
+
 // The champion hasn't drawn the last envelope yet (it would go to the prize pool)
 const mysteryFinalMissing = computed(() => isMystery.value
   && (game.value?.players || []).some((p) => (p.mysteryTickets || []).length)
@@ -975,6 +1031,20 @@ const handleCloseGame = async () => {
 </script>
 
 <style scoped>
+.mystery-my-turn {
+  width: 100%;
+  margin: 0.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  color: var(--on-accent);
+  background: rgb(var(--tw-amber-500));
+  animation: my-turn-pulse 1.2s ease-in-out infinite;
+}
+.mystery-my-turn:disabled { opacity: 0.6; animation: none; }
+@keyframes my-turn-pulse { 50% { box-shadow: 0 0 0 6px rgb(var(--tw-amber-500) / 0.3); } }
 .room-section {
   border-radius: 0.9rem;
   background: rgb(var(--tw-slate-800) / 0.6);

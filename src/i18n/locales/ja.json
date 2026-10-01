@@ -1061,6 +1061,22 @@
     "finalDrawsDealHint": "ディール前：残り全員が 1 封ずつ",
     "finalDrawsDealConfirm": "残りの {n} 人がそれぞれ封筒を 1 つ抽きますか？ディールする場合のみ必要です。",
     "sharePerEntry": "バイインごとのミステリープール",
-    "splitPreview": "バイインごと：ミステリープール ${head} · 賞金プール ${pool}"
+    "splitPreview": "バイインごと：ミステリープール ${head} · 賞金プール ${pool}",
+    "backToClock": "時計に戻る",
+    "drawingNow": "抽選中",
+    "stageHint": "名前をタップして抽選、または本人のスマホで「あなたの番」を押してもらいます",
+    "openStage": "テレビの抽選ステージを開く",
+    "closeStage": "ステージを閉じる",
+    "stageIsOpen": "テレビの抽選ステージが開いています",
+    "stageIsClosed": "テレビの抽選ステージは閉じています",
+    "stageOpenHint": "抽選待ちの人は自分のスマホで抽けます",
+    "stageClosedHint": "ここで抽いてもテレビで発表されます",
+    "playOnTv": "テレビで発表（スマホは後で表示）",
+    "pauseFirst": "進行中です",
+    "pauseFirstHint": "一時停止か休憩中に抽くか、テレビの抽選ステージを開いてください",
+    "watchTv": "テレビを見て！",
+    "watchTvHint": "発表中…",
+    "yourTurn": "あなたのミステリー抽選です！",
+    "yourTurnHint": "タップして抽選 — テレビで発表されます"
   }
 }

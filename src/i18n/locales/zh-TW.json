@@ -1061,6 +1061,22 @@
     "finalDrawsDealHint": "協議結算前：在場每人各抽 1 個",
     "finalDrawsDealConfirm": "要讓在場的 {n} 人各抽 1 個信封嗎？只有準備協議結算時才需要。",
     "sharePerEntry": "每次買入放進神秘賞金池",
-    "splitPreview": "每次買入：神秘賞金池 ${head} · 名次獎池 ${pool}"
+    "splitPreview": "每次買入：神秘賞金池 ${head} · 名次獎池 ${pool}",
+    "backToClock": "回到時鐘",
+    "drawingNow": "正在抽",
+    "stageHint": "點名字開抽；或請他用自己的手機按「輪到你抽」",
+    "openStage": "打開電視抽獎舞台",
+    "closeStage": "關閉舞台",
+    "stageIsOpen": "電視上的抽獎舞台開著",
+    "stageIsClosed": "電視上的抽獎舞台沒開",
+    "stageOpenHint": "等著抽的人可以用自己手機抽",
+    "stageClosedHint": "在這裡抽，電視也會自動播放揭曉",
+    "playOnTv": "在電視上播放揭曉（手機先不顯示金額）",
+    "pauseFirst": "比賽進行中",
+    "pauseFirstHint": "請在暫停或休息時間抽，或打開電視抽獎舞台",
+    "watchTv": "看電視！",
+    "watchTvHint": "揭曉中…",
+    "yourTurn": "輪到你抽神秘賞金！",
+    "yourTurnHint": "點這裡抽，結果在電視上揭曉"
   }
 }

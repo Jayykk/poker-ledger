@@ -111,7 +111,9 @@ describe('mystery bounty wiring', () => {
   it('the draw screen has a route and is reachable from the room and the clock', () => {
     expect(main).toContain("path: '/mystery-draw/:gameId'");
     expect(tournamentRoom).toContain('$router.push(`/mystery-draw/${gameId}`)');
-    expect(clockView).toContain('$router.push(`/mystery-draw/${session.gameId}`)');
+    // on the clock, 🎁 opens the TV draw stage
+    expect(clockView).toContain('@click="setMysteryStage(true)"');
+    expect(clockView).toContain('<MysteryStage');
   });
 
   it('knockouts earn a ticket only once the draw phase is on; undo removes it', () => {

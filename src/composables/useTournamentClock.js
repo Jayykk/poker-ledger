@@ -603,6 +603,20 @@ export function useTournamentClock(options = {}) {
     });
   }
 
+  /**
+   * Mystery bounty: open / close the TV draw stage. While it's open, players
+   * waiting for a draw get a "draw now" button on their own phone. Host, or
+   * anyone on a dealer-mode clock (the session rules allow both).
+   */
+  async function setMysteryStage(open) {
+    if (!sessionId.value) return;
+    if (!isHost.value && session.value?.dealerModeEnabled !== true) return;
+    await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
+      'state.mysteryStage': { open: !!open, at: Date.now() },
+      updatedAt: serverTimestamp(),
+    });
+  }
+
   async function toggleDealerMode(enabled) {
     if (!sessionId.value || !isHost.value) return;
     await updateDoc(doc(db, 'tournamentSessions', sessionId.value), {
@@ -687,6 +701,7 @@ export function useTournamentClock(options = {}) {
     deleteSession,
     toggleDealerMode,
     setClockStyle,
+    setMysteryStage,
     cleanup,
 
     // Presets

@@ -75,6 +75,18 @@
         @close="showControls = false"
       />
     </template>
+    <!-- Mystery bounty: TV draw stage — reveals every new draw (from any
+         device) and, when opened with 🎁, lets players draw from their phones -->
+    <MysteryStage
+      v-if="showStage"
+      :game="stageGame"
+      :current="stageCurrent"
+      :can-control="canControlStage"
+      :subtitle="stageSubtitle"
+      @done="onStageDone"
+      @close="setMysteryStage(false)"
+      @draw="onStageDraw"
+    />
   </div>
 </template>
 
@@ -85,6 +97,9 @@ import { useI18n } from 'vue-i18n';
 import { signInAnonymously } from 'firebase/auth';
 import { auth } from '../firebase-init.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
+import { useMysteryStage } from '../composables/useMysteryStage.js';
+import { useGameStore } from '../store/modules/game.js';
+import MysteryStage from '../components/tournament/MysteryStage.vue';
 import { useTournamentAudio, unlockAudio, startAudioHeartbeat, stopAudioHeartbeat } from '../composables/useTournamentAudio.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useWakeLock } from '../composables/useWakeLock.js';
@@ -117,8 +132,28 @@ const {
   formattedTime, timeToBreak,
   isTimed, isBuyInClosed, timeToEnd, levelProgress, endsAt, clockStyle,
   joinSession, startClock, pauseClock, advanceLevel, previousLevel,
-  updatePlayers, addReentry, endTournament, setClockStyle, cleanup,
+  updatePlayers, addReentry, endTournament, setClockStyle, setMysteryStage, isHost, cleanup,
 } = useTournamentClock({ dealerMode: true });
+
+// ── Mystery bounty TV stage ─────────────────────────
+const stageGameId = computed(() => (config.value?.bounty?.type === 'mystery' ? session.value?.gameId || null : null));
+const { game: stageGame, current: stageCurrent, next: stageNext } = useMysteryStage(stageGameId);
+const stageOpen = computed(() => session.value?.state?.mysteryStage?.open === true);
+// Open with 🎁, or on its own while a draw is being revealed (8 s, then back)
+const showStage = computed(() => !!stageGameId.value && !!stageGame.value && (stageOpen.value || !!stageCurrent.value));
+const canControlStage = computed(() => isHost.value || session.value?.dealerModeEnabled === true);
+const stageSubtitle = computed(() => [
+  config.value?.name,
+  isBreak.value ? t('tournament.breakTime') : `Level ${currentLevel.value}`,
+  status.value === 'paused' ? t('clockFace.paused') : '',
+].filter(Boolean).join(' · '));
+const onStageDone = () => stageNext();
+const gameStoreForStage = useGameStore();
+async function onStageDraw(ticket, slot) {
+  const ok = await gameStoreForStage.mysteryDraw(ticket.id, slot, stageGameId.value);
+  if (!ok) console.warn('Stage draw failed:', gameStoreForStage.error);
+}
+
 
 // Bounty pill on the clock faces: KO / PKO head, or the mystery pool
 const bountyLabel = computed(() => ({ pko: '🎯 PKO', mystery: `🎁 ${t('mystery.short')}` }[config.value?.bounty?.type] || '🎯 KO'));

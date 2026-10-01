@@ -19,6 +19,29 @@
     <div v-if="!game" class="md-empty">{{ $t('game.noActiveGame') }}</div>
 
     <template v-else>
+      <!-- TV: open the stage (players then draw from their phones), and
+           whether draws here are shown on the TV -->
+      <div v-if="hasClock" class="md-card md-tv">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">📺</span>
+          <div class="min-w-0 flex-1">
+            <div class="font-bold">{{ stageOpen ? $t('mystery.stageIsOpen') : $t('mystery.stageIsClosed') }}</div>
+            <div class="md-sub">{{ stageOpen ? $t('mystery.stageOpenHint') : $t('mystery.stageClosedHint') }}</div>
+          </div>
+          <button v-if="isHost" type="button" class="md-tier-btn" :disabled="busy" @click="toggleStage">
+            {{ stageOpen ? $t('mystery.closeStage') : $t('mystery.openStage') }}
+          </button>
+        </div>
+        <label class="flex items-center gap-2 pt-2 md-sub">
+          <input v-model="onTv" type="checkbox" class="accent-amber-500" />
+          {{ $t('mystery.playOnTv') }}
+        </label>
+      </div>
+      <div v-if="isHost && pending.length && !hostMayDraw" class="md-card md-status">
+        <div class="font-bold">⏸ {{ $t('mystery.pauseFirst') }}</div>
+        <div class="md-sub">{{ $t('mystery.pauseFirstHint') }}</div>
+      </div>
+
       <!-- Status -->
       <div v-if="!phaseStarted && !tickets.length" class="md-card md-status">
         <div class="font-bold">⏳ {{ $t('mystery.notStarted') }}</div>
@@ -34,7 +57,7 @@
             <div class="font-bold truncate">{{ namesOf(tk.by) }}</div>
             <div class="md-sub">{{ tk.final ? $t('mystery.ticketFinal') : $t('mystery.ticketKo', { victim: nameOf(tk.holderId) }) }}<template v-if="tk.by.length > 1"> · {{ $t('mystery.split', { names: '' }).trim() }}</template></div>
           </div>
-          <template v-if="isHost">
+          <template v-if="mayDraw(tk)">
             <button v-if="drawMode === 'system'" type="button" class="md-draw" :disabled="busy || !remaining.length" @click="drawRandom(tk)">
               🎁 {{ $t('mystery.draw') }}
             </button>
@@ -106,17 +129,8 @@
       </section>
     </template>
 
-    <!-- Reveal -->
-    <Transition name="reveal">
-      <div v-if="reveal" class="md-reveal" @click="reveal = null">
-        <div class="md-reveal-card">
-          <div class="md-reveal-emoji">🎉</div>
-          <div class="md-reveal-name">{{ reveal.names }} {{ $t('mystery.youDrew') }}</div>
-          <div class="md-reveal-amount">${{ formatNumber(reveal.amount) }}</div>
-          <div v-if="reveal.split" class="md-sub">{{ reveal.split }}</div>
-        </div>
-      </div>
-    </Transition>
+    <!-- Result: "watch the TV" first when it's shown there -->
+    <MysteryPhoneReveal :result="reveal" :projected="hasClock && onTv" @close="reveal = null" />
   </div>
 </template>
 
@@ -135,10 +149,12 @@ import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import EnvelopeEditor from '../components/templates/EnvelopeEditor.vue';
+import MysteryPhoneReveal from '../components/tournament/MysteryPhoneReveal.vue';
+import { useAuthStore } from '../store/modules/auth.js';
 import { formatNumber } from '../utils/formatters.js';
 import {
   envelopeSlots, envelopeAmounts, envelopeTotalShare, remainingSlots, allTickets, freeSlotCount,
-  gameBountyPerEntry, bountyPool, mysteryPhaseActive, slotOfTier,
+  gameBountyPerEntry, bountyPool, mysteryPhaseActive, slotOfTier, canDrawTicket,
 } from '../utils/bounty.js';
 
 const route = useRoute();
@@ -151,7 +167,10 @@ const { game, isHost, error: gameError } = storeToRefs(gameStore);
 const { joinGameListener, mysteryDraw, mysteryUndoDraw, mysteryFinalDraws, updateMysteryEnvelopes } = gameStore;
 const clock = useTournamentClock();
 
+const authStore = useAuthStore();
 const busy = ref(false);
+// Draws here are also revealed on the TV stage (the clock screen) — on by default
+const onTv = ref(true);
 const reveal = ref(null);
 const editing = ref(false);
 const draftEnvelopes = ref([]);
@@ -179,6 +198,26 @@ const drawn = computed(() => tickets.value
   .sort((a, b) => (b.at || 0) - (a.at || 0)));
 const anyDrawn = computed(() => drawn.value.length > 0);
 const aliveCount = computed(() => players.value.filter((p) => !p.eliminated).length);
+
+// ── who may draw now (canDrawTicket) ──
+const hasClock = computed(() => !!game.value?.tournamentSessionId);
+const stageOpen = computed(() => clock.session.value?.state?.mysteryStage?.open === true);
+const mySeatId = computed(() => players.value.find((p) => p.uid && p.uid === authStore.user?.uid)?.id || null);
+const drawCtx = computed(() => ({
+  isHost: isHost.value,
+  mySeatId: mySeatId.value,
+  clockPaused: ['paused', 'waiting', 'ended'].includes(clock.status.value),
+  onBreak: clock.isBreak.value,
+  stageOpen: stageOpen.value,
+  drawMode: drawMode.value,
+}));
+const mayDraw = (tk) => canDrawTicket(tk, drawCtx.value);
+// Host: a running clock blocks draws from the phone (pause / break / stage)
+const hostMayDraw = computed(() => !hasClock.value || drawCtx.value.clockPaused || drawCtx.value.onBreak || stageOpen.value);
+async function toggleStage() {
+  busy.value = true;
+  try { await clock.setMysteryStage(!stageOpen.value); } finally { busy.value = false; }
+}
 
 // Re-entry closed and the start condition met (mirrors the store's check)
 const reentryClosed = computed(() => {
