@@ -821,7 +821,9 @@
     "copyClear": "クリア",
     "copySelected": "{count}/{max} 人選択中",
     "copyRosterHint": "このイベントに登録済みのメンバーを新しい時間帯へそのまま追加できます。再登録は不要です",
-    "copyOverCap": "「{label}」の追加人数が上限を超えています"
+    "copyOverCap": "「{label}」の追加人数が上限を超えています",
+    "createShort": "作成",
+    "noActiveEvents": "進行中のイベントはありません"
   },
   "timed": {
     "label": "時間制ゲーム",
@@ -1008,7 +1010,8 @@
     "buyIn": "バイイン",
     "stack": "スタック",
     "addBuy": "追加",
-    "totalBuyIn": "合計バイイン"
+    "totalBuyIn": "合計バイイン",
+    "backToLobby": "ロビーに戻る"
   },
   "mystery": {
     "short": "ミステリー",

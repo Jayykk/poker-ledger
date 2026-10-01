@@ -821,7 +821,9 @@
     "copyClear": "清除",
     "copySelected": "已选 {count}/{max} 人",
     "copyRosterHint": "从本活动已报名的成员直接带入这个新时段，成员无需再次报名",
-    "copyOverCap": "「{label}」带入人数超过上限"
+    "copyOverCap": "「{label}」带入人数超过上限",
+    "createShort": "创建",
+    "noActiveEvents": "目前没有进行中的活动"
   },
   "timed": {
     "label": "限时赛",
@@ -1008,7 +1010,8 @@
     "buyIn": "买入",
     "stack": "筹码",
     "addBuy": "加买",
-    "totalBuyIn": "总买入"
+    "totalBuyIn": "总买入",
+    "backToLobby": "返回大厅"
   },
   "mystery": {
     "short": "神秘",

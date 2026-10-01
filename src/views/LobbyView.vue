@@ -37,6 +37,16 @@
       </div>
     </BaseCard>
 
+    <!-- Main actions: right under the stats -->
+    <div class="grid grid-cols-2 gap-3 mb-6">
+      <button type="button" class="lobby-main primary" @click="showCreateModal = true">
+        <i class="fas fa-plus"></i>{{ $t('lobby.createGame') }}
+      </button>
+      <button type="button" class="lobby-main" @click="showJoinModal = true">
+        <i class="fas fa-sign-in-alt"></i>{{ $t('lobby.joinGame') }}
+      </button>
+    </div>
+
     <!-- Pending Invitations -->
     <div v-if="pendingInvitations.length > 0" class="mb-6">
       <h3 class="text-lg font-bold text-white mb-3">{{ $t('invitations.pending') }}</h3>
@@ -157,19 +167,30 @@
       </div>
     </div>
 
-    <!-- My Live Events (Session layer) — ended events live in /session-history -->
-    <Transition name="section-expand">
-    <div v-if="mySessions.length > 0 || endedSessionsCount > 0" class="mb-6">
+    <!-- My Live Events (Session layer) — ended events live in /session-history.
+         Always shown, so creating one and the history stay one tap away. -->
+    <div class="mb-6">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-lg font-bold text-white">{{ $t('session.myEvents') }}</h3>
-        <button
-          v-if="endedSessionsCount > 0"
-          @click="$router.push('/session-history')"
-          class="text-sm text-emerald-400 hover:text-emerald-300 transition"
-        >
-          {{ $t('session.historyEvents') }} <i class="fas fa-chevron-right text-xs"></i>
-        </button>
+        <div class="flex items-center gap-3">
+          <button
+            v-if="endedSessionsCount > 0"
+            type="button"
+            @click="$router.push('/session-history')"
+            class="text-sm text-emerald-400 hover:text-emerald-300 transition"
+          >
+            {{ $t('session.historyEvents') }} <i class="fas fa-chevron-right text-xs"></i>
+          </button>
+          <button
+            type="button"
+            @click="$router.push('/session-setup')"
+            class="text-sm text-sky-400 hover:text-sky-300 transition"
+          >
+            <i class="fas fa-plus text-xs"></i> {{ $t('session.createShort') }}
+          </button>
+        </div>
       </div>
+      <div v-if="!mySessions.length" class="text-sm text-gray-500 px-1">{{ $t('session.noActiveEvents') }}</div>
       <div class="space-y-2">
         <div
           v-for="evt in mySessions"
@@ -205,72 +226,20 @@
         </div>
       </div>
     </div>
-    </Transition>
-
-    <!-- Quick Actions -->
-    <div class="grid gap-4">
-      <BaseCard padding="md" clickable @click="$router.push('/session-setup')">
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-xl">
-            <i class="fas fa-calendar-plus"></i>
-          </div>
-          <div>
-            <h3 class="text-white font-bold">{{ $t('session.create') }}</h3>
-          </div>
-        </div>
-      </BaseCard>
-
-      <BaseCard padding="md" clickable @click="showCreateModal = true">
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-xl">
-            <i class="fas fa-plus"></i>
-          </div>
-          <div>
-            <h3 class="text-white font-bold">{{ $t('lobby.createGame') }}</h3>
-          </div>
-        </div>
-      </BaseCard>
-
-      <BaseCard padding="md" clickable @click="showJoinModal = true">
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-xl">
-            <i class="fas fa-sign-in-alt"></i>
-          </div>
-          <div>
-            <h3 class="text-white font-bold">{{ $t('lobby.joinGame') }}</h3>
-          </div>
-        </div>
-      </BaseCard>
-    </div>
 
     <!-- Tools Section -->
-    <div class="mt-6">
+    <div>
       <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wide mb-3">{{ $t('lobby.tools') }}</h3>
-      <div class="grid grid-cols-2 gap-3">
-        <BaseCard padding="md" clickable @click="$router.push('/structures')">
-          <div class="flex flex-col items-center gap-2 text-center py-1">
-            <div class="w-10 h-10 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg">
-              🏆
-            </div>
-            <span class="text-white text-sm font-semibold">{{ $t('action.tournamentSetup') }}</span>
-          </div>
-        </BaseCard>
-        <BaseCard padding="md" clickable @click="$router.push('/templates')">
-          <div class="flex flex-col items-center gap-2 text-center py-1">
-            <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
-              📋
-            </div>
-            <span class="text-white text-sm font-semibold">{{ $t('template.title') }}</span>
-          </div>
-        </BaseCard>
-        <BaseCard padding="md" clickable @click="$router.push('/admin/tables')">
-          <div class="flex flex-col items-center gap-2 text-center py-1">
-            <div class="w-10 h-10 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-lg">
-              ⚙️
-            </div>
-            <span class="text-white text-sm font-semibold">{{ $t('admin.management.title') }}</span>
-          </div>
-        </BaseCard>
+      <div class="grid grid-cols-3 gap-2">
+        <button type="button" class="lobby-tool" @click="$router.push('/structures')">
+          <span class="text-amber-400">🏆</span>{{ $t('action.tournamentSetup') }}
+        </button>
+        <button type="button" class="lobby-tool" @click="$router.push('/templates')">
+          <span class="text-emerald-400">📋</span>{{ $t('template.title') }}
+        </button>
+        <button type="button" class="lobby-tool" @click="$router.push('/admin/tables')">
+          <span class="text-sky-400">⚙️</span>{{ $t('admin.management.title') }}
+        </button>
       </div>
     </div>
 
@@ -565,6 +534,7 @@ import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
 import { formatNumber, formatShortDate } from '../utils/formatters.js';
+import { parsePokerGameId } from '../utils/pokerEntry.js';
 import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP, GAME_TYPE, STORAGE_KEYS } from '../utils/constants.js';
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
 import {
@@ -841,6 +811,16 @@ const handleCheckGame = async () => {
     showError('Please enter game ID');
     return;
   }
+  // An online table's invite link (…/poker-game/<id>) goes straight to the table
+  if (gameCode.value.includes('poker-game/')) {
+    const tableId = parsePokerGameId(gameCode.value);
+    if (tableId) {
+      showJoinModal.value = false;
+      gameCode.value = '';
+      router.push(`/poker-game/${tableId}`);
+      return;
+    }
+  }
   
   await withLoading(async () => {
     const result = await checkGameStatus(gameCode.value);
@@ -1014,4 +994,37 @@ onUnmounted(() => {
   max-height: 0;
   opacity: 0;
 }
+.lobby-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.95rem 0.5rem;
+  border-radius: 0.9rem;
+  font-weight: 700;
+  color: rgb(var(--tw-white));
+  border: 1px solid rgb(var(--tw-slate-600));
+  background: rgb(var(--tw-slate-800) / 0.6);
+  transition: transform 0.1s;
+}
+.lobby-main:active, .lobby-tool:active { transform: scale(0.97); }
+.lobby-main.primary {
+  border-color: transparent;
+  background: rgb(var(--tw-amber-500));
+  color: var(--on-accent);
+}
+.lobby-tool {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.7rem 0.25rem;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--tw-white));
+  background: rgb(var(--tw-slate-800));
+  border: 1px solid rgb(var(--tw-slate-700));
+}
+.lobby-tool span { font-size: 1.1rem; }
 </style>
