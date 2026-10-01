@@ -20,9 +20,9 @@
       :value-label="$t('room.totalBuyIn')"
       :value="formatNumber(totalPot)"
       :is-host="isHost"
-      :can-share-line="liffReady"
+      :in-line="isInLineClient"
       @copy-id="handleCopyId"
-      @share-line="handleShareToLine"
+      @share-invite="handleShareInvite"
       @close-room="handleCloseGame"
     />
 
@@ -235,6 +235,8 @@ import { useTransactions } from '../composables/useTransactions.js';
 import { useLiff } from '../composables/useLiff.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
+import { useShare, appLink } from '../composables/useShare.js';
+import { inviteText, cashSettlementText } from '../utils/shareText.js';
 import { useLoading } from '../composables/useLoading.js';
 import { useUserStore } from '../store/modules/user.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
@@ -273,8 +275,9 @@ const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
 const { transactions, txLoading, txError, listenerReady, startListening: startTxListening, stopListening: stopTxListening, recordBuyIn, recordAction, recordDirect, undoBuyIn } = useTransactions(gameId);
 const {
   sendBuyInMessage, sendUndoMessage, sendSettlementMessage, shareGameInvite,
-  lineNotifyEnabled, isInLineClient, isInitialized: liffReady,
+  lineNotifyEnabled, isInLineClient,
 } = useLiff();
+const { shareOut } = useShare();
 const { success, warning, error: showError, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
@@ -593,15 +596,25 @@ const handleInvite = async (player) => {
   await copyWithNotification(url, t('common.copy'));
 };
 
-const handleShareToLine = async () => {
-  const shared = await shareGameInvite(
-    game.value.name,
-    game.value.id,
-    game.value.hostName || displayName.value,
-  );
-  if (shared) {
-    success(t('game.shareSuccess'));
+// Invite: a LINE card inside LINE, else the system share sheet
+const handleShareInvite = async () => {
+  if (isInLineClient.value) {
+    const shared = await shareGameInvite(
+      game.value.name,
+      game.value.id,
+      game.value.hostName || displayName.value,
+    );
+    if (shared) success(t('game.shareSuccess'));
+    return;
   }
+  await shareOut({
+    title: game.value.name,
+    text: inviteText({
+      gameName: game.value.name,
+      hostName: game.value.hostName || displayName.value,
+      url: appLink(`game/${game.value.id}`),
+    }),
+  });
 };
 
 const handleAddBuy = async (player) => {
@@ -657,6 +670,15 @@ const handleCopyReport = async () => {
   await copyWithNotification(report, t('game.copyReport'));
 };
 
+/** Outside LINE: settled — share the result? (the tap opens the share sheet) */
+const askShareResult = () => confirm({
+  title: t('share.settledTitle'),
+  message: t('share.settledAsk'),
+  confirmText: t('share.shareResult'),
+  cancelText: t('share.noThanks'),
+  type: 'info',
+});
+
 const handleSettle = async () => {
   // A non-zero stack/buy-in gap gets baked into the settlement snapshot
   // permanently — make the host acknowledge it explicitly.
@@ -677,11 +699,16 @@ const handleSettle = async () => {
     }
 
     showSettlement.value = false;
-    const reportSent = await sendSettlementMessage(
-      buildCashSettlementReport(settleResult),
-    );
-    if (lineNotifyEnabled.value && isInLineClient.value && !reportSent) {
-      warning(t('game.settlementReportFailed'));
+    const report = buildCashSettlementReport(settleResult);
+    if (isInLineClient.value) {
+      // Inside LINE: the result card goes to this chat
+      const reportSent = await sendSettlementMessage(report);
+      if (lineNotifyEnabled.value && !reportSent) warning(t('game.settlementReportFailed'));
+    } else if (await askShareResult()) {
+      await shareOut({
+        title: report.gameName,
+        text: cashSettlementText({ ...report, url: report.gameId ? appLink(`report/${report.gameId}`) : undefined }),
+      });
     }
 
     void userStore.waitForHistorySync(settleResult.gameId, settleResult.syncToken, {

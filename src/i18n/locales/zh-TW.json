@@ -1089,5 +1089,14 @@
     "waitForPause": "電視已經在顯示時鐘了，等暫停或休息時就能抽",
     "manualByHost": "這場用實體信封，抽完後由房主登記",
     "drawFailed": "抽獎沒有成功，請再點一次"
+  },
+  "share": {
+    "invite": "分享邀請連結",
+    "copied": "已複製，貼到 LINE 或其他 App 就能分享",
+    "failed": "無法分享，請改用複製房間 ID",
+    "settledTitle": "結算完成",
+    "settledAsk": "要把結算結果分享出去嗎？",
+    "shareResult": "分享結果",
+    "noThanks": "不用了"
   }
 }

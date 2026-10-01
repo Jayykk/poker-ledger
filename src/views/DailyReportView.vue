@@ -12,9 +12,10 @@
       <div v-if="totalGames > 0" class="flex gap-2">
         <button
           @click="handleShareSettlement"
-          class="px-3 py-1.5 rounded-lg text-xs bg-[#06C755] text-white hover:bg-[#05b04d] transition flex items-center gap-1"
+          class="px-3 py-1.5 rounded-lg text-xs text-white transition flex items-center gap-1"
+          :class="inLine ? 'bg-[#06C755] hover:bg-[#05b04d]' : 'bg-slate-700 hover:bg-slate-600'"
         >
-          <i class="fab fa-line"></i>
+          <i :class="inLine ? 'fab fa-line' : 'fas fa-share-square'"></i>
           {{ $t('dailyReport.shareSettlement') }}
         </button>
         <button
@@ -235,6 +236,8 @@ import { useRoute } from 'vue-router';
 import { useDailyReport } from '../composables/useDailyReport.js';
 import { useLiff } from '../composables/useLiff.js';
 import { useNotification } from '../composables/useNotification.js';
+import { useShare, appLink } from '../composables/useShare.js';
+import { dailySettlementText, dailyRankingText } from '../utils/shareText.js';
 import BaseCard from '../components/common/BaseCard.vue';
 import SettlementDetailModal from '../components/common/SettlementDetailModal.vue';
 import { formatNumber, formatDate, formatShortDate } from '../utils/formatters.js';
@@ -243,6 +246,8 @@ const { t } = useI18n();
 const route = useRoute();
 const { success, error: showError } = useNotification();
 const { sendDailySettlementMessage, sendDailyRankingMessage } = useLiff();
+const { inLine, shareOut } = useShare();
+const reportLink = () => appLink(`daily-report${startDateStr.value && endDateStr.value ? `?start=${startDateStr.value}&end=${endDateStr.value}` : ''}`);
 
 const {
   startDate,
@@ -379,8 +384,9 @@ const getDateLabel = () =>
     ? t('dailyReport.today')
     : `${formatShortDate(startDate.value)} ~ ${formatShortDate(endDate.value)}`;
 
+// Inside LINE: a LINE card to this chat; elsewhere the system share sheet
 const handleShareSettlement = async () => {
-  const ok = await sendDailySettlementMessage({
+  const data = {
     dateLabel: getDateLabel(),
     startDateStr: startDateStr.value,
     endDateStr: endDateStr.value,
@@ -389,20 +395,30 @@ const handleShareSettlement = async () => {
     games: selectedGamesWithCash.value,
     playerRanking: playerRanking.value,
     cashDecimals: cashDecimals.value,
-  });
+  };
+  if (!inLine.value) {
+    await shareOut({ title: t('dailyReport.title'), text: dailySettlementText({ ...data, url: reportLink() }) });
+    return;
+  }
+  const ok = await sendDailySettlementMessage(data);
   if (ok) success(t('dailyReport.shared'));
   else showError(t('dailyReport.shareError'));
 };
 
 const handleShareRanking = async () => {
-  const ok = await sendDailyRankingMessage({
+  const data = {
     dateLabel: getDateLabel(),
     startDateStr: startDateStr.value,
     endDateStr: endDateStr.value,
     topWinners: topWinners.value,
     topLosers: topLosers.value,
     cashDecimals: cashDecimals.value,
-  });
+  };
+  if (!inLine.value) {
+    await shareOut({ title: t('dailyReport.title'), text: dailyRankingText({ ...data, url: reportLink() }) });
+    return;
+  }
+  const ok = await sendDailyRankingMessage(data);
   if (ok) success(t('dailyReport.shared'));
   else showError(t('dailyReport.shareError'));
 };
