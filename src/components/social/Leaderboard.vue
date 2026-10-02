@@ -139,6 +139,12 @@
           <div v-else-if="selectedSort === 'roi'" class="text-xl font-mono font-bold" :class="roiClass(entry.roi)">
             {{ entry.roi > 0 ? '+' : '' }}{{ entry.roi.toFixed(1) }}%
           </div>
+          <div v-else-if="selectedSort === 'hunter'" class="text-xl font-mono font-bold text-rose-300">
+            🎯 {{ entry.knockouts }}
+          </div>
+          <div v-else-if="selectedSort === 'lucky'" class="text-xl font-mono font-bold text-amber-400">
+            ${{ formatNumber(entry.mysteryWon) }}
+          </div>
           <div v-else-if="selectedSort === 'specialHands'"
             class="text-xl font-mono font-bold text-amber-400"
           >
@@ -152,6 +158,8 @@
             <span v-else-if="selectedSort === 'roi'">
               {{ entry.rebuyComplete ? $t('friends.rebuyCount', { n: entry.rebuyCount }) : $t('common.unknown') }}
             </span>
+            <span v-else-if="selectedSort === 'hunter'">{{ $t('friends.bountyWon', { amount: formatNumber(entry.bountyWon) }) }}</span>
+            <span v-else-if="selectedSort === 'lucky'">{{ $t('friends.luckyLine', { draws: entry.draws, top: entry.topDraws, rate: entry.topRate }) }}</span>
             <span v-else-if="selectedSort === 'specialHands'">{{ entry.winRate }}% {{ $t('friends.winRateLabel') }}</span>
           </div>
         </div>
@@ -198,6 +206,12 @@
             <div v-else-if="selectedSort === 'roi'" class="text-xl font-mono font-bold" :class="roiClass(myRankInfo.roi)">
               {{ myRankInfo.roi > 0 ? '+' : '' }}{{ myRankInfo.roi.toFixed(1) }}%
             </div>
+            <div v-else-if="selectedSort === 'hunter'" class="text-xl font-mono font-bold text-rose-300">
+              🎯 {{ myRankInfo.knockouts }}
+            </div>
+            <div v-else-if="selectedSort === 'lucky'" class="text-xl font-mono font-bold text-amber-400">
+              ${{ formatNumber(myRankInfo.mysteryWon) }}
+            </div>
             <div v-else-if="selectedSort === 'specialHands'"
               class="text-xl font-mono font-bold text-amber-400"
             >
@@ -208,6 +222,12 @@
             </div>
             <div v-else-if="selectedSort === 'roi'" class="text-xs text-gray-400">
               {{ myRankInfo.rebuyComplete ? $t('friends.rebuyCount', { n: myRankInfo.rebuyCount }) : $t('common.unknown') }}
+            </div>
+            <div v-else-if="selectedSort === 'hunter'" class="text-xs text-gray-400">
+              {{ $t('friends.bountyWon', { amount: formatNumber(myRankInfo.bountyWon) }) }}
+            </div>
+            <div v-else-if="selectedSort === 'lucky'" class="text-xs text-gray-400">
+              {{ $t('friends.luckyLine', { draws: myRankInfo.draws, top: myRankInfo.topDraws, rate: myRankInfo.topRate }) }}
             </div>
           </div>
         </div>
@@ -285,6 +305,8 @@ const sortOptions = computed(() => {
       { value: 'champion', label: 'sortByChampion' },
       { value: 'itm', label: 'sortByItm' },
       { value: 'roi', label: 'sortByRoi' },
+      { value: 'hunter', label: 'sortByHunter' },
+      { value: 'lucky', label: 'sortByLucky' },
     );
   }
   options.push({ value: 'specialHands', label: 'sortBySpecialHands' });
@@ -356,7 +378,7 @@ const rankedEntries = computed(() => {
       .filter(entry => entry.champion + entry.runnerUp > 0)
       .sort((a, b) => b.champion - a.champion || b.runnerUp - a.runnerUp || b.profit - a.profit);
   }
-  if (selectedSort.value === 'itm' || selectedSort.value === 'roi') {
+  if (['itm', 'roi', 'hunter', 'lucky'].includes(selectedSort.value)) {
     return rankLeaderboardEntries(entries, selectedSort.value, minGames.value);
   }
   // specialHands

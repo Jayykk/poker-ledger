@@ -217,7 +217,19 @@
     "careerStats": "累積統計",
     "lastNGames": "最近 {n} 試合",
     "win": "勝ち",
-    "loss": "負け"
+    "loss": "負け",
+    "bounty": {
+      "title": "バウンティ",
+      "knockouts": "総 KO",
+      "won": "バウンティ獲得",
+      "games": "バウンティ戦",
+      "gamesN": "{n} 回",
+      "mystery": "ミステリーバウンティ",
+      "draws": "抽選",
+      "drawsN": "{n} 回",
+      "topDraws": "大当たり",
+      "best": "最高額"
+    }
   },
   "profile": {
     "title": "プロフィール",
@@ -311,7 +323,11 @@
     "itmCount": "ITM {n} 回",
     "rebuyCount": "Rebuy {n} 回",
     "minGames": "最小ゲーム数",
-    "noLeaderboardData": "データがありません"
+    "noLeaderboardData": "データがありません",
+    "sortByHunter": "Hunter",
+    "sortByLucky": "強運",
+    "bountyWon": "バウンティ ${amount}",
+    "luckyLine": "{draws} 回 · 大当たり {top} 回（{rate}%）"
   },
   "chat": {
     "title": "チャット",

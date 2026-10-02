@@ -130,6 +130,9 @@
         <WinRateChart :game-type-filter="gameTypeFilter" />
       </div>
 
+      <!-- Bounty games: knockouts, bounty won, mystery envelopes -->
+      <BountyCareerCard v-if="gameTypeFilter !== 'cash'" class="mb-6" :uid="userStore.user?.uid || authUid" :records="userStore.history" />
+
       <!-- Export buttons -->
       <div class="flex gap-3 mb-6">
         <BaseButton @click="handleExportCSV" variant="ghost" fullWidth>
@@ -158,6 +161,8 @@ import BaseButton from '../components/common/BaseButton.vue';
 import BaseCard from '../components/common/BaseCard.vue';
 import SettlementDetailModal from '../components/common/SettlementDetailModal.vue';
 import ProfitTrendChart from '../components/chart/ProfitTrendChart.vue';
+import BountyCareerCard from '../components/chart/BountyCareerCard.vue';
+import { useAuthStore } from '../store/modules/auth.js';
 import WinRateChart from '../components/chart/WinRateChart.vue';
 import { formatNumber, formatDate } from '../utils/formatters.js';
 import { exportHistoryToCSV } from '../utils/exportReport.js';
@@ -166,6 +171,7 @@ import { CHART_COLORS } from '../utils/constants.js';
 const { t } = useI18n();
 const route = useRoute();
 const userStore = useUserStore();
+const authUid = computed(() => useAuthStore().user?.uid || '');
 const { success } = useNotification();
 const { createLineChart, destroyChart } = useChart();
 

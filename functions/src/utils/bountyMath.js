@@ -221,6 +221,7 @@ export function tournamentBountyView(players = [], baseBuyIn = 0, perEntry = 0, 
       prizePool: buyIns - heads + result.undrawn,
       bountyOf: (p) => result.bountyByPlayer[p.id] || 0,
       knockoutsOf: (p) => knockouts[p.id] || 0,
+      drawsOf: (p) => result.drawsByPlayer[p.id] || { draws: 0, topDraws: 0, bestDraw: 0 },
       mystery: result,
     };
   }
