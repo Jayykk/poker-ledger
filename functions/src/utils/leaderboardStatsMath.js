@@ -86,6 +86,16 @@ const emptyTournamentBucket = () => ({
   totalPrize: 0,
   rebuyCount: 0,
   rebuyKnownGames: 0,
+  // Bounty games (KO / PKO / mystery): knockouts and bounty won
+  bountyGames: 0,
+  knockouts: 0,
+  bountyWon: 0,
+  // Mystery games: envelopes drawn, big prizes, their total, the best one
+  mysteryGames: 0,
+  draws: 0,
+  topDraws: 0,
+  mysteryWon: 0,
+  bestDraw: 0,
 });
 
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -178,6 +188,19 @@ export function aggregateHistoryRecords(uid, records) {
           if (isItm) bucket.itm += 1;
           if (isChampion) bucket.champion += 1;
           if (isRunnerUp) bucket.runnerUp += 1;
+          if (Number.isFinite(ownRow?.bounty)) {
+            const won = Number(ownRow.bounty) || 0;
+            bucket.bountyGames += 1;
+            bucket.knockouts += Number(ownRow.knockouts) || 0;
+            bucket.bountyWon += won;
+            if (Number.isInteger(ownRow.draws)) {
+              bucket.mysteryGames += 1;
+              bucket.draws += ownRow.draws;
+              bucket.topDraws += Number(ownRow.topDraws) || 0;
+              bucket.mysteryWon += won;
+              bucket.bestDraw = Math.max(bucket.bestDraw, Number(ownRow.bestDraw) || 0);
+            }
+          }
         }
       }
     }
@@ -189,12 +212,14 @@ export function aggregateHistoryRecords(uid, records) {
     entry.tournament.profit = round2(entry.tournament.profit);
     entry.tournament.totalBuyIn = round2(entry.tournament.totalBuyIn);
     entry.tournament.totalPrize = round2(entry.tournament.totalPrize);
+    entry.tournament.bountyWon = round2(entry.tournament.bountyWon);
+    entry.tournament.mysteryWon = round2(entry.tournament.mysteryWon);
   }
 
   return periods;
 }
 
-export const LEADERBOARD_STATS_VERSION = 2;
+export const LEADERBOARD_STATS_VERSION = 3;
 
 /**
  * Build the full leaderboardStats doc set for a user (Firestore payloads).

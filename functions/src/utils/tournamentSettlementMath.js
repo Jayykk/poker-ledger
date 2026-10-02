@@ -62,6 +62,8 @@ function settlementRow(player, placement, prize, baseBuyIn, perEntry, view) {
     buyIn,
     prize,
     ...(perEntry > 0 ? { bounty, knockouts: view.knockoutsOf(player) } : {}),
+    // Mystery: envelopes drawn, big prizes, best envelope (career / 歐皇 stats)
+    ...(perEntry > 0 && view.drawsOf ? view.drawsOf(player) : {}),
     profit: prize + bounty - buyIn,
   }, buyIn, baseBuyIn);
 }

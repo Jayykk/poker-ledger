@@ -217,7 +217,19 @@
     "careerStats": "Career Stats",
     "lastNGames": "Last {n} games",
     "win": "Win",
-    "loss": "Loss"
+    "loss": "Loss",
+    "bounty": {
+      "title": "Bounties",
+      "knockouts": "Knockouts",
+      "won": "Bounty won",
+      "games": "Bounty games",
+      "gamesN": "{n}",
+      "mystery": "Mystery bounty",
+      "draws": "Draws",
+      "drawsN": "{n}",
+      "topDraws": "Big prizes",
+      "best": "Best envelope"
+    }
   },
   "profile": {
     "title": "Profile",
@@ -311,7 +323,11 @@
     "itmCount": "ITM {n}",
     "rebuyCount": "Rebuy {n}",
     "minGames": "Min games",
-    "noLeaderboardData": "No data available"
+    "noLeaderboardData": "No data available",
+    "sortByHunter": "Hunter",
+    "sortByLucky": "Lucky draw",
+    "bountyWon": "Bounty ${amount}",
+    "luckyLine": "{draws} draws · {top} big prizes ({rate}%)"
   },
   "chat": {
     "title": "Chat",

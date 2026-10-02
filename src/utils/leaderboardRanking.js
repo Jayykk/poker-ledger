@@ -23,10 +23,30 @@ export function buildTournamentLeaderboardEntry(row) {
     rebuyCount: bucket.rebuyCount || 0,
     rebuyKnownGames: bucket.rebuyKnownGames || 0,
     rebuyComplete: (bucket.rebuyKnownGames || 0) >= (bucket.games || 0),
+    // Hunter / 歐皇
+    bountyGames: bucket.bountyGames || 0,
+    knockouts: bucket.knockouts || 0,
+    bountyWon: Math.round(bucket.bountyWon || 0),
+    draws: bucket.draws || 0,
+    topDraws: bucket.topDraws || 0,
+    topRate: percentage(bucket.topDraws || 0, bucket.draws || 0) || 0,
+    mysteryWon: Math.round(bucket.mysteryWon || 0),
   };
 }
 
 export function rankLeaderboardEntries(entries, sort, minGames = 1) {
+  // Hunter: most knockouts, then bounty won
+  if (sort === 'hunter') {
+    return entries
+      .filter((entry) => entry.knockouts > 0)
+      .sort((a, b) => b.knockouts - a.knockouts || b.bountyWon - a.bountyWon || a.games - b.games);
+  }
+  // 歐皇: most won from mystery envelopes, then big prizes
+  if (sort === 'lucky') {
+    return entries
+      .filter((entry) => entry.draws > 0)
+      .sort((a, b) => b.mysteryWon - a.mysteryWon || b.topDraws - a.topDraws || a.draws - b.draws);
+  }
   if (sort === 'itm') {
     return entries
       .filter((entry) => entry.games >= minGames)

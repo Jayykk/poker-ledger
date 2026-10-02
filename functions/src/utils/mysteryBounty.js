@@ -237,7 +237,14 @@ export function slotOfTier(bounty, players, tier) {
  */
 export function mysteryResults(players = [], bounty, pool) {
   const amounts = envelopeAmounts(bounty, pool);
+  const slots = envelopeSlots(bounty);
+  // 大獎 = the envelope kind with the biggest share — only when there are
+  // smaller ones too (all-equal envelopes have no big prize)
+  const shares = slots.map((s) => num(s.share));
+  const topShare = new Set(shares).size > 1 ? Math.max(...shares) : null;
   const bountyByPlayer = {};
+  // { draws, topDraws, bestDraw } — a shared draw counts for each, at their part
+  const drawsByPlayer = {};
   let drawn = 0;
   for (const t of allTickets(players)) {
     if (t.envelope === null || t.envelope === undefined) continue;
@@ -245,14 +252,20 @@ export function mysteryResults(players = [], bounty, pool) {
     drawn += amount;
     const ids = (t.by || []).filter(Boolean);
     if (!ids.length) continue;
+    const isTop = topShare !== null && num(slots[t.envelope]?.share) === topShare;
     const base = Math.floor(amount / ids.length);
     let leftover = amount - base * ids.length;
     for (const id of ids) {
       const extra = leftover > 0 ? 1 : 0;
       leftover -= extra;
-      bountyByPlayer[id] = (bountyByPlayer[id] || 0) + base + extra;
+      const part = base + extra;
+      bountyByPlayer[id] = (bountyByPlayer[id] || 0) + part;
+      const d = drawsByPlayer[id] || (drawsByPlayer[id] = { draws: 0, topDraws: 0, bestDraw: 0 });
+      d.draws += 1;
+      if (isTop) d.topDraws += 1;
+      d.bestDraw = Math.max(d.bestDraw, part);
     }
   }
   const total = Math.round(num(pool));
-  return { pool: total, amounts, bountyByPlayer, drawn, undrawn: total - drawn };
+  return { pool: total, amounts, bountyByPlayer, drawsByPlayer, drawn, undrawn: total - drawn };
 }

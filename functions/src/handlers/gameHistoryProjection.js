@@ -83,6 +83,10 @@ function normalizeSettlementRow(row) {
   // KO bounty rows (already included in profit)
   if (Number.isFinite(row.bounty)) normalized.bounty = roundNumber(row.bounty);
   if (Number.isInteger(row.knockouts)) normalized.knockouts = row.knockouts;
+  // Mystery draws
+  if (Number.isInteger(row.draws)) normalized.draws = row.draws;
+  if (Number.isInteger(row.topDraws)) normalized.topDraws = row.topDraws;
+  if (Number.isFinite(row.bestDraw)) normalized.bestDraw = roundNumber(row.bestDraw);
   return normalized;
 }
 

@@ -217,7 +217,19 @@
     "careerStats": "生涯累积",
     "lastNGames": "最近 {n} 场",
     "win": "赢",
-    "loss": "输"
+    "loss": "输",
+    "bounty": {
+      "title": "赏金",
+      "knockouts": "总 KO",
+      "won": "赏金收入",
+      "games": "赏金赛",
+      "gamesN": "{n} 场",
+      "mystery": "神秘赏金",
+      "draws": "抽奖",
+      "drawsN": "{n} 次",
+      "topDraws": "大奖",
+      "best": "单封最高"
+    }
   },
   "profile": {
     "title": "个人设定",
@@ -311,7 +323,11 @@
     "itmCount": "ITM {n} 次",
     "rebuyCount": "Rebuy {n} 次",
     "minGames": "最少场次",
-    "noLeaderboardData": "目前无数据"
+    "noLeaderboardData": "目前无数据",
+    "sortByHunter": "Hunter",
+    "sortByLucky": "欧皇",
+    "bountyWon": "赏金 ${amount}",
+    "luckyLine": "抽 {draws} 次 · 大奖 {top} 次（{rate}%）"
   },
   "chat": {
     "title": "聊天室",
