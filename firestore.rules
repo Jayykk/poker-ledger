@@ -367,5 +367,10 @@ service cloud.firestore {
     match /lineLoginHandoffs/{state} {
       allow read, write: if false;
     }
+
+    // Error reports (reportClientError) — backend only
+    match /clientErrors/{id} {
+      allow read, write: if false;
+    }
   }
 }

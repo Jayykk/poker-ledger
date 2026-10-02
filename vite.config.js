@@ -33,6 +33,10 @@ function swCacheVersionPlugin() {
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [vue(), swCacheVersionPlugin()],
+  // Commit of this build, sent with error reports so they map to the code
+  define: {
+    __APP_COMMIT__: JSON.stringify((process.env.GITHUB_SHA || 'dev').slice(0, 7)),
+  },
   base: '/poker-ledger/',
   resolve: {
     alias: {
