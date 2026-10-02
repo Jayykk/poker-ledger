@@ -122,10 +122,19 @@ jobs:
           if [ -n "$LINE_CHANNEL_SECRET" ]; then
             echo "LINE_CHANNEL_SECRET=$LINE_CHANNEL_SECRET" >> functions/.env
           fi
+          # Error reports → GitHub issues (handlers/clientErrors.js)
+          if [ -n "$ERRORS_GITHUB_TOKEN" ]; then
+            echo "ERRORS_GITHUB_TOKEN=$ERRORS_GITHUB_TOKEN" >> functions/.env
+          fi
+          if [ -n "$ERRORS_GITHUB_REPO" ]; then
+            echo "ERRORS_GITHUB_REPO=$ERRORS_GITHUB_REPO" >> functions/.env
+          fi
         env:
           POKER_TASKS_SECRET: ${{ secrets.POKER_TASKS_SECRET }}
           LINE_CHANNEL_ID: ${{ secrets.LINE_CHANNEL_ID }}
           LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
+          ERRORS_GITHUB_TOKEN: ${{ secrets.ERRORS_GITHUB_TOKEN }}
+          ERRORS_GITHUB_REPO: ${{ vars.ERRORS_GITHUB_REPO }}
 
       # rules/indexes 一併部署：production 與 repo 已於 2026-07-20 人工比對並
       # 同步（TODO P0「rules 自動部署」前置條件解除）。emulator rules 測試在

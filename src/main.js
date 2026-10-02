@@ -9,6 +9,7 @@ import './styles/main.css';
 import './styles/themes/dark.css';
 import './styles/themes/light.css';
 import { buildThemeCss, applyTheme } from './utils/themes.js';
+import { reportError } from './utils/errorReport.js';
 import { STORAGE_KEYS as THEME_STORAGE_KEYS } from './utils/constants.js';
 
 // ── Color themes: every theme's variables, then the saved choice ─────
@@ -250,6 +251,7 @@ import { logger } from "./utils/logger.js";
   // stuck on a silently-broken screen, and keep the full error in the log.
   const reportGlobalError = (err, context) => {
     logger.error(`[global:${context}]`, err);
+    reportError(err, context);
     try {
       useNotificationStore().error(
         i18n.global.t('common.unexpectedError'),
@@ -267,6 +269,12 @@ import { logger } from "./utils/logger.js";
 
   window.addEventListener('unhandledrejection', (event) => {
     reportGlobalError(event.reason, 'unhandledrejection');
+  });
+
+  // Errors outside Vue (e.g. inside a library's animation frame) — reported
+  // without a toast, the screen usually keeps working
+  window.addEventListener('error', (event) => {
+    if (event.error || event.message) reportError(event.error || event.message, 'window:error');
   });
 
   app.mount('#app');

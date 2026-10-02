@@ -63,6 +63,7 @@ import {
   settleTournamentGame as settleTournamentGameHandler,
 } from './handlers/tournamentSettlement.js';
 import { settleCashGame as settleCashGameHandler } from './handlers/cashSettlement.js';
+import { reportClientError as reportClientErrorHandler } from './handlers/clientErrors.js';
 
 // Initialize Firebase Admin
 initializeApp();
@@ -652,6 +653,22 @@ export const claimLineLoginHandoff = onCall(async (request) => {
   } catch (error) {
     console.error('Error in claimLineLoginHandoff:', error);
     throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * The app's uncaught errors → one GitHub issue per kind of error (private
+ * repo), see handlers/clientErrors.js. Signed-out reports count but file
+ * nothing new, so only people using the app can open issues.
+ */
+export const reportClientError = onCall(async (request) => {
+  try {
+    const uid = request.auth?.uid || null;
+    const env = uid ? process.env : { ...process.env, ERRORS_GITHUB_TOKEN: '' };
+    return await reportClientErrorHandler(request.data || {}, { db: getFirestore(), uid, env });
+  } catch (error) {
+    console.error('Error in reportClientError:', error);
+    return { ok: false };
   }
 });
 
