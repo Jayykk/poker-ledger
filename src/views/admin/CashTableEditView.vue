@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-slate-900 text-white pb-nav">
     <!-- Header -->
     <div class="sticky top-0 z-10 bg-slate-900/95 backdrop-blur border-b border-slate-700 px-4 py-3">
-      <div class="flex items-center gap-3 max-w-2xl mx-auto">
+      <div class="flex items-center gap-3 max-w-md md:max-w-3xl lg:max-w-5xl mx-auto">
         <button @click="handleBack" class="text-gray-400 hover:text-white">
           <i class="fas fa-arrow-left text-lg"></i>
         </button>
@@ -20,7 +20,7 @@
       </div>
     </div>
 
-    <div class="max-w-2xl mx-auto px-4 py-4 space-y-5">
+    <div class="max-w-md md:max-w-3xl lg:max-w-5xl mx-auto px-4 py-4 space-y-5">
       <div v-if="isHistorySyncing" class="rounded-2xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
         <div class="flex items-center gap-2">
           <i class="fas fa-spinner fa-spin"></i>

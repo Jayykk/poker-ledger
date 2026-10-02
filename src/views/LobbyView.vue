@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-8 px-4 pb-nav">
+  <div class="pt-8 px-4 pb-nav w-full max-w-md md:max-w-3xl lg:max-w-5xl mx-auto">
     <h2 class="text-2xl font-bold text-white mb-6">{{ $t('lobby.title') }}</h2>
     
     <!-- Stats Card -->
@@ -50,7 +50,7 @@
     <!-- Pending Invitations -->
     <div v-if="pendingInvitations.length > 0" class="mb-6">
       <h3 class="text-lg font-bold text-white mb-3">{{ $t('invitations.pending') }}</h3>
-      <div class="space-y-2">
+      <div class="grid gap-2 md:grid-cols-2">
         <BaseCard
           v-for="inv in pendingInvitations"
           :key="inv.id"
@@ -83,7 +83,7 @@
     <!-- My Rooms -->
     <div v-if="myRooms.length > 0" class="mb-6">
       <h3 class="text-lg font-bold text-white mb-3">{{ $t('lobby.myRooms') }}</h3>
-      <div class="space-y-2">
+      <div class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
         <div
           v-for="room in myRooms"
           :key="room.id"
@@ -191,7 +191,7 @@
         </div>
       </div>
       <div v-if="!mySessions.length" class="text-sm text-gray-500 px-1">{{ $t('session.noActiveEvents') }}</div>
-      <div class="space-y-2">
+      <div class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
         <div
           v-for="evt in mySessions"
           :key="evt.id"

@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-slate-900 text-white pb-nav">
     <!-- Header -->
     <div class="sticky top-0 z-10 bg-slate-900/95 backdrop-blur border-b border-slate-700 px-4 py-3">
-      <div class="flex items-center gap-3 max-w-2xl mx-auto">
+      <div class="flex items-center gap-3 max-w-md md:max-w-3xl lg:max-w-5xl mx-auto">
         <button @click="$router.push('/lobby')" class="text-gray-400 hover:text-white">
           <i class="fas fa-arrow-left text-lg"></i>
         </button>
@@ -10,13 +10,13 @@
       </div>
     </div>
 
-    <div class="max-w-2xl mx-auto px-4 py-4">
+    <div class="max-w-md md:max-w-3xl lg:max-w-5xl mx-auto px-4 py-4">
       <div v-if="endedSessions.length === 0" class="text-center py-12 text-gray-500">
         <i class="fas fa-inbox text-3xl mb-2 block opacity-50"></i>
         <p>{{ $t('session.noHistoryEvents') }}</p>
       </div>
 
-      <div v-else class="space-y-2">
+      <div v-else class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
         <div
           v-for="evt in endedSessions"
           :key="evt.id"

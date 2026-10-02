@@ -164,7 +164,7 @@ const handleCreateRoom = async () => {
 }
 
 .lobby-header {
-  max-width: 1200px;
+  max-width: 64rem;
   margin: 0 auto 40px;
   display: flex;
   justify-content: space-between;
@@ -195,7 +195,7 @@ const handleCreateRoom = async () => {
 }
 
 .games-list {
-  max-width: 1200px;
+  max-width: 64rem;
   margin: 0 auto;
 }
 

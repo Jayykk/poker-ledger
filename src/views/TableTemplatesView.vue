@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-slate-900 text-white pb-nav">
     <!-- Header -->
     <div class="sticky top-0 z-10 bg-slate-900/95 backdrop-blur border-b border-slate-700 px-4 py-3">
-      <div class="flex items-center gap-3 max-w-2xl mx-auto">
+      <div class="flex items-center gap-3 max-w-md md:max-w-3xl lg:max-w-5xl mx-auto">
         <button @click="$router.push('/lobby')" class="text-gray-400 hover:text-white">
           <i class="fas fa-arrow-left text-lg"></i>
         </button>
@@ -17,7 +17,7 @@
       </div>
     </div>
 
-    <div class="max-w-2xl mx-auto px-4 py-4 space-y-5">
+    <div class="max-w-md md:max-w-3xl lg:max-w-5xl mx-auto px-4 py-4 space-y-5">
       <!-- Kind tabs -->
       <div class="grid grid-cols-2 gap-2 p-1 bg-slate-800 rounded-xl">
         <button
@@ -39,7 +39,7 @@
           <i class="fas fa-folder-open text-3xl mb-2 block"></i>
           <p>{{ $t('template.none') }}</p>
         </div>
-        <div class="grid gap-3">
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <div v-for="tpl in mine" :key="`${tpl.source}:${tpl.id}`" @click="edit(tpl)" class="preset-card cursor-pointer">
             <div class="flex-1 min-w-0">
               <h3 class="font-bold text-white">{{ tpl.name || $t('cashPreset.untitled') }}</h3>
@@ -61,7 +61,7 @@
 
       <section v-if="kind === 'tournament'">
         <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wide mb-3">{{ $t('tournament.builtInTemplates') }}</h2>
-        <div class="grid gap-3">
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <div v-for="tpl in builtIns" :key="tpl.id" @click="edit(tpl)" class="preset-card cursor-pointer">
             <div class="flex-1 min-w-0">
               <h3 class="font-bold text-white">{{ tpl.name }}</h3>

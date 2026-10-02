@@ -55,7 +55,7 @@
 
     <!-- Bottom navigation (hidden in LIFF mode and poker game) -->
     <nav v-if="!hideBottomNav" class="fixed-bottom-nav glass">
-      <div class="flex justify-around items-center h-16 max-w-md mx-auto relative">
+      <div class="flex justify-around items-center h-16 max-w-md md:max-w-3xl lg:max-w-5xl mx-auto relative">
         <!-- Lobby -->
         <router-link
           to="/lobby"

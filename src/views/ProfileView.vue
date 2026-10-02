@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-8 px-4 pb-nav text-center">
+  <div class="pt-8 px-4 pb-nav w-full max-w-md md:max-w-3xl lg:max-w-5xl mx-auto text-center">
     <!-- Avatar -->
     <div class="w-20 h-20 bg-slate-700 rounded-full mx-auto overflow-hidden flex items-center justify-center text-3xl mb-4">
       <img v-if="userAvatar" :src="userAvatar" :alt="displayName" class="w-full h-full object-cover rounded-full" />
@@ -12,7 +12,7 @@
     <p v-if="isGuest" class="text-xs text-amber-500 mb-6">{{ $t('auth.guest') }}</p>
 
     <!-- Settings -->
-    <div class="space-y-3 mt-8 max-w-sm mx-auto">
+    <div class="space-y-3 mt-8 max-w-sm md:max-w-xl mx-auto">
       <!-- Upgrade Account for Guests -->
       <div v-if="isGuest" class="bg-slate-800 p-5 rounded-2xl border border-amber-600 mb-4">
         <div class="flex justify-between items-center cursor-pointer" @click="upgradeExpanded = !upgradeExpanded">

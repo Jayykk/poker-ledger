@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-slate-900 text-white pb-nav">
     <!-- Header -->
     <div class="sticky top-0 z-10 bg-slate-900/95 backdrop-blur border-b border-slate-700 px-4 py-3">
-      <div class="flex items-center gap-3 max-w-2xl mx-auto">
+      <div class="flex items-center gap-3 max-w-md md:max-w-3xl lg:max-w-5xl mx-auto">
         <button @click="$router.push('/lobby')" class="text-gray-400 hover:text-white">
           <i class="fas fa-arrow-left text-lg"></i>
         </button>
@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <div class="max-w-2xl mx-auto px-4 py-4 space-y-6">
+    <div class="max-w-md md:max-w-3xl lg:max-w-5xl mx-auto px-4 py-4 space-y-6">
       <p class="text-xs text-gray-400">{{ $t('structure.intro') }}</p>
 
       <!-- Mine -->
@@ -26,7 +26,7 @@
           <i class="fas fa-folder-open text-3xl mb-2 block"></i>
           <p>{{ $t('structure.none') }}</p>
         </div>
-        <div class="grid gap-3">
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <div
             v-for="s in mine"
             :key="`${s.source}:${s.id}`"
@@ -54,7 +54,7 @@
       <!-- Built-in -->
       <section>
         <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wide mb-3">{{ $t('tournament.builtInTemplates') }}</h2>
-        <div class="grid gap-3">
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <div
             v-for="s in builtIns"
             :key="s.id"

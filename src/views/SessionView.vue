@@ -342,12 +342,13 @@ onUnmounted(() => { if (unsubGame) { unsubGame(); unsubGame = null; } });
   padding: 32px 16px calc(4rem + env(safe-area-inset-bottom, 0px) + 2rem);
   color: rgb(var(--tw-white));
 }
-.state-msg { max-width: 560px; margin: 80px auto; text-align: center; color: rgb(var(--tw-white) / 0.7); font-size: 18px; }
+.state-msg { max-width: 64rem; margin: 80px auto; text-align: center; color: rgb(var(--tw-white) / 0.7); font-size: 18px; }
 .card {
-  max-width: 560px; margin: 0 auto;
+  max-width: 48rem; margin: 0 auto;
   background: rgb(var(--tw-white) / 0.05); border: 1px solid rgb(var(--tw-white) / 0.1);
   border-radius: 16px; padding: 24px;
 }
+@media (min-width: 1024px) { .card { max-width: 64rem; } }
 .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .head h1 { margin: 0; font-size: 24px; }
 .status-pill { flex: 0 0 auto; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
