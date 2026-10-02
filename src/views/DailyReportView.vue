@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-8 px-4 pb-nav">
+  <div class="pt-8 px-4 pb-nav w-full max-w-md md:max-w-3xl lg:max-w-5xl mx-auto">
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div class="flex items-center gap-3">
@@ -139,7 +139,7 @@
         <h3 class="text-white font-bold mb-3">
           <i class="fas fa-trophy text-amber-400 mr-2"></i>{{ $t('dailyReport.ranking') }}
         </h3>
-        <div class="space-y-2">
+        <div class="grid gap-2 md:grid-cols-2">
           <div
             v-for="(player, index) in playerRanking"
             :key="player.odId || player.name"
@@ -181,7 +181,7 @@
           {{ allSelected ? $t('dailyReport.deselectAll') : $t('dailyReport.selectAll') }}
         </button>
       </div>
-      <div class="space-y-2">
+      <div class="grid gap-2 md:grid-cols-2">
         <div
           v-for="game in gamesInRangeWithCash"
           :key="gameKey(game)"

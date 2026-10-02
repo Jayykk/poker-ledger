@@ -1,12 +1,14 @@
 <template>
-  <div class="pt-8 px-4 pb-nav">
+  <div class="pt-8 px-4 pb-nav w-full max-w-md md:max-w-3xl lg:max-w-5xl mx-auto">
     <h2 class="text-2xl font-bold text-white mb-6">{{ $t('friends.title') }}</h2>
 
-    <!-- Friend List Component -->
-    <FriendList class="mb-6" @invite-friend="handleInviteFriend" />
+    <div class="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
+      <!-- Friend List Component -->
+      <FriendList class="mb-6 lg:mb-0" @invite-friend="handleInviteFriend" />
 
-    <!-- Leaderboard Component -->
-    <Leaderboard />
+      <!-- Leaderboard Component -->
+      <Leaderboard />
+    </div>
 
     <!-- Invite to Room Modal -->
     <BaseModal v-model="showInviteModal" :title="$t('friends.inviteToRoom')">

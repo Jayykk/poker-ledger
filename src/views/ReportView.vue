@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-8 px-4 pb-nav">
+  <div class="pt-8 px-4 pb-nav w-full max-w-md md:max-w-3xl lg:max-w-5xl mx-auto">
     <div class="flex items-center justify-between mb-6">
       <h2 class="text-2xl font-bold text-white">{{ $t('report.title') }}</h2>
       <router-link
@@ -88,7 +88,7 @@
         {{ $t('report.noRecords') }}
       </div>
       
-      <div class="space-y-2">
+      <div class="grid gap-2 md:grid-cols-2">
         <div
           v-for="(record, i) in recentRecords"
           :key="i"
@@ -125,7 +125,7 @@
     <!-- Career Stats Tab -->
     <div v-show="activeTab === 'career'">
       <!-- Charts -->
-      <div class="space-y-4 mb-6">
+      <div class="grid gap-4 md:grid-cols-2 mb-6">
         <ProfitTrendChart :game-type-filter="gameTypeFilter" />
         <WinRateChart :game-type-filter="gameTypeFilter" />
       </div>

@@ -18,7 +18,9 @@
 
     <div v-if="!game" class="md-empty">{{ $t('game.noActiveGame') }}</div>
 
-    <template v-else>
+    <!-- Desktops: who's drawing (left) · envelopes and results (right) -->
+    <div v-else class="md-cols">
+      <div class="md-col">
       <!-- TV: open the stage (players then draw from their phones), and
            whether draws here are shown on the TV -->
       <div v-if="hasClock" class="md-card md-tv">
@@ -93,7 +95,9 @@
           </button>
         </div>
       </section>
+      </div>
 
+      <div class="md-col">
       <!-- Envelopes left -->
       <section class="md-card">
         <div class="md-section">{{ $t('mystery.left') }} {{ remaining.length }} / {{ slots.length }}</div>
@@ -131,7 +135,8 @@
           </button>
         </div>
       </section>
-    </template>
+      </div>
+    </div>
 
     <!-- Result: "watch the TV" first when it's shown there -->
     <MysteryPhoneReveal :result="reveal" :projected="hasClock && onTv" @close="reveal = null" />
@@ -345,7 +350,12 @@ function goBack() {
 </script>
 
 <style scoped>
-.md-page { min-height: 100vh; padding: 1rem 1rem calc(4rem + env(safe-area-inset-bottom, 0px) + 2rem); max-width: 40rem; margin: 0 auto; }
+.md-page { width: 100%; min-height: 100vh; padding: 1rem 1rem calc(4rem + env(safe-area-inset-bottom, 0px) + 2rem); max-width: 40rem; margin: 0 auto; }
+@media (min-width: 768px) { .md-page { max-width: 48rem; } }
+@media (min-width: 1024px) {
+  .md-page { max-width: 64rem; }
+  .md-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+}
 .md-head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
 .md-title { font-size: 1.15rem; font-weight: 800; color: rgb(var(--tw-white)); }
 .md-sub { font-size: 0.75rem; color: rgb(var(--tw-slate-400)); }

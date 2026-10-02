@@ -457,7 +457,7 @@ function goBack() {
 }
 
 .setup-card {
-  max-width: 640px;
+  max-width: 48rem;
   margin: 0 auto;
   background: rgb(var(--tw-white) / 0.05);
   border: 1px solid rgb(var(--tw-white) / 0.1);
@@ -465,6 +465,7 @@ function goBack() {
   padding: 28px;
   color: rgb(var(--tw-white));
 }
+@media (min-width: 1024px) { .setup-card { max-width: 64rem; } }
 
 .setup-card h1 { margin: 0 0 16px; font-size: 26px; }
 
