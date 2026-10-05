@@ -2,7 +2,9 @@
   <div class="c-row">
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-1.5 flex-wrap">
+        <span v-if="seatLabel" class="c-seat">{{ seatLabel }}</span>
         <span class="c-name truncate">{{ player.name }}</span>
+        <span v-if="isButton" class="c-button">D</span>
         <span v-if="player.uid" class="text-blue-400 text-[10px]">●</span>
         <!-- Seat without an account: claim it (bind) or send it to someone (invite) -->
         <button v-if="!player.uid && canBind" type="button" class="c-chip accent" @click="$emit('bind', player)">
@@ -44,6 +46,9 @@ import { computed } from 'vue';
 import { formatNumber, calculateNet } from '../../utils/formatters.js';
 
 const props = defineProps({
+  // 抽座位: seat number (or the dealer mark) and the starting dealer button
+  seatLabel: { type: String, default: '' },
+  isButton: { type: Boolean, default: false },
   player: { type: Object, required: true },
   canBind: { type: Boolean, default: false },
   isMyCard: { type: Boolean, default: false },
@@ -71,6 +76,8 @@ const groups = computed(() => (props.baseBuyIn > 0
 }
 .c-row:last-child { border-bottom: none; }
 .c-name { color: rgb(var(--tw-white)); font-weight: 700; }
+.c-seat { flex-shrink: 0; min-width: 1.5rem; height: 1.5rem; padding: 0 0.3rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: rgb(var(--tw-white)); background: rgb(var(--tw-slate-600)); }
+.c-button { flex-shrink: 0; width: 1.3rem; height: 1.3rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 900; color: #1f2937; background: #f8fafc; border: 2px solid #cbd5e1; }
 .c-sub { font-size: 0.72rem; color: rgb(var(--tw-slate-400)); margin-top: 0.1rem; }
 .c-note { font-size: 0.72rem; color: rgb(var(--tw-slate-300)); margin-top: 0.2rem; }
 .c-net {

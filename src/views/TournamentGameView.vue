@@ -343,7 +343,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import TournamentPlayerCard from '../components/game/TournamentPlayerCard.vue';
 import DealSettlementModal from '../components/tournament/DealSettlementModal.vue';
 import KnockoutModal from '../components/tournament/KnockoutModal.vue';
-import SeatDrawModal from '../components/tournament/SeatDrawModal.vue';
+import SeatDrawModal from '../components/game/SeatDrawModal.vue';
 import { isSeated, seatLabel } from '../utils/seatDraw.js';
 import MysteryPhoneReveal from '../components/tournament/MysteryPhoneReveal.vue';
 import RoomClockCard from '../components/tournament/RoomClockCard.vue';
@@ -425,25 +425,23 @@ const syncStatusMessage = ref('');
 const activePlayers = computed(() => {
   const list = (game.value?.players || []).filter(p => !p.eliminated);
   if (!seated.value) return list;
-  return [...list].sort((a, b) => (a.seat?.table || 99) - (b.seat?.table || 99) || (a.seat?.seat || 99) - (b.seat?.seat || 99));
+  return [...list].sort((a, b) => (a.seat?.seat ?? 99) - (b.seat?.seat ?? 99));
 });
 
 // 抽座位: drawn by the host until the clock starts; everyone sees the seats
 const showSeats = ref(false);
 const seated = computed(() => isSeated(game.value?.players || []));
-const multiTable = computed(() => (game.value?.players || []).some((p) => (p.seat?.table || 1) > 1));
-const seatOf = (p) => seatLabel(p.seat, multiTable.value, t('seats.dealerShort'));
+const seatOf = (p) => seatLabel(p.seat, t('seats.dealerShort'));
 // "你坐 3 號位" / "你是荷官"
 const mySeatText = computed(() => {
   const s = mySeat.value?.seat;
   if (!s) return '';
-  if (s.dealer) return multiTable.value ? t('seats.mineDealerTable', { table: s.table }) : t('seats.mineDealer');
-  return multiTable.value ? t('seats.mineTable', { table: s.table, seat: s.seat }) : t('seats.mine', { seat: s.seat });
+  return s.dealer ? t('seats.mineDealer') : t('seats.mine', { seat: s.seat });
 });
 const canDrawSeats = computed(() => !game.value?.tournamentSessionId || !clockStatus.value || clockStatus.value === 'waiting');
-const handleDrawSeats = async (tables, dealerIds) => {
-  const ok = await drawRoomSeats(tables, dealerIds);
-  if (!ok) showError(t('seats.drawFailed'));
+const handleDrawSeats = async (dealerId) => {
+  const result = await drawRoomSeats(dealerId);
+  if (result !== true) showError(t(result === 'TABLE_FULL' ? 'seats.tooMany' : 'seats.drawFailed', { n: 10 }));
 };
 
 // Out, best finish first

@@ -47,6 +47,11 @@
       @toggle="toggleClock"
     />
 
+    <!-- 抽座位: where I sit -->
+    <button v-if="myPlayer?.seat" type="button" class="my-seat" @click="showSeats = true">
+      🎴 {{ myPlayer.seat.dealer ? $t('seats.mineDealer') : $t('seats.mine', { seat: myPlayer.seat.seat }) }}
+    </button>
+
     <!-- Players, biggest winner first -->
     <div class="room-section mt-2">
       <div class="room-section-head">
@@ -62,6 +67,8 @@
         :is-my-card="player.uid === user?.uid"
         :buy-in-disabled="timedBuyInClosed"
         :base-buy-in="game.baseBuyIn || DEFAULT_BUY_IN"
+        :seat-label="seatLabel(player.seat, $t('seats.dealerShort'))"
+        :is-button="!!player.seat?.button && canDrawSeats"
         @bind="handleBind"
         @invite="handleInvite"
         @add-buy="handleAddBuy"
@@ -98,6 +105,7 @@
       <button type="button" class="bar-btn" @click="showHandRecord = true">
         <i class="fas fa-save"></i>{{ $t('room.hands') }}
       </button>
+      <button v-if="isHost || seated" type="button" class="bar-btn" :aria-label="$t('seats.title')" @click="showSeats = true">🎴</button>
       <button type="button" class="bar-btn primary" @click="showSettlement = true">
         {{ $t('room.settle') }}
       </button>
@@ -222,6 +230,16 @@
       v-model="showHandDetail"
       :hand="selectedHand"
     />
+
+    <!-- 抽座位 -->
+    <SeatDrawModal
+      v-model="showSeats"
+      :players="game.players || []"
+      :is-host="isHost"
+      :can-draw="canDrawSeats"
+      :my-uid="user?.uid || ''"
+      @draw="handleDrawSeats"
+    />
   </div>
 </template>
 
@@ -245,6 +263,8 @@ import { useTournamentClock } from '../composables/useTournamentClock.js';
 import RoomClockCard from '../components/tournament/RoomClockCard.vue';
 import RoomHeader from '../components/game/RoomHeader.vue';
 import RoomActionBar from '../components/game/RoomActionBar.vue';
+import SeatDrawModal from '../components/game/SeatDrawModal.vue';
+import { isSeated, seatLabel } from '../utils/seatDraw.js';
 import { BUY_IN_CLOSED } from '../utils/timedStructure.js';
 import { rateFromBuyIn, resolveBuyInAmount, formatRate } from '../utils/buyInRate.js';
 import {
@@ -468,6 +488,15 @@ const settlementPreview = computed(() => {
 
 const logSection = ref(null);
 const scrollToLog = () => logSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+// 抽座位 (host); a timed game's seats are final once its clock starts
+const showSeats = ref(false);
+const seated = computed(() => isSeated(game.value?.players || []));
+const canDrawSeats = computed(() => !clockIsTimed.value || !clockStatus.value || clockStatus.value === 'waiting');
+const handleDrawSeats = async (dealerId) => {
+  const result = await gameStore.drawRoomSeats(dealerId);
+  if (result !== true) showError(t(result === 'TABLE_FULL' ? 'seats.tooMany' : 'seats.drawFailed', { n: 10 }));
+};
 
 const sortedPlayers = computed(() => {
   if (!game.value) return [];
@@ -779,4 +808,16 @@ const handleSelectHand = (hand) => {
   border-bottom: 1px solid rgb(var(--tw-slate-700));
 }
 .cash-head { font-size: 0.7rem; color: rgb(var(--tw-slate-400)); }
+.my-seat {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 0.8rem;
+  text-align: left;
+  font-weight: 700;
+  color: rgb(var(--tw-white));
+  background: rgb(var(--tw-slate-800) / 0.6);
+  border: 1px solid rgb(var(--tw-amber-500) / 0.4);
+}
 </style>

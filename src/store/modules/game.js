@@ -23,7 +23,7 @@ import { useAuthStore } from './auth.js';
 import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';
 import { timestampToMillis } from '../../utils/formatters.js';
 import { applyPlayerChange, isSnapshotCurrent } from '../../utils/ledgerOps.js';
-import { drawSeats, seatForNewPlayer } from '../../utils/seatDraw.js';
+import { drawSeats, seatForNewPlayer, reseatOnReentry, TABLE_FULL } from '../../utils/seatDraw.js';
 import { normalizeCashDecimals } from '../../utils/cashRounding.js';
 import { BUY_IN_CLOSED, isTimedClock, isTimedBuyInClosed } from '../../utils/timedStructure.js';
 import { tournamentSettlementErrorKey } from '../../utils/tournamentSettlementErrors.js';
@@ -517,20 +517,20 @@ export const useGameStore = defineStore('game', () => {
    * Join as new player
    */
   /**
-   * 抽座位 (host): random seats and each table's starting button for everyone
-   * in the room (utils/seatDraw.js). Drawing again replaces the seats.
-   * @param {number} tables Table count
-   * @param {Array<?string>} dealerIds Each table's dealer (they play from the dealer position), or null
+   * 抽座位 (host): random seats and the starting button for everyone in the
+   * room — one physical table (utils/seatDraw.js). Drawing again replaces them.
+   * @param {?string} dealerId Who deals (plays from the dealer position), or null
+   * @return {Promise<true|string>} true, or an error code (TABLE_FULL)
    */
-  const drawRoomSeats = async (tables, dealerIds = []) => {
-    if (!gameId.value || !isHost.value) return false;
+  const drawRoomSeats = async (dealerId = null) => {
+    if (!gameId.value || !isHost.value) return 'NOT_HOST';
     try {
-      await commitRoster(gameId.value, (players) => ({ players: drawSeats(players, tables, undefined, dealerIds) }));
+      await commitRoster(gameId.value, (players) => ({ players: drawSeats(players, { dealerId }) }));
       return true;
     } catch (err) {
       console.error('Draw seats error:', err);
       error.value = err.message;
-      return false;
+      return err.message === TABLE_FULL ? TABLE_FULL : 'FAILED';
     }
   };
 
@@ -1113,7 +1113,8 @@ export const useGameStore = defineStore('game', () => {
         const { aliveAfter, restore } = reentered;
         // PKO: the re-entry buys a fresh head (remember the old one for undo)
         const head = resetHeadForReentry(reentered.players, playerId, gameBountyPerEntry(gameData), gameData.bounty);
-        const updatedPlayers = head.players;
+        // Back to their seat — or a random free one if it was taken meanwhile
+        const updatedPlayers = reseatOnReentry(head.players, playerId);
         if (head.previousHead !== null) restore.bountyHead = head.previousHead;
 
         aliveAfterReentry = aliveAfter;
