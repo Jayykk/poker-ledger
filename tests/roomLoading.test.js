@@ -67,6 +67,30 @@ describe('joining a room waits for its first snapshot', () => {
     expect(store.gameLoading).toBe(false);
   });
 
+  it('a second join (room page) while the first (app start) waits: both resolve on the snapshot', async () => {
+    const store = useGameStore();
+    let first = null;
+    let second = null;
+    store.joinGameListener('g1').then((ok) => { first = ok; });
+    store.joinGameListener('g1').then((ok) => { second = ok; });
+    snap({ status: 'active', name: 'Poker Game', players: [], rev: 1 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(second).toBe(true);
+    expect(first).toBe(true); // not after the 10 s timer
+    expect(store.gameLoading).toBe(false);
+  });
+
+  it('a join for another room: the older caller gets that room\'s answer', async () => {
+    const store = useGameStore();
+    let first = null;
+    store.joinGameListener('old').then((ok) => { first = ok; });
+    store.joinGameListener('g1');
+    snap({ status: 'active', name: 'Poker Game', players: [], rev: 1 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(first).toBe(true);
+    expect(store.game?.id).toBe('g1');
+  });
+
   it('gives up waiting after 10 s (the listener keeps running)', async () => {
     const store = useGameStore();
     const p = store.joinGameListener('g1');

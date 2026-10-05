@@ -195,6 +195,8 @@ export const useGameStore = defineStore('game', () => {
   // home-screen app reopens straight into a room)
   let deniedRetries = 0;
   let joinSeq = 0; // the latest joinGameListener call owns gameLoading
+  let joinWaiters = []; // callers waiting for the current listener's first snapshot
+  let firstSnapshotTimer = null;
   const MAX_DENIED_RETRIES = 3;
   const FIRST_SNAPSHOT_TIMEOUT_MS = 10000;
 
@@ -215,15 +217,20 @@ export const useGameStore = defineStore('game', () => {
     listenedGameId = id;
     const seq = ++joinSeq;
     gameLoading.value = true;
-    let settled = false;
+    // An older call still waiting (e.g. app start restoring the last room
+    // while the room page joins it too) just lost its listener: it now waits
+    // for this one's first snapshot instead of sitting out its 10 s timer.
+    joinWaiters.push(resolve);
+    clearTimeout(firstSnapshotTimer);
     const settle = (ok) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(firstTimer);
-      if (seq === joinSeq) gameLoading.value = false;
-      resolve(ok);
+      if (seq !== joinSeq) return; // superseded — the newer call answers
+      clearTimeout(firstSnapshotTimer);
+      gameLoading.value = false;
+      const waiters = joinWaiters;
+      joinWaiters = [];
+      waiters.forEach((r) => r(ok));
     };
-    const firstTimer = setTimeout(() => settle(false), FIRST_SNAPSHOT_TIMEOUT_MS);
+    firstSnapshotTimer = setTimeout(() => settle(false), FIRST_SNAPSHOT_TIMEOUT_MS);
 
     unsubscribeGame = onSnapshot(doc(db, 'games', id), (snap) => {
       if (snap.exists() && snap.data().status === GAME_STATUS.ACTIVE) {
