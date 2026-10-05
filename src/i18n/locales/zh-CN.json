@@ -430,6 +430,24 @@
       "duplicateCards": "有重复的牌",
       "tooManyCommunityCards": "公共牌最多 5 张",
       "tooManyPlayerCards": "手牌最多 2 张"
+    },
+    "flow": {
+      "whoIn": "这手有谁？",
+      "whoInHint": "按座位排，点一下选取",
+      "toCards": "下一步：填牌",
+      "toResult": "下一步：谁赢",
+      "back": "上一步",
+      "skip": "略过",
+      "mucked": "盖牌",
+      "whoWon": "谁赢了这手？",
+      "whoWonHint": "可多选＝平分底池",
+      "putIn": "各自投入",
+      "clear": "清除",
+      "potBalanced": "底池 {pot} · 自动平衡 ✅",
+      "needTwo": "至少选两个人",
+      "needWinner": "选出赢家",
+      "needPutIn": "填上输家各自投入多少",
+      "photo": "拍照自动填牌"
     }
   },
   "transaction": {

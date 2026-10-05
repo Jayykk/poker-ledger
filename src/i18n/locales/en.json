@@ -430,6 +430,24 @@
       "duplicateCards": "Duplicate cards found",
       "tooManyCommunityCards": "Max 5 community cards",
       "tooManyPlayerCards": "Max 2 player cards"
+    },
+    "flow": {
+      "whoIn": "Who was in this hand?",
+      "whoInHint": "In seat order — tap to pick",
+      "toCards": "Next: cards",
+      "toResult": "Next: who won",
+      "back": "Back",
+      "skip": "Skip",
+      "mucked": "Mucked",
+      "whoWon": "Who won it?",
+      "whoWonHint": "Pick several to split the pot",
+      "putIn": "Put in",
+      "clear": "Clear",
+      "potBalanced": "Pot {pot} · balances ✅",
+      "needTwo": "Pick at least two players",
+      "needWinner": "Pick the winner",
+      "needPutIn": "Enter what the others put in",
+      "photo": "Fill from a photo"
     }
   },
   "transaction": {

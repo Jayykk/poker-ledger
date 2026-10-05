@@ -307,6 +307,7 @@
       :game-id="gameId"
       :players="game?.players || []"
       @saved="handleHandRecordSaved"
+      :big-blind="clockBlinds?.big || 0"
     />
 
     <!-- Hand Detail Modal -->

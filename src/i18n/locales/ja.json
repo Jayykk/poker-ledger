@@ -430,6 +430,24 @@
       "duplicateCards": "重複するカードがあります",
       "tooManyCommunityCards": "コミュニティカードは最大5枚です",
       "tooManyPlayerCards": "ハンドカードは最大2枚です"
+    },
+    "flow": {
+      "whoIn": "このハンドの参加者は？",
+      "whoInHint": "座席順 — タップで選択",
+      "toCards": "次へ：カード",
+      "toResult": "次へ：勝者",
+      "back": "戻る",
+      "skip": "スキップ",
+      "mucked": "マック",
+      "whoWon": "勝ったのは？",
+      "whoWonHint": "複数選択でポットを分割",
+      "putIn": "投入額",
+      "clear": "クリア",
+      "potBalanced": "ポット {pot} · 自動で一致 ✅",
+      "needTwo": "2 人以上選んでください",
+      "needWinner": "勝者を選んでください",
+      "needPutIn": "他のプレイヤーの投入額を入力してください",
+      "photo": "写真から自動入力"
     }
   },
   "transaction": {
