@@ -329,40 +329,41 @@ onMounted(() => {
 
 .fb-main {
   display: grid;
-  grid-template-columns: 1fr 2.3fr 1fr;
+  /* the side rails get room for big numbers (read from across the room) */
+  grid-template-columns: 1.15fr 2fr 1.15fr;
   gap: calc(var(--u) * 2);
   align-items: center;
   padding: calc(var(--u) * 1.5) calc(var(--u) * 2.6);
   min-height: 0;
 }
-.fb-rail { display: grid; gap: calc(var(--u) * 1.5); align-content: center; min-width: 0; }
+.fb-rail { display: grid; gap: calc(var(--u) * 2); align-content: center; min-width: 0; }
 .fb-rail.right { text-align: right; }
 .stat { display: grid; gap: calc(var(--u) * 0.25); }
 .stat .k {
-  font: 600 calc(var(--u) * 1.05) / 1 var(--f-label);
-  letter-spacing: 0.18em;
+  font: 600 calc(var(--u) * 1.55) / 1 var(--f-label);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--brass);
 }
 .stat .v {
-  font: 700 calc(var(--u) * 3.2) / 1 var(--f-display);
+  font: 700 calc(var(--u) * 5) / 1 var(--f-display);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
   white-space: nowrap;
 }
 .stat .v small {
-  font: 600 calc(var(--u) * 1.3) / 1 var(--f-label);
+  font: 600 calc(var(--u) * 1.8) / 1 var(--f-label);
   color: var(--ivory-dim);
   letter-spacing: 0.06em;
   margin-left: calc(var(--u) * 0.5);
 }
-.stat.big .v { font-size: calc(var(--u) * 4.2); }
+.stat.big .v { font-size: calc(var(--u) * 6.4); }
 .payouts { display: grid; gap: calc(var(--u) * 0.35); }
 .payouts div {
   display: flex;
   justify-content: flex-end;
   gap: calc(var(--u) * 1.2);
-  font: 600 calc(var(--u) * 1.7) / 1.1 var(--f-display);
+  font: 600 calc(var(--u) * 2.7) / 1.1 var(--f-display);
   font-variant-numeric: tabular-nums;
 }
 .payouts span:first-child { color: var(--brass); }
@@ -422,7 +423,7 @@ onMounted(() => {
 .drain > i { display: block; height: 100%; background: var(--brass); border-radius: inherit; transition: width 0.25s linear; }
 
 .next {
-  font: 600 calc(var(--u) * 1.45) / 1 var(--f-label);
+  font: 600 calc(var(--u) * 2) / 1 var(--f-label);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ivory-dim);
