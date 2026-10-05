@@ -3,6 +3,7 @@ import liff from '@line/liff';
 import { STORAGE_KEYS } from '../utils/constants.js';
 import { rowCash, formatCashAmount, roundCashTotal, formatCashTotal } from '../utils/cashRounding.js';
 import { liffLink } from '../utils/liffLink.js';
+import { summarizeTournamentSettlement, bountyDetail } from '../utils/tournamentSettlementSummary.js';
 
 const LIFF_ID = import.meta.env.VITE_LIFF_ID || '';
 // LINE Flex Message altText is limited; truncate settlement reports for the preview
@@ -445,7 +446,9 @@ const sendTournamentSettlementMessage = async ({ gameName, gameId, players }) =>
   if (sorted.length === 0) return false;
 
   const champion = sorted.find((p) => p.placement === 1) || sorted[0];
-  const totalPrizePool = sorted.reduce((sum, p) => sum + (p.buyIn || 0), 0);
+  // Prize pool = what's paid by placement; bounty games show their bounties apart
+  const { kind, prizePool: totalPrizePool, bountyTotal, highlight } = summarizeTournamentSettlement(sorted);
+  const kindLabel = { ko: ' · 🎯 賞金賽', mystery: ' · 🎁 神秘賞金' }[kind] || '';
   const altText = truncateAltText(`🏆 錦標賽結算 — ${gameName || '未命名'} 冠軍：${champion?.name || '未定'}`);
   const liffUrl = gameId && LIFF_ID ? liffLink(LIFF_ID, `report/${gameId}`) : undefined;
 
@@ -505,7 +508,9 @@ const sendTournamentSettlementMessage = async ({ gameName, gameId, players }) =>
         },
         {
           type: 'text',
-          text: `獎金 ${formatMoney(player.prize)} ｜ 買入 ${formatMoney(player.buyIn)} ｜ 淨利 ${profitText}`,
+          text: kind === 'none'
+            ? `獎金 ${formatMoney(player.prize)} ｜ 買入 ${formatMoney(player.buyIn)} ｜ 淨利 ${profitText}`
+            : `獎金 ${formatMoney(player.prize)} ｜ ${bountyDetail(player, kind, formatMoney)} ｜ 買入 ${formatMoney(player.buyIn)}`,
           size: 'xs',
           color: '#6B7280',
           wrap: true,
@@ -521,7 +526,7 @@ const sendTournamentSettlementMessage = async ({ gameName, gameId, players }) =>
       layout: 'vertical',
       backgroundColor: '#A16207',
       contents: [
-        { type: 'text', text: '🏆 錦標賽結算', color: '#FFFFFF', weight: 'bold', size: 'md' },
+        { type: 'text', text: `🏆 錦標賽結算${kindLabel}`, color: '#FFFFFF', weight: 'bold', size: 'md' },
         { type: 'text', text: gameName || '未命名', color: '#FEF3C7', size: 'xs', margin: 'sm' },
       ],
     },
@@ -543,6 +548,15 @@ const sendTournamentSettlementMessage = async ({ gameName, gameId, players }) =>
                 { type: 'text', text: formatMoney(totalPrizePool), size: 'xxl', weight: 'bold', color: '#1F2937' },
               ],
             },
+            ...(kind !== 'none' ? [{
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              contents: [
+                { type: 'text', text: '賞金', size: 'xs', color: '#9CA3AF' },
+                { type: 'text', text: formatMoney(bountyTotal), size: 'xxl', weight: 'bold', color: '#1F2937' },
+              ],
+            }] : []),
             {
               type: 'box',
               layout: 'vertical',
@@ -556,14 +570,44 @@ const sendTournamentSettlementMessage = async ({ gameName, gameId, players }) =>
         },
         {
           type: 'box',
-          layout: 'vertical',
-          paddingAll: '12px',
-          backgroundColor: '#FFF7D6',
-          cornerRadius: '12px',
+          layout: 'horizontal',
+          spacing: 'sm',
           contents: [
-            { type: 'text', text: '👑 冠軍', size: 'xs', color: '#B7791F', weight: 'bold' },
-            { type: 'text', text: champion?.name || '未定', size: 'xl', color: '#92400E', weight: 'bold', margin: 'sm' },
-            { type: 'text', text: `淨利 ${formatSignedMoney(champion?.profit || 0)}`, size: 'xs', color: '#B45309', margin: 'sm' },
+            {
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              paddingAll: '12px',
+              backgroundColor: '#FFF7D6',
+              cornerRadius: '12px',
+              contents: [
+                { type: 'text', text: '👑 冠軍', size: 'xs', color: '#B7791F', weight: 'bold' },
+                { type: 'text', text: champion?.name || '未定', size: highlight ? 'lg' : 'xl', color: '#92400E', weight: 'bold', margin: 'sm', wrap: true },
+                { type: 'text', text: `淨利 ${formatSignedMoney(champion?.profit || 0)}`, size: 'xs', color: '#B45309', margin: 'sm' },
+              ],
+            },
+            // Bounty games: the Hunter (most knockouts) / 歐皇 (most from envelopes)
+            ...(highlight ? [{
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              paddingAll: '12px',
+              backgroundColor: highlight.type === 'hunter' ? '#FDECEC' : '#EAF7EE',
+              cornerRadius: '12px',
+              contents: [
+                { type: 'text', text: highlight.type === 'hunter' ? '🎯 Hunter' : '🍀 歐皇', size: 'xs', color: highlight.type === 'hunter' ? '#BE123C' : '#15803D', weight: 'bold' },
+                { type: 'text', text: highlight.row.name || '???', size: 'lg', color: highlight.type === 'hunter' ? '#9F1239' : '#166534', weight: 'bold', margin: 'sm', wrap: true },
+                {
+                  type: 'text',
+                  text: highlight.type === 'hunter'
+                    ? `KO ${highlight.row.knockouts} · ${formatMoney(highlight.row.bounty)}`
+                    : `抽 ${highlight.row.draws} 封 · ${formatMoney(highlight.row.bounty)}`,
+                  size: 'xs',
+                  color: highlight.type === 'hunter' ? '#BE123C' : '#15803D',
+                  margin: 'sm',
+                },
+              ],
+            }] : []),
           ],
         },
         { type: 'separator', color: '#EEEEEE' },

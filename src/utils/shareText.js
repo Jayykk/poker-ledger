@@ -2,6 +2,7 @@
 // (the system share sheet, or the clipboard). Inside LINE the same content
 // goes out as Flex Messages (useLiff.js); these mirror their rows.
 import { rowCash, formatCashAmount, roundCashTotal, formatCashTotal } from './cashRounding.js';
+import { summarizeTournamentSettlement, bountyDetail } from './tournamentSettlementSummary.js';
 
 const money = (n) => `$${Math.round(Number(n) || 0).toLocaleString()}`;
 const signedMoney = (n) => {
@@ -43,13 +44,20 @@ const MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' };
 /** Tournament settlement: placements with prize and net. */
 export function tournamentSettlementText({ gameName, players = [], url }) {
   const sorted = players.filter(Boolean).sort((a, b) => (a.placement || 999) - (b.placement || 999));
+  const { kind, prizePool, bountyTotal, highlight } = summarizeTournamentSettlement(sorted);
   const rows = sorted.map((p) => {
     const mark = MEDAL[p.placement] || `#${p.placement || '-'}`;
-    const prize = Number(p.prize) > 0 ? `（獎金 ${money(p.prize)}）` : '';
-    return `${mark} ${p.name || '???'}：${signedMoney(p.profit)}${prize}`;
+    const parts = [
+      Number(p.prize) > 0 ? `獎金 ${money(p.prize)}` : '',
+      bountyDetail(p, kind, money),
+    ].filter(Boolean).join(' · ');
+    return `${mark} ${p.name || '???'}：${signedMoney(p.profit)}${parts ? `（${parts}）` : ''}`;
   });
   return lines(
     `🏆 錦標賽結算｜${gameName || '未命名'}`,
+    kind !== 'none' ? `獎池 ${money(prizePool)} ｜ 賞金 ${money(bountyTotal)}` : null,
+    highlight?.type === 'hunter' ? `🎯 Hunter：${highlight.row.name}（KO ${highlight.row.knockouts}）` : null,
+    highlight?.type === 'lucky' ? `🍀 歐皇：${highlight.row.name}（${money(highlight.row.bounty)}）` : null,
     '———',
     rows,
     url ? ['———', `詳細：${url}`] : null,
