@@ -50,12 +50,14 @@
             </template>
             <template v-else-if="tx.type === 'eliminate'">
               <span>💀</span>
-              {{ tx.actionName }} {{ $t('transaction.eliminatedPlayer') }} {{ tx.targetName }}
-              <!-- KO: who collected the head (or the pool) -->
-              <span v-if="tx.restore?.bounty?.awards?.length" class="text-rose-300">
-                · 🎯 {{ tx.restore.bounty.awards.map((a) => a.name || '?').join('、') }}
-              </span>
-              <span v-else-if="tx.restore?.bounty?.toPool" class="text-gray-400">· 🎯 {{ $t('bounty.toPool') }}</span>
+              <!-- Credit goes to the knockout picked in the KO dialog; whoever
+                   tapped 淘汰 only logged it (they're rarely the one who busted them) -->
+              <template v-if="tx.restore?.bounty?.awards?.length">
+                {{ $t('transaction.knockedOutBy', { name: tx.targetName, by: tx.restore.bounty.awards.map((a) => a.name || '?').join('、') }) }}
+              </template>
+              <template v-else>{{ $t('transaction.playerOut', { name: tx.targetName }) }}</template>
+              <span v-if="tx.restore?.bounty?.toPool" class="text-gray-400">· 🎯 {{ $t('bounty.toPool') }}</span>
+              <span class="text-xs text-gray-500">· {{ $t('transaction.recordedBy', { name: tx.actionName }) }}</span>
             </template>
             <template v-else-if="tx.type === 'join'">
               <span>👤</span>

@@ -169,3 +169,16 @@ describe('anyone in the room can record knockouts and re-entries', () => {
     }
   });
 });
+
+describe('elimination log credits the knockout, not whoever tapped 淘汰', () => {
+  const log = read('src/components/game/TransactionLog.vue');
+  const zhTW = JSON.parse(read('src/i18n/locales/zh-TW.json'));
+
+  it('KO rows name the hunter; the tapper only "logged" it', () => {
+    expect(log).toMatch(/transaction\.knockedOutBy', \{ name: tx\.targetName, by: tx\.restore\.bounty\.awards/);
+    expect(log).toContain("$t('transaction.recordedBy', { name: tx.actionName })");
+    expect(log).not.toContain('eliminatedPlayer');
+    expect(zhTW.transaction.knockedOutBy).toBe('{name} 被 {by} 擊殺');
+    expect(zhTW.transaction.playerOut).toBe('{name} 出局');
+  });
+});
