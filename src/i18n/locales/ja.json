@@ -1122,23 +1122,20 @@
     "title": "座席",
     "draw": "座席を抽選",
     "redraw": "引き直す",
-    "tables": "テーブル数",
-    "tableN": "テーブル {n}",
-    "sizes": "{sizes} 人",
-    "oneTable": "1 テーブル {n} 人",
     "notYet": "ホストはまだ座席を抽選していません",
     "lockedHint": "時計が始まったので引き直せません",
     "button": "最初のディーラー",
     "drawFailed": "抽選できませんでした。もう一度試してください",
     "mine": "あなたは {seat} 番席",
-    "mineTable": "あなたはテーブル {table} の {seat} 番席",
     "dealer": "ディーラー",
-    "dealerOf": "テーブル {n} のディーラー",
     "pickDealer": "ディーラーを選択",
-    "noDealer": "指定しない（ディーラーなし）",
+    "noDealer": "指定しない（ディーラー席は空き、最大 9 人）",
     "dealerShort": "D",
     "unseated": "まだ座席がありません（満席）",
     "mineDealer": "あなたがディーラーです",
-    "mineDealerTable": "あなたはテーブル {table} のディーラーです"
+    "empty": "空席",
+    "capacity": "{n} 人 · 最大 {cap} 人（ディーラー席＋1～9 番）",
+    "tooMany": "{n} 人を超えています。2 卓目は別のルームを作成してください",
+    "noDealerSeat": "（ディーラーなし）"
   }
 }

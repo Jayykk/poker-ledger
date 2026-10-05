@@ -2,102 +2,104 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import {
-  autoTableCount, tableCountOptions, drawSeats, seatForNewPlayer, seatingChart, seatLabel, isSeated, currentDealers,
+  drawSeats, seatForNewPlayer, reseatOnReentry, seatingChart, seatLabel, isSeated, currentDealer,
+  freeSeats, tableCapacity, SEAT_COUNT, TABLE_FULL,
 } from '../src/utils/seatDraw.js';
 
 const roster = (n) => Array.from({ length: n }, (_, i) => ({ id: `p${i}`, name: `P${i}`, buyIn: 200 }));
-// deterministic "random" for repeatable draws
-const seq = (seed = 7) => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+// deterministic, well-mixed "random" for repeatable draws (mulberry32)
+const seq = (seed = 7) => () => {
+  seed = (seed + 0x6D2B79F5) | 0;
+  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
 
-describe('抽座位', () => {
-  it('tables by headcount: 10 a table (9 seats + the dealer); options: enough seats, two a table', () => {
-    expect([1, 10, 11, 20, 21].map(autoTableCount)).toEqual([1, 1, 2, 2, 3]);
-    expect(tableCountOptions(10)).toEqual([1, 2, 3, 4, 5]);
-    expect(tableCountOptions(11)).toEqual([2, 3, 4, 5]);
-    expect(tableCountOptions(3)).toEqual([1]);
+describe('抽座位: one table — the dealer position plus seats 1..9', () => {
+  it('ten at most with a dealer, nine without; never a seat 10', () => {
+    expect(SEAT_COUNT).toBe(9);
+    expect(tableCapacity(true)).toBe(10);
+    expect(tableCapacity(false)).toBe(9);
+    expect(() => drawSeats(roster(10), { dealerId: null })).toThrow(TABLE_FULL);
+    expect(() => drawSeats(roster(11), { dealerId: 'p0' })).toThrow(TABLE_FULL);
+    const full = drawSeats(roster(10), { dealerId: 'p0', random: seq(3) });
+    expect(full.filter((p) => !p.seat.dealer).map((p) => p.seat.seat).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
-  it('the dealer sits at the dealer position (seat 0), everyone else 1..9; the button can be the dealer', () => {
-    const dealerButtons = new Set();
-    for (let seed = 1; seed <= 40; seed++) {
-      const out = drawSeats(roster(10), 1, seq(seed), ['p4']);
-      const dealer = out.find((p) => p.id === 'p4');
-      expect(dealer.seat).toMatchObject({ table: 1, seat: 0, dealer: true });
-      const others = out.filter((p) => p.id !== 'p4').map((p) => p.seat.seat).sort((a, b) => a - b);
-      expect(others).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  it('the dealer sits at the dealer position; the button can land there', () => {
+    const onDealer = new Set();
+    for (let s = 1; s <= 40; s++) {
+      const out = drawSeats(roster(10), { dealerId: 'p4', random: seq(s) });
+      expect(out.find((p) => p.id === 'p4').seat).toMatchObject({ seat: 0, dealer: true });
       expect(out.filter((p) => p.seat.button)).toHaveLength(1);
-      dealerButtons.add(!!dealer.seat.button);
+      onDealer.add(!!out.find((p) => p.id === 'p4').seat.button);
     }
-    expect(dealerButtons).toEqual(new Set([true, false])); // the dealer's position is in the button draw
+    expect(onDealer).toEqual(new Set([true, false]));
   });
 
-  it('two tables, a dealer each: tables balanced with the dealers counted; a redraw keeps the dealers', () => {
-    const out = drawSeats(roster(15), 2, seq(5), ['p0', 'p1']);
-    const chart = seatingChart(out);
-    expect(chart.map((t) => t.length).sort()).toEqual([7, 8]);
-    expect(chart.map((t) => t[0].id)).toEqual(['p0', 'p1']); // dealer listed first
-    expect(currentDealers(out)).toEqual(['p0', 'p1']);
-    expect(seatLabel(out[0].seat, true)).toBe('1-荷');
-  });
-
-  it('no dealer picked: seats run 1..10', () => {
-    const out = drawSeats(roster(10), 1, seq(2), [null]);
-    expect(out.map((p) => p.seat.seat).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-  });
-
-  it('a full table takes nobody more', () => {
-    expect(seatForNewPlayer(drawSeats(roster(10), 1, seq(3), ['p0']))).toBe(null);
-  });
-
-  it('everyone gets a seat; seats are 1..n per table with no gaps; one button a table', () => {
-    for (const [n, tables] of [[10, 1], [10, 2], [11, 2], [7, 3]]) {
-      const out = drawSeats(roster(n), tables, seq(n));
-      expect(out.every((p) => p.seat)).toBe(true);
-      const chart = seatingChart(out);
-      expect(chart).toHaveLength(tables);
-      const sizes = chart.map((t) => t.length);
-      expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1); // even
-      for (const table of chart) {
-        expect(table.map((p) => p.seat.seat)).toEqual(table.map((_, i) => i + 1));
-        expect(table.filter((p) => p.seat.button)).toHaveLength(1);
-      }
+  it('fewer players than seats: random seats with gaps', () => {
+    const gaps = new Set();
+    for (let s = 1; s <= 20; s++) {
+      const seats = drawSeats(roster(6), { dealerId: 'p0', random: seq(s) }).filter((p) => !p.seat.dealer).map((p) => p.seat.seat);
+      expect(new Set(seats).size).toBe(5);
+      expect(seats.every((n) => n >= 1 && n <= 9)).toBe(true);
+      gaps.add(Math.max(...seats) > 5);
     }
+    expect(gaps.has(true)).toBe(true); // not always packed into 1..5
   });
 
-  it('keeps the rest of each player as is, and a redraw changes seats', () => {
-    const a = drawSeats(roster(8), 1, seq(1));
-    expect(a[0]).toMatchObject({ id: 'p0', name: 'P0', buyIn: 200 });
-    const b = drawSeats(a, 1, seq(99));
-    expect(b.map((p) => p.seat.seat)).not.toEqual(a.map((p) => p.seat.seat));
-  });
-
-  it('a player added after the draw takes the next seat at the emptiest table', () => {
+  it('a late joiner takes a random free seat; a full table takes nobody', () => {
     expect(seatForNewPlayer(roster(3))).toBe(null); // not drawn yet
-    const seated = drawSeats(roster(5), 2, seq(3)); // tables of 3 and 2
-    const small = seatingChart(seated).findIndex((t) => t.length === 2) + 1;
-    expect(seatForNewPlayer(seated)).toEqual({ table: small, seat: 3 });
+    const out = drawSeats(roster(5), { dealerId: 'p0', random: seq(2) });
+    const free = freeSeats(out);
+    expect(free).toHaveLength(5);
+    const picks = new Set(Array.from({ length: 30 }, (_, i) => seatForNewPlayer(out, seq(i + 1)).seat));
+    expect([...picks].every((n) => free.includes(n))).toBe(true);
+    expect(picks.size).toBeGreaterThan(1); // random, not "the next number"
+    expect(seatForNewPlayer(drawSeats(roster(10), { dealerId: 'p0', random: seq(1) }))).toBe(null);
   });
 
-  it('labels: "3" on one table, "2-3" with several', () => {
-    expect(seatLabel({ table: 2, seat: 3 }, false)).toBe('3');
-    expect(seatLabel({ table: 2, seat: 3 }, true)).toBe('2-3');
-    expect(seatLabel(null, true)).toBe('');
+  it('re-entry keeps the seat unless it was taken meanwhile', () => {
+    const out = drawSeats(roster(4), { dealerId: null, random: seq(5) });
+    const me = out[1];
+    const eliminated = out.map((p) => (p.id === me.id ? { ...p, eliminated: true } : p));
+    // nobody took it: same seat
+    expect(reseatOnReentry(eliminated.map((p) => ({ ...p, eliminated: false })), me.id).find((p) => p.id === me.id).seat.seat).toBe(me.seat.seat);
+    // someone joined into it: a different free seat
+    const taken = [...eliminated, { id: 'new', name: 'N', seat: { seat: me.seat.seat } }];
+    const back = reseatOnReentry(taken.map((p) => (p.id === me.id ? { ...p, eliminated: false } : p)), me.id, seq(9));
+    const mine = back.find((p) => p.id === me.id).seat.seat;
+    expect(mine).not.toBe(me.seat.seat);
+    expect(freeSeats(taken.filter((p) => p.id !== me.id)).includes(mine)).toBe(true);
+  });
+
+  it('the chart: dealer, then seats 1..9 with empties; eliminated seats show empty', () => {
+    const out = drawSeats(roster(4), { dealerId: 'p0', random: seq(4) });
+    const chart = seatingChart(out.map((p) => (p.id === 'p1' ? { ...p, eliminated: true } : p)));
+    expect(chart.dealer.id).toBe('p0');
+    expect(chart.seats.map((s) => s.no)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(chart.seats.filter((s) => s.player)).toHaveLength(2);
+    expect(currentDealer(out)).toBe('p0');
+    expect(seatLabel({ seat: 0, dealer: true })).toBe('荷');
+    expect(seatLabel({ seat: 7 })).toBe('7');
     expect(isSeated(roster(2))).toBe(false);
   });
 });
 
 describe('wiring', () => {
   const read = (p) => readFileSync(resolve(__dirname, '..', p), 'utf-8');
-  it('the host draws through the roster; later joiners are seated', () => {
+  it('the store draws through the roster; joiners and re-entries get seats', () => {
     const store = read('src/store/modules/game.js');
-    expect(store).toContain('commitRoster(gameId.value, (players) => ({ players: drawSeats(players, tables, undefined, dealerIds) }))');
+    expect(store).toContain('commitRoster(gameId.value, (players) => ({ players: drawSeats(players, { dealerId }) }))');
     expect(store.match(/seatForNewPlayer\(/g)).toHaveLength(2);
+    expect(store).toContain('reseatOnReentry(head.players, playerId)');
   });
-  it('the room: draw / view seats, seat order, seat chips, my seat; redraw only before the clock starts', () => {
-    const room = read('src/views/TournamentGameView.vue');
-    expect(room).toContain('<SeatDrawModal');
-    expect(room).toMatch(/canDrawSeats = computed\(\(\) => !game\.value\?\.tournamentSessionId \|\| !clockStatus\.value \|\| clockStatus\.value === 'waiting'\)/);
-    expect(room).toContain(':seat-label="seatOf(player)"');
-    expect(room).toContain('class="my-seat"');
+  it('both rooms draw and show seats', () => {
+    for (const f of ['src/views/TournamentGameView.vue', 'src/views/GameView.vue']) {
+      const v = read(f);
+      expect(v).toContain('<SeatDrawModal');
+      expect(v).toContain('class="my-seat"');
+      expect(v).toMatch(/:seat-label="seat(Of\(player\)|Label\(player\.seat)/);
+    }
   });
 });
