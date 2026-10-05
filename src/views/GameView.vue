@@ -222,6 +222,7 @@
       :game-id="gameId"
       :players="game.players"
       :base-buy-in="game.baseBuyIn || DEFAULT_BUY_IN"
+      :big-blind="clockIsTimed ? (clockBlinds?.big || 0) : 0"
       @saved="handleHandRecordSaved"
     />
 
