@@ -11,13 +11,14 @@
 import { useI18n } from 'vue-i18n';
 import { useLiff } from './useLiff.js';
 import { useNotification } from './useNotification.js';
+import { liffLink } from '../utils/liffLink.js';
 
 const LIFF_ID = import.meta.env.VITE_LIFF_ID || '';
 
 /** Link to a page of the app (path without the leading slash). */
 export function appLink(path) {
   const p = String(path || '').replace(/^\/+/, '');
-  if (LIFF_ID) return `https://liff.line.me/${LIFF_ID}/${p}`;
+  if (LIFF_ID) return liffLink(LIFF_ID, p);
   return `${window.location.origin}${window.location.pathname}#/${p}`;
 }
 

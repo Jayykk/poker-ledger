@@ -147,8 +147,10 @@ export function resolvePreAction(game, userId, preAction) {
 
 export function parsePokerGameId(input) {
   if (!input || typeof input !== 'string') return null;
-  const trimmed = input.trim();
+  let trimmed = input.trim();
   if (!trimmed) return null;
+  // LIFF links carry the page encoded (?__path=poker-game%2F<id>)
+  try { trimmed = decodeURIComponent(trimmed); } catch { /* not encoded */ }
 
   const marker = 'poker-game/';
   const idx = trimmed.indexOf(marker);

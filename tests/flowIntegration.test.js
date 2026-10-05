@@ -316,7 +316,8 @@ describe('Lobby layout', () => {
     });
 
     it('join takes an online table invite link', () => {
-      expect(lobbyContent).toMatch(/includes\('poker-game\/'\)[\s\S]*?parsePokerGameId/);
+      expect(lobbyContent).toContain("if (/poker-game(\\/|%2F)/i.test(gameCode.value)) {");
+      expect(lobbyContent).toMatch(/poker-game\(\\\/\|%2F\)\/i\.test\(gameCode\.value\)[\s\S]*?parsePokerGameId/);
     });
 
     it('the nav has no centre action button or action modal', () => {

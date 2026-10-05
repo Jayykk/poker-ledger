@@ -85,25 +85,28 @@ if ('serviceWorker' in navigator) {
 }
 
 // ── LIFF deep-link → hash-route redirect ────────────────────────────
-// GitHub Pages doesn't support SPA rewrites. When LINE opens a LIFF URL
-// like liff.line.me/ID/game/abc123, GitHub Pages returns 404.html which
-// redirects to /poker-ledger/?__path=game/abc123. We pick that up here
+// GitHub Pages doesn't support SPA rewrites. LIFF links carry the page as
+// liff.line.me/ID/?__path=game%2Fabc123 (LIFF redirects to
+// /poker-ledger/?__path=…); older links (liff.line.me/ID/game/abc123) get a
+// 404.html that redirects to the same ?__path= form. We pick that up here
 // and convert it into a proper hash route: /poker-ledger/#/game/abc123.
 // Also handles the direct-pathname case (e.g. Firebase Hosting).
 (function liffPathRedirect() {
   const base = import.meta.env.BASE_URL || '/'; // '/poker-ledger/'
   const { pathname, search, hash } = window.location;
 
-  // Case 1: Redirected via 404.html with ?__path= query param
+  // Case 1: ?__path= — from a LIFF link (utils/liffLink.js) or 404.html.
+  // Rewritten in place: the router isn't created yet, so no reload is needed.
   const params = new URLSearchParams(search);
   const pathFromQuery = params.get('__path');
   if (pathFromQuery) {
     params.delete('__path');
     const remaining = params.toString();
-    const qs = remaining ? `?${remaining}` : '';
+    // The page may carry its own query (daily-report?start=…)
+    const qs = remaining ? `${pathFromQuery.includes('?') ? '&' : '?'}${remaining}` : '';
     // Query params must be INSIDE the hash for Vue Router (hash history) to read them
-    window.location.replace(`${base}#/${pathFromQuery}${qs}`);
-    throw new Error('LIFF_REDIRECT');
+    history.replaceState(null, '', `${base}#/${pathFromQuery}${qs}`);
+    return;
   }
 
   // Case 2: Direct pathname (e.g. Firebase Hosting rewrite to index.html)
@@ -164,6 +167,16 @@ import { logger } from "./utils/logger.js";
     // LIFF has read the tokens. Clean the hash for Vue Router.
     history.replaceState(null, '',
       window.location.pathname + window.location.search + '#/');
+  }
+
+  // Opened from a LIFF link that names a page (?liff.state=…): liff.init()
+  // reloads into that page, so run it now rather than booting the whole app
+  // for a page about to be replaced. Capped in case LIFF stalls.
+  if (new URLSearchParams(window.location.search).has('liff.state')) {
+    await Promise.race([
+      initLiff().catch(() => {}),
+      new Promise((r) => setTimeout(r, 5000)),
+    ]);
   }
 
   // Create router (hash is now clean)

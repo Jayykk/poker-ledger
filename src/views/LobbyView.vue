@@ -829,8 +829,8 @@ const handleCheckGame = async () => {
     showError('Please enter game ID');
     return;
   }
-  // An online table's invite link (…/poker-game/<id>) goes straight to the table
-  if (gameCode.value.includes('poker-game/')) {
+  // An online table's invite link (…/poker-game/<id>, or ?__path=poker-game%2F<id>) goes straight to the table
+  if (/poker-game(\/|%2F)/i.test(gameCode.value)) {
     const tableId = parsePokerGameId(gameCode.value);
     if (tableId) {
       showJoinModal.value = false;

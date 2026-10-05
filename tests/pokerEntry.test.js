@@ -163,6 +163,11 @@ describe('parsePokerGameId', () => {
       .toBe('AbC123xyz');
   });
 
+  it('extracts the id from a LIFF link with the page in ?__path=', () => {
+    expect(parsePokerGameId('https://liff.line.me/123-xyz/?__path=poker-game%2FAbC123xyz'))
+      .toBe('AbC123xyz');
+  });
+
   it('extracts the id from a web hash link', () => {
     expect(parsePokerGameId('https://host/poker-ledger/#/poker-game/AbC123xyz'))
       .toBe('AbC123xyz');

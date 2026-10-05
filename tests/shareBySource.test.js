@@ -83,6 +83,6 @@ describe('share by source wiring', () => {
 
   it('share sheet first, copy when there is none, a cancel is not an error', () => {
     expect(share).toMatch(/navigator\.share\(\{ title, text \}\)[\s\S]*?AbortError[\s\S]*?clipboard\.writeText/);
-    expect(share).toContain('https://liff.line.me/${LIFF_ID}/${p}');
+    expect(share).toContain('if (LIFF_ID) return liffLink(LIFF_ID, p);');
   });
 });
