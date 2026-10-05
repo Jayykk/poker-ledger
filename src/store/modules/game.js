@@ -520,11 +520,12 @@ export const useGameStore = defineStore('game', () => {
    * 抽座位 (host): random seats and each table's starting button for everyone
    * in the room (utils/seatDraw.js). Drawing again replaces the seats.
    * @param {number} tables Table count
+   * @param {Array<?string>} dealerIds Each table's dealer (they play from the dealer position), or null
    */
-  const drawRoomSeats = async (tables) => {
+  const drawRoomSeats = async (tables, dealerIds = []) => {
     if (!gameId.value || !isHost.value) return false;
     try {
-      await commitRoster(gameId.value, (players) => ({ players: drawSeats(players, tables) }));
+      await commitRoster(gameId.value, (players) => ({ players: drawSeats(players, tables, undefined, dealerIds) }));
       return true;
     } catch (err) {
       console.error('Draw seats error:', err);

@@ -1131,6 +1131,14 @@
     "button": "Starting dealer",
     "drawFailed": "The draw didn't go through — try again",
     "mine": "You are in seat {seat}",
-    "mineTable": "You are at table {table}, seat {seat}"
+    "mineTable": "You are at table {table}, seat {seat}",
+    "dealer": "Dealer",
+    "dealerOf": "Table {n} dealer",
+    "pickDealer": "Choose the dealer",
+    "noDealer": "No dealer",
+    "dealerShort": "D",
+    "unseated": "No seat yet (every table is full)",
+    "mineDealer": "You are the dealer",
+    "mineDealerTable": "You deal at table {table}"
   }
 }

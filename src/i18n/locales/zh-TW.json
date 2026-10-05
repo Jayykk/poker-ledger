@@ -1131,6 +1131,14 @@
     "button": "起始莊家",
     "drawFailed": "抽座位沒有成功，請再試一次",
     "mine": "你坐 {seat} 號位",
-    "mineTable": "你坐第 {table} 桌 {seat} 號位"
+    "mineTable": "你坐第 {table} 桌 {seat} 號位",
+    "dealer": "荷官",
+    "dealerOf": "第 {n} 桌荷官",
+    "pickDealer": "請選擇荷官",
+    "noDealer": "不指定（沒有荷官）",
+    "dealerShort": "荷",
+    "unseated": "還沒有座位（每桌都坐滿了）",
+    "mineDealer": "你是荷官",
+    "mineDealerTable": "你是第 {table} 桌的荷官"
   }
 }

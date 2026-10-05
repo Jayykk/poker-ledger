@@ -74,7 +74,7 @@
 
     <!-- 抽座位: where I sit -->
     <button v-if="mySeat?.seat" type="button" class="my-seat" @click="showSeats = true">
-      🎴 {{ multiTable ? $t('seats.mineTable', { table: mySeat.seat.table, seat: mySeat.seat.seat }) : $t('seats.mine', { seat: mySeat.seat.seat }) }}
+      🎴 {{ mySeatText }}
     </button>
 
     <!-- Still in -->
@@ -432,10 +432,17 @@ const activePlayers = computed(() => {
 const showSeats = ref(false);
 const seated = computed(() => isSeated(game.value?.players || []));
 const multiTable = computed(() => (game.value?.players || []).some((p) => (p.seat?.table || 1) > 1));
-const seatOf = (p) => seatLabel(p.seat, multiTable.value);
+const seatOf = (p) => seatLabel(p.seat, multiTable.value, t('seats.dealerShort'));
+// "你坐 3 號位" / "你是荷官"
+const mySeatText = computed(() => {
+  const s = mySeat.value?.seat;
+  if (!s) return '';
+  if (s.dealer) return multiTable.value ? t('seats.mineDealerTable', { table: s.table }) : t('seats.mineDealer');
+  return multiTable.value ? t('seats.mineTable', { table: s.table, seat: s.seat }) : t('seats.mine', { seat: s.seat });
+});
 const canDrawSeats = computed(() => !game.value?.tournamentSessionId || !clockStatus.value || clockStatus.value === 'waiting');
-const handleDrawSeats = async (tables) => {
-  const ok = await drawRoomSeats(tables);
+const handleDrawSeats = async (tables, dealerIds) => {
+  const ok = await drawRoomSeats(tables, dealerIds);
   if (!ok) showError(t('seats.drawFailed'));
 };
 

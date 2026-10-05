@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import {
-  autoTableCount, tableCountOptions, drawSeats, seatForNewPlayer, seatingChart, seatLabel, isSeated,
+  autoTableCount, tableCountOptions, drawSeats, seatForNewPlayer, seatingChart, seatLabel, isSeated, currentDealers,
 } from '../src/utils/seatDraw.js';
 
 const roster = (n) => Array.from({ length: n }, (_, i) => ({ id: `p${i}`, name: `P${i}`, buyIn: 200 }));
@@ -10,10 +10,43 @@ const roster = (n) => Array.from({ length: n }, (_, i) => ({ id: `p${i}`, name: 
 const seq = (seed = 7) => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 
 describe('抽座位', () => {
-  it('tables by headcount: 10 a table at most; options keep two a table', () => {
+  it('tables by headcount: 10 a table (9 seats + the dealer); options: enough seats, two a table', () => {
     expect([1, 10, 11, 20, 21].map(autoTableCount)).toEqual([1, 1, 2, 2, 3]);
     expect(tableCountOptions(10)).toEqual([1, 2, 3, 4, 5]);
+    expect(tableCountOptions(11)).toEqual([2, 3, 4, 5]);
     expect(tableCountOptions(3)).toEqual([1]);
+  });
+
+  it('the dealer sits at the dealer position (seat 0), everyone else 1..9; the button can be the dealer', () => {
+    const dealerButtons = new Set();
+    for (let seed = 1; seed <= 40; seed++) {
+      const out = drawSeats(roster(10), 1, seq(seed), ['p4']);
+      const dealer = out.find((p) => p.id === 'p4');
+      expect(dealer.seat).toMatchObject({ table: 1, seat: 0, dealer: true });
+      const others = out.filter((p) => p.id !== 'p4').map((p) => p.seat.seat).sort((a, b) => a - b);
+      expect(others).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      expect(out.filter((p) => p.seat.button)).toHaveLength(1);
+      dealerButtons.add(!!dealer.seat.button);
+    }
+    expect(dealerButtons).toEqual(new Set([true, false])); // the dealer's position is in the button draw
+  });
+
+  it('two tables, a dealer each: tables balanced with the dealers counted; a redraw keeps the dealers', () => {
+    const out = drawSeats(roster(15), 2, seq(5), ['p0', 'p1']);
+    const chart = seatingChart(out);
+    expect(chart.map((t) => t.length).sort()).toEqual([7, 8]);
+    expect(chart.map((t) => t[0].id)).toEqual(['p0', 'p1']); // dealer listed first
+    expect(currentDealers(out)).toEqual(['p0', 'p1']);
+    expect(seatLabel(out[0].seat, true)).toBe('1-荷');
+  });
+
+  it('no dealer picked: seats run 1..10', () => {
+    const out = drawSeats(roster(10), 1, seq(2), [null]);
+    expect(out.map((p) => p.seat.seat).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  });
+
+  it('a full table takes nobody more', () => {
+    expect(seatForNewPlayer(drawSeats(roster(10), 1, seq(3), ['p0']))).toBe(null);
   });
 
   it('everyone gets a seat; seats are 1..n per table with no gaps; one button a table', () => {
@@ -57,7 +90,7 @@ describe('wiring', () => {
   const read = (p) => readFileSync(resolve(__dirname, '..', p), 'utf-8');
   it('the host draws through the roster; later joiners are seated', () => {
     const store = read('src/store/modules/game.js');
-    expect(store).toContain('commitRoster(gameId.value, (players) => ({ players: drawSeats(players, tables) }))');
+    expect(store).toContain('commitRoster(gameId.value, (players) => ({ players: drawSeats(players, tables, undefined, dealerIds) }))');
     expect(store.match(/seatForNewPlayer\(/g)).toHaveLength(2);
   });
   it('the room: draw / view seats, seat order, seat chips, my seat; redraw only before the clock starts', () => {
