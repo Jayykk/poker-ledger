@@ -2,6 +2,7 @@ import { ref, readonly } from 'vue';
 import liff from '@line/liff';
 import { STORAGE_KEYS } from '../utils/constants.js';
 import { rowCash, formatCashAmount, roundCashTotal, formatCashTotal } from '../utils/cashRounding.js';
+import { liffLink } from '../utils/liffLink.js';
 
 const LIFF_ID = import.meta.env.VITE_LIFF_ID || '';
 // LINE Flex Message altText is limited; truncate settlement reports for the preview
@@ -248,7 +249,7 @@ const sendBuyInMessage = async (actionName, targetName, amount, roomName, gameId
   ];
 
   const liffPath = isTournament ? `tournament-game/${gameId}` : `game/${gameId}`;
-  const liffUrl = gameId && LIFF_ID ? `https://liff.line.me/${LIFF_ID}/${liffPath}` : undefined;
+  const liffUrl = gameId && LIFF_ID ? liffLink(LIFF_ID, liffPath) : undefined;
 
   const bubble = {
     type: 'bubble',
@@ -316,7 +317,7 @@ const sendUndoMessage = async (actionName, targetName, amount, roomName, gameId,
   ];
 
   const liffPath = isTournament ? `tournament-game/${gameId}` : `game/${gameId}`;
-  const liffUrl = gameId && LIFF_ID ? `https://liff.line.me/${LIFF_ID}/${liffPath}` : undefined;
+  const liffUrl = gameId && LIFF_ID ? liffLink(LIFF_ID, liffPath) : undefined;
 
   const bubble = {
     type: 'bubble',
@@ -423,7 +424,7 @@ const sendSettlementMessage = async ({ gameName, gameId, rate, players, cashDeci
   };
 
   if (gameId && LIFF_ID) {
-    const liffUrl = `https://liff.line.me/${LIFF_ID}/report/${gameId}`;
+    const liffUrl = liffLink(LIFF_ID, `report/${gameId}`);
     bubble.body.action = { type: 'uri', label: '查看結算', uri: liffUrl };
   }
 
@@ -446,7 +447,7 @@ const sendTournamentSettlementMessage = async ({ gameName, gameId, players }) =>
   const champion = sorted.find((p) => p.placement === 1) || sorted[0];
   const totalPrizePool = sorted.reduce((sum, p) => sum + (p.buyIn || 0), 0);
   const altText = truncateAltText(`🏆 錦標賽結算 — ${gameName || '未命名'} 冠軍：${champion?.name || '未定'}`);
-  const liffUrl = gameId && LIFF_ID ? `https://liff.line.me/${LIFF_ID}/report/${gameId}` : undefined;
+  const liffUrl = gameId && LIFF_ID ? liffLink(LIFF_ID, `report/${gameId}`) : undefined;
 
   const placementRows = sorted.slice(0, 20).map((player) => {
     const theme = getTournamentPlacementTheme(player.placement);
@@ -673,7 +674,7 @@ const sendDailySettlementMessage = async ({ dateLabel, startDateStr, endDateStr,
   };
 
   if (LIFF_ID) {
-    const liffUrl = `https://liff.line.me/${LIFF_ID}/daily-report${dateQuery}`;
+    const liffUrl = liffLink(LIFF_ID, `daily-report${dateQuery}`);
     bubble.body.action = { type: 'uri', label: '查看詳情', uri: liffUrl };
   }
 
@@ -751,7 +752,7 @@ const sendDailyRankingMessage = async ({ dateLabel, startDateStr, endDateStr, to
   };
 
   if (LIFF_ID) {
-    const liffUrl = `https://liff.line.me/${LIFF_ID}/daily-report${dateQuery}`;
+    const liffUrl = liffLink(LIFF_ID, `daily-report${dateQuery}`);
     bubble.body.action = { type: 'uri', label: '查看詳情', uri: liffUrl };
   }
 
@@ -776,7 +777,7 @@ const shareGameInvite = async (gameName, gameId, hostName, isTournament = false)
   if (!isInitialized.value) return false;
   try {
     const liffPath = isTournament ? `tournament-game/${gameId}` : `game/${gameId}`;
-    const liffUrl = `https://liff.line.me/${LIFF_ID}/${liffPath}`;
+    const liffUrl = liffLink(LIFF_ID, liffPath);
     const headerColor = isTournament ? '#A16207' : '#1DB446';
     const headerEmoji = isTournament ? '🏆' : '🃏';
     const typeText = isTournament ? '錦標賽' : '限時賽';
@@ -827,7 +828,7 @@ const shareGameInvite = async (gameName, gameId, hostName, isTournament = false)
 const sharePokerInvite = async (gameId, hostName) => {
   if (!isInitialized.value) return false;
   try {
-    const liffUrl = `https://liff.line.me/${LIFF_ID}/poker-game/${gameId}`;
+    const liffUrl = liffLink(LIFF_ID, `poker-game/${gameId}`);
     const host = hostName || '朋友';
     const altText = `🃏 ${host} 開了一桌線上德州撲克！`;
     const tapAction = { type: 'uri', label: '入座', uri: liffUrl };
@@ -860,7 +861,7 @@ const sharePokerInvite = async (gameId, hostName) => {
 
 /** Build the shared LIFF URL for a live-event session page. */
 const sessionLiffUrl = (sessionId) =>
-  (sessionId && LIFF_ID ? `https://liff.line.me/${LIFF_ID}/session/${sessionId}` : undefined);
+  (sessionId && LIFF_ID ? liffLink(LIFF_ID, `session/${sessionId}`) : undefined);
 
 /** Human label for a period type. */
 const periodTypeLabel = (type) => (type === 'tournament' ? '錦標賽' : (type === 'custom' ? '自定義' : '限時賽'));
