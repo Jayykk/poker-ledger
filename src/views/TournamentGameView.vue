@@ -72,6 +72,11 @@
       @toggle="toggleClock"
     />
 
+    <!-- 抽座位: where I sit -->
+    <button v-if="mySeat?.seat" type="button" class="my-seat" @click="showSeats = true">
+      🎴 {{ mySeatText }}
+    </button>
+
     <!-- Still in -->
     <div class="room-section mt-2">
       <div class="room-section-head">
@@ -86,6 +91,8 @@
         :is-champion="isChampion(player)"
         :bounty-per-head="bountyPerHead"
         :head-value="headOf(player)"
+        :seat-label="seatOf(player)"
+        :is-button="!!player.seat?.button && canDrawSeats"
         @eliminate="handleEliminate"
         @edit="handleEditPlayer"
         @remove="handleRemoveFromRow"
@@ -141,6 +148,7 @@
       <button type="button" class="bar-btn" @click="showHandRecord = true">
         <i class="fas fa-save"></i>{{ $t('room.hands') }}
       </button>
+      <button v-if="isHost || seated" type="button" class="bar-btn" :aria-label="$t('seats.title')" @click="showSeats = true">🎴</button>
       <!-- Mystery: the draw screen (with how many draws are waiting) -->
       <button v-if="isMystery" type="button" class="bar-btn" @click="$router.push(`/mystery-draw/${gameId}`)">
         🎁<span v-if="mysteryPending > 0" class="font-bold text-amber-300">{{ mysteryPending }}</span>
@@ -262,6 +270,16 @@
       </div>
     </BaseModal>
 
+    <!-- 抽座位 -->
+    <SeatDrawModal
+      v-model="showSeats"
+      :players="game.players || []"
+      :is-host="isHost"
+      :can-draw="canDrawSeats"
+      :my-uid="user?.uid || ''"
+      @draw="handleDrawSeats"
+    />
+
     <!-- KO: who knocked the player out -->
     <KnockoutModal
       v-model="showKnockout"
@@ -325,6 +343,8 @@ import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import TournamentPlayerCard from '../components/game/TournamentPlayerCard.vue';
 import DealSettlementModal from '../components/tournament/DealSettlementModal.vue';
 import KnockoutModal from '../components/tournament/KnockoutModal.vue';
+import SeatDrawModal from '../components/tournament/SeatDrawModal.vue';
+import { isSeated, seatLabel } from '../utils/seatDraw.js';
 import MysteryPhoneReveal from '../components/tournament/MysteryPhoneReveal.vue';
 import RoomClockCard from '../components/tournament/RoomClockCard.vue';
 import RoomHeader from '../components/game/RoomHeader.vue';
@@ -355,7 +375,7 @@ const {
   addPlayer, updatePlayer, removePlayer,
   checkGameStatus, joinAsNewPlayer, joinGameListener,
   closeGame, eliminatePlayer, reentryPlayer, settleTournament, settleTournamentWithDeal, clearCurrentGame,
-  undoEliminationTx, undoReentryTx,
+  undoEliminationTx, undoReentryTx, drawRoomSeats,
 } = gameStore;
 const { sendBuyInMessage, sendUndoMessage, sendTournamentSettlementMessage, shareGameInvite, isInLineClient } = useLiff();
 const { shareOut } = useShare();
@@ -401,9 +421,30 @@ const syncStatusMessage = ref('');
 
 // ── Computed ──
 
-const activePlayers = computed(() =>
-  (game.value?.players || []).filter(p => !p.eliminated)
-);
+// Still in — in seat order once seats are drawn
+const activePlayers = computed(() => {
+  const list = (game.value?.players || []).filter(p => !p.eliminated);
+  if (!seated.value) return list;
+  return [...list].sort((a, b) => (a.seat?.table || 99) - (b.seat?.table || 99) || (a.seat?.seat || 99) - (b.seat?.seat || 99));
+});
+
+// 抽座位: drawn by the host until the clock starts; everyone sees the seats
+const showSeats = ref(false);
+const seated = computed(() => isSeated(game.value?.players || []));
+const multiTable = computed(() => (game.value?.players || []).some((p) => (p.seat?.table || 1) > 1));
+const seatOf = (p) => seatLabel(p.seat, multiTable.value, t('seats.dealerShort'));
+// "你坐 3 號位" / "你是荷官"
+const mySeatText = computed(() => {
+  const s = mySeat.value?.seat;
+  if (!s) return '';
+  if (s.dealer) return multiTable.value ? t('seats.mineDealerTable', { table: s.table }) : t('seats.mineDealer');
+  return multiTable.value ? t('seats.mineTable', { table: s.table, seat: s.seat }) : t('seats.mine', { seat: s.seat });
+});
+const canDrawSeats = computed(() => !game.value?.tournamentSessionId || !clockStatus.value || clockStatus.value === 'waiting');
+const handleDrawSeats = async (tables, dealerIds) => {
+  const ok = await drawRoomSeats(tables, dealerIds);
+  if (!ok) showError(t('seats.drawFailed'));
+};
 
 // Out, best finish first
 const eliminatedPlayers = computed(() =>
@@ -1114,4 +1155,16 @@ const handleCloseGame = async () => {
 }
 .settle-grid.ko { grid-template-columns: 2rem minmax(0, 1fr) 4.4rem 3.8rem 4.8rem; }
 .settle-head { font-size: 0.7rem; color: rgb(var(--tw-slate-400)); }
+.my-seat {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 0.8rem;
+  text-align: left;
+  font-weight: 700;
+  color: rgb(var(--tw-white));
+  background: rgb(var(--tw-slate-800) / 0.6);
+  border: 1px solid rgb(var(--tw-amber-500) / 0.4);
+}
 </style>

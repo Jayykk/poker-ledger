@@ -5,7 +5,9 @@
 
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-1.5">
+        <span v-if="seatLabel" class="t-seat">{{ seatLabel }}</span>
         <span class="t-name truncate">{{ player.name }}</span>
+        <span v-if="isButton" class="t-button">D</span>
         <span v-if="player.uid" class="text-blue-400 text-[10px]">●</span>
         <span v-if="champion" class="text-amber-400 text-xs font-bold flex-shrink-0">🏆 {{ $t('tournament.champion') }}</span>
       </div>
@@ -66,6 +68,9 @@ const props = defineProps({
   knockedOutBy: { type: String, default: '' },
   // PKO: this player's current head (0 = don't show)
   headValue: { type: Number, default: 0 },
+  // 抽座位: "3" (or "2-3" with several tables), and the starting dealer button
+  seatLabel: { type: String, default: '' },
+  isButton: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['eliminate', 'reentry', 'edit', 'remove']);
@@ -115,6 +120,8 @@ const entryCount = computed(() => {
 }
 .t-menu button.danger { color: rgb(var(--tw-rose-300)); }
 .t-name { color: rgb(var(--tw-white)); font-weight: 700; }
+.t-seat { flex-shrink: 0; min-width: 1.5rem; height: 1.5rem; padding: 0 0.3rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: rgb(var(--tw-white)); background: rgb(var(--tw-slate-600)); }
+.t-button { flex-shrink: 0; width: 1.3rem; height: 1.3rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 900; color: #1f2937; background: #f8fafc; border: 2px solid #cbd5e1; }
 .t-row.out .t-name { color: rgb(var(--tw-slate-400)); font-weight: 500; }
 .t-place { width: 1.8rem; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: rgb(var(--tw-slate-400)); }
 .t-sub { font-size: 0.72rem; color: rgb(var(--tw-slate-400)); margin-top: 0.1rem; }
