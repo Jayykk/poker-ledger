@@ -1117,5 +1117,20 @@
     "settledAsk": "精算結果を共有しますか？",
     "shareResult": "結果を共有",
     "noThanks": "今はしない"
+  },
+  "seats": {
+    "title": "座席",
+    "draw": "座席を抽選",
+    "redraw": "引き直す",
+    "tables": "テーブル数",
+    "tableN": "テーブル {n}",
+    "sizes": "{sizes} 人",
+    "oneTable": "1 テーブル {n} 人",
+    "notYet": "ホストはまだ座席を抽選していません",
+    "lockedHint": "時計が始まったので引き直せません",
+    "button": "最初のディーラー",
+    "drawFailed": "抽選できませんでした。もう一度試してください",
+    "mine": "あなたは {seat} 番席",
+    "mineTable": "あなたはテーブル {table} の {seat} 番席"
   }
 }

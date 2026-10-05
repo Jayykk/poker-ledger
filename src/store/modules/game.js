@@ -23,6 +23,7 @@ import { useAuthStore } from './auth.js';
 import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';
 import { timestampToMillis } from '../../utils/formatters.js';
 import { applyPlayerChange, isSnapshotCurrent } from '../../utils/ledgerOps.js';
+import { drawSeats, seatForNewPlayer } from '../../utils/seatDraw.js';
 import { normalizeCashDecimals } from '../../utils/cashRounding.js';
 import { BUY_IN_CLOSED, isTimedClock, isTimedBuyInClosed } from '../../utils/timedStructure.js';
 import { tournamentSettlementErrorKey } from '../../utils/tournamentSettlementErrors.js';
@@ -515,6 +516,23 @@ export const useGameStore = defineStore('game', () => {
   /**
    * Join as new player
    */
+  /**
+   * 抽座位 (host): random seats and each table's starting button for everyone
+   * in the room (utils/seatDraw.js). Drawing again replaces the seats.
+   * @param {number} tables Table count
+   */
+  const drawRoomSeats = async (tables) => {
+    if (!gameId.value || !isHost.value) return false;
+    try {
+      await commitRoster(gameId.value, (players) => ({ players: drawSeats(players, tables) }));
+      return true;
+    } catch (err) {
+      console.error('Draw seats error:', err);
+      error.value = err.message;
+      return false;
+    }
+  };
+
   const joinAsNewPlayer = async (id, buyInAmount = DEFAULT_BUY_IN) => {
     loading.value = true;
     try {
@@ -543,6 +561,9 @@ export const useGameStore = defineStore('game', () => {
           buyIn: parseInt(buyInAmount),
           stack: 0
         };
+        // Seats already drawn: the next seat at the emptiest table
+        const seat = seatForNewPlayer(players);
+        if (seat) newPlayer.seat = seat;
         
         return { players: [...players, newPlayer] };
       });
@@ -574,6 +595,9 @@ export const useGameStore = defineStore('game', () => {
         buyIn: buyInAmount,
         stack: 0
       };
+      // Seats already drawn: the next seat at the emptiest table
+      const seat = seatForNewPlayer(game.value?.players || []);
+      if (seat) newPlayer.seat = seat;
       
       if (game.value?.type === GAME_TYPE.LIVE && game.value?.tournamentSessionId) {
         // Timed game: a new seat brings a buy-in, so it has to pass the
@@ -1373,6 +1397,7 @@ export const useGameStore = defineStore('game', () => {
     closeGame,
     eliminatePlayer,
     reentryPlayer,
+    drawRoomSeats,
     undoEliminationTx,
     undoReentryTx,
     mysteryDraw,

@@ -1117,5 +1117,20 @@
     "settledAsk": "Share the results?",
     "shareResult": "Share results",
     "noThanks": "Not now"
+  },
+  "seats": {
+    "title": "Seats",
+    "draw": "Draw seats",
+    "redraw": "Draw again",
+    "tables": "Tables",
+    "tableN": "Table {n}",
+    "sizes": "{sizes} players",
+    "oneTable": "{n} players, one table",
+    "notYet": "The host hasn't drawn seats yet",
+    "lockedHint": "The clock has started — seats are final",
+    "button": "Starting dealer",
+    "drawFailed": "The draw didn't go through — try again",
+    "mine": "You are in seat {seat}",
+    "mineTable": "You are at table {table}, seat {seat}"
   }
 }
