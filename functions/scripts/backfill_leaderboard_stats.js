@@ -9,7 +9,18 @@
  * DELETES stat docs for periods that no longer have games.
  *
  * The same recompute also evaluates each user's 稱號 into userTitles/{uid}
- * (handlers/userTitles.js), so this script is the titles backfill as well.
+ * (handlers/userTitles.js), so this script is the titles backfill as well,
+ * and stores each user's 牌友圈 (pals) from the same history.
+ *
+ * After every user's stats are rebuilt, the 本月王座 (monthly crowns) of the
+ * current month are judged for everyone (handlers/monthlyCrowns.js; with
+ * --uid: that user and their pals). Past months are left as they are unless
+ * --crown-history is given.
+ *
+ * --crown-history replays every month present in leaderboardStats and sets
+ * crowns + crownHistory from scratch, so it is idempotent. APPROXIMATION:
+ * past months are judged with TODAY's pals lists (the circle back then is not
+ * stored), so an old month's holder can differ from who led back then.
  *
  * Before recomputing a user, history_sub docs written before projections
  * carried `hostUid` get it copied from games/{gameId} (null when the game is
@@ -30,6 +41,8 @@
  *   --rebuild-titles   Rebuild each userTitles from scratch, so tiers can go
  *                      down too (after raising a threshold). Without it titles
  *                      only ever go up. Prefs and earlier unlock times stay.
+ *   --crown-history    Also rebuild every past month's crowns into
+ *                      crownHistory (all users, whatever --uid says)
  *
  * Prerequisites: same credentials setup as migrate_legacy_history_to_history_sub.js
  * (serviceAccountKey.json at repo root / functions, or GOOGLE_APPLICATION_CREDENTIALS).
@@ -56,10 +69,13 @@ const uidIndex = args.indexOf('--uid');
 const onlyUid = uidIndex !== -1 && args[uidIndex + 1] ? args[uidIndex + 1] : null;
 const fillHostUids = !args.includes('--skip-host-uids');
 const rebuildTitles = args.includes('--rebuild-titles');
+const crownHistory = args.includes('--crown-history');
 
 const { initializeApp, cert } = await import('firebase-admin/app');
 const { getFirestore } = await import('firebase-admin/firestore');
 const { recomputeLeaderboardStatsForUser } = await import('../src/handlers/leaderboardStats.js');
+const { recomputeMonthlyCrowns, rebuildCrownHistory } = await import('../src/handlers/monthlyCrowns.js');
+const { crownMonthOf } = await import('../src/utils/crownRules.js');
 
 try {
   const serviceAccountPaths = [
@@ -152,9 +168,26 @@ async function run() {
     }
   }
 
+  // 本月王座, once every pals list is fresh
+  let crowns = null;
+  try {
+    if (crownHistory) {
+      crowns = await rebuildCrownHistory(db);
+      console.log(`\nCrowns (all months): ${crowns.evaluated} users judged over ${crowns.months} months, ${crowns.written} written`);
+    } else {
+      const month = crownMonthOf(Date.now());
+      const result = await recomputeMonthlyCrowns(db, uids, [month]);
+      crowns = { month, evaluated: result.evaluated, written: result.written, gained: result.gained };
+      console.log(`\nCrowns (${month}): ${result.evaluated} users judged, ${result.written} written`);
+    }
+  } catch (error) {
+    failures++;
+    console.error('  Crowns FAILED:', error.message);
+  }
+
   console.log('\n=== Summary ===');
   console.log(JSON.stringify({
-    users: uids.length, totalPeriods, totalDeleted, hostUidsFilled, titleDocsWritten, titlesUnlocked, failures,
+    users: uids.length, totalPeriods, totalDeleted, hostUidsFilled, titleDocsWritten, titlesUnlocked, crowns, failures,
   }, null, 2));
   if (failures > 0) process.exit(2);
 }
