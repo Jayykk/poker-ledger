@@ -55,7 +55,7 @@ describe('computeRoomTitles', () => {
     });
   });
 
-  describe('獵物 prey', () => {
+  describe('人氣目標 prey', () => {
     it('most times knocked out: entries − 1 while still in, all of them once out', () => {
       const game = tour([
         p('a', { groups: 2, eliminated: true }), // out twice
@@ -179,22 +179,24 @@ describe('computeRoomTitles', () => {
     expect(computeRoomTitles(noKo)).toEqual({ a: 'chipLeader' });
   });
 
-  describe('opt-out (the subject decides)', () => {
+  describe('opt-in (the subject decides)', () => {
     const game = tour([
       p('a', { uid: 'ua', knockouts: 3 }),
       p('b', { uid: 'ub', knockouts: 2 }),
       p('g', { groups: 3 }), // guest seat, no uid
     ]);
 
-    it('a player with showRoomTitles false never gets one, and it does not pass to the runner-up', () => {
+    it('only players who turned it on get one, and a leader who did not does not pass it on', () => {
       const prefsOf = (uid) => (uid === 'ua' ? { showRoomTitles: false } : { showRoomTitles: true });
-      expect(computeRoomTitles(game, { prefsOf })).toEqual({ g: 'patron' });
+      expect(computeRoomTitles(game, { prefsOf })).toEqual({});
+      expect(computeRoomTitles(game, { prefsOf: () => ({ showRoomTitles: true }) })).toEqual({ a: 'hunter' });
     });
 
-    it('guests without a uid are always shown; missing prefs mean shown', () => {
-      const prefsOf = () => ({ showRoomTitles: false });
-      expect(computeRoomTitles(game, { prefsOf })).toEqual({ g: 'patron' });
-      expect(computeRoomTitles(game, { prefsOf: () => null })).toEqual({ a: 'hunter', g: 'patron' });
+    it('guests without a uid can not opt in, so never get one; missing prefs mean off', () => {
+      expect(computeRoomTitles(game, { prefsOf: () => ({ showRoomTitles: true }) }).g).toBeUndefined();
+      expect(computeRoomTitles(game, { prefsOf: () => null })).toEqual({});
+      // Without prefsOf (leaders alone) everyone counts
+      expect(computeRoomTitles(game)).toEqual({ a: 'hunter', g: 'patron' });
     });
   });
 });

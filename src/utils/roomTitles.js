@@ -11,7 +11,7 @@
 //   phoenix     不死鳥    3+ rebuys (4+ buy-in groups) and, in a tournament,
 //                         still in
 //   patron      本場金主  most buy-in groups, at least 3 (ties: all)
-//   prey        獵物      tournament: most times knocked out, at least 2
+//   prey        人氣目標  tournament: most times knocked out, at least 2
 //                         (ties: all)
 //   firstBlood  首殺      tournament: whoever made the first knockout that
 //                         had an eliminator (every eliminator on a shared one)
@@ -35,10 +35,11 @@
 //               then timestamp): the first whose bounty.awards name an
 //               eliminator (KO / PKO), or whose mysteryTicket's `by` does.
 //
-// The subject decides: a player whose userTitles prefs.showRoomTitles is
-// false never gets one (prefsOf), whatever the viewer's own setting. Leaders
-// are still worked out over everyone, so opting out doesn't hand a title to
-// the runner-up. Seats without an account can't opt out, so they're shown.
+// The subject decides, and it's opt-in: only a player whose userTitles
+// prefs.showRoomTitles is true gets one (prefsOf), whatever the viewer's own
+// setting. Leaders are still worked out over everyone, so someone not opted
+// in doesn't hand a title to the runner-up. Seats without an account can't
+// opt in, so they never get one.
 
 import { DEFAULT_BUY_IN } from './constants.js';
 
@@ -127,7 +128,7 @@ function firstBloodIds(players, transactions) {
  *   (only for 首殺; leave out to skip it).
  * @param {boolean} [options.tournament] Tournament room (default: game.type).
  * @param {function(string): ?object} [options.prefsOf] uid → that player's
- *   title prefs; `showRoomTitles: false` opts them out.
+ *   title prefs; only `showRoomTitles: true` gets a title.
  * @return {Object<string, string>} playerId → title id (players without one
  *   left out).
  */
@@ -152,7 +153,7 @@ export function computeRoomTitles(game, { transactions, tournament, prefsOf } = 
     leaders(players, (p) => kos[p.id] || 0, ROOM_TITLE_MIN.hunterKnockouts)
       .forEach((id) => give(id, 'hunter'));
 
-    // 獵物: every entry but the live one ended in a knockout
+    // 人氣目標: every entry but the live one ended in a knockout
     const knockedOut = (p) => groups(p) - (p.eliminated ? 0 : 1);
     leaders(players, knockedOut, ROOM_TITLE_MIN.preyKnockedOut).forEach((id) => give(id, 'prey'));
 
@@ -173,7 +174,8 @@ export function computeRoomTitles(game, { transactions, tournament, prefsOf } = 
   for (const p of players) {
     const titles = held[p.id];
     if (!titles) continue;
-    if (p.uid && prefsOf?.(p.uid)?.showRoomTitles === false) continue;
+    // (Without prefsOf, e.g. working out leaders alone, everyone counts)
+    if (prefsOf && (!p.uid || prefsOf(p.uid)?.showRoomTitles !== true)) continue;
     result[p.id] = ROOM_TITLE_IDS.find((id) => titles.has(id));
   }
   return result;

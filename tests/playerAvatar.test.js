@@ -22,9 +22,10 @@ const docs = {
   olga: {
     display: { familyId: 'champion', tier: 4 },
     unlocked: { champion: { tier: 4, at: 3 }, regular: { tier: 4, at: 2 }, host: { tier: 1, at: 1 } },
+    prefs: { mode: 'auto', frame: 'auto' },
   },
   // Title off before frames existed (display null), 4 titles → bronze
-  pete: { display: null, unlocked: { regular: { tier: 4, at: 1 } }, prefs: { mode: 'off' } },
+  pete: { display: null, unlocked: { regular: { tier: 4, at: 1 } }, prefs: { mode: 'off', frame: 'auto' } },
 };
 const reads = [];
 
@@ -137,7 +138,8 @@ describe('display with frames (cache)', () => {
     await ensureUserTitles(['olga', 'pete']);
     expect(titleDisplayOf('olga')).toEqual({ familyId: 'champion', tier: 4, frame: 'silver' });
     expect(titleDisplayOf('pete')).toEqual({ familyId: null, tier: null, frame: 'bronze' });
-    expect(allowsRoomTitles('olga')).toBe(true);
+    // Room titles are opt-in: olga never turned them on
+    expect(allowsRoomTitles('olga')).toBe(false);
     expect(allowsRoomTitles('not-loaded')).toBeNull();
   });
 });
@@ -152,7 +154,7 @@ describe('LiveTitleBadge', () => {
   });
 
   it.each([
-    ['prey', '獵物'], ['patron', '本場金主'], ['phoenix', '不死鳥'], ['chipLeader', '籌碼王'], ['firstBlood', '首殺'],
+    ['prey', '人氣目標'], ['patron', '本場金主'], ['phoenix', '不死鳥'], ['chipLeader', '籌碼王'], ['firstBlood', '首殺'],
   ])('%s', (titleId, name) => {
     const w = mountWith(LiveTitleBadge, { titleId });
     expect(w.text()).toBe(name);

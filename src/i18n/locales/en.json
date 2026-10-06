@@ -1183,7 +1183,7 @@
     "showing": "Showing",
     "none": "None",
     "roomTitles": "Live room titles",
-    "roomTitlesHint": "Titles earned during a game, shown in the room. Off: you never get one",
+    "roomTitlesHint": "Titles earned during a game, shown in the room. Only when this is on",
     "unlockedCount": "{n} / {total} unlocked",
     "locked": "Locked",
     "hiddenName": "???",
@@ -1216,10 +1216,10 @@
       },
       "bigLoss": {
         "desc": "Biggest single-game loss (buy-ins)",
-        "t1": "Tuition Paid",
-        "t2": "Bleeding",
-        "t3": "Brink of Bankruptcy",
-        "t4": "Lost It All"
+        "t1": "Big Spender",
+        "t2": "High Roller",
+        "t3": "Grand Patron",
+        "t4": "Fortune Giver"
       },
       "volatile": {
         "desc": "Swing per game, σ in buy-ins (10+ games)",
@@ -1244,10 +1244,10 @@
       },
       "hunted": {
         "desc": "Times your head was taken",
-        "t1": "Bunny",
-        "t2": "Fat Sheep",
-        "t3": "Walking Bounty",
-        "t4": "Public Enemy"
+        "t1": "In Demand",
+        "t2": "Top Target",
+        "t3": "Big Bounty",
+        "t4": "Legendary Bounty"
       },
       "mysteryTop": {
         "desc": "Mystery bounty top prizes",
@@ -1283,18 +1283,18 @@
       },
       "runnerUp": {
         "desc": "Tournament runner-up finishes",
-        "t3": "Eternal Runner-up",
-        "hint": "Always just one step short…"
+        "t3": "Silver Specialist",
+        "hint": "The champion's top challenger"
       },
       "bubble": {
         "desc": "Finished one place outside the money",
-        "t3": "Bubble King",
-        "hint": "The money was right there, just out of reach"
+        "t3": "So Close",
+        "hint": "The money was right there. Next time"
       },
       "firstOut": {
         "desc": "First out of a tournament",
-        "t3": "Cannon Fodder",
-        "hint": "Gone home before the cards got warm"
+        "t3": "Trailblazer",
+        "hint": "Someone has to lead the way"
       },
       "regular": {
         "desc": "Games played",
@@ -1318,9 +1318,9 @@
       },
       "coldStreak": {
         "desc": "Longest losing streak",
-        "t2": "Cold Hands",
-        "t3": "Pitch Black",
-        "t4": "Cursed"
+        "t2": "Never Quit",
+        "t3": "Comeback Spirit",
+        "t4": "Unbreakable"
       },
       "nightOwl": {
         "desc": "Games finished 3–6 a.m.",
@@ -1345,7 +1345,7 @@
       "live": "Live room title",
       "names": {
         "hunter": "Hunter",
-        "prey": "Prey",
+        "prey": "Popular Target",
         "patron": "Big Spender",
         "phoenix": "Phoenix",
         "chipLeader": "Chip Leader",
@@ -1359,6 +1359,7 @@
         "chipLeader": "Biggest stack at the table",
         "firstBlood": "First knockout of the game"
       }
-    }
+    },
+    "frameOff": "Off"
   }
 }

@@ -396,7 +396,7 @@ const { withLoading } = useLoading();
 
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
 const { transactions, txLoading, txError, recordAction, recordBuyIn, undoBuyIn } = useTransactions(gameId);
-// 房內即時稱號 (獵人 / 獵物 / 首殺 … from the roster and the log)
+// 房內即時稱號 (獵人 / 人氣目標 / 首殺 … from the roster and the log)
 const roomTitles = useRoomTitles(game, { transactions, tournament: true });
 
 // Tournament session data (for reentryUntilLevel, payoutRatios)
