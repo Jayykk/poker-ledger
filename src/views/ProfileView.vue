@@ -93,7 +93,7 @@
           </p>
         </div>
 
-        <div v-if="titlePrefs.mode === 'pick' && unlockedTitles.length" class="flex flex-wrap gap-2 mt-2">
+        <div v-if="titlePrefs.mode === 'pick' && unlockedTitles.length" class="title-pick-grid">
           <button
             v-for="item in unlockedTitles"
             :key="item.familyId"
@@ -104,6 +104,8 @@
             @click="pickTitle(item.familyId)"
           >
             <TitleBadge :family-id="item.familyId" :tier="item.tier" />
+            <span class="title-pick-sub">{{ $t(`titles.families.${item.familyId}.desc`) }}</span>
+            <i v-if="titlePrefs.titleId === item.familyId" class="fas fa-check title-pick-check" aria-hidden="true"></i>
           </button>
         </div>
         <p v-if="!unlockedTitles.length" class="text-xs text-gray-500 text-left mt-2">{{ $t('titles.noneUnlocked') }}</p>
@@ -319,11 +321,15 @@ const titleModes = [
 const myTitles = computed(() => titles[user.value?.uid] || null);
 const titlePrefs = computed(() => normalizeTitlePrefs(myTitles.value?.prefs));
 const myDisplay = computed(() => myTitles.value?.display || null);
-// Highest tier first, then the most recently reached
+// Highest tier first, then the most recently reached, then 圖鑑 order — a
+// backfill unlocks many at the same instant, and without the last key the
+// order follows the map's key order, which differs between the callable's
+// reply and the snapshot (the list jumped on every pick)
+const familyOrder = new Map(TITLE_FAMILIES.map((f, i) => [f.id, i]));
 const unlockedTitles = computed(() => Object.entries(myTitles.value?.unlocked || {})
   .filter(([id, entry]) => getTitleFamily(id) && entry?.tier > 0)
   .map(([familyId, entry]) => ({ familyId, tier: entry.tier, at: entry.at || 0 }))
-  .sort((a, b) => (b.tier - a.tier) || (b.at - a.at)));
+  .sort((a, b) => (b.tier - a.tier) || (b.at - a.at) || (familyOrder.get(a.familyId) - familyOrder.get(b.familyId))));
 const titleSaving = ref(false);
 // 頭像框: titles held, the frame they earn, the one shown (from the display)
 const myTitleCount = computed(() => titleCount(myTitles.value?.unlocked));
@@ -466,7 +472,39 @@ const handleLogout = async () => {
 }
 .title-mode.active { color: rgb(var(--tw-white)); border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.12); font-weight: 600; }
 .title-mode:disabled:not(.active) { opacity: 0.4; }
-.title-pick { padding: 0.2rem; border-radius: 999px; border: 1px solid transparent; }
+/* 指定: equal cells (badge + its series) so a long name or the legendary glow
+   stays inside its box */
+.title-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+@media (min-width: 768px) { .title-pick-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.title-pick {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.55rem 1.5rem 0.5rem 0.6rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgb(var(--tw-slate-600));
+  background: rgb(var(--tw-slate-900) / 0.5);
+  text-align: left;
+  overflow: hidden;
+}
+.title-pick > .title-badge { max-width: 100%; }
+.title-pick-sub {
+  max-width: 100%;
+  font-size: 0.68rem;
+  color: rgb(var(--tw-slate-400));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.title-pick-check { position: absolute; top: 0.55rem; right: 0.55rem; font-size: 0.7rem; color: rgb(var(--tw-amber-400)); }
 .title-pick.active { border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.1); }
 .frame-opt {
   display: flex;
