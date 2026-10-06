@@ -59,6 +59,13 @@ describe('TitleBadge', () => {
     expect(reads.filter((id) => id === 'alice')).toHaveLength(1);
   });
 
+  it('a 本月王座 crown: legendary, crown icon, its own glow', () => {
+    const w = mountBadge({ familyId: 'crownHunter', tier: 4 });
+    expect(w.text()).toBe('本月獵頭王');
+    expect(w.classes()).toEqual(expect.arrayContaining(['legendary', 'crown']));
+    expect(w.find('.fa-crown').exists()).toBe(true);
+  });
+
   it('can show a given family + tier (codex / picker)', () => {
     const w = mountBadge({ familyId: 'nightOwl', tier: 3 });
     expect(w.text()).toBe('夜貓子');
@@ -92,7 +99,7 @@ describe('profile 指定 picker', () => {
   const profile = readFileSync(resolve(__dirname, '..', 'src/views/ProfileView.vue'), 'utf-8');
 
   it('equal cells that keep a long name inside (no pill row)', () => {
-    expect(profile).toContain(`<div v-if="titlePrefs.mode === 'pick' && unlockedTitles.length" class="title-pick-grid">`);
+    expect(profile).toContain(`<div v-if="titlePrefs.mode === 'pick' && pickableTitles.length" class="title-pick-grid">`);
     expect(profile).toMatch(/\.title-pick-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
     expect(profile).toMatch(/\.title-pick \{[^}]*overflow: hidden;/);
     expect(profile).toContain('.title-pick > .title-badge { max-width: 100%; }');

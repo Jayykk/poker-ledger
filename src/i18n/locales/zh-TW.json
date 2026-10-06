@@ -327,7 +327,11 @@
     "sortByHunter": "Hunter",
     "sortByLucky": "歐皇",
     "bountyWon": "賞金 ${amount}",
-    "luckyLine": "抽 {draws} 次 · 大獎 {top} 次（{rate}%）"
+    "luckyLine": "抽 {draws} 次 · 大獎 {top} 次（{rate}%）",
+    "palsOnly": "只看牌友",
+    "palsHint": "牌友圈：近 6 個月同桌 2 場以上的玩家",
+    "palsCount": "我和 {n} 位牌友",
+    "noPals": "還沒有牌友（近 6 個月同桌 2 場以上）"
   },
   "chat": {
     "title": "聊天室",
@@ -1170,7 +1174,8 @@
       "wallet": "錢包",
       "hunter": "獵頭",
       "tournament": "錦標賽",
-      "attendance": "出席"
+      "attendance": "出席",
+      "crown": "本月王座"
     },
     "mode": "顯示方式",
     "modeOff": "關閉",
@@ -1326,6 +1331,26 @@
         "desc": "凌晨 3–6 點結束的場數",
         "t3": "夜貓子",
         "hint": "城市睡著了，你的牌局才剛開始"
+      },
+      "crownHunter": {
+        "t4": "本月獵頭王",
+        "desc": "本月牌友圈裡淘汰最多人（至少 2 次）"
+      },
+      "crownBoss": {
+        "t4": "本月老闆",
+        "desc": "本月牌友圈裡輸贏起伏（σ）最大（至少 4 場有組數）"
+      },
+      "crownProfit": {
+        "t4": "本月印鈔機",
+        "desc": "本月牌友圈裡淨贏最多"
+      },
+      "crownLoss": {
+        "t4": "本月大善人",
+        "desc": "本月牌友圈裡淨輸最多"
+      },
+      "crownRegular": {
+        "t4": "本月釘子戶",
+        "desc": "本月牌友圈裡打最多場（至少 3 場）"
       }
     },
     "titleCount": "已收集 {n} 個稱號",
@@ -1360,6 +1385,22 @@
         "firstBlood": "本場第一個淘汰別人"
       }
     },
-    "frameOff": "不顯示"
+    "frameOff": "不顯示",
+    "throne": {
+      "title": "本月王座",
+      "sub": "{month} · 我和 {n} 位牌友",
+      "history": "歷代 {n}",
+      "vacant": "從缺",
+      "youHold": "你坐在王座上",
+      "youShare": "你和牌友並列王座",
+      "mine": "我 {value}",
+      "gap": "差 {value}",
+      "noGames": "本月還沒有牌局",
+      "bossNeed": "本月滿 {n} 場有組數的牌局才列入",
+      "units": {
+        "knockouts": "{n} 淘汰",
+        "games": "{n} 場"
+      }
+    }
   }
 }

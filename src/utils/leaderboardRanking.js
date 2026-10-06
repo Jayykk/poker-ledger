@@ -59,3 +59,18 @@ export function rankLeaderboardEntries(entries, sort, minGames = 1) {
   }
   return entries;
 }
+
+/**
+ * 只看牌友: keep the rows of me and my 牌友圈 (userTitles pals). Without a
+ * signed-in user nothing is filtered.
+ *
+ * @param {Array<{uid: string}>} rows Leaderboard rows.
+ * @param {?string} myUid Signed-in user.
+ * @param {?Array<string>} pals My pals.
+ * @return {Array<object>}
+ */
+export function filterToCircle(rows, myUid, pals) {
+  if (!myUid) return rows || [];
+  const circle = new Set([myUid, ...(pals || [])]);
+  return (rows || []).filter((row) => circle.has(row?.uid));
+}

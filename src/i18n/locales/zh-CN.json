@@ -327,7 +327,11 @@
     "sortByHunter": "Hunter",
     "sortByLucky": "欧皇",
     "bountyWon": "赏金 ${amount}",
-    "luckyLine": "抽 {draws} 次 · 大奖 {top} 次（{rate}%）"
+    "luckyLine": "抽 {draws} 次 · 大奖 {top} 次（{rate}%）",
+    "palsOnly": "只看牌友",
+    "palsHint": "牌友圈：近 6 个月同桌 2 场以上的玩家",
+    "palsCount": "我和 {n} 位牌友",
+    "noPals": "还没有牌友（近 6 个月同桌 2 场以上）"
   },
   "chat": {
     "title": "聊天室",
@@ -1170,7 +1174,8 @@
       "wallet": "钱包",
       "hunter": "猎头",
       "tournament": "锦标赛",
-      "attendance": "出席"
+      "attendance": "出席",
+      "crown": "本月王座"
     },
     "mode": "显示方式",
     "modeOff": "关闭",
@@ -1326,6 +1331,26 @@
         "desc": "凌晨 3–6 点结束的场数",
         "t3": "夜猫子",
         "hint": "城市睡着了，你的牌局才刚开始"
+      },
+      "crownHunter": {
+        "t4": "本月猎头王",
+        "desc": "本月牌友圈里淘汰最多人（至少 2 次）"
+      },
+      "crownBoss": {
+        "t4": "本月老板",
+        "desc": "本月牌友圈里输赢起伏（σ）最大（至少 4 场有组数）"
+      },
+      "crownProfit": {
+        "t4": "本月印钞机",
+        "desc": "本月牌友圈里净赢最多"
+      },
+      "crownLoss": {
+        "t4": "本月大善人",
+        "desc": "本月牌友圈里净输最多"
+      },
+      "crownRegular": {
+        "t4": "本月钉子户",
+        "desc": "本月牌友圈里打最多场（至少 3 场）"
       }
     },
     "titleCount": "已收集 {n} 个称号",
@@ -1360,6 +1385,22 @@
         "firstBlood": "本场第一个淘汰别人"
       }
     },
-    "frameOff": "不显示"
+    "frameOff": "不显示",
+    "throne": {
+      "title": "本月王座",
+      "sub": "{month} · 我和 {n} 位牌友",
+      "history": "历代 {n}",
+      "vacant": "空缺",
+      "youHold": "你坐在王座上",
+      "youShare": "你和牌友并列王座",
+      "mine": "我 {value}",
+      "gap": "差 {value}",
+      "noGames": "本月还没有牌局",
+      "bossNeed": "本月满 {n} 场有组数的牌局才列入",
+      "units": {
+        "knockouts": "{n} 淘汰",
+        "games": "{n} 场"
+      }
+    }
   }
 }

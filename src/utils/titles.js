@@ -1,5 +1,7 @@
 // 稱號 (titles) — catalog and rules shared with the Cloud Functions.
 export * from '../../functions/src/utils/titleRules.js';
+// 本月王座: who leads a circle, active crowns, the current month key
+export * from '../../functions/src/utils/crownRules.js';
 
 // Rarity per tier: 1 common (gray) · 2 rare (blue) · 3 epic (purple) · 4 legendary (gold)
 export const TITLE_RARITY = Object.freeze({ 1: 'common', 2: 'rare', 3: 'epic', 4: 'legendary' });

@@ -24,6 +24,59 @@
     </div>
 
     <template v-else>
+      <!-- 本月王座: this month's crowns inside my 牌友圈 (me + my pals) -->
+      <section class="mb-6" data-testid="throne">
+        <div class="flex items-baseline justify-between gap-2 mb-2 min-w-0">
+          <h3 class="text-sm font-bold text-gray-300 flex-shrink-0">
+            <i class="fas fa-crown text-amber-400 mr-1" aria-hidden="true"></i>{{ $t('titles.throne.title') }}
+          </h3>
+          <span class="text-[11px] text-gray-400 truncate">{{ $t('titles.throne.sub', { month: crownMonth, n: myPals.length }) }}</span>
+        </div>
+        <div class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+          <div v-for="row in throne" :key="row.id" class="tv-card tv-throne" :class="{ held: row.mine }" :data-crown="row.id">
+            <div class="flex items-center justify-between gap-2 min-w-0">
+              <TitleBadge :family-id="row.id" :tier="4" />
+              <span class="text-[10px] text-gray-400 flex-shrink-0">{{ $t('titles.throne.history', { n: row.history }) }}</span>
+            </div>
+            <p class="tv-desc">{{ $t(`titles.families.${row.id}.desc`) }}</p>
+
+            <!-- Holders: ties share the crown, so maybe several -->
+            <div class="flex items-center gap-2 mt-2 min-w-0">
+              <template v-if="row.holders.length">
+                <span class="tv-stack">
+                  <PlayerAvatar
+                    v-for="uid in row.holders.slice(0, 3)"
+                    :key="uid"
+                    size="sm"
+                    :uid="uid"
+                    :src="uid === user?.uid ? (user?.photoURL || '') : ''"
+                    :name="nameOf(uid)"
+                  />
+                  <span v-if="row.holders.length > 3" class="tv-more">+{{ row.holders.length - 3 }}</span>
+                </span>
+                <span class="tv-holders">{{ row.holders.map(nameOf).join(' · ') }}</span>
+                <span class="tv-value">{{ formatCrown(row.id, row.value) }}</span>
+              </template>
+              <span v-else class="tv-vacant">{{ $t('titles.throne.vacant') }}</span>
+            </div>
+
+            <!-- Me against the holder -->
+            <div class="tv-me">
+              <template v-if="row.mine">
+                <i class="fas fa-crown text-amber-400 mr-1" aria-hidden="true"></i>{{ row.holders.length > 1 ? $t('titles.throne.youShare') : $t('titles.throne.youHold') }}
+              </template>
+              <template v-else-if="row.myValue == null">
+                {{ row.playedThisMonth ? $t('titles.throne.bossNeed', { n: CROWN_MIN_GROUP_GAMES }) : $t('titles.throne.noGames') }}
+              </template>
+              <template v-else-if="row.holders.length">
+                {{ $t('titles.throne.mine', { value: formatCrown(row.id, row.myValue) }) }} · {{ $t('titles.throne.gap', { value: formatCrown(row.id, row.gap) }) }}
+              </template>
+              <template v-else>{{ $t('titles.throne.mine', { value: formatCrown(row.id, row.myValue) }) }}</template>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section v-for="group in groups" :key="group.id" class="mb-6">
         <h3 class="text-sm font-bold text-gray-300 mb-2">{{ $t(`titles.groups.${group.id}`) }}</h3>
         <div class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
@@ -70,6 +123,7 @@
 // 稱號圖鑑: every title family by 系列, the tier you hold, progress to the next
 // one (from your all-time leaderboardStats), hidden ones as ??? + a riddle.
 import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase-init.js';
 import { useAuth } from '../composables/useAuth.js';
@@ -79,11 +133,13 @@ import PlayerAvatar from '../components/common/PlayerAvatar.vue';
 import { formatNumber } from '../utils/formatters.js';
 import {
   TITLE_FAMILIES, TITLE_GROUPS, nextTierProgress, titleRarity, titleCount,
+  CROWN_IDS, CROWN_MIN_GROUP_GAMES, crownLeaders, crownValue, getCrown,
 } from '../utils/titles.js';
 import { statsDocId } from '../../functions/src/utils/leaderboardStatsMath.js';
 
+const { t } = useI18n();
 const { user, displayName } = useAuth();
-const { titles, watchMyTitles } = useUserTitles();
+const { titles, watchMyTitles, ensureUserTitles, palsOf, currentCrownMonth } = useUserTitles();
 
 const stats = ref(null);
 const loading = ref(true);
@@ -120,6 +176,72 @@ function formatValue(familyId, value) {
   return formatNumber(Math.round(value || 0));
 }
 
+// ── 本月王座 ───────────────────────────────────────────────────────
+// My circle's month stats (one doc each: me + my pals) and their userTitles
+// through the shared cache (avatars / names). The leaders are judged with the
+// same rules the server uses for crowns; for me that is exactly whether I
+// hold it (my circle is the one I'm judged in).
+const crownMonth = currentCrownMonth();
+const myPals = computed(() => palsOf(user.value?.uid));
+const circleStats = ref({});
+let circleKey = '';
+
+// Waits for my userTitles doc (the pals), so the circle loads once
+watch(() => [user.value?.uid, !!titles[user.value?.uid], myPals.value.join(',')], async ([uid, ready]) => {
+  if (!uid || !ready) return;
+  const members = [uid, ...myPals.value];
+  const key = `${crownMonth}:${members.join(',')}`;
+  if (key === circleKey) return;
+  circleKey = key;
+  ensureUserTitles(myPals.value);
+  const loaded = {};
+  await Promise.all(members.map(async (member) => {
+    try {
+      const snap = await getDoc(doc(db, 'leaderboardStats', statsDocId(member, crownMonth)));
+      loaded[member] = snap.exists() ? snap.data() : null;
+    } catch (error) {
+      console.warn('[titles] crown stats load failed', member, error?.code || error);
+    }
+  }));
+  if (circleKey === key) circleStats.value = loaded;
+}, { immediate: true });
+
+const throne = computed(() => {
+  const me = user.value?.uid;
+  if (!me) return [];
+  const members = [me, ...myPals.value].map((uid) => ({ uid, stats: circleStats.value[uid] || null }));
+  const mine = circleStats.value[me] || null;
+  const history = titles[me]?.crownHistory || {};
+  return CROWN_IDS.map((id) => {
+    const { holders, value } = crownLeaders(id, members);
+    const myValue = crownValue(id, mine);
+    return {
+      id,
+      holders,
+      value,
+      myValue,
+      mine: holders.includes(me),
+      gap: value != null && myValue != null ? value - myValue : null,
+      playedThisMonth: !!mine && !mine.hidden,
+      history: Array.isArray(history[id]) ? history[id].length : 0,
+    };
+  });
+});
+
+function nameOf(uid) {
+  if (uid === user.value?.uid) return displayName.value || titles[uid]?.name || '?';
+  return circleStats.value[uid]?.name || titles[uid]?.name || '?';
+}
+
+// A crown value in its unit: 淘汰 / σ / money / 場
+function formatCrown(id, value) {
+  const unit = getCrown(id)?.unit;
+  const v = Number(value) || 0;
+  if (unit === 'sigma') return `σ ${v.toFixed(1)}`;
+  if (unit === 'money') return formatNumber(Math.round(v));
+  return t(`titles.throne.units.${unit}`, { n: formatNumber(Math.round(v)) });
+}
+
 // The signed-in user can arrive after mount (page reload)
 watch(() => user.value?.uid, async (uid) => {
   stopWatch();
@@ -150,6 +272,43 @@ onBeforeUnmount(() => stopWatch());
   min-width: 0;
 }
 .tv-card.locked { background: rgb(var(--tw-slate-800) / 0.6); }
+/* 王座 cards: a crown I hold gets the gold edge. Every row is min-width 0 and
+   the names truncate, so several tied holders still fit a 375px phone. */
+.tv-throne.held { border-color: rgb(var(--tw-amber-500) / 0.7); background: rgb(var(--tw-amber-500) / 0.08); }
+.tv-stack { display: inline-flex; align-items: center; flex-shrink: 0; }
+/* A child component's root carries this scope, so .pa matches without :deep */
+.tv-stack > .pa + .pa { margin-left: -0.55rem; }
+.tv-more {
+  margin-left: 0.2rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgb(var(--tw-slate-300));
+}
+.tv-holders {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgb(var(--tw-white));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tv-value {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: rgb(var(--tw-amber-400));
+}
+.tv-vacant { font-size: 0.75rem; color: rgb(var(--tw-slate-400)); }
+.tv-me {
+  margin-top: 0.35rem;
+  font-size: 0.68rem;
+  color: rgb(var(--tw-slate-400));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .tv-locked { font-size: 0.7rem; font-weight: 700; color: rgb(var(--tw-slate-400)); }
 .tv-desc { font-size: 0.75rem; color: rgb(var(--tw-slate-300)); margin-top: 0.45rem; }
 .tv-hint { font-size: 0.75rem; color: rgb(var(--tw-slate-300)); margin-top: 0.45rem; font-style: italic; }
