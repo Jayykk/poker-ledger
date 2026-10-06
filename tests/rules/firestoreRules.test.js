@@ -536,6 +536,22 @@ describe('users / friends / invitations', () => {
     ));
   });
 
+  it('userTitles (稱號) are signed-in read, CF-write only — even for the owner', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'userTitles', ALICE), {
+        unlocked: { regular: { tier: 1, at: 1 } }, display: { familyId: 'regular', tier: 1 },
+      });
+    });
+    await assertSucceeds(getDoc(doc(bobDb(), 'userTitles', ALICE)));
+    await assertFails(getDoc(doc(anonDb(), 'userTitles', ALICE)));
+    await assertFails(setDoc(doc(aliceDb(), 'userTitles', ALICE), {
+      unlocked: { champion: { tier: 4, at: 1 } },
+    }));
+    await assertFails(updateDoc(doc(aliceDb(), 'userTitles', ALICE), {
+      display: { familyId: 'champion', tier: 4 },
+    }));
+  });
+
   it('accepting a friend request can mirror an entry referencing yourself', async () => {
     // Bob accepts Alice's request → Bob writes himself into Alice's friends list
     await assertSucceeds(addDoc(collection(bobDb(), 'users', ALICE, 'friends'), {

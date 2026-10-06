@@ -125,6 +125,7 @@ import LobbyView from './views/LobbyView.vue';
 import GameView from './views/GameView.vue';
 import ReportView from './views/ReportView.vue';
 import ProfileView from './views/ProfileView.vue';
+import TitlesView from './views/TitlesView.vue';
 import FriendsView from './views/FriendsView.vue';
 import GameLobby from './views/GameLobby.vue';
 import PokerGame from './views/PokerGame.vue';
@@ -199,6 +200,8 @@ import { logger } from "./utils/logger.js";
       { path: '/report/:gameId', name: 'ReportDetail', component: ReportView, meta: { requiresAuth: true } },
       { path: '/daily-report', name: 'DailyReport', component: DailyReportView, meta: { requiresAuth: true } },
       { path: '/profile', name: 'Profile', component: ProfileView, meta: { requiresAuth: true } },
+      // 稱號圖鑑
+      { path: '/titles', name: 'Titles', component: TitlesView, meta: { requiresAuth: true } },
       { path: '/friends', name: 'Friends', component: FriendsView, meta: { requiresAuth: true } },
       { path: '/poker-lobby', name: 'GameLobby', component: GameLobby, meta: { requiresAuth: true } },
       { path: '/poker-game/:gameId', name: 'PokerGame', component: PokerGame, meta: { requiresAuth: true } },

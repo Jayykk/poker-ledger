@@ -1,16 +1,17 @@
 <template>
   <div class="c-row">
     <div class="min-w-0 flex-1">
-      <div class="flex items-center gap-1.5 flex-wrap">
+      <div class="flex items-center gap-1.5">
         <span v-if="seatLabel" class="c-seat">{{ seatLabel }}</span>
-        <span class="c-name truncate">{{ player.name }}</span>
+        <span class="c-name truncate shrink-[10]">{{ player.name }}</span>
         <span v-if="isButton" class="c-button">D</span>
-        <span v-if="player.uid" class="text-blue-400 text-[10px]">●</span>
+        <span v-if="player.uid" class="text-blue-400 text-[10px] flex-shrink-0">●</span>
+        <TitleBadge v-if="player.uid" :uid="player.uid" />
         <!-- Seat without an account: claim it (bind) or send it to someone (invite) -->
-        <button v-if="!player.uid && canBind" type="button" class="c-chip accent" @click="$emit('bind', player)">
+        <button v-if="!player.uid && canBind" type="button" class="c-chip accent flex-shrink-0" @click="$emit('bind', player)">
           {{ $t('game.bind') }}
         </button>
-        <button v-else-if="!player.uid" type="button" class="c-chip" @click="$emit('invite', player)">
+        <button v-else-if="!player.uid" type="button" class="c-chip flex-shrink-0 whitespace-nowrap" @click="$emit('invite', player)">
           <i class="fas fa-share-alt mr-1"></i>{{ $t('game.invite') }}
         </button>
       </div>
@@ -44,6 +45,7 @@
 // and ⋯ (the edit sheet: buy-in groups, final stack, remove).
 import { computed } from 'vue';
 import { formatNumber, calculateNet } from '../../utils/formatters.js';
+import TitleBadge from '../common/TitleBadge.vue';
 
 const props = defineProps({
   // 抽座位: seat number (or the dealer mark) and the starting dealer button

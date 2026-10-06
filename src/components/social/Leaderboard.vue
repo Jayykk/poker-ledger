@@ -106,8 +106,9 @@
 
         <!-- User info -->
         <div class="flex-1 min-w-0">
-          <div class="text-white font-bold flex items-center gap-2 truncate">
-            <span class="truncate">{{ entry.name }}</span>
+          <div class="text-white font-bold flex items-center gap-1.5 min-w-0">
+            <span class="truncate shrink-[10]">{{ entry.name }}</span>
+            <TitleBadge :uid="entry.uid" />
             <span v-if="entry.uid === user?.uid" class="text-xs text-amber-400 flex-shrink-0">{{ $t('friends.you') }}</span>
           </div>
           <div class="text-xs text-gray-400">
@@ -175,8 +176,9 @@
             {{ myRankInfo.rank }}
           </div>
           <div class="flex-1 min-w-0">
-            <div class="text-white font-bold flex items-center gap-2 truncate">
-              <span class="truncate">{{ myRankInfo.name }}</span>
+            <div class="text-white font-bold flex items-center gap-1.5 min-w-0">
+              <span class="truncate shrink-[10]">{{ myRankInfo.name }}</span>
+              <TitleBadge :uid="myRankInfo.uid" />
               <span class="text-xs text-amber-400 flex-shrink-0">{{ $t('friends.you') }}</span>
             </div>
             <div class="text-xs text-gray-400">
@@ -256,6 +258,7 @@ import { collection, getDocs, query, where, collectionGroup, orderBy, limit } fr
 import { db } from '../../firebase-init.js';
 import { useAuth } from '../../composables/useAuth.js';
 import BaseCard from '../common/BaseCard.vue';
+import TitleBadge from '../common/TitleBadge.vue';
 import HandDetailsModal from './HandDetailsModal.vue';
 import { formatNumber } from '../../utils/formatters.js';
 import { HAND_TYPES } from '../../utils/constants.js';

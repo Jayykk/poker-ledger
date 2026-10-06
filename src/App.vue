@@ -90,7 +90,7 @@
         <router-link
           to="/profile"
           class="flex flex-col items-center gap-1 w-full h-full justify-center"
-          :class="$route.path === '/profile' ? 'text-amber-500' : 'text-gray-500'"
+          :class="['/profile', '/titles'].includes($route.path) ? 'text-amber-500' : 'text-gray-500'"
         >
           <i class="fas fa-user text-xl"></i>
           <span class="text-[10px]">{{ $t('nav.profile') }}</span>

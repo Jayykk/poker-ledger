@@ -1155,5 +1155,178 @@
     "capacity": "{n} players · {cap} at most (dealer + seats 1–9)",
     "tooMany": "More than {n} — open another room for a second table",
     "noDealerSeat": "(no dealer)"
+  },
+  "titles": {
+    "title": "Titles",
+    "codex": "Title Codex",
+    "codexSub": "Play to unlock titles — higher tiers are rarer",
+    "rarity": {
+      "common": "Common",
+      "rare": "Rare",
+      "epic": "Epic",
+      "legendary": "Legendary"
+    },
+    "groups": {
+      "wallet": "Wallet",
+      "hunter": "Headhunter",
+      "tournament": "Tournament",
+      "attendance": "Attendance"
+    },
+    "mode": "Display",
+    "modeOff": "Off",
+    "modeAuto": "Auto",
+    "modePick": "Pick",
+    "modeAutoHint": "Shows your highest-tier title (newest wins a tie)",
+    "modeOffHint": "Other players won't see your title",
+    "pick": "Choose a title",
+    "noneUnlocked": "No titles yet — play a few more games!",
+    "showing": "Showing",
+    "none": "None",
+    "roomTitles": "Live room titles",
+    "roomTitlesHint": "Titles earned during a game, shown in the room (coming soon)",
+    "unlockedCount": "{n} / {total} unlocked",
+    "locked": "Locked",
+    "hiddenName": "???",
+    "next": "Next: {name}",
+    "maxed": "Top tier reached",
+    "saved": "Title settings updated",
+    "saveFailed": "Couldn't update title settings",
+    "loadFailed": "Couldn't load titles",
+    "families": {
+      "netWin": {
+        "desc": "Lifetime net winnings",
+        "t1": "Small Fry Winner",
+        "t2": "Rising Star",
+        "t3": "Money Printer",
+        "t4": "God of Gamblers"
+      },
+      "netLoss": {
+        "desc": "Lifetime net losses",
+        "t1": "Kind Donor",
+        "t2": "Philanthropist",
+        "t3": "Angel Investor",
+        "t4": "Patron of the Table"
+      },
+      "bigWin": {
+        "desc": "Biggest single-game win (buy-ins)",
+        "t1": "Lucky Hands",
+        "t2": "Heist",
+        "t3": "Table Wipe",
+        "t4": "Empire in a Night"
+      },
+      "bigLoss": {
+        "desc": "Biggest single-game loss (buy-ins)",
+        "t1": "Tuition Paid",
+        "t2": "Bleeding",
+        "t3": "Brink of Bankruptcy",
+        "t4": "Lost It All"
+      },
+      "volatile": {
+        "desc": "Swing per game, σ in buy-ins (10+ games)",
+        "t1": "Small Boss",
+        "t2": "Boss",
+        "t3": "Chairman",
+        "t4": "Tycoon"
+      },
+      "steady": {
+        "desc": "Games while σ ≤ 1 buy-in and in profit",
+        "t1": "Slow and Steady",
+        "t2": "Pro Player",
+        "t3": "Cold-Blooded",
+        "t4": "Poker Bot"
+      },
+      "hunter": {
+        "desc": "Career knockouts",
+        "t1": "Apprentice Hunter",
+        "t2": "Bounty Hunter",
+        "t3": "Headhunter",
+        "t4": "Grim Reaper"
+      },
+      "hunted": {
+        "desc": "Times your head was taken",
+        "t1": "Bunny",
+        "t2": "Fat Sheep",
+        "t3": "Walking Bounty",
+        "t4": "Public Enemy"
+      },
+      "mysteryTop": {
+        "desc": "Mystery bounty top prizes",
+        "t2": "Small Joy",
+        "t3": "Lucky Charm",
+        "t4": "Luck Emperor"
+      },
+      "champion": {
+        "desc": "Tournament wins",
+        "t1": "First Crown",
+        "t2": "Triple Crown",
+        "t3": "Dynasty",
+        "t4": "Immortal Legend"
+      },
+      "itm": {
+        "desc": "Times in the money",
+        "t1": "ITM Regular",
+        "t2": "Rent Collector",
+        "t3": "ITM Squatter",
+        "t4": "Lord of the Money"
+      },
+      "phoenix": {
+        "desc": "Most rebuys in a game that still cashed",
+        "t2": "Reborn",
+        "t3": "Phoenix",
+        "t4": "Nine Lives"
+      },
+      "rebuyer": {
+        "desc": "Career rebuys",
+        "t1": "One More",
+        "t2": "Reload Maniac",
+        "t3": "Infinite Lives"
+      },
+      "runnerUp": {
+        "desc": "Tournament runner-up finishes",
+        "t3": "Eternal Runner-up",
+        "hint": "Always just one step short…"
+      },
+      "bubble": {
+        "desc": "Finished one place outside the money",
+        "t3": "Bubble King",
+        "hint": "The money was right there, just out of reach"
+      },
+      "firstOut": {
+        "desc": "First out of a tournament",
+        "t3": "Cannon Fodder",
+        "hint": "Gone home before the cards got warm"
+      },
+      "regular": {
+        "desc": "Games played",
+        "t1": "New Face",
+        "t2": "Regular",
+        "t3": "Fixture",
+        "t4": "Lives at the Table"
+      },
+      "host": {
+        "desc": "Games hosted",
+        "t1": "Host",
+        "t2": "Landlord",
+        "t3": "Property Owner",
+        "t4": "Real Estate Tycoon"
+      },
+      "hotStreak": {
+        "desc": "Longest winning streak",
+        "t2": "Heating Up",
+        "t3": "On Fire",
+        "t4": "Undefeated"
+      },
+      "coldStreak": {
+        "desc": "Longest losing streak",
+        "t2": "Cold Hands",
+        "t3": "Pitch Black",
+        "t4": "Cursed"
+      },
+      "nightOwl": {
+        "desc": "Games finished 3–6 a.m.",
+        "t3": "Night Owl",
+        "hint": "The city sleeps; your game is just getting started"
+      }
+    }
   }
 }

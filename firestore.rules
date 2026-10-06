@@ -108,6 +108,16 @@ service cloud.firestore {
     }
 
     // ============================================
+    // 稱號 (titles) — one doc per user, computed by Cloud Functions from the
+    // all-time stats; prefs change through the setTitlePrefs callable only
+    // (users/{uid} is owner-writable, so titles can't live there).
+    // ============================================
+    match /userTitles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ============================================
     // Friend requests (mailbox)
     // ============================================
     match /friendRequests/{requestId} {

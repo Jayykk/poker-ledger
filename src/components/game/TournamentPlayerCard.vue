@@ -6,9 +6,10 @@
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-1.5">
         <span v-if="seatLabel" class="t-seat">{{ seatLabel }}</span>
-        <span class="t-name truncate">{{ player.name }}</span>
+        <span class="t-name truncate shrink-[10]">{{ player.name }}</span>
         <span v-if="isButton" class="t-button">D</span>
-        <span v-if="player.uid" class="text-blue-400 text-[10px]">●</span>
+        <span v-if="player.uid" class="text-blue-400 text-[10px] flex-shrink-0">●</span>
+        <TitleBadge v-if="player.uid" :uid="player.uid" />
         <span v-if="champion" class="text-amber-400 text-xs font-bold flex-shrink-0">🏆 {{ $t('tournament.champion') }}</span>
       </div>
       <div class="t-sub">
@@ -55,6 +56,7 @@
 import { computed, ref } from 'vue';
 import { canRenamePlayer } from '../../utils/ledgerOps.js';
 import { formatNumber } from '../../utils/formatters.js';
+import TitleBadge from '../common/TitleBadge.vue';
 
 const props = defineProps({
   player: { type: Object, required: true },
