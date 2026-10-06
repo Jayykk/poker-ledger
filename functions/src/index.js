@@ -674,8 +674,9 @@ export const reportClientError = onCall(async (request) => {
 });
 
 /**
- * 稱號: display mode (off / auto / pick), the picked title (must be unlocked)
- * and the in-room titles toggle. userTitles is server-written only, so the
+ * 稱號: display mode (off / auto / pick), the picked title (must be unlocked),
+ * the 頭像框 (auto or an earned frame) and the in-room titles toggle.
+ * userTitles is server-written only, so the
  * profile page saves through here; returns the prefs and resolved display.
  */
 export const setTitlePrefs = onCall(async (request) => {

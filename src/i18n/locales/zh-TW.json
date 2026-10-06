@@ -1183,7 +1183,7 @@
     "showing": "目前顯示",
     "none": "無",
     "roomTitles": "房內即時稱號",
-    "roomTitlesHint": "牌局中依當場表現顯示的稱號（即將推出）",
+    "roomTitlesHint": "牌局中依當場表現顯示的稱號；關閉後你不會被標上",
     "unlockedCount": "已解鎖 {n} / {total}",
     "locked": "未解鎖",
     "hiddenName": "???",
@@ -1326,6 +1326,38 @@
         "desc": "凌晨 3–6 點結束的場數",
         "t3": "夜貓子",
         "hint": "城市睡著了，你的牌局才剛開始"
+      }
+    },
+    "titleCount": "已收集 {n} 個稱號",
+    "frame": "頭像框",
+    "frameHint": "每一階稱號各算一個，收集越多框越高級",
+    "frameAuto": "自動",
+    "frameNeed": "收集 {n} 個稱號",
+    "frameNone": "尚無頭像框",
+    "frames": {
+      "bronze": "銅框",
+      "silver": "銀框",
+      "gold": "金框",
+      "platinum": "白金框",
+      "diamond": "鑽石框"
+    },
+    "room": {
+      "live": "房內即時稱號",
+      "names": {
+        "hunter": "獵人",
+        "prey": "獵物",
+        "patron": "本場金主",
+        "phoenix": "不死鳥",
+        "chipLeader": "籌碼王",
+        "firstBlood": "首殺"
+      },
+      "desc": {
+        "hunter": "本場淘汰最多人",
+        "prey": "本場被淘汰最多次",
+        "patron": "本場買入最多組",
+        "phoenix": "本場重買 3 次以上還在場上",
+        "chipLeader": "場上籌碼最多",
+        "firstBlood": "本場第一個淘汰別人"
       }
     }
   }

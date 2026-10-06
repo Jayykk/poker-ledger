@@ -1183,7 +1183,7 @@
     "showing": "Showing",
     "none": "None",
     "roomTitles": "Live room titles",
-    "roomTitlesHint": "Titles earned during a game, shown in the room (coming soon)",
+    "roomTitlesHint": "Titles earned during a game, shown in the room. Off: you never get one",
     "unlockedCount": "{n} / {total} unlocked",
     "locked": "Locked",
     "hiddenName": "???",
@@ -1326,6 +1326,38 @@
         "desc": "Games finished 3–6 a.m.",
         "t3": "Night Owl",
         "hint": "The city sleeps; your game is just getting started"
+      }
+    },
+    "titleCount": "{n} titles collected",
+    "frame": "Avatar frame",
+    "frameHint": "Every tier of a title counts as one; collect more for a better frame",
+    "frameAuto": "Auto",
+    "frameNeed": "Collect {n} titles",
+    "frameNone": "No frame yet",
+    "frames": {
+      "bronze": "Bronze frame",
+      "silver": "Silver frame",
+      "gold": "Gold frame",
+      "platinum": "Platinum frame",
+      "diamond": "Diamond frame"
+    },
+    "room": {
+      "live": "Live room title",
+      "names": {
+        "hunter": "Hunter",
+        "prey": "Prey",
+        "patron": "Big Spender",
+        "phoenix": "Phoenix",
+        "chipLeader": "Chip Leader",
+        "firstBlood": "First Blood"
+      },
+      "desc": {
+        "hunter": "Most knockouts this game",
+        "prey": "Knocked out the most times this game",
+        "patron": "Most buy-ins this game",
+        "phoenix": "3+ rebuys this game and still in",
+        "chipLeader": "Biggest stack at the table",
+        "firstBlood": "First knockout of the game"
       }
     }
   }

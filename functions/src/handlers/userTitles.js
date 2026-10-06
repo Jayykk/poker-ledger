@@ -43,8 +43,10 @@ export async function recomputeUserTitles(db, uid, allTimeStats, now = Date.now(
 }
 
 /**
- * setTitlePrefs callable: `{ mode, titleId, showRoomTitles }` (each optional).
- * A picked title must be unlocked. Writes the prefs and the display they give.
+ * setTitlePrefs callable: `{ mode, titleId, showRoomTitles, frame }` (each
+ * optional). A picked title must be unlocked and a picked frame earned
+ * (failed-precondition otherwise). Writes the prefs and the display they give
+ * (title + frame).
  *
  * @param {FirebaseFirestore.Firestore} db Firestore instance.
  * @param {string} uid Caller.
@@ -61,7 +63,7 @@ export async function setTitlePrefs(db, uid, data) {
     const result = validateTitlePrefs(data, stored.prefs, unlocked);
     if (result.error) {
       throw new HttpsError(
-        result.error === 'not-unlocked' ? 'failed-precondition' : 'invalid-argument',
+        ['not-unlocked', 'frame-locked'].includes(result.error) ? 'failed-precondition' : 'invalid-argument',
         `TITLE_PREFS_${result.error.toUpperCase().replace(/-/g, '_')}`,
       );
     }
