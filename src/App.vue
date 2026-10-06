@@ -179,6 +179,8 @@ const hideBottomNav = computed(() => {
   if (route.path.startsWith('/tournament-clock')) return true;
   if (route.path.startsWith('/dealer-clock')) return true;
   if (route.path.startsWith('/time-bank')) return true;
+  // A room's 抽獎 screen has its own back-to-room button
+  if (route.path.startsWith('/mystery-draw')) return true;
   // Rooms have their own bottom bar and a back-to-lobby button
   if (/^\/(game|tournament-game)(\/|$)/.test(route.path)) return true;
   return false;
