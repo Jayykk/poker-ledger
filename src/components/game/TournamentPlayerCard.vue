@@ -2,14 +2,16 @@
   <div class="t-wrap">
   <div class="t-row" :class="{ out: player.eliminated && !champion }">
     <span v-if="player.eliminated && player.placement && !champion" class="t-place">#{{ player.placement }}</span>
+    <PlayerAvatar size="sm" :src="avatar" :name="player.name" :uid="player.uid || ''" :linked="!!player.uid" />
 
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-1.5">
         <span v-if="seatLabel" class="t-seat">{{ seatLabel }}</span>
         <span class="t-name truncate shrink-[10]">{{ player.name }}</span>
         <span v-if="isButton" class="t-button">D</span>
-        <span v-if="player.uid" class="text-blue-400 text-[10px] flex-shrink-0">●</span>
-        <TitleBadge v-if="player.uid" :uid="player.uid" />
+        <!-- 房內即時稱號 replaces the regular one while it lasts -->
+        <LiveTitleBadge v-if="liveTitle" :title-id="liveTitle" />
+        <TitleBadge v-else-if="player.uid" :uid="player.uid" />
         <span v-if="champion" class="text-amber-400 text-xs font-bold flex-shrink-0">🏆 {{ $t('tournament.champion') }}</span>
       </div>
       <div class="t-sub">
@@ -57,9 +59,15 @@ import { computed, ref } from 'vue';
 import { canRenamePlayer } from '../../utils/ledgerOps.js';
 import { formatNumber } from '../../utils/formatters.js';
 import TitleBadge from '../common/TitleBadge.vue';
+import LiveTitleBadge from '../common/LiveTitleBadge.vue';
+import PlayerAvatar from '../common/PlayerAvatar.vue';
 
 const props = defineProps({
   player: { type: Object, required: true },
+  // Avatar image (utils/avatar.js); empty → the name's initial
+  avatar: { type: String, default: '' },
+  // 房內即時稱號 id (utils/roomTitles.js), '' = none
+  liveTitle: { type: String, default: '' },
   canReentry: { type: Boolean, default: false },
   // Why an eliminated player can't re-enter while others still can ('limit')
   reentryBlocked: { type: String, default: '' },
@@ -97,8 +105,8 @@ const entryCount = computed(() => {
 .t-row {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.65rem 0.9rem;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
   border-bottom: 1px solid rgb(var(--tw-slate-700) / 0.7);
 }
 .t-wrap:last-child .t-row { border-bottom: none; }
@@ -121,12 +129,14 @@ const entryCount = computed(() => {
   background: rgb(var(--tw-slate-700) / 0.7);
 }
 .t-menu button.danger { color: rgb(var(--tw-rose-300)); }
-.t-name { color: rgb(var(--tw-white)); font-weight: 700; }
+.t-name { color: rgb(var(--tw-white)); font-weight: 700; min-width: 1.5em; }
 .t-seat { flex-shrink: 0; min-width: 1.5rem; height: 1.5rem; padding: 0 0.3rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: rgb(var(--tw-white)); background: rgb(var(--tw-slate-600)); }
 .t-button { flex-shrink: 0; width: 1.3rem; height: 1.3rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 900; color: #1f2937; background: #f8fafc; border: 2px solid #cbd5e1; }
 .t-row.out .t-name { color: rgb(var(--tw-slate-400)); font-weight: 500; }
+.t-row.out :deep(.pa) { opacity: 0.55; }
 .t-place { width: 1.8rem; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: rgb(var(--tw-slate-400)); }
-.t-sub { font-size: 0.72rem; color: rgb(var(--tw-slate-400)); margin-top: 0.1rem; }
+/* One line on a phone: what doesn't fit ends in … instead of wrapping */
+.t-sub { font-size: 0.72rem; color: rgb(var(--tw-slate-400)); margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .t-btn {
   flex-shrink: 0;
   display: inline-flex;
@@ -140,6 +150,6 @@ const entryCount = computed(() => {
 }
 .t-btn.elim { color: rgb(var(--tw-rose-300)); border: 1px solid rgb(var(--tw-rose-500) / 0.45); background: rgb(var(--tw-rose-500) / 0.08); }
 .t-btn.re { color: rgb(var(--tw-emerald-300)); border: 1px solid rgb(var(--tw-emerald-500) / 0.5); background: rgb(var(--tw-emerald-500) / 0.1); }
-.t-icon { flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 0.5rem; color: rgb(var(--tw-slate-400)); }
+.t-icon { flex-shrink: 0; width: 1.75rem; height: 2rem; border-radius: 0.5rem; color: rgb(var(--tw-slate-400)); }
 .t-note { flex-shrink: 0; font-size: 0.72rem; color: rgb(var(--tw-slate-500)); }
 </style>

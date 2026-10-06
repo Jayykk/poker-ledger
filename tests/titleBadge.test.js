@@ -68,9 +68,9 @@ describe('TitleBadge', () => {
 describe('badges next to names', () => {
   const read = (p) => readFileSync(resolve(__dirname, '..', p), 'utf-8');
   it.each([
-    ['src/components/game/PlayerCard.vue', '<TitleBadge v-if="player.uid" :uid="player.uid" />'],
-    ['src/components/game/TournamentPlayerCard.vue', '<TitleBadge v-if="player.uid" :uid="player.uid" />'],
-    ['src/components/game/SeatDrawModal.vue', '<TitleBadge v-if="s.player?.uid" :uid="s.player.uid" />'],
+    ['src/components/game/PlayerCard.vue', '<TitleBadge v-else-if="player.uid" :uid="player.uid" />'],
+    ['src/components/game/TournamentPlayerCard.vue', '<TitleBadge v-else-if="player.uid" :uid="player.uid" />'],
+    ['src/components/game/SeatDrawModal.vue', '<TitleBadge v-else-if="s.player?.uid" :uid="s.player.uid" />'],
     ['src/components/common/SettlementDetailModal.vue', '<TitleBadge v-if="player.odId" :uid="player.odId" />'],
     ['src/components/social/Leaderboard.vue', '<TitleBadge :uid="entry.uid" />'],
     ['src/views/ProfileView.vue', '<TitleBadge :family-id="myDisplay.familyId" :tier="myDisplay.tier" />'],

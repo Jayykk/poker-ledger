@@ -93,6 +93,8 @@
         :head-value="headOf(player)"
         :seat-label="seatOf(player)"
         :is-button="!!player.seat?.button && canDrawSeats"
+        :avatar="avatarSrcOf(player, user)"
+        :live-title="roomTitles[player.id] || ''"
         @eliminate="handleEliminate"
         @edit="handleEditPlayer"
         @remove="handleRemoveFromRow"
@@ -116,6 +118,8 @@
         :is-champion="isChampion(player)"
         :bounty-per-head="bountyPerHead"
         :knocked-out-by="knockedOutBy[player.id] || ''"
+        :avatar="avatarSrcOf(player, user)"
+        :live-title="roomTitles[player.id] || ''"
         @reentry="handleReentry"
       />
       </div>
@@ -280,6 +284,7 @@
       :is-host="isHost"
       :can-draw="canDrawSeats"
       :my-uid="user?.uid || ''"
+      :room-titles="roomTitles"
       @draw="handleDrawSeats"
     />
 
@@ -349,6 +354,8 @@ import DealSettlementModal from '../components/tournament/DealSettlementModal.vu
 import KnockoutModal from '../components/tournament/KnockoutModal.vue';
 import SeatDrawModal from '../components/game/SeatDrawModal.vue';
 import { isSeated, seatLabel } from '../utils/seatDraw.js';
+import { avatarSrcOf } from '../utils/avatar.js';
+import { useRoomTitles } from '../composables/useRoomTitles.js';
 import MysteryPhoneReveal from '../components/tournament/MysteryPhoneReveal.vue';
 import RoomClockCard from '../components/tournament/RoomClockCard.vue';
 import RoomHeader from '../components/game/RoomHeader.vue';
@@ -389,6 +396,8 @@ const { withLoading } = useLoading();
 
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
 const { transactions, txLoading, txError, recordAction, recordBuyIn, undoBuyIn } = useTransactions(gameId);
+// 房內即時稱號 (獵人 / 獵物 / 首殺 … from the roster and the log)
+const roomTitles = useRoomTitles(game, { transactions, tournament: true });
 
 // Tournament session data (for reentryUntilLevel, payoutRatios)
 const {

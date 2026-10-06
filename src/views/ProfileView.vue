@@ -1,15 +1,14 @@
 <template>
   <div class="pt-8 px-4 pb-nav w-full max-w-md md:max-w-3xl lg:max-w-5xl mx-auto text-center">
-    <!-- Avatar -->
-    <div class="w-20 h-20 bg-slate-700 rounded-full mx-auto overflow-hidden flex items-center justify-center text-3xl mb-4">
-      <img v-if="userAvatar" :src="userAvatar" :alt="displayName" class="w-full h-full object-cover rounded-full" />
-      <i v-else class="fas fa-user text-gray-400"></i>
+    <!-- Avatar, in the 頭像框 you show -->
+    <div class="flex justify-center mb-4">
+      <PlayerAvatar size="lg" :src="userAvatar || ''" :name="displayName || ''" :frame="myFrame" />
     </div>
-    
+
     <h2 class="text-xl font-bold text-white mb-1">
       {{ displayName }}
     </h2>
-    <div v-if="myDisplay" class="flex justify-center mb-1">
+    <div v-if="myDisplay?.familyId" class="flex justify-center mb-1">
       <TitleBadge :family-id="myDisplay.familyId" :tier="myDisplay.tier" />
     </div>
     <p v-if="isGuest" class="text-xs text-amber-500 mb-6">{{ $t('auth.guest') }}</p>
@@ -108,6 +107,41 @@
           </button>
         </div>
         <p v-if="!unlockedTitles.length" class="text-xs text-gray-500 text-left mt-2">{{ $t('titles.noneUnlocked') }}</p>
+
+        <!-- 頭像框: earned ones to pick, locked ones dashed with what they need -->
+        <div class="mt-4 text-left">
+          <div class="flex justify-between items-baseline gap-2 mb-1.5">
+            <span class="text-xs text-gray-400">{{ $t('titles.frame') }}</span>
+            <span class="text-[11px] text-amber-400 whitespace-nowrap">{{ $t('titles.titleCount', { n: myTitleCount }) }}</span>
+          </div>
+          <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            <button
+              type="button"
+              class="frame-opt"
+              :class="{ active: titlePrefs.frame === 'auto' }"
+              :disabled="titleSaving"
+              @click="pickFrame('auto')"
+            >
+              <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="myEarnedFrame" />
+              <span class="frame-opt-name">{{ $t('titles.frameAuto') }}</span>
+              <span class="frame-opt-sub">{{ myEarnedFrame ? $t(`titles.frames.${myEarnedFrame}`) : $t('titles.frameNone') }}</span>
+            </button>
+            <button
+              v-for="f in frameOptions"
+              :key="f.id"
+              type="button"
+              class="frame-opt"
+              :class="{ active: titlePrefs.frame === f.id, locked: f.locked }"
+              :disabled="titleSaving || f.locked"
+              @click="pickFrame(f.id)"
+            >
+              <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="f.id" />
+              <span class="frame-opt-name">{{ $t(`titles.frames.${f.id}`) }}</span>
+              <span v-if="f.locked" class="frame-opt-sub">{{ $t('titles.frameNeed', { n: f.min }) }}</span>
+            </button>
+          </div>
+          <p class="text-[11px] text-gray-400 mt-1.5">{{ $t('titles.frameHint') }}</p>
+        </div>
 
         <div class="flex justify-between items-center gap-3 mt-4 text-left">
           <div class="min-w-0">
@@ -242,8 +276,11 @@ import BaseCard from '../components/common/BaseCard.vue';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import TitleBadge from '../components/common/TitleBadge.vue';
+import PlayerAvatar from '../components/common/PlayerAvatar.vue';
 import { useUserTitles } from '../composables/useUserTitles.js';
-import { TITLE_FAMILIES, getTitleFamily, normalizeTitlePrefs } from '../utils/titles.js';
+import {
+  TITLE_FAMILIES, FRAME_TIERS, getTitleFamily, normalizeTitlePrefs, titleCount, earnedFrame, frameRank,
+} from '../utils/titles.js';
 import { STORAGE_KEYS } from '../utils/constants.js';
 import { THEMES as THEME_LIST, applyTheme, resolveThemeId } from '../utils/themes.js';
 
@@ -288,6 +325,15 @@ const unlockedTitles = computed(() => Object.entries(myTitles.value?.unlocked ||
   .map(([familyId, entry]) => ({ familyId, tier: entry.tier, at: entry.at || 0 }))
   .sort((a, b) => (b.tier - a.tier) || (b.at - a.at)));
 const titleSaving = ref(false);
+// 頭像框: titles held, the frame they earn, the one shown (from the display)
+const myTitleCount = computed(() => titleCount(myTitles.value?.unlocked));
+const myEarnedFrame = computed(() => earnedFrame(myTitles.value?.unlocked));
+const myFrame = computed(() => myDisplay.value?.frame || null);
+const frameOptions = computed(() => FRAME_TIERS.map((f) => ({
+  id: f.id,
+  min: f.min,
+  locked: frameRank(f.id) > frameRank(myEarnedFrame.value),
+})));
 
 let stopTitles = () => {};
 watch(() => user.value?.uid, (uid) => {
@@ -324,6 +370,10 @@ function setTitleMode(mode) {
 
 function pickTitle(familyId) {
   if (familyId !== titlePrefs.value.titleId) saveTitles({ mode: 'pick', titleId: familyId });
+}
+
+function pickFrame(frame) {
+  if (frame !== titlePrefs.value.frame) saveTitles({ frame });
 }
 
 function toggleRoomTitles() {
@@ -418,6 +468,23 @@ const handleLogout = async () => {
 .title-mode:disabled:not(.active) { opacity: 0.4; }
 .title-pick { padding: 0.2rem; border-radius: 999px; border: 1px solid transparent; }
 .title-pick.active { border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.1); }
+.frame-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.5rem 0.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(var(--tw-slate-600));
+  background: rgb(var(--tw-slate-900) / 0.5);
+}
+.frame-opt.active { border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.1); }
+.frame-opt.locked { border-style: dashed; background: transparent; }
+.frame-opt.locked :deep(.pa) { opacity: 0.35; }
+.frame-opt-name { font-size: 0.75rem; font-weight: 600; color: rgb(var(--tw-white)); }
+.frame-opt.locked .frame-opt-name { color: rgb(var(--tw-slate-400)); }
+.frame-opt-sub { font-size: 0.62rem; line-height: 1.2; color: rgb(var(--tw-slate-400)); text-align: center; }
 .expand-enter-active,
 .expand-leave-active {
   transition: all 0.3s ease;

@@ -69,6 +69,8 @@
         :base-buy-in="game.baseBuyIn || DEFAULT_BUY_IN"
         :seat-label="seatLabel(player.seat, $t('seats.dealerShort'))"
         :is-button="!!player.seat?.button && canDrawSeats"
+        :avatar="avatarSrcOf(player, user)"
+        :live-title="roomTitles[player.id] || ''"
         @bind="handleBind"
         @invite="handleInvite"
         @add-buy="handleAddBuy"
@@ -241,6 +243,7 @@
       :is-host="isHost"
       :can-draw="canDrawSeats"
       :my-uid="user?.uid || ''"
+      :room-titles="roomTitles"
       @draw="handleDrawSeats"
     />
   </div>
@@ -268,6 +271,8 @@ import RoomHeader from '../components/game/RoomHeader.vue';
 import RoomActionBar from '../components/game/RoomActionBar.vue';
 import SeatDrawModal from '../components/game/SeatDrawModal.vue';
 import { isSeated, seatLabel } from '../utils/seatDraw.js';
+import { avatarSrcOf } from '../utils/avatar.js';
+import { useRoomTitles } from '../composables/useRoomTitles.js';
 import { BUY_IN_CLOSED } from '../utils/timedStructure.js';
 import { rateFromBuyIn, resolveBuyInAmount, formatRate } from '../utils/buyInRate.js';
 import {
@@ -298,6 +303,8 @@ const { game, gameId, totalPot, totalStack, gap, isHost, myPlayer, error: gameEr
 const { addPlayer, updatePlayer, removePlayer, bindSeat, settleGame, closeGame, checkGameStatus, joinAsNewPlayer, joinGameListener, clearCurrentGame } = gameStore;
 const { hands, listenToHandRecords, cleanup: cleanupHands } = useHand();
 const { transactions, txLoading, txError, listenerReady, startListening: startTxListening, stopListening: stopTxListening, recordBuyIn, recordAction, recordDirect, undoBuyIn } = useTransactions(gameId);
+// 房內即時稱號 (cash: 本場金主 / 不死鳥)
+const roomTitles = useRoomTitles(game, { tournament: false });
 const {
   sendBuyInMessage, sendUndoMessage, sendSettlementMessage, shareGameInvite,
   lineNotifyEnabled, isInLineClient,
