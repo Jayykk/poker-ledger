@@ -6,8 +6,18 @@
       </button>
       <h2 class="text-2xl font-bold text-white">{{ $t('titles.codex') }}</h2>
     </div>
-    <p class="text-xs text-gray-400 mb-1">{{ $t('titles.codexSub') }}</p>
-    <p class="text-xs text-amber-400 mb-5">{{ $t('titles.unlockedCount', { n: unlockedCount, total: TITLE_FAMILIES.length }) }}</p>
+    <p class="text-xs text-gray-400 mb-3">{{ $t('titles.codexSub') }}</p>
+    <!-- Titles held and the 頭像框 they give -->
+    <div class="flex items-center gap-3 mb-5">
+      <PlayerAvatar size="md" :src="user?.photoURL || ''" :name="displayName || ''" :frame="myFrame" />
+      <div class="min-w-0">
+        <div class="text-sm font-bold text-white">
+          {{ $t('titles.titleCount', { n: myTitleCount }) }}
+          <span class="text-gray-400 font-normal">· {{ myFrame ? $t(`titles.frames.${myFrame}`) : $t('titles.frameNone') }}</span>
+        </div>
+        <div class="text-xs text-amber-400">{{ $t('titles.unlockedCount', { n: unlockedCount, total: TITLE_FAMILIES.length }) }}</div>
+      </div>
+    </div>
 
     <div v-if="loading" class="flex justify-center py-12">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
@@ -65,11 +75,14 @@ import { db } from '../firebase-init.js';
 import { useAuth } from '../composables/useAuth.js';
 import { useUserTitles } from '../composables/useUserTitles.js';
 import TitleBadge from '../components/common/TitleBadge.vue';
+import PlayerAvatar from '../components/common/PlayerAvatar.vue';
 import { formatNumber } from '../utils/formatters.js';
-import { TITLE_FAMILIES, TITLE_GROUPS, nextTierProgress, titleRarity } from '../utils/titles.js';
+import {
+  TITLE_FAMILIES, TITLE_GROUPS, nextTierProgress, titleRarity, titleCount,
+} from '../utils/titles.js';
 import { statsDocId } from '../../functions/src/utils/leaderboardStatsMath.js';
 
-const { user } = useAuth();
+const { user, displayName } = useAuth();
 const { titles, watchMyTitles } = useUserTitles();
 
 const stats = ref(null);
@@ -78,6 +91,9 @@ let stopWatch = () => {};
 
 const unlocked = computed(() => titles[user.value?.uid]?.unlocked || {});
 const unlockedCount = computed(() => TITLE_FAMILIES.filter((f) => unlocked.value[f.id]).length);
+// 頭像框: every step reached is one title; the frame shown comes from the display
+const myTitleCount = computed(() => titleCount(unlocked.value));
+const myFrame = computed(() => titles[user.value?.uid]?.display?.frame || null);
 
 const groups = computed(() => TITLE_GROUPS.map((id) => ({
   id,

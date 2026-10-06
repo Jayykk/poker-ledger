@@ -68,9 +68,9 @@ describe('TitleBadge', () => {
 describe('badges next to names', () => {
   const read = (p) => readFileSync(resolve(__dirname, '..', p), 'utf-8');
   it.each([
-    ['src/components/game/PlayerCard.vue', '<TitleBadge v-if="player.uid" :uid="player.uid" />'],
-    ['src/components/game/TournamentPlayerCard.vue', '<TitleBadge v-if="player.uid" :uid="player.uid" />'],
-    ['src/components/game/SeatDrawModal.vue', '<TitleBadge v-if="s.player?.uid" :uid="s.player.uid" />'],
+    ['src/components/game/PlayerCard.vue', '<TitleBadge v-else-if="player.uid" :uid="player.uid" />'],
+    ['src/components/game/TournamentPlayerCard.vue', '<TitleBadge v-else-if="player.uid" :uid="player.uid" />'],
+    ['src/components/game/SeatDrawModal.vue', '<TitleBadge v-else-if="s.player?.uid" :uid="s.player.uid" />'],
     ['src/components/common/SettlementDetailModal.vue', '<TitleBadge v-if="player.odId" :uid="player.odId" />'],
     ['src/components/social/Leaderboard.vue', '<TitleBadge :uid="entry.uid" />'],
     ['src/views/ProfileView.vue', '<TitleBadge :family-id="myDisplay.familyId" :tier="myDisplay.tier" />'],
@@ -84,5 +84,20 @@ describe('badges next to names', () => {
   it('the codex has a route and the page width every page uses', () => {
     expect(read('src/main.js')).toMatch(/path: '\/titles', name: 'Titles', component: TitlesView, meta: \{ requiresAuth: true \}/);
     expect(read('src/views/TitlesView.vue')).toContain('class="pt-8 px-4 pb-nav w-full max-w-md md:max-w-3xl lg:max-w-5xl mx-auto"');
+  });
+});
+
+describe('profile 指定 picker', () => {
+  const profile = readFileSync(resolve(__dirname, '..', 'src/views/ProfileView.vue'), 'utf-8');
+
+  it('equal cells that keep a long name inside (no pill row)', () => {
+    expect(profile).toContain(`<div v-if="titlePrefs.mode === 'pick' && unlockedTitles.length" class="title-pick-grid">`);
+    expect(profile).toMatch(/\.title-pick-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+    expect(profile).toMatch(/\.title-pick \{[^}]*overflow: hidden;/);
+    expect(profile).toContain('.title-pick > .title-badge { max-width: 100%; }');
+  });
+
+  it('a stable order: same tier and time fall back to 圖鑑 order (the list jumped on every pick)', () => {
+    expect(profile).toContain('|| (familyOrder.get(a.familyId) - familyOrder.get(b.familyId))');
   });
 });

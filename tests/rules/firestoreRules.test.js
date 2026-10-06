@@ -539,7 +539,7 @@ describe('users / friends / invitations', () => {
   it('userTitles (稱號) are signed-in read, CF-write only — even for the owner', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'userTitles', ALICE), {
-        unlocked: { regular: { tier: 1, at: 1 } }, display: { familyId: 'regular', tier: 1 },
+        unlocked: { regular: { tier: 1, at: 1 } }, display: { familyId: 'regular', tier: 1, frame: null },
       });
     });
     await assertSucceeds(getDoc(doc(bobDb(), 'userTitles', ALICE)));
@@ -548,7 +548,11 @@ describe('users / friends / invitations', () => {
       unlocked: { champion: { tier: 4, at: 1 } },
     }));
     await assertFails(updateDoc(doc(aliceDb(), 'userTitles', ALICE), {
-      display: { familyId: 'champion', tier: 4 },
+      display: { familyId: 'champion', tier: 4, frame: 'diamond' },
+    }));
+    // 頭像框 picks go through setTitlePrefs (which checks the frame is earned)
+    await assertFails(updateDoc(doc(aliceDb(), 'userTitles', ALICE), {
+      'prefs.frame': 'diamond',
     }));
   });
 

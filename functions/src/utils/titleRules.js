@@ -18,16 +18,29 @@
 // Stored per user in userTitles/{uid} (server-written only):
 //   unlocked  { [familyId]: { tier, at } }  only ever goes up; `at` = when the
 //             current tier was first reached (millis)
-//   prefs     { mode: 'off'|'auto'|'pick', titleId, showRoomTitles }
-//   display   { familyId, tier } | null    what other players see
+//   prefs     { mode: 'off'|'auto'|'pick', titleId, showRoomTitles,
+//               frame: 'auto'|frameId }
+//   display   { familyId, tier, frame } | null   what other players see.
+//             familyId / tier are null when the title is off (or none is
+//             unlocked) but a frame is still shown; the whole display is
+//             null only when there is neither a title nor a frame.
+//
+// 頭像框 (avatar frames): every step of a family is its own named title, so
+// the titles held = the steps reached across all families (titleCount). 3 / 6
+// / 9 / 15 / 25 of them earn bronze / silver / gold / platinum / diamond.
+// `unlocked` only grows, so a frame never drops. prefs.frame 'auto' shows the
+// highest earned; a lower earned one can be picked.
 //
 // Hooks for later phases (not implemented yet):
 //   - source 'crown'  monthly #1 among 牌友圈 (time-limited, written by a
-//                     scheduled job into `unlocked` with an expiry)
-//   - source 'room'   live in-room titles (prefs.showRoomTitles already stored)
+//                     scheduled job into `unlocked` with an expiry). Crowns
+//                     (and anything with an expiresAt) never count toward
+//                     frames, so a frame can't drop when a crown expires.
 //   - source 'hand'   hand-history titles; 'event' one-off titles such as
 //                     復仇者 / 悲劇英雄
-//   - avatar frames   a `frame` next to `display`, unlocked by legendary tiers
+// Live in-room titles (獵人 / 本場金主 …) are computed on the client from the
+// room itself and never stored: src/utils/roomTitles.js. Each player's
+// prefs.showRoomTitles decides whether they can be given one.
 // evaluateTitles() only evaluates source 'stats'; resolveDisplay() accepts any
 // unlocked family so later sources can plug into the same doc.
 
@@ -49,12 +62,25 @@ export const DEFAULT_TITLE_PREFS = Object.freeze({
   mode: 'auto',
   titleId: null,
   showRoomTitles: true,
+  frame: 'auto',
 });
+
+// 頭像框, lowest first: `min` titles held (see titleCount) earn the frame
+export const FRAME_TIERS = Object.freeze([
+  Object.freeze({ id: 'bronze', min: 4 }),
+  Object.freeze({ id: 'silver', min: 8 }),
+  Object.freeze({ id: 'gold', min: 16 }),
+  Object.freeze({ id: 'platinum', min: 22 }),
+  Object.freeze({ id: 'diamond', min: 30 }),
+]);
+export const FRAME_IDS = Object.freeze(FRAME_TIERS.map((f) => f.id));
+// prefs.frame: the highest earned frame
+export const FRAME_AUTO = 'auto';
 
 // σ (volatility / steadiness) needs this many games with a known 組 size
 export const TITLE_MIN_GROUP_GAMES = 10;
-// 穩健: σ of the per-game result (組) at most this
-export const STEADY_MAX_STDDEV = 1;
+// 穩健: σ of the per-game result (組) below this (老闆 starts at 2)
+export const STEADY_MAX_STDDEV = 1.5;
 
 const num = (value) => Number(value) || 0;
 const total = (stats) => stats?.total || {};
@@ -109,15 +135,15 @@ export const TITLE_FAMILIES = Object.freeze([
   // tier 4 another year or so of that at 600.
   family('netWin', 'wallet', (s) => Math.max(0, num(total(s).profit)), [2000, 5000, 10000, 30000]),
   family('netLoss', 'wallet', (s) => Math.max(0, -num(total(s).profit)), [2000, 5000, 15000, 40000]),
-  family('bigWin', 'wallet', (s) => num(total(s).maxWinGroups), [3, 5, 8, 12]),
+  family('bigWin', 'wallet', (s) => num(total(s).maxWinGroups), [4, 7, 10, 15]),
   family('bigLoss', 'wallet', (s) => num(total(s).maxLossGroups), [3, 5, 8, 12]),
   family('volatile', 'wallet', (s) => {
     const sd = stdDevOf(s);
     return sd == null ? 0 : round2(sd);
-  }, [1.5, 2.5, 4, 6]),
+  }, [2, 3, 3.5, 5]),
   family('steady', 'wallet', (s) => {
     const sd = stdDevOf(s);
-    const ok = sd != null && sd <= STEADY_MAX_STDDEV && num(total(s).profit) > 0;
+    const ok = sd != null && sd < STEADY_MAX_STDDEV && num(total(s).profit) > 0;
     return ok ? num(total(s).games) : 0;
   }, [10, 20, 40, 80]),
 
@@ -132,14 +158,14 @@ export const TITLE_FAMILIES = Object.freeze([
   family('phoenix', 'tournament', (s) => num(tour(s).maxRebuyItm), [2, 4, 6]),
   family('rebuyer', 'tournament', (s) => num(tour(s).rebuyCount), [10, 30, 100], { tiers: [1, 2, 3] }),
   family('runnerUp', 'tournament', (s) => num(tour(s).runnerUp), [5], { tiers: [3], hidden: true }),
-  family('bubble', 'tournament', (s) => num(tour(s).bubble), [3], { tiers: [3], hidden: true }),
+  family('bubble', 'tournament', (s) => num(tour(s).bubble), [5], { tiers: [3], hidden: true }),
   family('firstOut', 'tournament', (s) => num(tour(s).firstOut), [5], { tiers: [3], hidden: true }),
 
   // ── 出席 ────────────────────────────────────────────────────────
   family('regular', 'attendance', (s) => num(total(s).games), [10, 40, 100, 200]),
-  family('host', 'attendance', (s) => num(total(s).hostedGames), [5, 15, 30, 60]),
-  family('hotStreak', 'attendance', (s) => num(total(s).winStreakBest), [3, 5, 8]),
-  family('coldStreak', 'attendance', (s) => num(total(s).lossStreakBest), [3, 5, 8]),
+  family('host', 'attendance', (s) => num(total(s).hostedGames), [5, 15, 40, 100]),
+  family('hotStreak', 'attendance', (s) => num(total(s).winStreakBest), [4, 7, 10]),
+  family('coldStreak', 'attendance', (s) => num(total(s).lossStreakBest), [4, 7, 10]),
   family('nightOwl', 'attendance', (s) => num(total(s).nightGames), [10], { tiers: [3], hidden: true }),
 ]);
 
@@ -251,10 +277,140 @@ export function mergeUnlocked(previous, evaluated, now) {
 }
 
 /**
+ * Rebuild the unlocked map from fresh tiers only, for a backfill after the
+ * thresholds moved (mergeUnlocked never lowers a tier, so a raised threshold
+ * would otherwise keep what the old one gave). A family at or below the tier
+ * it had keeps its `at`; one that is now higher gets `now`. Entries this
+ * can't judge (crowns, anything expiring, families this build doesn't know)
+ * stay as they are.
+ *
+ * @param {?Object<string, {tier: number, at: number}>} previous Stored map.
+ * @param {Object<string, number>} evaluated evaluateTitles() result.
+ * @param {number} now Unix millis for new unlocks.
+ * @return {{unlocked: object, upgraded: Array<{familyId: string, tier: number}>}}
+ */
+export function rebuildUnlocked(previous, evaluated, now) {
+  const unlocked = {};
+  for (const [id, entry] of Object.entries(previous || {})) {
+    const fam = getTitleFamily(id);
+    const unjudged = !fam || entry?.expiresAt != null || fam.source === TITLE_SOURCES.CROWN;
+    if (unjudged) unlocked[id] = entry;
+  }
+  const upgraded = [];
+  for (const [id, tier] of Object.entries(evaluated || {})) {
+    const prev = previous?.[id];
+    if (prev && Number.isInteger(prev.tier) && prev.tier >= tier) {
+      unlocked[id] = { tier, at: num(prev.at) };
+    } else {
+      unlocked[id] = { tier, at: now };
+      upgraded.push({ familyId: id, tier });
+    }
+  }
+  return { unlocked, upgraded };
+}
+
+/**
+ * Same families at the same tiers?
+ *
+ * @param {?object} a Unlocked map.
+ * @param {?object} b Unlocked map.
+ * @return {boolean}
+ */
+function sameUnlocked(a, b) {
+  const ka = Object.keys(a || {});
+  const kb = Object.keys(b || {});
+  return ka.length === kb.length && ka.every((id) => (a[id]?.tier || 0) === (b?.[id]?.tier || 0));
+}
+
+/**
+ * Does this unlocked entry count toward frames? Crowns (time-limited, phase 3)
+ * and anything carrying an expiry don't, so frames never drop.
+ *
+ * @param {string} id Family id.
+ * @param {?object} entry Unlocked entry.
+ * @return {boolean}
+ */
+function countsTowardFrames(id, entry) {
+  if (!entry || !Number.isInteger(entry.tier) || entry.tier <= 0) return false;
+  if (entry.expiresAt != null) return false;
+  return getTitleFamily(id)?.source !== TITLE_SOURCES.CROWN;
+}
+
+/**
+ * Titles held: every step of a family is its own named title, so a family at
+ * tier 3 of 1-2-3-4 holds three. Families with fewer steps start at a higher
+ * tier (神秘賞金頭獎 2-3-4, the hidden ones a single 3), so this counts the
+ * steps reached, not the tier number: a hidden title is one title. A family
+ * this build doesn't know (newer catalog) counts its tier.
+ *
+ * @param {?Object<string, {tier: number}>} unlocked Stored unlocked map.
+ * @return {number}
+ */
+export function titleCount(unlocked) {
+  let count = 0;
+  for (const [id, entry] of Object.entries(unlocked || {})) {
+    if (!countsTowardFrames(id, entry)) continue;
+    const fam = getTitleFamily(id);
+    count += fam ? fam.tiers.filter((step) => step.tier <= entry.tier).length : entry.tier;
+  }
+  return count;
+}
+
+/**
+ * Rank of a frame id in FRAME_TIERS (-1 = not a frame).
+ *
+ * @param {?string} frameId Frame id.
+ * @return {number}
+ */
+export function frameRank(frameId) {
+  return FRAME_IDS.indexOf(frameId);
+}
+
+/**
+ * Highest frame the unlocked titles earn.
+ *
+ * @param {?object} unlocked Stored unlocked map.
+ * @return {?string} Frame id, null below the first one.
+ */
+export function earnedFrame(unlocked) {
+  const count = titleCount(unlocked);
+  let earned = null;
+  for (const frame of FRAME_TIERS) {
+    if (count >= frame.min) earned = frame.id;
+  }
+  return earned;
+}
+
+/**
+ * Frames up to the earned one (lowest first).
+ *
+ * @param {?object} unlocked Stored unlocked map.
+ * @return {Array<string>}
+ */
+export function earnedFrames(unlocked) {
+  return FRAME_IDS.slice(0, frameRank(earnedFrame(unlocked)) + 1);
+}
+
+/**
+ * The frame shown: the picked one while earned, else the highest earned.
+ *
+ * @param {?object} unlocked Stored unlocked map.
+ * @param {?object} prefs Stored prefs.
+ * @return {?string} Frame id or null.
+ */
+export function resolveFrame(unlocked, prefs) {
+  const earned = earnedFrame(unlocked);
+  if (!earned) return null;
+  const picked = normalizeTitlePrefs(prefs).frame;
+  if (picked !== FRAME_AUTO && frameRank(picked) <= frameRank(earned)) return picked;
+  return earned;
+}
+
+/**
  * Normalize stored prefs (missing / bad fields → defaults).
  *
  * @param {?object} prefs Stored prefs.
- * @return {{mode: string, titleId: ?string, showRoomTitles: boolean}}
+ * @return {{mode: string, titleId: ?string, showRoomTitles: boolean, frame: string}}
  */
 export function normalizeTitlePrefs(prefs) {
   const p = prefs || {};
@@ -264,6 +420,7 @@ export function normalizeTitlePrefs(prefs) {
     showRoomTitles: typeof p.showRoomTitles === 'boolean'
       ? p.showRoomTitles
       : DEFAULT_TITLE_PREFS.showRoomTitles,
+    frame: FRAME_IDS.includes(p.frame) ? p.frame : DEFAULT_TITLE_PREFS.frame,
   };
 }
 
@@ -271,11 +428,11 @@ export function normalizeTitlePrefs(prefs) {
  * Validate a setTitlePrefs request against the unlocked titles. Fields left
  * out keep their current value.
  *
- * @param {?object} input `{ mode?, titleId?, showRoomTitles? }`.
+ * @param {?object} input `{ mode?, titleId?, showRoomTitles?, frame? }`.
  * @param {?object} current Stored prefs.
  * @param {?object} unlocked Stored unlocked map.
  * @return {object} { prefs } or { error }, error: 'bad-mode' | 'bad-title' |
- *   'not-unlocked' | 'bad-toggle'
+ *   'not-unlocked' | 'bad-toggle' | 'bad-frame' | 'frame-locked'
  */
 export function validateTitlePrefs(input, current, unlocked) {
   const base = normalizeTitlePrefs(current);
@@ -297,6 +454,13 @@ export function validateTitlePrefs(input, current, unlocked) {
     if (typeof data.showRoomTitles !== 'boolean') return { error: 'bad-toggle' };
     next.showRoomTitles = data.showRoomTitles;
   }
+  if (data.frame !== undefined) {
+    if (data.frame !== FRAME_AUTO && !FRAME_IDS.includes(data.frame)) return { error: 'bad-frame' };
+    if (data.frame !== FRAME_AUTO && frameRank(data.frame) > frameRank(earnedFrame(unlocked))) {
+      return { error: 'frame-locked' };
+    }
+    next.frame = data.frame;
+  }
   if (next.mode === 'pick' && (!next.titleId || !unlocked?.[next.titleId])) {
     return { error: 'not-unlocked' };
   }
@@ -304,15 +468,15 @@ export function validateTitlePrefs(input, current, unlocked) {
 }
 
 /**
- * What other players see. off → null; pick → the chosen title (falls back to
- * auto if it is no longer unlocked); auto → highest tier, ties to the most
- * recently reached, then catalog order.
+ * The title shown. off → null; pick → the chosen title (falls back to auto if
+ * it is no longer unlocked); auto → highest tier, ties to the most recently
+ * reached, then catalog order.
  *
  * @param {?object} unlocked Stored unlocked map.
  * @param {?object} prefs Stored prefs.
  * @return {?{familyId: string, tier: number}}
  */
-export function resolveDisplay(unlocked, prefs) {
+export function resolveTitle(unlocked, prefs) {
   const p = normalizeTitlePrefs(prefs);
   if (p.mode === 'off') return null;
   const map = unlocked || {};
@@ -331,25 +495,56 @@ export function resolveDisplay(unlocked, prefs) {
 }
 
 /**
+ * What other players see: the title (resolveTitle) and the frame
+ * (resolveFrame). The title fields are null when the title is off or none is
+ * unlocked; null overall when there is neither a title nor a frame.
+ *
+ * @param {?object} unlocked Stored unlocked map.
+ * @param {?object} prefs Stored prefs.
+ * @return {?{familyId: ?string, tier: ?number, frame: ?string}}
+ */
+export function resolveDisplay(unlocked, prefs) {
+  const title = resolveTitle(unlocked, prefs);
+  const frame = resolveFrame(unlocked, prefs);
+  if (!title && !frame) return null;
+  return { familyId: title?.familyId || null, tier: title?.tier || null, frame };
+}
+
+/**
+ * Same display? (null-safe; a stored display without `frame` predates frames)
+ *
+ * @param {?object} a Display.
+ * @param {?object} b Display.
+ * @return {boolean}
+ */
+function sameDisplay(a, b) {
+  return (a?.familyId || null) === (b?.familyId || null)
+    && (a?.tier || 0) === (b?.tier || 0)
+    && (a?.frame || null) === (b?.frame || null);
+}
+
+/**
  * Next userTitles payload from the stored doc and fresh all-time stats.
  *
  * @param {?object} previous Stored userTitles doc (or null).
  * @param {?object} allTimeStats leaderboardStats `all` doc.
  * @param {number} now Unix millis.
- * @return {object} { unlocked, prefs, display, upgraded, changed }.
+ * @param {object} [options] `{ rebuild }`: rebuildUnlocked instead of merging,
+ *   so tiers can also go down (backfill after a threshold change).
+ * @return {object} { unlocked, prefs, display (title + frame), upgraded, changed }.
  */
-export function buildUserTitles(previous, allTimeStats, now) {
-  const { unlocked, upgraded } = mergeUnlocked(
+export function buildUserTitles(previous, allTimeStats, now, { rebuild = false } = {}) {
+  const { unlocked, upgraded } = (rebuild ? rebuildUnlocked : mergeUnlocked)(
     previous?.unlocked, evaluateTitles(allTimeStats), now,
   );
   const prefs = normalizeTitlePrefs(previous?.prefs);
+  // Display = title + frame, so a new frame (or a doc written before frames
+  // existed) is a change too
   const display = resolveDisplay(unlocked, prefs);
-  const prevDisplay = previous?.display || null;
-  const sameDisplay = (prevDisplay?.familyId || null) === (display?.familyId || null)
-    && (prevDisplay?.tier || 0) === (display?.tier || 0);
   // No doc yet and nothing unlocked: nothing worth writing
   const changed = previous
-    ? upgraded.length > 0 || !sameDisplay
+    ? upgraded.length > 0 || !sameDisplay(previous.display, display)
+      || (rebuild && !sameUnlocked(previous.unlocked, unlocked))
     : Object.keys(unlocked).length > 0;
   return { unlocked, prefs, display, upgraded, changed };
 }

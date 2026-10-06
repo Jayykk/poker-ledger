@@ -10,7 +10,7 @@ import { reactive } from 'vue';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../firebase-init.js';
-import { normalizeTitlePrefs } from '../utils/titles.js';
+import { normalizeTitlePrefs, resolveDisplay } from '../utils/titles.js';
 
 const COLLECTION = 'userTitles';
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -21,11 +21,17 @@ const fetchedAt = new Map();
 const inFlight = new Map();
 let mine = { uid: null, unsubscribe: null, watchers: 0 };
 
-const toEntry = (data) => ({
-  unlocked: data?.unlocked || {},
-  prefs: normalizeTitlePrefs(data?.prefs),
-  display: data?.display || null,
-});
+// A doc written before 頭像框 has no display.frame (and display null when the
+// title is off): resolve it here with the same shared rules until the next
+// recompute / backfill rewrites it, so frames show right away.
+const toEntry = (data) => {
+  const unlocked = data?.unlocked || {};
+  const prefs = normalizeTitlePrefs(data?.prefs);
+  const stored = data?.display || null;
+  const display = stored && stored.frame !== undefined ? stored : resolveDisplay(unlocked, prefs);
+  // LINE photo + name, copied from users/{uid} by Cloud Functions
+  return { unlocked, prefs, display, avatar: data?.avatar || '', name: data?.name || '' };
+};
 
 async function fetchOne(uid) {
   if (inFlight.has(uid)) return inFlight.get(uid);
@@ -58,9 +64,28 @@ export function ensureUserTitles(uids) {
   return Promise.all(stale.map(fetchOne)).then(() => {});
 }
 
-/** The title a user shows to others ({ familyId, tier }) or null. */
+/**
+ * What a user shows to others: { familyId, tier, frame } or null. familyId /
+ * tier are null when they show a frame but no title.
+ */
 export function titleDisplayOf(uid) {
   return (uid && cache[uid]?.display) || null;
+}
+
+/** The 頭像框 a user shows ('bronze' … 'diamond') or null. */
+export function frameOf(uid) {
+  return titleDisplayOf(uid)?.frame || null;
+}
+
+/**
+ * Whether a user lets the room give them live titles (prefs.showRoomTitles).
+ * null while their doc isn't loaded yet (load it with ensureUserTitles).
+ * @param {string} uid
+ * @return {?boolean}
+ */
+export function allowsRoomTitles(uid) {
+  const entry = uid ? cache[uid] : null;
+  return entry ? entry.prefs.showRoomTitles : null;
 }
 
 /**
@@ -100,7 +125,7 @@ export function watchMyTitles(uid) {
 
 /**
  * Save your display prefs through the setTitlePrefs callable (userTitles is
- * not client-writable). Any of { mode, titleId, showRoomTitles }.
+ * not client-writable). Any of { mode, titleId, showRoomTitles, frame }.
  * @param {string} uid Your uid (to update the cache right away).
  * @param {object} prefs
  * @return {Promise<{prefs: object, display: ?object}>}
@@ -116,11 +141,24 @@ export async function saveTitlePrefs(uid, prefs) {
   return data;
 }
 
+/**
+ * A player's photo (LINE), '' until loaded or when they have none.
+ *
+ * @param {string} uid Player.
+ * @return {string}
+ */
+export function avatarOf(uid) {
+  return (uid && cache[uid]?.avatar) || '';
+}
+
 export function useUserTitles() {
   return {
     titles: cache,
     ensureUserTitles,
     titleDisplayOf,
+    frameOf,
+    avatarOf,
+    allowsRoomTitles,
     watchMyTitles,
     saveTitlePrefs,
   };

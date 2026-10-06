@@ -25,13 +25,15 @@
         <div class="sd-row dealer" :class="{ me: chart.dealer && isMe(chart.dealer), empty: !chart.dealer }">
           <span class="sd-no">🃏</span>
           <span class="sd-name">{{ chart.dealer ? chart.dealer.name : $t('seats.noDealerSeat') }}<small>{{ $t('seats.dealer') }}</small></span>
-          <TitleBadge v-if="chart.dealer?.uid" :uid="chart.dealer.uid" />
+          <LiveTitleBadge v-if="chart.dealer && roomTitles[chart.dealer.id]" :title-id="roomTitles[chart.dealer.id]" />
+          <TitleBadge v-else-if="chart.dealer?.uid" :uid="chart.dealer.uid" />
           <span v-if="chart.dealer?.seat.button" class="sd-btn" :title="$t('seats.button')">D</span>
         </div>
         <div v-for="s in chart.seats" :key="s.no" class="sd-row" :class="{ me: s.player && isMe(s.player), empty: !s.player }">
           <span class="sd-no">{{ s.no }}</span>
           <span class="sd-name">{{ s.player ? s.player.name : $t('seats.empty') }}</span>
-          <TitleBadge v-if="s.player?.uid" :uid="s.player.uid" />
+          <LiveTitleBadge v-if="s.player && roomTitles[s.player.id]" :title-id="roomTitles[s.player.id]" />
+          <TitleBadge v-else-if="s.player?.uid" :uid="s.player.uid" />
           <span v-if="s.player?.seat.button" class="sd-btn" :title="$t('seats.button')">D</span>
         </div>
       </div>
@@ -52,9 +54,12 @@ import { ref, computed, watch } from 'vue';
 import BaseModal from '../common/BaseModal.vue';
 import BaseButton from '../common/BaseButton.vue';
 import TitleBadge from '../common/TitleBadge.vue';
+import LiveTitleBadge from '../common/LiveTitleBadge.vue';
 import { isSeated, seatingChart, currentDealer, tableCapacity } from '../../utils/seatDraw.js';
 
 const props = defineProps({
+  // 房內即時稱號: playerId → title id (utils/roomTitles.js)
+  roomTitles: { type: Object, default: () => ({}) },
   modelValue: { type: Boolean, default: false },
   players: { type: Array, default: () => [] },
   isHost: { type: Boolean, default: false },

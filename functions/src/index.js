@@ -64,7 +64,7 @@ import {
 } from './handlers/tournamentSettlement.js';
 import { settleCashGame as settleCashGameHandler } from './handlers/cashSettlement.js';
 import { reportClientError as reportClientErrorHandler } from './handlers/clientErrors.js';
-import { setTitlePrefs as setTitlePrefsHandler } from './handlers/userTitles.js';
+import { setTitlePrefs as setTitlePrefsHandler, syncPublicProfile } from './handlers/userTitles.js';
 
 // Initialize Firebase Admin
 initializeApp();
@@ -674,8 +674,9 @@ export const reportClientError = onCall(async (request) => {
 });
 
 /**
- * 稱號: display mode (off / auto / pick), the picked title (must be unlocked)
- * and the in-room titles toggle. userTitles is server-written only, so the
+ * 稱號: display mode (off / auto / pick), the picked title (must be unlocked),
+ * the 頭像框 (auto or an earned frame) and the in-room titles toggle.
+ * userTitles is server-written only, so the
  * profile page saves through here; returns the prefs and resolved display.
  */
 export const setTitlePrefs = onCall(async (request) => {
@@ -776,6 +777,18 @@ export const syncCompletedGameHistory = onCall(async (request) => {
     console.error('syncCompletedGameHistory callable failed:', gameId, error);
     await recordProjectionError(gameId, error);
     throw error;
+  }
+});
+
+// A new LINE photo / name reaches userTitles (what every name in the app
+// reads) right away, not only after the user's next game
+export const onUserProfileWrite = onDocumentWritten({ document: 'users/{uid}', database: FIRESTORE_DATABASE_ID }, async (event) => {
+  const before = event.data.before.exists ? event.data.before.data() : null;
+  const after = event.data.after.exists ? event.data.after.data() : null;
+  try {
+    await syncPublicProfile(getFirestore(), event.params.uid, before, after);
+  } catch (error) {
+    console.error('onUserProfileWrite failed:', event.params.uid, error);
   }
 });
 

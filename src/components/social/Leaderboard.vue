@@ -88,7 +88,7 @@
         v-for="(entry, index) in leaderboard"
         :key="entry.uid"
         @click="selectedSort === 'specialHands' && handleViewHandDetails(entry)"
-        class="flex items-center gap-3 p-3 rounded-lg transition-colors"
+        class="flex items-center gap-2.5 p-3 rounded-lg transition-colors"
         :class="[
           entry.uid === user?.uid ? 'bg-amber-600/20 border border-amber-600/50' : 'bg-slate-700',
           selectedSort === 'specialHands' ? 'cursor-pointer hover:bg-slate-600' : ''
@@ -103,6 +103,8 @@
           <span v-else-if="index === 2">🥉</span>
           <span v-else>{{ index + 1 }}</span>
         </div>
+
+        <PlayerAvatar size="sm" :src="avatarSrcOf(entry, user)" :name="entry.name" :uid="entry.uid" />
 
         <!-- User info -->
         <div class="flex-1 min-w-0">
@@ -171,10 +173,11 @@
         v-if="myRankInfo"
         class="mt-3 pt-3 border-t border-slate-600"
       >
-        <div class="flex items-center gap-3 p-3 rounded-lg bg-amber-600/20 border border-amber-600/50">
+        <div class="flex items-center gap-2.5 p-3 rounded-lg bg-amber-600/20 border border-amber-600/50">
           <div class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm bg-slate-600 text-gray-200">
             {{ myRankInfo.rank }}
           </div>
+          <PlayerAvatar size="sm" :src="avatarSrcOf(myRankInfo, user)" :name="myRankInfo.name" :uid="myRankInfo.uid" />
           <div class="flex-1 min-w-0">
             <div class="text-white font-bold flex items-center gap-1.5 min-w-0">
               <span class="truncate shrink-[10]">{{ myRankInfo.name }}</span>
@@ -259,6 +262,8 @@ import { db } from '../../firebase-init.js';
 import { useAuth } from '../../composables/useAuth.js';
 import BaseCard from '../common/BaseCard.vue';
 import TitleBadge from '../common/TitleBadge.vue';
+import PlayerAvatar from '../common/PlayerAvatar.vue';
+import { avatarSrcOf } from '../../utils/avatar.js';
 import HandDetailsModal from './HandDetailsModal.vue';
 import { formatNumber } from '../../utils/formatters.js';
 import { HAND_TYPES } from '../../utils/constants.js';
