@@ -103,11 +103,14 @@ function family(id, group, metric, thresholds, { tiers, hidden = false } = {}) {
 
 export const TITLE_FAMILIES = Object.freeze([
   // ── 錢包 ────────────────────────────────────────────────────────
-  // Money in the leaderboard's unit (cash: profitCash, or chips / rate)
-  family('netWin', 'wallet', (s) => Math.max(0, num(total(s).profit)), [10000, 50000, 100000, 300000]),
-  family('netLoss', 'wallet', (s) => Math.max(0, -num(total(s).profit)), [10000, 50000, 100000, 300000]),
-  family('bigWin', 'wallet', (s) => num(total(s).maxWinGroups), [3, 5, 10, 20]),
-  family('bigLoss', 'wallet', (s) => num(total(s).maxLossGroups), [3, 5, 10, 20]),
+  // Money in the leaderboard's unit (cash: profitCash, or chips / rate).
+  // Set for a one-group buy-in of 600 after a year where the top winner sat
+  // at +12K and the top loser at -20K: tier 3 is where the leaders are now,
+  // tier 4 another year or so of that at 600.
+  family('netWin', 'wallet', (s) => Math.max(0, num(total(s).profit)), [2000, 5000, 10000, 30000]),
+  family('netLoss', 'wallet', (s) => Math.max(0, -num(total(s).profit)), [2000, 5000, 15000, 40000]),
+  family('bigWin', 'wallet', (s) => num(total(s).maxWinGroups), [3, 5, 8, 12]),
+  family('bigLoss', 'wallet', (s) => num(total(s).maxLossGroups), [3, 5, 8, 12]),
   family('volatile', 'wallet', (s) => {
     const sd = stdDevOf(s);
     return sd == null ? 0 : round2(sd);
@@ -116,16 +119,16 @@ export const TITLE_FAMILIES = Object.freeze([
     const sd = stdDevOf(s);
     const ok = sd != null && sd <= STEADY_MAX_STDDEV && num(total(s).profit) > 0;
     return ok ? num(total(s).games) : 0;
-  }, [10, 20, 50, 100]),
+  }, [10, 20, 40, 80]),
 
   // ── 獵頭 ────────────────────────────────────────────────────────
-  family('hunter', 'hunter', (s) => num(tour(s).knockouts), [10, 30, 100, 300]),
-  family('hunted', 'hunter', (s) => num(tour(s).knockedOut), [10, 30, 100, 300]),
+  family('hunter', 'hunter', (s) => num(tour(s).knockouts), [5, 20, 50, 120]),
+  family('hunted', 'hunter', (s) => num(tour(s).knockedOut), [5, 20, 50, 120]),
   family('mysteryTop', 'hunter', (s) => num(tour(s).topDraws), [1, 3, 10]),
 
   // ── 錦標賽 ──────────────────────────────────────────────────────
-  family('champion', 'tournament', (s) => num(tour(s).champion), [1, 3, 10, 30]),
-  family('itm', 'tournament', (s) => num(tour(s).itm), [5, 20, 50, 100]),
+  family('champion', 'tournament', (s) => num(tour(s).champion), [1, 3, 6, 12]),
+  family('itm', 'tournament', (s) => num(tour(s).itm), [3, 10, 25, 50]),
   family('phoenix', 'tournament', (s) => num(tour(s).maxRebuyItm), [2, 4, 6]),
   family('rebuyer', 'tournament', (s) => num(tour(s).rebuyCount), [10, 30, 100], { tiers: [1, 2, 3] }),
   family('runnerUp', 'tournament', (s) => num(tour(s).runnerUp), [5], { tiers: [3], hidden: true }),
@@ -133,8 +136,8 @@ export const TITLE_FAMILIES = Object.freeze([
   family('firstOut', 'tournament', (s) => num(tour(s).firstOut), [5], { tiers: [3], hidden: true }),
 
   // ── 出席 ────────────────────────────────────────────────────────
-  family('regular', 'attendance', (s) => num(total(s).games), [10, 50, 100, 300]),
-  family('host', 'attendance', (s) => num(total(s).hostedGames), [5, 20, 50, 100]),
+  family('regular', 'attendance', (s) => num(total(s).games), [10, 30, 60, 120]),
+  family('host', 'attendance', (s) => num(total(s).hostedGames), [5, 15, 30, 60]),
   family('hotStreak', 'attendance', (s) => num(total(s).winStreakBest), [3, 5, 8]),
   family('coldStreak', 'attendance', (s) => num(total(s).lossStreakBest), [3, 5, 8]),
   family('nightOwl', 'attendance', (s) => num(total(s).nightGames), [10], { tiers: [3], hidden: true }),

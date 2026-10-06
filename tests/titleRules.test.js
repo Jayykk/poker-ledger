@@ -67,9 +67,9 @@ describe('evaluateTitles', () => {
   });
 
   it('wallet: net win / loss and biggest single game in 組', () => {
-    expect(evaluateTitles(stats({ total: { profit: 50000 } })).netWin).toBe(2);
-    expect(evaluateTitles(stats({ total: { profit: 9999 } })).netWin).toBeUndefined();
-    expect(evaluateTitles(stats({ total: { profit: -300000 } })).netLoss).toBe(4);
+    expect(evaluateTitles(stats({ total: { profit: 5000 } })).netWin).toBe(2);
+    expect(evaluateTitles(stats({ total: { profit: 1999 } })).netWin).toBeUndefined();
+    expect(evaluateTitles(stats({ total: { profit: -40000 } })).netLoss).toBe(4);
     const big = evaluateTitles(stats({ total: { maxWinGroups: 10, maxLossGroups: 3 } }));
     expect(big.bigWin).toBe(3);
     expect(big.bigLoss).toBe(1);
@@ -112,23 +112,23 @@ describe('evaluateTitles', () => {
     }));
     const all = aggregateHistoryRecords('me', records).get('all');
     expect(evaluateTitles(all)).toMatchObject({
-      regular: 1, host: 1, hotStreak: 4, netWin: 1, steady: 1,
+      regular: 1, host: 1, hotStreak: 4, netWin: 3, steady: 1,
     });
   });
 });
 
 describe('nextTierProgress', () => {
   it('reports the next goal and how far along', () => {
-    const p = nextTierProgress('regular', stats({ total: { games: 30 } }));
-    expect(p).toMatchObject({ value: 30, tier: 1, from: 10, maxed: false });
-    expect(p.next).toMatchObject({ tier: 2, threshold: 50 });
+    const p = nextTierProgress('regular', stats({ total: { games: 20 } }));
+    expect(p).toMatchObject({ value: 20, tier: 1, from: 10, maxed: false });
+    expect(p.next).toMatchObject({ tier: 2, threshold: 30 });
     expect(p.ratio).toBeCloseTo(0.5);
   });
 
   it('starts above an already-unlocked tier even if the value dropped', () => {
-    const p = nextTierProgress(getTitleFamily('netWin'), stats({ total: { profit: 20000 } }), 3);
+    const p = nextTierProgress(getTitleFamily('netWin'), stats({ total: { profit: 8000 } }), 3);
     expect(p.tier).toBe(3);
-    expect(p.next.threshold).toBe(300000);
+    expect(p.next.threshold).toBe(30000);
     expect(p.ratio).toBe(0);
   });
 
