@@ -54,7 +54,7 @@ describe('leaderboard aggregates: Hunter and 歐皇', () => {
       bountyGames: 2, knockouts: 5, bountyWon: 1350,
       mysteryGames: 1, draws: 3, topDraws: 1, mysteryWon: 750, bestDraw: 500,
     });
-    expect(LEADERBOARD_STATS_VERSION).toBe(3);
+    expect(LEADERBOARD_STATS_VERSION).toBe(4);
   });
 
   it('Hunter ranks by knockouts then bounty; 歐皇 by mystery winnings then big prizes', () => {
