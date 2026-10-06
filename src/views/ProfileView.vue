@@ -9,6 +9,9 @@
     <h2 class="text-xl font-bold text-white mb-1">
       {{ displayName }}
     </h2>
+    <div v-if="myDisplay" class="flex justify-center mb-1">
+      <TitleBadge :family-id="myDisplay.familyId" :tier="myDisplay.tier" />
+    </div>
     <p v-if="isGuest" class="text-xs text-amber-500 mb-6">{{ $t('auth.guest') }}</p>
 
     <!-- Settings -->
@@ -56,6 +59,75 @@
           </div>
         </Transition>
       </div>
+
+      <!-- 稱號 -->
+      <BaseCard padding="md">
+        <div class="flex justify-between items-center gap-2">
+          <span class="text-white">{{ $t('titles.title') }}</span>
+          <router-link to="/titles" class="text-sm text-amber-400 whitespace-nowrap">
+            <i class="fas fa-book-open mr-1"></i>{{ $t('titles.codex') }}<i class="fas fa-chevron-right text-xs ml-1"></i>
+          </router-link>
+        </div>
+        <div class="text-xs text-gray-400 text-left mt-1">
+          {{ $t('titles.unlockedCount', { n: unlockedTitles.length, total: TITLE_FAMILIES.length }) }}
+        </div>
+
+        <div class="mt-3 text-left">
+          <div class="text-xs text-gray-400 mb-1.5">{{ $t('titles.mode') }}</div>
+          <div class="grid grid-cols-3 gap-2">
+            <button
+              v-for="m in titleModes"
+              :key="m.id"
+              type="button"
+              class="title-mode"
+              :class="{ active: titlePrefs.mode === m.id }"
+              :disabled="titleSaving || (m.id === 'pick' && !unlockedTitles.length)"
+              @click="setTitleMode(m.id)"
+            >
+              {{ $t(m.label) }}
+            </button>
+          </div>
+          <p class="text-[11px] text-gray-400 mt-1.5">
+            <template v-if="titlePrefs.mode === 'off'">{{ $t('titles.modeOffHint') }}</template>
+            <template v-else-if="titlePrefs.mode === 'auto'">{{ $t('titles.modeAutoHint') }}</template>
+            <template v-else>{{ $t('titles.pick') }}</template>
+          </p>
+        </div>
+
+        <div v-if="titlePrefs.mode === 'pick' && unlockedTitles.length" class="flex flex-wrap gap-2 mt-2">
+          <button
+            v-for="item in unlockedTitles"
+            :key="item.familyId"
+            type="button"
+            class="title-pick"
+            :class="{ active: titlePrefs.titleId === item.familyId }"
+            :disabled="titleSaving"
+            @click="pickTitle(item.familyId)"
+          >
+            <TitleBadge :family-id="item.familyId" :tier="item.tier" />
+          </button>
+        </div>
+        <p v-if="!unlockedTitles.length" class="text-xs text-gray-500 text-left mt-2">{{ $t('titles.noneUnlocked') }}</p>
+
+        <div class="flex justify-between items-center gap-3 mt-4 text-left">
+          <div class="min-w-0">
+            <div class="text-white text-sm">{{ $t('titles.roomTitles') }}</div>
+            <div class="text-[11px] text-gray-400">{{ $t('titles.roomTitlesHint') }}</div>
+          </div>
+          <button
+            type="button"
+            @click="toggleRoomTitles"
+            :disabled="titleSaving"
+            class="w-12 h-6 rounded-full transition relative flex-shrink-0"
+            :class="titlePrefs.showRoomTitles ? 'bg-emerald-600' : 'bg-slate-700'"
+          >
+            <div
+              class="w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform"
+              :class="titlePrefs.showRoomTitles ? 'translate-x-6' : 'translate-x-0.5'"
+            ></div>
+          </button>
+        </div>
+      </BaseCard>
 
       <!-- Language -->
       <BaseCard padding="md">
@@ -159,7 +231,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
@@ -169,6 +241,9 @@ import { useLiff } from '../composables/useLiff.js';
 import BaseCard from '../components/common/BaseCard.vue';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
+import TitleBadge from '../components/common/TitleBadge.vue';
+import { useUserTitles } from '../composables/useUserTitles.js';
+import { TITLE_FAMILIES, getTitleFamily, normalizeTitlePrefs } from '../utils/titles.js';
 import { STORAGE_KEYS } from '../utils/constants.js';
 import { THEMES as THEME_LIST, applyTheme, resolveThemeId } from '../utils/themes.js';
 
@@ -195,6 +270,65 @@ const upgradeForm = ref({
 const upgradeLoading = ref(false);
 const upgradeError = ref('');
 const upgradeExpanded = ref(false);
+
+// ── 稱號 ──────────────────────────────────────────────────────────
+// userTitles/{uid} is server-written: read it live, save through setTitlePrefs
+const { titles, watchMyTitles, saveTitlePrefs } = useUserTitles();
+const titleModes = [
+  { id: 'off', label: 'titles.modeOff' },
+  { id: 'auto', label: 'titles.modeAuto' },
+  { id: 'pick', label: 'titles.modePick' },
+];
+const myTitles = computed(() => titles[user.value?.uid] || null);
+const titlePrefs = computed(() => normalizeTitlePrefs(myTitles.value?.prefs));
+const myDisplay = computed(() => myTitles.value?.display || null);
+// Highest tier first, then the most recently reached
+const unlockedTitles = computed(() => Object.entries(myTitles.value?.unlocked || {})
+  .filter(([id, entry]) => getTitleFamily(id) && entry?.tier > 0)
+  .map(([familyId, entry]) => ({ familyId, tier: entry.tier, at: entry.at || 0 }))
+  .sort((a, b) => (b.tier - a.tier) || (b.at - a.at)));
+const titleSaving = ref(false);
+
+let stopTitles = () => {};
+watch(() => user.value?.uid, (uid) => {
+  stopTitles();
+  stopTitles = watchMyTitles(uid);
+}, { immediate: true });
+onBeforeUnmount(() => stopTitles());
+
+async function saveTitles(prefs) {
+  if (!user.value?.uid || titleSaving.value) return;
+  titleSaving.value = true;
+  try {
+    await saveTitlePrefs(user.value.uid, prefs);
+  } catch (error) {
+    console.warn('[titles] save failed', error?.code || error);
+    notification.error(t('titles.saveFailed'));
+  } finally {
+    titleSaving.value = false;
+  }
+}
+
+function setTitleMode(mode) {
+  if (mode === titlePrefs.value.mode) return;
+  if (mode !== 'pick') {
+    saveTitles({ mode });
+    return;
+  }
+  // 指定 needs a title: keep the last pick, else what's shown now, else the best
+  const unlocked = myTitles.value?.unlocked || {};
+  const titleId = [titlePrefs.value.titleId, myDisplay.value?.familyId, unlockedTitles.value[0]?.familyId]
+    .find((id) => id && unlocked[id]);
+  if (titleId) saveTitles({ mode, titleId });
+}
+
+function pickTitle(familyId) {
+  if (familyId !== titlePrefs.value.titleId) saveTitles({ mode: 'pick', titleId: familyId });
+}
+
+function toggleRoomTitles() {
+  saveTitles({ showRoomTitles: !titlePrefs.value.showRoomTitles });
+}
 
 const handleLanguageChange = () => {
   locale.value = selectedLanguage.value;
@@ -272,6 +406,18 @@ const handleLogout = async () => {
   background: rgb(var(--tw-slate-900) / 0.5);
 }
 .theme-opt.active { border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.08); }
+.title-mode {
+  padding: 0.4rem 0;
+  border-radius: 0.6rem;
+  font-size: 0.85rem;
+  color: rgb(var(--tw-slate-300));
+  border: 1px solid rgb(var(--tw-slate-600));
+  background: rgb(var(--tw-slate-900) / 0.5);
+}
+.title-mode.active { color: rgb(var(--tw-white)); border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.12); font-weight: 600; }
+.title-mode:disabled:not(.active) { opacity: 0.4; }
+.title-pick { padding: 0.2rem; border-radius: 999px; border: 1px solid transparent; }
+.title-pick.active { border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.1); }
 .expand-enter-active,
 .expand-leave-active {
   transition: all 0.3s ease;

@@ -27,15 +27,18 @@
         <div
           v-for="(player, index) in sortedSettlement"
           :key="index"
-          class="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg"
+          class="flex justify-between items-center gap-3 p-3 bg-slate-700/50 rounded-lg"
         >
-          <div>
-            <div class="text-white font-medium">{{ player.name }}</div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="text-white font-medium truncate shrink-[10]">{{ player.name }}</span>
+              <TitleBadge v-if="player.odId" :uid="player.odId" />
+            </div>
             <div class="text-xs text-gray-400">
               {{ getSettlementSummary(player) }}
             </div>
           </div>
-          <div class="text-right">
+          <div class="text-right flex-shrink-0">
             <div
               class="font-mono font-bold text-lg"
               :class="getProfitColorClass(getPlayerProfitCash(player))"
@@ -172,6 +175,7 @@ import { rowCash, formatCashAmount } from '../../utils/cashRounding.js';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BaseModal from './BaseModal.vue';
+import TitleBadge from './TitleBadge.vue';
 import { formatNumber, formatDate, getProfitColorClass } from '../../utils/formatters.js';
 import { useHand } from '../../composables/useHand.js';
 
