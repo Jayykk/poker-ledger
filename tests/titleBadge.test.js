@@ -6,8 +6,9 @@ import { resolve } from 'path';
 import zhTW from '../src/i18n/locales/zh-TW.json';
 
 const docs = {
-  alice: { display: { familyId: 'champion', tier: 4 }, unlocked: { champion: { tier: 4, at: 1 } } },
-  bob: { display: { familyId: 'regular', tier: 2 }, unlocked: { regular: { tier: 2, at: 1 } } },
+  // Turned on (titles are opt-in); displays from before frames, resolved on the client
+  alice: { display: { familyId: 'champion', tier: 4 }, unlocked: { champion: { tier: 4, at: 1 } }, prefs: { mode: 'auto', frame: 'auto' } },
+  bob: { display: { familyId: 'regular', tier: 2 }, unlocked: { regular: { tier: 2, at: 1 } }, prefs: { mode: 'auto', frame: 'auto' } },
   carol: { display: null, unlocked: {} },
 };
 const reads = [];

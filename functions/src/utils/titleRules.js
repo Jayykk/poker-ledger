@@ -58,12 +58,30 @@ export const TITLE_SOURCES = Object.freeze({
 
 export const TITLE_MODES = Object.freeze(['off', 'auto', 'pick']);
 
+// Opt-in: nothing shows (title, frame, room titles) until the player turns
+// it on in 我的
 export const DEFAULT_TITLE_PREFS = Object.freeze({
-  mode: 'auto',
+  mode: 'off',
   titleId: null,
-  showRoomTitles: true,
-  frame: 'auto',
+  showRoomTitles: false,
+  frame: 'none',
 });
+
+/**
+ * Stored prefs that are just the defaults from before opt-in (auto title,
+ * auto frame, room titles on, nothing picked) — written by the backfill, not
+ * chosen by the player. migrate_title_prefs_opt_in.js resets these.
+ *
+ * @param {?object} prefs Stored (raw) prefs.
+ * @return {boolean}
+ */
+export function isLegacyDefaultPrefs(prefs) {
+  const p = prefs || {};
+  return (p.mode === undefined || p.mode === 'auto')
+    && !p.titleId
+    && (p.showRoomTitles === undefined || p.showRoomTitles === true)
+    && (p.frame === undefined || p.frame === 'auto');
+}
 
 // 頭像框, lowest first: `min` titles held (see titleCount) earn the frame
 export const FRAME_TIERS = Object.freeze([
@@ -76,6 +94,9 @@ export const FRAME_TIERS = Object.freeze([
 export const FRAME_IDS = Object.freeze(FRAME_TIERS.map((f) => f.id));
 // prefs.frame: the highest earned frame
 export const FRAME_AUTO = 'auto';
+// prefs.frame: no frame shown
+export const FRAME_NONE = 'none';
+const FRAME_PREFS = Object.freeze([FRAME_AUTO, FRAME_NONE, ...FRAME_IDS]);
 
 // σ (volatility / steadiness) needs this many games with a known 組 size
 export const TITLE_MIN_GROUP_GAMES = 10;
@@ -399,9 +420,10 @@ export function earnedFrames(unlocked) {
  * @return {?string} Frame id or null.
  */
 export function resolveFrame(unlocked, prefs) {
+  const picked = normalizeTitlePrefs(prefs).frame;
+  if (picked === FRAME_NONE) return null;
   const earned = earnedFrame(unlocked);
   if (!earned) return null;
-  const picked = normalizeTitlePrefs(prefs).frame;
   if (picked !== FRAME_AUTO && frameRank(picked) <= frameRank(earned)) return picked;
   return earned;
 }
@@ -420,7 +442,7 @@ export function normalizeTitlePrefs(prefs) {
     showRoomTitles: typeof p.showRoomTitles === 'boolean'
       ? p.showRoomTitles
       : DEFAULT_TITLE_PREFS.showRoomTitles,
-    frame: FRAME_IDS.includes(p.frame) ? p.frame : DEFAULT_TITLE_PREFS.frame,
+    frame: FRAME_PREFS.includes(p.frame) ? p.frame : DEFAULT_TITLE_PREFS.frame,
   };
 }
 
@@ -455,8 +477,9 @@ export function validateTitlePrefs(input, current, unlocked) {
     next.showRoomTitles = data.showRoomTitles;
   }
   if (data.frame !== undefined) {
-    if (data.frame !== FRAME_AUTO && !FRAME_IDS.includes(data.frame)) return { error: 'bad-frame' };
-    if (data.frame !== FRAME_AUTO && frameRank(data.frame) > frameRank(earnedFrame(unlocked))) {
+    if (!FRAME_PREFS.includes(data.frame)) return { error: 'bad-frame' };
+    const locked = frameRank(data.frame) > frameRank(earnedFrame(unlocked));
+    if (FRAME_IDS.includes(data.frame) && locked) {
       return { error: 'frame-locked' };
     }
     next.frame = data.frame;
