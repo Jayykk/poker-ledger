@@ -78,7 +78,17 @@ describe('rename rule and bottom bar spacing', () => {
 
   it('the bottom bar sits at the bottom (no app nav in rooms)', () => {
     expect(bar).toContain('bottom: 0;');
-    expect(bar).toContain('padding: 0.55rem 1rem calc(0.55rem + env(safe-area-inset-bottom, 0px));');
+    expect(bar).toMatch(/padding: [^;]*calc\([^;]*env\(safe-area-inset-bottom, 0px\)\);/);
+  });
+
+  it('every bar action is a labeled tab (座位 / 抽獎 are not bare emoji)', () => {
+    expect(bar).toMatch(/\.bar-btn\) \{[^}]*flex-direction: column;/);
+    for (const room of [cashRoom, tournamentRoom]) {
+      expect(room).toContain(`<i class="fas fa-chair"></i>{{ $t('seats.title') }}`);
+      expect(room).not.toContain('>🎴</button>');
+    }
+    expect(tournamentRoom).toContain(`<i class="fas fa-gift"></i>{{ $t('mystery.open') }}`);
+    expect(tournamentRoom).toContain('<span v-if="mysteryPending > 0" class="bar-badge">{{ mysteryPending }}</span>');
   });
 
   it('the header goes back to the lobby, and rooms hide the app nav', () => {

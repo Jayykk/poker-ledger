@@ -140,21 +140,24 @@
     <!-- Room actions above the bottom navigation -->
     <RoomActionBar>
       <button v-if="isHost && reentriesOpen" type="button" class="bar-btn" @click="showAddPlayer = true">
-        <i class="fas fa-plus"></i>{{ $t('room.addPlayer') }}
+        <i class="fas fa-user-plus"></i>{{ $t('room.addPlayer') }}
       </button>
       <button type="button" class="bar-btn" @click="scrollToLog">
         <i class="fas fa-list"></i>{{ $t('room.records') }}
       </button>
       <button type="button" class="bar-btn" @click="showHandRecord = true">
-        <i class="fas fa-save"></i>{{ $t('room.hands') }}
+        <i class="fas fa-clone"></i>{{ $t('room.hands') }}
       </button>
-      <button v-if="isHost || seated" type="button" class="bar-btn" :aria-label="$t('seats.title')" @click="showSeats = true">🎴</button>
+      <button v-if="isHost || seated" type="button" class="bar-btn" @click="showSeats = true">
+        <i class="fas fa-chair"></i>{{ $t('seats.title') }}
+      </button>
       <!-- Mystery: the draw screen (with how many draws are waiting) -->
       <button v-if="isMystery" type="button" class="bar-btn" @click="$router.push(`/mystery-draw/${gameId}`)">
-        🎁<span v-if="mysteryPending > 0" class="font-bold text-amber-300">{{ mysteryPending }}</span>
+        <i class="fas fa-gift"></i>{{ $t('mystery.open') }}
+        <span v-if="mysteryPending > 0" class="bar-badge">{{ mysteryPending }}</span>
       </button>
       <button v-if="isParticipant" type="button" class="bar-btn primary" @click="showSettlement = true">
-        {{ $t('room.settle') }}
+        <i class="fas fa-flag-checkered"></i>{{ $t('room.settle') }}
       </button>
     </RoomActionBar>
 
