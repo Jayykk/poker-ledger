@@ -6,8 +6,8 @@
   >
     <span class="pa-face">
       <img
-        v-if="src && !broken"
-        :src="src"
+        v-if="shownSrc && !broken"
+        :src="shownSrc"
         alt=""
         loading="lazy"
         referrerpolicy="no-referrer"
@@ -22,14 +22,14 @@
 
 <script setup>
 // A player's round avatar with their 頭像框 (avatar frame) as the ring.
-// Image from `src` (falls back to the name's first character when missing or
-// broken). The frame is either given (`frame`: a frame id, or null / '' for
+// Image from `src`, else the player's LINE photo from the same cached
+// userTitles doc (`uid`), else the name's first character (also when broken). The frame is either given (`frame`: a frame id, or null / '' for
 // none) or read from the player's userTitles display through the shared cache
 // (`uid`; the same doc TitleBadge loads, so no extra read). No frame → a thin
 // neutral ring. Sizes: sm 28px (rows) · md 40px · lg 80px (profile).
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { ensureUserTitles, frameOf } from '../../composables/useUserTitles.js';
+import { avatarOf, ensureUserTitles, frameOf } from '../../composables/useUserTitles.js';
 import { FRAME_IDS } from '../../utils/titles.js';
 
 const props = defineProps({
@@ -49,8 +49,10 @@ const sizeKey = computed(() => (['sm', 'md', 'lg'].includes(props.size) ? props.
 const given = computed(() => props.frame !== undefined);
 
 watch(() => props.uid, (uid) => {
-  if (uid && !given.value) ensureUserTitles(uid);
+  if (uid) ensureUserTitles(uid);
 }, { immediate: true });
+
+const shownSrc = computed(() => props.src || avatarOf(props.uid));
 
 const shownFrame = computed(() => {
   const id = given.value ? props.frame : frameOf(props.uid);
@@ -60,7 +62,7 @@ const shownFrame = computed(() => {
 const frameName = computed(() => (shownFrame.value ? t(`titles.frames.${shownFrame.value}`) : ''));
 
 const broken = ref(false);
-watch(() => props.src, () => { broken.value = false; });
+watch(shownSrc, () => { broken.value = false; });
 
 const initial = computed(() => {
   const first = Array.from(String(props.name || '').trim())[0];

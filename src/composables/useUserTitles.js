@@ -29,7 +29,8 @@ const toEntry = (data) => {
   const prefs = normalizeTitlePrefs(data?.prefs);
   const stored = data?.display || null;
   const display = stored && stored.frame !== undefined ? stored : resolveDisplay(unlocked, prefs);
-  return { unlocked, prefs, display };
+  // LINE photo + name, copied from users/{uid} by Cloud Functions
+  return { unlocked, prefs, display, avatar: data?.avatar || '', name: data?.name || '' };
 };
 
 async function fetchOne(uid) {
@@ -140,12 +141,23 @@ export async function saveTitlePrefs(uid, prefs) {
   return data;
 }
 
+/**
+ * A player's photo (LINE), '' until loaded or when they have none.
+ *
+ * @param {string} uid Player.
+ * @return {string}
+ */
+export function avatarOf(uid) {
+  return (uid && cache[uid]?.avatar) || '';
+}
+
 export function useUserTitles() {
   return {
     titles: cache,
     ensureUserTitles,
     titleDisplayOf,
     frameOf,
+    avatarOf,
     allowsRoomTitles,
     watchMyTitles,
     saveTitlePrefs,

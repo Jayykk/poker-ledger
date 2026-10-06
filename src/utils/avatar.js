@@ -1,6 +1,7 @@
 // Avatar image of a room / roster player without extra reads: the seat's own
 // `avatar` (session rosters carry one), else your own photo on your own seat.
-// Empty string → PlayerAvatar shows the name's initial.
+// Empty string → PlayerAvatar falls back to the LINE photo in the cached
+// userTitles doc (by uid), then the name's initial.
 
 /**
  * @param {?object} player Roster / room player ({ uid, avatar? }).

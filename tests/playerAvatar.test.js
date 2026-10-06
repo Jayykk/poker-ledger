@@ -6,7 +6,12 @@ import { resolve } from 'path';
 import zhTW from '../src/i18n/locales/zh-TW.json';
 
 const docs = {
-  dave: { display: { familyId: 'regular', tier: 2, frame: 'gold' }, unlocked: { regular: { tier: 2, at: 1 } } },
+  dave: {
+    display: { familyId: 'regular', tier: 2, frame: 'gold' },
+    unlocked: { regular: { tier: 2, at: 1 } },
+    avatar: 'https://profile.line-scdn.net/dave.jpg',
+    name: 'Dave',
+  },
   // Title off, frame still shown
   erin: {
     display: { familyId: null, tier: null, frame: 'diamond' },
@@ -81,6 +86,18 @@ describe('PlayerAvatar', () => {
     expect(mountWith(PlayerAvatar, { name: 'A', frame: null }).classes()).toContain('frame-none');
     expect(mountWith(PlayerAvatar, { name: 'A', frame: 'ruby' }).classes()).toContain('frame-none');
     expect(mountWith(PlayerAvatar, { name: 'A', frame: null }).attributes('title')).toBeUndefined();
+  });
+
+  it('no src: the LINE photo from the same cached doc, else the initial', async () => {
+    const dave = mountWith(PlayerAvatar, { uid: 'dave', name: 'Dave' });
+    const erin = mountWith(PlayerAvatar, { uid: 'erin', name: 'Erin' });
+    const given = mountWith(PlayerAvatar, { uid: 'dave', name: 'Dave', src: 'https://example.com/seat.png' });
+    await flushPromises();
+    expect(dave.find('img').attributes('src')).toBe('https://profile.line-scdn.net/dave.jpg');
+    expect(erin.find('img').exists()).toBe(false);
+    expect(erin.text()).toBe('E');
+    // A src passed in wins
+    expect(given.find('img').attributes('src')).toBe('https://example.com/seat.png');
   });
 
   it('reads the frame a player shows through the shared cache', async () => {

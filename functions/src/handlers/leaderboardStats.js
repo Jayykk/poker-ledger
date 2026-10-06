@@ -1,6 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { buildLeaderboardStatsDocs, statsDocId } from '../utils/leaderboardStatsMath.js';
-import { recomputeUserTitles } from './userTitles.js';
+import { publicProfileOf, recomputeUserTitles } from './userTitles.js';
 
 const STATS_COLLECTION = 'leaderboardStats';
 const MAX_BATCH_SIZE = 400;
@@ -73,7 +73,10 @@ export async function recomputeLeaderboardStatsForUser(db, uid, { rebuildTitles 
   const allTime = statDocs.find((item) => item.id === statsDocId(uid, 'all'))?.data || null;
   let titles = null;
   try {
-    titles = await recomputeUserTitles(db, uid, allTime, Date.now(), { rebuild: rebuildTitles });
+    titles = await recomputeUserTitles(db, uid, allTime, Date.now(), {
+      rebuild: rebuildTitles,
+      profile: publicProfileOf(userData),
+    });
   } catch (titlesError) {
     console.error(`userTitles recompute failed for user ${uid}:`, titlesError);
   }
