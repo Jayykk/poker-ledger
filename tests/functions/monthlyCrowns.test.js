@@ -59,7 +59,7 @@ const stats = (uid, { games = 1, profit = 0, knockouts = 0, period = OCT, hidden
     tournament: { knockouts },
   },
 });
-const titles = (uid, data) => ({ [`userTitles/${uid}`]: { uid, unlocked: {}, prefs: {}, display: null, ...data } });
+const titles = (uid, data) => ({ [`userTitles/${uid}`]: { uid, unlocked: {}, prefs: { mode: 'auto' }, display: null, ...data } });
 
 describe('pals in the titles recompute', () => {
   it('stores the sorted pals; new candidates get one users read, hidden ones left out', async () => {

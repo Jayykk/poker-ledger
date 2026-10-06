@@ -30,6 +30,7 @@ const docs = {
   // A crown display from an older month: shown as what auto falls back to
   'userTitles/old': {
     unlocked: { host: { tier: 2, at: 1 } },
+    prefs: { mode: 'auto' },
     crowns: { crownHunter: '2020-01' },
     display: { familyId: 'crownHunter', tier: 4, frame: null, month: '2020-01' },
   },

@@ -188,10 +188,12 @@ describe('display with crowns', () => {
   });
 
   it('auto: an active crown beats any title; the frame is unchanged', () => {
-    expect(resolveDisplay(unlocked, { mode: 'auto' }, { crowns, month: OCT }))
+    expect(resolveDisplay(unlocked, { mode: 'auto', frame: 'auto' }, { crowns, month: OCT }))
       .toEqual({ familyId: 'crownHunter', tier: 4, frame: 'bronze', month: OCT });
-    expect(resolveTitle(unlocked, null, { crowns, month: '2026-11' })).toEqual({ familyId: 'regular', tier: 4 });
-    expect(resolveTitle(unlocked, null)).toEqual({ familyId: 'regular', tier: 4 });
+    expect(resolveTitle(unlocked, { mode: 'auto' }, { crowns, month: '2026-11' })).toEqual({ familyId: 'regular', tier: 4 });
+    expect(resolveTitle(unlocked, { mode: 'auto' })).toEqual({ familyId: 'regular', tier: 4 });
+    // Opt-in: nothing set means nothing shown, crowns included
+    expect(resolveTitle(unlocked, null, { crowns, month: OCT })).toBeNull();
   });
 
   it('pick: a held crown, falls back like auto once it is gone; off hides crowns too', () => {
@@ -207,7 +209,7 @@ describe('display with crowns', () => {
   it('client: a stored crown display from an older month is re-resolved', () => {
     const doc = {
       unlocked,
-      prefs: { mode: 'auto' },
+      prefs: { mode: 'auto', frame: 'auto' },
       crowns,
       display: { familyId: 'crownHunter', tier: 4, frame: 'bronze', month: OCT },
     };
@@ -222,7 +224,7 @@ describe('display with crowns', () => {
   it('server: the next recompute drops a stale crown display', () => {
     const prev = {
       unlocked,
-      prefs: { mode: 'auto' },
+      prefs: { mode: 'auto', frame: 'auto' },
       crowns,
       display: { familyId: 'crownHunter', tier: 4, frame: 'bronze', month: OCT },
     };
@@ -250,7 +252,7 @@ describe('display with crowns', () => {
   });
 
   it('buildCrownUpdate: crowns + history + the display they give', () => {
-    const stored = { unlocked, prefs: { mode: 'auto' }, display: { familyId: 'regular', tier: 4, frame: 'bronze' } };
+    const stored = { unlocked, prefs: { mode: 'auto', frame: 'auto' }, display: { familyId: 'regular', tier: 4, frame: 'bronze' } };
     const gain = buildCrownUpdate(stored, [[OCT, ['crownRegular']]], OCT);
     expect(gain).toMatchObject({
       crowns: { crownRegular: OCT },
