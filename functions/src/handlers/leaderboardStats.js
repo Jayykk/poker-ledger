@@ -1,5 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { buildLeaderboardStatsDocs, statsDocId } from '../utils/leaderboardStatsMath.js';
+import { isHiddenAccount, palCandidates } from '../utils/palsMath.js';
 import { publicProfileOf, recomputeUserTitles } from './userTitles.js';
 
 const STATS_COLLECTION = 'leaderboardStats';
@@ -18,16 +19,20 @@ const MAX_BATCH_SIZE = 400;
  * game across a month boundary) are deleted.
  *
  * Then the user's 稱號 are re-evaluated from the fresh all-time stats
- * (handlers/userTitles.js). A titles failure is logged, never thrown: the
- * stats are already written and the next recompute retries the titles.
+ * (handlers/userTitles.js), together with the 牌友圈 (pals) from the same
+ * history (palsMath.js: no extra history reads). A titles failure is logged,
+ * never thrown: the stats are already written and the next recompute retries.
  *
  * @param {FirebaseFirestore.Firestore} db Firestore instance.
  * @param {string} uid User to recompute.
  * @param {object} [options] `{ rebuildTitles }`: rebuild the 稱號 from scratch
- *   (tiers can go down) instead of only adding — the backfill's --rebuild-titles.
- * @return {Promise<{periods: number, deleted: number, titles: ?object}>} Write summary.
+ *   (tiers can go down) instead of only adding — the backfill's --rebuild-titles;
+ *   `now` (Unix millis) for the pals window and new unlocks.
+ * @return {Promise<{periods: number, deleted: number, titles: ?object}>} Write
+ *   summary (titles.pals: the pals after this recompute).
  */
-export async function recomputeLeaderboardStatsForUser(db, uid, { rebuildTitles = false } = {}) {
+export async function recomputeLeaderboardStatsForUser(db, uid, options = {}) {
+  const { rebuildTitles = false, now = Date.now() } = options;
   const userRef = db.collection('users').doc(uid);
   const [userSnap, historySnap, existingSnap] = await Promise.all([
     userRef.get(),
@@ -38,8 +43,8 @@ export async function recomputeLeaderboardStatsForUser(db, uid, { rebuildTitles 
   const userData = userSnap.exists ? userSnap.data() : {};
   const name = userData.name || userData.displayName || '';
   // Same visibility rule the leaderboard used client-side: anonymous or
-  // nameless accounts never rank.
-  const hidden = !!userData.isAnonymous || !name;
+  // nameless accounts never rank (and are nobody's pal).
+  const hidden = isHiddenAccount(userData);
 
   const records = historySnap.docs.map((docSnap) => ({
     gameId: docSnap.id,
@@ -73,9 +78,10 @@ export async function recomputeLeaderboardStatsForUser(db, uid, { rebuildTitles 
   const allTime = statDocs.find((item) => item.id === statsDocId(uid, 'all'))?.data || null;
   let titles = null;
   try {
-    titles = await recomputeUserTitles(db, uid, allTime, Date.now(), {
+    titles = await recomputeUserTitles(db, uid, allTime, now, {
       rebuild: rebuildTitles,
       profile: publicProfileOf(userData),
+      palCandidates: palCandidates(uid, records, now),
     });
   } catch (titlesError) {
     console.error(`userTitles recompute failed for user ${uid}:`, titlesError);

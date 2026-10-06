@@ -327,7 +327,11 @@
     "sortByHunter": "Hunter",
     "sortByLucky": "Lucky draw",
     "bountyWon": "Bounty ${amount}",
-    "luckyLine": "{draws} draws · {top} big prizes ({rate}%)"
+    "luckyLine": "{draws} draws · {top} big prizes ({rate}%)",
+    "palsOnly": "Pals only",
+    "palsHint": "Your circle: players you shared 2+ games with in the last 6 months",
+    "palsCount": "Me and {n} pals",
+    "noPals": "No pals yet (2+ shared games in 6 months)"
   },
   "chat": {
     "title": "Chat",
@@ -1170,7 +1174,8 @@
       "wallet": "Wallet",
       "hunter": "Headhunter",
       "tournament": "Tournament",
-      "attendance": "Attendance"
+      "attendance": "Attendance",
+      "crown": "Monthly crowns"
     },
     "mode": "Display",
     "modeOff": "Off",
@@ -1326,6 +1331,26 @@
         "desc": "Games finished 3–6 a.m.",
         "t3": "Night Owl",
         "hint": "The city sleeps; your game is just getting started"
+      },
+      "crownHunter": {
+        "t4": "Headhunter of the Month",
+        "desc": "Most knockouts in your circle this month (2+)"
+      },
+      "crownBoss": {
+        "t4": "Big Boss of the Month",
+        "desc": "Biggest swings (σ) in your circle this month (4+ games with a buy-in size)"
+      },
+      "crownProfit": {
+        "t4": "Money Printer of the Month",
+        "desc": "Biggest net win in your circle this month"
+      },
+      "crownLoss": {
+        "t4": "Philanthropist of the Month",
+        "desc": "Biggest net loss in your circle this month"
+      },
+      "crownRegular": {
+        "t4": "Regular of the Month",
+        "desc": "Most games in your circle this month (3+)"
       }
     },
     "titleCount": "{n} titles collected",
@@ -1360,6 +1385,22 @@
         "firstBlood": "First knockout of the game"
       }
     },
-    "frameOff": "Off"
+    "frameOff": "Off",
+    "throne": {
+      "title": "Monthly crowns",
+      "sub": "{month} · me and {n} pals",
+      "history": "Held {n}×",
+      "vacant": "Vacant",
+      "youHold": "The crown is yours",
+      "youShare": "You share the crown",
+      "mine": "Me {value}",
+      "gap": "{value} behind",
+      "noGames": "No games this month yet",
+      "bossNeed": "Needs {n} games with a buy-in size this month",
+      "units": {
+        "knockouts": "{n} KO",
+        "games": "{n} games"
+      }
+    }
   }
 }

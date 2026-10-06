@@ -327,7 +327,11 @@
     "sortByHunter": "Hunter",
     "sortByLucky": "強運",
     "bountyWon": "バウンティ ${amount}",
-    "luckyLine": "{draws} 回 · 大当たり {top} 回（{rate}%）"
+    "luckyLine": "{draws} 回 · 大当たり {top} 回（{rate}%）",
+    "palsOnly": "仲間のみ",
+    "palsHint": "仲間：直近6か月で2戦以上同卓したプレイヤー",
+    "palsCount": "自分と仲間 {n} 人",
+    "noPals": "まだ仲間がいません（6か月で2戦以上同卓）"
   },
   "chat": {
     "title": "チャット",
@@ -1170,7 +1174,8 @@
       "wallet": "財布",
       "hunter": "ハンター",
       "tournament": "トーナメント",
-      "attendance": "出席"
+      "attendance": "出席",
+      "crown": "今月の王座"
     },
     "mode": "表示",
     "modeOff": "オフ",
@@ -1326,6 +1331,26 @@
         "desc": "午前3〜6時に終わったゲーム数",
         "t3": "夜更かし",
         "hint": "街が眠るころ、あなたのゲームが始まる"
+      },
+      "crownHunter": {
+        "t4": "今月のハンター王",
+        "desc": "今月の仲間内で最多ノックアウト（2回以上）"
+      },
+      "crownBoss": {
+        "t4": "今月のボス",
+        "desc": "今月の仲間内で収支の振れ幅（σ）が最大（バイイン単位のある4戦以上）"
+      },
+      "crownProfit": {
+        "t4": "今月の造幣局",
+        "desc": "今月の仲間内で最大の純勝ち"
+      },
+      "crownLoss": {
+        "t4": "今月の慈善家",
+        "desc": "今月の仲間内で最大の純負け"
+      },
+      "crownRegular": {
+        "t4": "今月の常連王",
+        "desc": "今月の仲間内で最多参加（3戦以上）"
       }
     },
     "titleCount": "称号 {n} 個を収集",
@@ -1360,6 +1385,22 @@
         "firstBlood": "このゲーム最初のノックアウト"
       }
     },
-    "frameOff": "表示しない"
+    "frameOff": "表示しない",
+    "throne": {
+      "title": "今月の王座",
+      "sub": "{month} · 自分と仲間 {n} 人",
+      "history": "歴代 {n}",
+      "vacant": "空位",
+      "youHold": "あなたが王座に",
+      "youShare": "仲間と王座を分け合い中",
+      "mine": "自分 {value}",
+      "gap": "あと {value}",
+      "noGames": "今月はまだ対戦なし",
+      "bossNeed": "バイイン単位のある対戦が今月 {n} 戦必要",
+      "units": {
+        "knockouts": "{n} KO",
+        "games": "{n} 戦"
+      }
+    }
   }
 }

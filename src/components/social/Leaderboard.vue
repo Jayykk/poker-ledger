@@ -13,6 +13,23 @@
       </button>
     </div>
 
+    <!-- 只看牌友: me + my 牌友圈 (userTitles pals), remembered on this device -->
+    <div class="flex items-center gap-2 mb-3 min-w-0">
+      <button
+        type="button"
+        @click="togglePalsOnly"
+        class="px-3 py-1 rounded-lg text-sm transition flex-shrink-0"
+        :class="palsOnly ? 'bg-amber-600 text-white' : 'bg-slate-700 text-gray-300 hover:bg-slate-600'"
+        :aria-pressed="palsOnly"
+        :title="$t('friends.palsHint')"
+      >
+        <i class="fas fa-user-group mr-1"></i>{{ $t('friends.palsOnly') }}
+      </button>
+      <span v-if="palsOnly" class="text-xs text-gray-400 truncate">
+        {{ myPals.length ? $t('friends.palsCount', { n: myPals.length }) : $t('friends.noPals') }}
+      </span>
+    </div>
+
     <!-- Game format filter (hidden for special hands: those are online-poker global) -->
     <div v-if="selectedSort !== 'specialHands'" class="mb-3">
       <div class="text-xs text-gray-400 mb-2">{{ $t('friends.gameType') }}</div>
@@ -266,15 +283,39 @@ import PlayerAvatar from '../common/PlayerAvatar.vue';
 import { avatarSrcOf } from '../../utils/avatar.js';
 import HandDetailsModal from './HandDetailsModal.vue';
 import { formatNumber } from '../../utils/formatters.js';
-import { HAND_TYPES } from '../../utils/constants.js';
 // Shared with the Cloud Function recompute so period boundaries always agree.
 // (Vite bundles across functions/; the reverse import direction would not
 // survive `firebase deploy`, which uploads the functions folder only.)
 import { periodKeysForMillis } from '../../../functions/src/utils/leaderboardStatsMath.js';
-import { buildTournamentLeaderboardEntry, rankLeaderboardEntries } from '../../utils/leaderboardRanking.js';
+import { buildTournamentLeaderboardEntry, filterToCircle, rankLeaderboardEntries } from '../../utils/leaderboardRanking.js';
+import { HAND_TYPES, STORAGE_KEYS } from '../../utils/constants.js';
+import { ensureUserTitles, palsOf } from '../../composables/useUserTitles.js';
 
 const { t } = useI18n();
 const { user } = useAuth();
+
+// 只看牌友 (storage can be blocked: private mode, LIFF)
+const readPalsOnly = () => {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.LEADERBOARD_PALS_ONLY) === 'true';
+  } catch {
+    return false;
+  }
+};
+const palsOnly = ref(readPalsOnly());
+const togglePalsOnly = () => {
+  palsOnly.value = !palsOnly.value;
+  try {
+    localStorage.setItem(STORAGE_KEYS.LEADERBOARD_PALS_ONLY, String(palsOnly.value));
+  } catch {
+    // Not remembered; the toggle still works for this visit
+  }
+};
+// My pals come with my userTitles doc (the same cached read my badge makes)
+const myPals = computed(() => palsOf(user.value?.uid));
+watch(() => user.value?.uid, (uid) => {
+  if (uid) ensureUserTitles(uid);
+}, { immediate: true });
 
 const selectedPeriod = ref('thisMonth');
 const selectedGameType = ref('all');
@@ -350,7 +391,8 @@ const rankedEntries = computed(() => {
   // format — always rank them against the overall (total) bucket.
   const bucketKey = selectedSort.value === 'specialHands' ? 'all' : selectedGameType.value;
 
-  const entries = statsRows.value.map((row) => {
+  const rows = palsOnly.value ? filterToCircle(statsRows.value, user.value?.uid, myPals.value) : statsRows.value;
+  const entries = rows.map((row) => {
     const bucket = bucketKey === 'all' ? row.total : row[bucketKey];
     if (!bucket || bucket.games <= 0) return null;
 

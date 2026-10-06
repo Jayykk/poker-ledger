@@ -88,7 +88,7 @@
               type="button"
               class="title-mode"
               :class="{ active: titlePrefs.mode === m.id }"
-              :disabled="titleSaving || (m.id === 'pick' && !unlockedTitles.length)"
+              :disabled="titleSaving || (m.id === 'pick' && !pickableTitles.length)"
               @click="setTitleMode(m.id)"
             >
               {{ $t(m.label) }}
@@ -100,13 +100,13 @@
             <template v-else>{{ $t('titles.pick') }}</template>
           </p>
 
-        <div v-if="titlePrefs.mode === 'pick' && unlockedTitles.length" class="title-pick-grid">
+        <div v-if="titlePrefs.mode === 'pick' && pickableTitles.length" class="title-pick-grid">
           <button
-            v-for="item in unlockedTitles"
+            v-for="item in pickableTitles"
             :key="item.familyId"
             type="button"
             class="title-pick"
-            :class="{ active: titlePrefs.titleId === item.familyId }"
+            :class="{ active: titlePrefs.titleId === item.familyId, crown: isCrownId(item.familyId) }"
             :disabled="titleSaving"
             @click="pickTitle(item.familyId)"
           >
@@ -115,7 +115,7 @@
             <i v-if="titlePrefs.titleId === item.familyId" class="fas fa-check title-pick-check" aria-hidden="true"></i>
           </button>
         </div>
-        <p v-if="!unlockedTitles.length" class="text-xs text-gray-500 text-left mt-2">{{ $t('titles.noneUnlocked') }}</p>
+        <p v-if="!pickableTitles.length" class="text-xs text-gray-500 text-left mt-2">{{ $t('titles.noneUnlocked') }}</p>
         </div>
 
         <!-- 頭像框: folded the same way; earned ones to pick, locked ones dashed with what they need -->
@@ -304,6 +304,7 @@ import PlayerAvatar from '../components/common/PlayerAvatar.vue';
 import { useUserTitles } from '../composables/useUserTitles.js';
 import {
   TITLE_FAMILIES, FRAME_TIERS, getTitleFamily, normalizeTitlePrefs, titleCount, earnedFrame, frameRank,
+  activeCrowns, isCrownId,
 } from '../utils/titles.js';
 import { STORAGE_KEYS } from '../utils/constants.js';
 import { THEMES as THEME_LIST, applyTheme, resolveThemeId } from '../utils/themes.js';
@@ -334,7 +335,9 @@ const upgradeExpanded = ref(false);
 
 // ── 稱號 ──────────────────────────────────────────────────────────
 // userTitles/{uid} is server-written: read it live, save through setTitlePrefs
-const { titles, watchMyTitles, saveTitlePrefs } = useUserTitles();
+const {
+  titles, watchMyTitles, saveTitlePrefs, titleDisplayOf, currentCrownMonth,
+} = useUserTitles();
 const titleModes = [
   { id: 'off', label: 'titles.modeOff' },
   { id: 'auto', label: 'titles.modeAuto' },
@@ -342,7 +345,8 @@ const titleModes = [
 ];
 const myTitles = computed(() => titles[user.value?.uid] || null);
 const titlePrefs = computed(() => normalizeTitlePrefs(myTitles.value?.prefs));
-const myDisplay = computed(() => myTitles.value?.display || null);
+// The stored display, re-resolved when its crown is from an older month
+const myDisplay = computed(() => (myTitles.value ? titleDisplayOf(user.value?.uid) : null));
 // Highest tier first, then the most recently reached, then 圖鑑 order — a
 // backfill unlocks many at the same instant, and without the last key the
 // order follows the map's key order, which differs between the callable's
@@ -352,6 +356,12 @@ const unlockedTitles = computed(() => Object.entries(myTitles.value?.unlocked ||
   .filter(([id, entry]) => getTitleFamily(id) && entry?.tier > 0)
   .map(([familyId, entry]) => ({ familyId, tier: entry.tier, at: entry.at || 0 }))
   .sort((a, b) => (b.tier - a.tier) || (b.at - a.at) || (familyOrder.get(a.familyId) - familyOrder.get(b.familyId))));
+// 指定 grid: this month's 王座 first (CROWN_IDS order), then the titles
+const heldCrownIds = computed(() => activeCrowns(myTitles.value?.crowns, currentCrownMonth()));
+const pickableTitles = computed(() => [
+  ...heldCrownIds.value.map((familyId) => ({ familyId, tier: 4, at: 0 })),
+  ...unlockedTitles.value,
+]);
 const titleSaving = ref(false);
 // 頭像框: titles held, the frame they earn, the one shown (from the display)
 const myTitleCount = computed(() => titleCount(myTitles.value?.unlocked));
@@ -396,10 +406,11 @@ function setTitleMode(mode) {
     saveTitles({ mode });
     return;
   }
-  // 指定 needs a title: keep the last pick, else what's shown now, else the best
-  const unlocked = myTitles.value?.unlocked || {};
-  const titleId = [titlePrefs.value.titleId, myDisplay.value?.familyId, unlockedTitles.value[0]?.familyId]
-    .find((id) => id && unlocked[id]);
+  // 指定 needs a title: keep the last pick, else what's shown now, else the
+  // first in the grid (a held crown or the best title)
+  const pickable = new Set(pickableTitles.value.map((item) => item.familyId));
+  const titleId = [titlePrefs.value.titleId, myDisplay.value?.familyId, pickableTitles.value[0]?.familyId]
+    .find((id) => id && pickable.has(id));
   if (titleId) saveTitles({ mode, titleId });
 }
 
@@ -559,6 +570,8 @@ const handleLogout = async () => {
 }
 .title-pick-check { position: absolute; top: 0.55rem; right: 0.55rem; font-size: 0.7rem; color: rgb(var(--tw-amber-400)); }
 .title-pick.active { border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.1); }
+/* A crown held this month: gold edge until picked */
+.title-pick.crown:not(.active) { border-color: rgb(var(--tw-amber-500) / 0.45); }
 .frame-opt {
   display: flex;
   flex-direction: column;

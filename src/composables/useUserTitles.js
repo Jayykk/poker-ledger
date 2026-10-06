@@ -10,28 +10,40 @@ import { reactive } from 'vue';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../firebase-init.js';
-import { normalizeTitlePrefs, resolveDisplay } from '../utils/titles.js';
+import { crownMonthOf, effectiveDisplay, normalizeTitlePrefs } from '../utils/titles.js';
 
 const COLLECTION = 'userTitles';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-// uid → { unlocked, prefs, display } (an empty entry when the user has no doc)
+// uid → { unlocked, prefs, display, crowns, crownHistory, pals, avatar, name }
+// (an empty entry when the user has no doc)
 const cache = reactive({});
 const fetchedAt = new Map();
 const inFlight = new Map();
 let mine = { uid: null, unsubscribe: null, watchers: 0 };
 
-// A doc written before 頭像框 has no display.frame (and display null when the
-// title is off): resolve it here with the same shared rules until the next
-// recompute / backfill rewrites it, so frames show right away.
-const toEntry = (data) => {
-  const unlocked = data?.unlocked || {};
-  const prefs = normalizeTitlePrefs(data?.prefs);
-  const stored = data?.display || null;
-  const display = stored && stored.frame !== undefined ? stored : resolveDisplay(unlocked, prefs);
+/** Current 王座 month key (Asia/Taipei), e.g. '2026-10'. */
+export function currentCrownMonth() {
+  return crownMonthOf(Date.now());
+}
+
+// `display` is what Cloud Functions stored. titleDisplayOf() re-resolves it
+// with the shared rules when it can't be shown as is: a crown from an older
+// month (the server only rewrites after the next game), or a doc written
+// before 頭像框 (no display.frame).
+const toEntry = (data) => ({
+  unlocked: data?.unlocked || {},
+  prefs: normalizeTitlePrefs(data?.prefs),
+  display: data?.display || null,
+  // 本月王座: { crownId: monthKey } held, { crownId: [monthKey] } past ones
+  crowns: data?.crowns || {},
+  crownHistory: data?.crownHistory || {},
+  // 牌友圈 (uids)
+  pals: Array.isArray(data?.pals) ? data.pals : [],
   // LINE photo + name, copied from users/{uid} by Cloud Functions
-  return { unlocked, prefs, display, avatar: data?.avatar || '', name: data?.name || '' };
-};
+  avatar: data?.avatar || '',
+  name: data?.name || '',
+});
 
 async function fetchOne(uid) {
   if (inFlight.has(uid)) return inFlight.get(uid);
@@ -65,11 +77,22 @@ export function ensureUserTitles(uids) {
 }
 
 /**
- * What a user shows to others: { familyId, tier, frame } or null. familyId /
- * tier are null when they show a frame but no title.
+ * What a user shows to others: { familyId, tier, frame, month? } or null.
+ * familyId / tier are null when they show a frame but no title. A crown only
+ * while it is this month's (else what auto / the pick falls back to).
  */
 export function titleDisplayOf(uid) {
-  return (uid && cache[uid]?.display) || null;
+  const entry = uid ? cache[uid] : null;
+  return entry ? effectiveDisplay(entry, currentCrownMonth()) : null;
+}
+
+/**
+ * A user's 牌友圈 (uids), [] until loaded.
+ * @param {string} uid
+ * @return {Array<string>}
+ */
+export function palsOf(uid) {
+  return (uid && cache[uid]?.pals) || [];
 }
 
 /** The 頭像框 a user shows ('bronze' … 'diamond') or null. */
@@ -156,6 +179,8 @@ export function useUserTitles() {
     titles: cache,
     ensureUserTitles,
     titleDisplayOf,
+    palsOf,
+    currentCrownMonth,
     frameOf,
     avatarOf,
     allowsRoomTitles,

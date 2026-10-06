@@ -2,7 +2,7 @@
   <span
     v-if="shown"
     class="title-badge"
-    :class="rarity"
+    :class="[rarity, { crown: isCrown }]"
     :title="`${$t(`titles.rarity.${rarity}`)} · ${name}`"
   >
     <i v-if="shown.tier === 4" class="fas fa-crown title-badge-crown" aria-hidden="true"></i>
@@ -15,10 +15,12 @@
 // that player chose to display, loaded through the shared cache) or a
 // `familyId` + `tier` (稱號圖鑑 / profile picker). Renders nothing when there
 // is no title. Rarity colors: 1 gray · 2 blue · 3 purple · 4 gold + crown.
+// 本月王座 crowns are legendary with the crown icon (and a stronger glow);
+// titleDisplayOf only gives one while it is this month's.
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ensureUserTitles, titleDisplayOf } from '../../composables/useUserTitles.js';
-import { titleRarity, titleTierOf } from '../../utils/titles.js';
+import { isCrownId, titleRarity, titleTierOf } from '../../utils/titles.js';
 
 const props = defineProps({
   uid: { type: String, default: '' },
@@ -40,6 +42,7 @@ const shown = computed(() => {
   return display && titleTierOf(display.familyId, display.tier) ? display : null;
 });
 const rarity = computed(() => titleRarity(shown.value?.tier));
+const isCrown = computed(() => isCrownId(shown.value?.familyId));
 const name = computed(() => (shown.value ? t(titleTierOf(shown.value.familyId, shown.value.tier).nameKey) : ''));
 </script>
 
@@ -73,6 +76,13 @@ const name = computed(() => (shown.value ? t(titleTierOf(shown.value.familyId, s
   background: linear-gradient(135deg, rgba(251, 191, 36, 0.3), rgba(217, 119, 6, 0.18));
   border-color: rgba(251, 191, 36, 0.7);
   box-shadow: 0 0 6px rgba(251, 191, 36, 0.35);
+}
+
+/* 本月王座: the legendary gold, a touch brighter so a crown reads apart from a
+   tier-4 title (the glow stays small: badges sit in tight rows) */
+.title-badge.crown {
+  background: linear-gradient(135deg, rgba(253, 224, 71, 0.4), rgba(234, 88, 12, 0.24));
+  box-shadow: 0 0 6px rgba(253, 224, 71, 0.5);
 }
 
 :root[data-mode="light"] .title-badge.common { color: #475569; background: rgba(100, 116, 139, 0.12); }

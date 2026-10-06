@@ -31,20 +31,32 @@
 // `unlocked` only grows, so a frame never drops. prefs.frame 'auto' shows the
 // highest earned; a lower earned one can be picked.
 //
+// 本月王座 (source 'crown', CROWN_FAMILIES): monthly #1 inside the user's
+// 牌友圈, judged in crownRules.js and stored apart from `unlocked`:
+//   crowns        { [crownId]: monthKey }   active while monthKey is the
+//                                           current month (Asia/Taipei)
+//   crownHistory  { [crownId]: [monthKey] }
+//   display.month the crown's month when the display is a crown, so a reader
+//                 can tell it went stale at the month change (effectiveDisplay)
+// Crowns never count toward frames (nor does anything with an expiresAt), so
+// a frame can't drop when a crown goes. In auto an active crown beats any
+// other title (CROWN_IDS order when several); pick may choose a held crown and
+// falls back to auto once it is gone.
 // Hooks for later phases (not implemented yet):
-//   - source 'crown'  monthly #1 among 牌友圈 (time-limited, written by a
-//                     scheduled job into `unlocked` with an expiry). Crowns
-//                     (and anything with an expiresAt) never count toward
-//                     frames, so a frame can't drop when a crown expires.
 //   - source 'hand'   hand-history titles; 'event' one-off titles such as
 //                     復仇者 / 悲劇英雄
 // Live in-room titles (獵人 / 本場金主 …) are computed on the client from the
 // room itself and never stored: src/utils/roomTitles.js. Each player's
-// prefs.showRoomTitles decides whether they can be given one.
+// prefs.showRoomTitles decides whether they can be given one. In a room the
+// live title wins over a crown, a crown over a normal title.
 // evaluateTitles() only evaluates source 'stats'; resolveDisplay() accepts any
 // unlocked family so later sources can plug into the same doc.
 
 import { groupsStdDev } from './leaderboardStatsMath.js';
+import {
+  CROWN_DEFS, activeCrowns, applyCrownMonth, crownMonthOf, crownStateFromScratch, isCrownId,
+  sameCrownHistory, sameCrowns,
+} from './crownRules.js';
 
 export const TITLE_GROUPS = Object.freeze(['wallet', 'hunter', 'tournament', 'attendance']);
 
@@ -190,7 +202,26 @@ export const TITLE_FAMILIES = Object.freeze([
   family('nightOwl', 'attendance', (s) => num(total(s).nightGames), [10], { tiers: [3], hidden: true }),
 ]);
 
-const FAMILY_BY_ID = new Map(TITLE_FAMILIES.map((f) => [f.id, f]));
+// 本月王座: one legendary step each (crown icon), judged monthly in the 牌友圈
+// (crownRules.js), never in `unlocked` and never toward frames. Kept out of
+// TITLE_FAMILIES so the 圖鑑 counts and evaluateTitles only see stats titles;
+// getTitleFamily / titleTierOf know them.
+export const CROWN_FAMILIES = Object.freeze(CROWN_DEFS.map((crown) => Object.freeze({
+  id: crown.id,
+  group: 'crown',
+  hidden: false,
+  source: TITLE_SOURCES.CROWN,
+  metric: crown.metric,
+  descKey: `titles.families.${crown.id}.desc`,
+  hintKey: null,
+  tiers: Object.freeze([Object.freeze({
+    tier: 4,
+    threshold: crown.min,
+    nameKey: `titles.families.${crown.id}.t4`,
+  })]),
+})));
+
+const FAMILY_BY_ID = new Map([...TITLE_FAMILIES, ...CROWN_FAMILIES].map((f) => [f.id, f]));
 
 /**
  * @param {string} id Family id.
@@ -450,16 +481,23 @@ export function normalizeTitlePrefs(prefs) {
  * Validate a setTitlePrefs request against the unlocked titles. Fields left
  * out keep their current value.
  *
+ * A crown can be picked while it is held this month (`crownCtx`); once it is
+ * gone the stored pick shows as auto, and other prefs stay changeable.
+ *
  * @param {?object} input `{ mode?, titleId?, showRoomTitles?, frame? }`.
  * @param {?object} current Stored prefs.
  * @param {?object} unlocked Stored unlocked map.
+ * @param {?{crowns: ?object, month: ?string}} [crownCtx] Stored crowns and the
+ *   current month key.
  * @return {object} { prefs } or { error }, error: 'bad-mode' | 'bad-title' |
  *   'not-unlocked' | 'bad-toggle' | 'bad-frame' | 'frame-locked'
  */
-export function validateTitlePrefs(input, current, unlocked) {
+export function validateTitlePrefs(input, current, unlocked, crownCtx = null) {
   const base = normalizeTitlePrefs(current);
   const data = input || {};
   const next = { ...base };
+  const held = new Set(activeCrowns(crownCtx?.crowns, crownCtx?.month));
+  const pickable = (id) => (isCrownId(id) ? held.has(id) : !!unlocked?.[id]);
 
   if (data.mode !== undefined) {
     if (!TITLE_MODES.includes(data.mode)) return { error: 'bad-mode' };
@@ -469,7 +507,7 @@ export function validateTitlePrefs(input, current, unlocked) {
     if (data.titleId !== null && (typeof data.titleId !== 'string' || !data.titleId)) {
       return { error: 'bad-title' };
     }
-    if (data.titleId !== null && !unlocked?.[data.titleId]) return { error: 'not-unlocked' };
+    if (data.titleId !== null && !pickable(data.titleId)) return { error: 'not-unlocked' };
     next.titleId = data.titleId;
   }
   if (data.showRoomTitles !== undefined) {
@@ -484,7 +522,10 @@ export function validateTitlePrefs(input, current, unlocked) {
     }
     next.frame = data.frame;
   }
-  if (next.mode === 'pick' && (!next.titleId || !unlocked?.[next.titleId])) {
+  // Only a request that sets the pick checks it: a picked crown that has since
+  // gone must not block changing the frame or the room-title toggle
+  const picking = data.mode !== undefined || data.titleId !== undefined;
+  if (picking && next.mode === 'pick' && (!next.titleId || !pickable(next.titleId))) {
     return { error: 'not-unlocked' };
   }
   return { prefs: next };
@@ -492,26 +533,35 @@ export function validateTitlePrefs(input, current, unlocked) {
 
 /**
  * The title shown. off → null; pick → the chosen title (falls back to auto if
- * it is no longer unlocked); auto → highest tier, ties to the most recently
+ * it is no longer unlocked, or a crown no longer held); auto → an active crown
+ * (CROWN_IDS order), else the highest tier, ties to the most recently
  * reached, then catalog order.
  *
  * @param {?object} unlocked Stored unlocked map.
  * @param {?object} prefs Stored prefs.
- * @return {?{familyId: string, tier: number}}
+ * @param {?{crowns: ?object, month: ?string}} [crownCtx] Stored crowns and the
+ *   current month key (none: no crowns).
+ * @return {?{familyId: string, tier: number, month: (string|undefined)}}
  */
-export function resolveTitle(unlocked, prefs) {
+export function resolveTitle(unlocked, prefs, crownCtx = null) {
   const p = normalizeTitlePrefs(prefs);
   if (p.mode === 'off') return null;
   const map = unlocked || {};
-  if (p.mode === 'pick' && p.titleId && map[p.titleId]?.tier > 0) {
-    return { familyId: p.titleId, tier: map[p.titleId].tier };
+  const crowns = activeCrowns(crownCtx?.crowns, crownCtx?.month);
+  const crownTitle = (id) => ({ familyId: id, tier: 4, month: crownCtx.month });
+  if (p.mode === 'pick' && p.titleId) {
+    if (crowns.includes(p.titleId)) return crownTitle(p.titleId);
+    if (!isCrownId(p.titleId) && map[p.titleId]?.tier > 0) {
+      return { familyId: p.titleId, tier: map[p.titleId].tier };
+    }
   }
+  if (crowns.length) return crownTitle(crowns[0]);
   const order = (id) => {
     const i = TITLE_FAMILIES.findIndex((f) => f.id === id);
     return i === -1 ? TITLE_FAMILIES.length : i;
   };
   const best = Object.entries(map)
-    .filter(([, entry]) => entry && entry.tier > 0)
+    .filter(([id, entry]) => entry && entry.tier > 0 && !isCrownId(id))
     .sort(([idA, a], [idB, b]) =>
       (b.tier - a.tier) || (num(b.at) - num(a.at)) || (order(idA) - order(idB)))[0];
   return best ? { familyId: best[0], tier: best[1].tier } : null;
@@ -520,17 +570,40 @@ export function resolveTitle(unlocked, prefs) {
 /**
  * What other players see: the title (resolveTitle) and the frame
  * (resolveFrame). The title fields are null when the title is off or none is
- * unlocked; null overall when there is neither a title nor a frame.
+ * unlocked; null overall when there is neither a title nor a frame. A crown
+ * display also carries its `month`, so readers can spot it going stale.
  *
  * @param {?object} unlocked Stored unlocked map.
  * @param {?object} prefs Stored prefs.
- * @return {?{familyId: ?string, tier: ?number, frame: ?string}}
+ * @param {?{crowns: ?object, month: ?string}} [crownCtx] See resolveTitle.
+ * @return {?{familyId: ?string, tier: ?number, frame: ?string,
+ *   month: (string|undefined)}}
  */
-export function resolveDisplay(unlocked, prefs) {
-  const title = resolveTitle(unlocked, prefs);
+export function resolveDisplay(unlocked, prefs, crownCtx = null) {
+  const title = resolveTitle(unlocked, prefs, crownCtx);
   const frame = resolveFrame(unlocked, prefs);
   if (!title && !frame) return null;
-  return { familyId: title?.familyId || null, tier: title?.tier || null, frame };
+  const display = { familyId: title?.familyId || null, tier: title?.tier || null, frame };
+  if (title?.month) display.month = title.month;
+  return display;
+}
+
+/**
+ * The display to show now. The stored one is written by Cloud Functions after
+ * games and prefs changes, so a crown in it goes stale when the month changes
+ * (and docs from before frames lack `frame`): those are resolved again here
+ * with the same rules. Used by the client for every badge.
+ *
+ * @param {?object} doc userTitles doc ({ unlocked, prefs, display, crowns }).
+ * @param {string} month Current month key (crownMonthOf(Date.now())).
+ * @return {?object} Display.
+ */
+export function effectiveDisplay(doc, month) {
+  const stored = doc?.display || null;
+  const stale = !stored || stored.frame === undefined
+    || (isCrownId(stored.familyId) && stored.month !== month);
+  if (!stale) return stored;
+  return resolveDisplay(doc?.unlocked, doc?.prefs, { crowns: doc?.crowns, month });
 }
 
 /**
@@ -540,10 +613,11 @@ export function resolveDisplay(unlocked, prefs) {
  * @param {?object} b Display.
  * @return {boolean}
  */
-function sameDisplay(a, b) {
+export function sameDisplay(a, b) {
   return (a?.familyId || null) === (b?.familyId || null)
     && (a?.tier || 0) === (b?.tier || 0)
-    && (a?.frame || null) === (b?.frame || null);
+    && (a?.frame || null) === (b?.frame || null)
+    && (a?.month || null) === (b?.month || null);
 }
 
 /**
@@ -561,13 +635,52 @@ export function buildUserTitles(previous, allTimeStats, now, { rebuild = false }
     previous?.unlocked, evaluateTitles(allTimeStats), now,
   );
   const prefs = normalizeTitlePrefs(previous?.prefs);
-  // Display = title + frame, so a new frame (or a doc written before frames
-  // existed) is a change too
-  const display = resolveDisplay(unlocked, prefs);
+  // Display = title + frame (+ an active crown), so a new frame, a crown that
+  // went stale at the month change, or a doc written before frames existed is
+  // a change too
+  const crownCtx = { crowns: previous?.crowns, month: crownMonthOf(now) };
+  const display = resolveDisplay(unlocked, prefs, crownCtx);
   // No doc yet and nothing unlocked: nothing worth writing
   const changed = previous
     ? upgraded.length > 0 || !sameDisplay(previous.display, display)
       || (rebuild && !sameUnlocked(previous.unlocked, unlocked))
     : Object.keys(unlocked).length > 0;
   return { unlocked, prefs, display, upgraded, changed };
+}
+
+/**
+ * Next crowns / crownHistory / display of a userTitles doc from crown
+ * verdicts (handlers/monthlyCrowns.js).
+ *
+ * @param {?object} stored Stored userTitles doc.
+ * @param {Array<[string, Array<string>]>} verdicts [monthKey, heldCrowns()]
+ *   pairs; applied oldest first (applyCrownMonth).
+ * @param {string} currentMonth Current month key.
+ * @param {object} [options] `{ fromScratch }`: rebuild crowns and history from
+ *   the verdicts alone (backfill --crown-history) instead of moving the stored
+ *   ones along.
+ * @return {{crowns: object, crownHistory: object, display: ?object,
+ *   changed: boolean, gained: Array<string>, lost: Array<string>}}
+ */
+export function buildCrownUpdate(stored, verdicts, currentMonth, { fromScratch = false } = {}) {
+  const ordered = [...(verdicts || [])].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  let state = { crowns: stored?.crowns || {}, crownHistory: stored?.crownHistory || {} };
+  const gained = [];
+  const lost = [];
+  if (fromScratch) {
+    state = crownStateFromScratch(Object.fromEntries(ordered), currentMonth);
+  } else {
+    for (const [month, held] of ordered) {
+      const step = applyCrownMonth(state, month, currentMonth, held);
+      state = { crowns: step.crowns, crownHistory: step.crownHistory };
+      gained.push(...step.gained);
+      lost.push(...step.lost);
+    }
+  }
+  const crownCtx = { crowns: state.crowns, month: currentMonth };
+  const display = resolveDisplay(stored?.unlocked, stored?.prefs, crownCtx);
+  const changed = !sameCrowns(stored?.crowns, state.crowns)
+    || !sameCrownHistory(stored?.crownHistory, state.crownHistory)
+    || !sameDisplay(stored?.display, display);
+  return { ...state, display, changed, gained, lost };
 }

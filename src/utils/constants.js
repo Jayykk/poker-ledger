@@ -88,7 +88,9 @@ export const STORAGE_KEYS = {
   NOTIFICATIONS_ENABLED: 'poker_notifications_enabled',
   LINE_NOTIFY_ENABLED: 'line_notify_enabled',
   PENDING_INVITE: 'pending_invite',
-  HIDE_CAREER_PROFIT: 'poker_hide_career_profit'
+  HIDE_CAREER_PROFIT: 'poker_hide_career_profit',
+  // Leaderboard 只看牌友 toggle ('true' / 'false')
+  LEADERBOARD_PALS_ONLY: 'poker_leaderboard_pals_only'
 };
 
 // Theme options

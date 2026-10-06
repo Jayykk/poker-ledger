@@ -4,6 +4,8 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import { roundNumber, toMillis } from '../utils/numbers.js';
 import { normalizeCashDecimals } from '../utils/cashRounding.js';
 import { recomputeLeaderboardStatsForUser } from './leaderboardStats.js';
+import { recomputeMonthlyCrowns } from './monthlyCrowns.js';
+import { crownMonthOf } from '../utils/crownRules.js';
 import { deriveTournamentEntryMetrics } from '../utils/tournamentSettlementMath.js';
 
 const HISTORY_SUBCOLLECTION = 'history_sub';
@@ -210,6 +212,21 @@ function extractProjectedUserIds(game) {
 }
 
 /**
+ * When a game counts as finished (history_sub createdAt / completedAt).
+ *
+ * @param {object} game Source game document.
+ * @param {number} [now=Date.now()] Fallback when the game carries no time.
+ * @return {number} Unix millis.
+ */
+function gameCompletedMillis(game, now = Date.now()) {
+  return toMillis(game.completedAt) ||
+    toMillis(game.lastCorrectedAt) ||
+    toMillis(game.updatedAt) ||
+    toMillis(game.createdAt) ||
+    now;
+}
+
+/**
  * Build per-user history_sub documents for a completed game.
  *
  * @param {string} gameId Game document id.
@@ -220,12 +237,7 @@ export function buildUserProjectionDocs(gameId, game) {
   const settlement = buildSettlementSnapshot(game);
   const rate = Number(game.rate) || 1;
   const syncToken = game.historyProjection?.requestToken || null;
-  const completedAt =
-    toMillis(game.completedAt) ||
-    toMillis(game.lastCorrectedAt) ||
-    toMillis(game.updatedAt) ||
-    toMillis(game.createdAt) ||
-    Date.now();
+  const completedAt = gameCompletedMillis(game);
 
   return settlement
     .filter((row) => row.odId)
@@ -419,6 +431,17 @@ export async function syncCompletedGameHistoryProjection(gameId, options = {}) {
     } catch (statsError) {
       console.error(`leaderboardStats recompute failed for user ${uid}:`, statsError);
     }
+  }
+
+  // 本月王座: the players and their 牌友圈, for the game's month and the
+  // current one (the same unless a correction touched an older game). Logged,
+  // never thrown, like the stats above.
+  try {
+    const now = Date.now();
+    const gameMonth = crownMonthOf(writes[0]?.data.completedAt || gameCompletedMillis(game, now));
+    await recomputeMonthlyCrowns(db, statsUserIds, [gameMonth, crownMonthOf(now)], { now });
+  } catch (crownError) {
+    console.error(`monthly crowns recompute failed for game ${gameId}:`, crownError);
   }
 
   return {
