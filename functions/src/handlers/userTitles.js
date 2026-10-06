@@ -16,14 +16,15 @@ export const TITLES_COLLECTION = 'userTitles';
  * @param {string} uid User.
  * @param {?object} allTimeStats leaderboardStats `all` payload (null: no games).
  * @param {number} [now=Date.now()] Unix millis for new unlocks.
+ * @param {object} [options] `{ rebuild }` (see buildUserTitles).
  * @return {Promise<{written: boolean, unlocked: number, upgraded: number}>}
  */
-export async function recomputeUserTitles(db, uid, allTimeStats, now = Date.now()) {
+export async function recomputeUserTitles(db, uid, allTimeStats, now = Date.now(), options = {}) {
   const ref = db.collection(TITLES_COLLECTION).doc(uid);
   // Transaction: a setTitlePrefs landing in between must not be overwritten
   const next = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    const result = buildUserTitles(snap.exists ? snap.data() : null, allTimeStats, now);
+    const result = buildUserTitles(snap.exists ? snap.data() : null, allTimeStats, now, options);
     if (result.changed) {
       tx.set(ref, {
         uid,

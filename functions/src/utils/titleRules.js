@@ -67,11 +67,11 @@ export const DEFAULT_TITLE_PREFS = Object.freeze({
 
 // 頭像框, lowest first: `min` titles held (see titleCount) earn the frame
 export const FRAME_TIERS = Object.freeze([
-  Object.freeze({ id: 'bronze', min: 3 }),
-  Object.freeze({ id: 'silver', min: 6 }),
-  Object.freeze({ id: 'gold', min: 9 }),
-  Object.freeze({ id: 'platinum', min: 15 }),
-  Object.freeze({ id: 'diamond', min: 25 }),
+  Object.freeze({ id: 'bronze', min: 4 }),
+  Object.freeze({ id: 'silver', min: 8 }),
+  Object.freeze({ id: 'gold', min: 16 }),
+  Object.freeze({ id: 'platinum', min: 22 }),
+  Object.freeze({ id: 'diamond', min: 30 }),
 ]);
 export const FRAME_IDS = Object.freeze(FRAME_TIERS.map((f) => f.id));
 // prefs.frame: the highest earned frame
@@ -79,8 +79,8 @@ export const FRAME_AUTO = 'auto';
 
 // σ (volatility / steadiness) needs this many games with a known 組 size
 export const TITLE_MIN_GROUP_GAMES = 10;
-// 穩健: σ of the per-game result (組) at most this
-export const STEADY_MAX_STDDEV = 1;
+// 穩健: σ of the per-game result (組) below this (老闆 starts at 2)
+export const STEADY_MAX_STDDEV = 1.5;
 
 const num = (value) => Number(value) || 0;
 const total = (stats) => stats?.total || {};
@@ -135,15 +135,15 @@ export const TITLE_FAMILIES = Object.freeze([
   // tier 4 another year or so of that at 600.
   family('netWin', 'wallet', (s) => Math.max(0, num(total(s).profit)), [2000, 5000, 10000, 30000]),
   family('netLoss', 'wallet', (s) => Math.max(0, -num(total(s).profit)), [2000, 5000, 15000, 40000]),
-  family('bigWin', 'wallet', (s) => num(total(s).maxWinGroups), [3, 5, 8, 12]),
+  family('bigWin', 'wallet', (s) => num(total(s).maxWinGroups), [4, 7, 10, 15]),
   family('bigLoss', 'wallet', (s) => num(total(s).maxLossGroups), [3, 5, 8, 12]),
   family('volatile', 'wallet', (s) => {
     const sd = stdDevOf(s);
     return sd == null ? 0 : round2(sd);
-  }, [1.5, 2.5, 4, 6]),
+  }, [2, 3, 3.5, 5]),
   family('steady', 'wallet', (s) => {
     const sd = stdDevOf(s);
-    const ok = sd != null && sd <= STEADY_MAX_STDDEV && num(total(s).profit) > 0;
+    const ok = sd != null && sd < STEADY_MAX_STDDEV && num(total(s).profit) > 0;
     return ok ? num(total(s).games) : 0;
   }, [10, 20, 40, 80]),
 
@@ -158,14 +158,14 @@ export const TITLE_FAMILIES = Object.freeze([
   family('phoenix', 'tournament', (s) => num(tour(s).maxRebuyItm), [2, 4, 6]),
   family('rebuyer', 'tournament', (s) => num(tour(s).rebuyCount), [10, 30, 100], { tiers: [1, 2, 3] }),
   family('runnerUp', 'tournament', (s) => num(tour(s).runnerUp), [5], { tiers: [3], hidden: true }),
-  family('bubble', 'tournament', (s) => num(tour(s).bubble), [3], { tiers: [3], hidden: true }),
+  family('bubble', 'tournament', (s) => num(tour(s).bubble), [5], { tiers: [3], hidden: true }),
   family('firstOut', 'tournament', (s) => num(tour(s).firstOut), [5], { tiers: [3], hidden: true }),
 
   // ── 出席 ────────────────────────────────────────────────────────
   family('regular', 'attendance', (s) => num(total(s).games), [10, 40, 100, 200]),
-  family('host', 'attendance', (s) => num(total(s).hostedGames), [5, 15, 30, 60]),
-  family('hotStreak', 'attendance', (s) => num(total(s).winStreakBest), [3, 5, 8]),
-  family('coldStreak', 'attendance', (s) => num(total(s).lossStreakBest), [3, 5, 8]),
+  family('host', 'attendance', (s) => num(total(s).hostedGames), [5, 15, 40, 100]),
+  family('hotStreak', 'attendance', (s) => num(total(s).winStreakBest), [4, 7, 10]),
+  family('coldStreak', 'attendance', (s) => num(total(s).lossStreakBest), [4, 7, 10]),
   family('nightOwl', 'attendance', (s) => num(total(s).nightGames), [10], { tiers: [3], hidden: true }),
 ]);
 
@@ -274,6 +274,52 @@ export function mergeUnlocked(previous, evaluated, now) {
     }
   }
   return { unlocked, upgraded };
+}
+
+/**
+ * Rebuild the unlocked map from fresh tiers only, for a backfill after the
+ * thresholds moved (mergeUnlocked never lowers a tier, so a raised threshold
+ * would otherwise keep what the old one gave). A family at or below the tier
+ * it had keeps its `at`; one that is now higher gets `now`. Entries this
+ * can't judge (crowns, anything expiring, families this build doesn't know)
+ * stay as they are.
+ *
+ * @param {?Object<string, {tier: number, at: number}>} previous Stored map.
+ * @param {Object<string, number>} evaluated evaluateTitles() result.
+ * @param {number} now Unix millis for new unlocks.
+ * @return {{unlocked: object, upgraded: Array<{familyId: string, tier: number}>}}
+ */
+export function rebuildUnlocked(previous, evaluated, now) {
+  const unlocked = {};
+  for (const [id, entry] of Object.entries(previous || {})) {
+    const fam = getTitleFamily(id);
+    const unjudged = !fam || entry?.expiresAt != null || fam.source === TITLE_SOURCES.CROWN;
+    if (unjudged) unlocked[id] = entry;
+  }
+  const upgraded = [];
+  for (const [id, tier] of Object.entries(evaluated || {})) {
+    const prev = previous?.[id];
+    if (prev && Number.isInteger(prev.tier) && prev.tier >= tier) {
+      unlocked[id] = { tier, at: num(prev.at) };
+    } else {
+      unlocked[id] = { tier, at: now };
+      upgraded.push({ familyId: id, tier });
+    }
+  }
+  return { unlocked, upgraded };
+}
+
+/**
+ * Same families at the same tiers?
+ *
+ * @param {?object} a Unlocked map.
+ * @param {?object} b Unlocked map.
+ * @return {boolean}
+ */
+function sameUnlocked(a, b) {
+  const ka = Object.keys(a || {});
+  const kb = Object.keys(b || {});
+  return ka.length === kb.length && ka.every((id) => (a[id]?.tier || 0) === (b?.[id]?.tier || 0));
 }
 
 /**
@@ -483,10 +529,12 @@ function sameDisplay(a, b) {
  * @param {?object} previous Stored userTitles doc (or null).
  * @param {?object} allTimeStats leaderboardStats `all` doc.
  * @param {number} now Unix millis.
+ * @param {object} [options] `{ rebuild }`: rebuildUnlocked instead of merging,
+ *   so tiers can also go down (backfill after a threshold change).
  * @return {object} { unlocked, prefs, display (title + frame), upgraded, changed }.
  */
-export function buildUserTitles(previous, allTimeStats, now) {
-  const { unlocked, upgraded } = mergeUnlocked(
+export function buildUserTitles(previous, allTimeStats, now, { rebuild = false } = {}) {
+  const { unlocked, upgraded } = (rebuild ? rebuildUnlocked : mergeUnlocked)(
     previous?.unlocked, evaluateTitles(allTimeStats), now,
   );
   const prefs = normalizeTitlePrefs(previous?.prefs);
@@ -496,6 +544,7 @@ export function buildUserTitles(previous, allTimeStats, now) {
   // No doc yet and nothing unlocked: nothing worth writing
   const changed = previous
     ? upgraded.length > 0 || !sameDisplay(previous.display, display)
+      || (rebuild && !sameUnlocked(previous.unlocked, unlocked))
     : Object.keys(unlocked).length > 0;
   return { unlocked, prefs, display, upgraded, changed };
 }

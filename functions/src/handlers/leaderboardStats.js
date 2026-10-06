@@ -23,9 +23,11 @@ const MAX_BATCH_SIZE = 400;
  *
  * @param {FirebaseFirestore.Firestore} db Firestore instance.
  * @param {string} uid User to recompute.
+ * @param {object} [options] `{ rebuildTitles }`: rebuild the 稱號 from scratch
+ *   (tiers can go down) instead of only adding — the backfill's --rebuild-titles.
  * @return {Promise<{periods: number, deleted: number, titles: ?object}>} Write summary.
  */
-export async function recomputeLeaderboardStatsForUser(db, uid) {
+export async function recomputeLeaderboardStatsForUser(db, uid, { rebuildTitles = false } = {}) {
   const userRef = db.collection('users').doc(uid);
   const [userSnap, historySnap, existingSnap] = await Promise.all([
     userRef.get(),
@@ -71,7 +73,7 @@ export async function recomputeLeaderboardStatsForUser(db, uid) {
   const allTime = statDocs.find((item) => item.id === statsDocId(uid, 'all'))?.data || null;
   let titles = null;
   try {
-    titles = await recomputeUserTitles(db, uid, allTime);
+    titles = await recomputeUserTitles(db, uid, allTime, Date.now(), { rebuild: rebuildTitles });
   } catch (titlesError) {
     console.error(`userTitles recompute failed for user ${uid}:`, titlesError);
   }

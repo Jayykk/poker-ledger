@@ -27,6 +27,9 @@
  *   --help             Show usage and exit
  *   --uid <uid>        Recompute a single user only
  *   --skip-host-uids   Don't fill missing history_sub.hostUid first
+ *   --rebuild-titles   Rebuild each userTitles from scratch, so tiers can go
+ *                      down too (after raising a threshold). Without it titles
+ *                      only ever go up. Prefs and earlier unlock times stay.
  *
  * Prerequisites: same credentials setup as migrate_legacy_history_to_history_sub.js
  * (serviceAccountKey.json at repo root / functions, or GOOGLE_APPLICATION_CREDENTIALS).
@@ -52,6 +55,7 @@ if (args.includes('--help')) {
 const uidIndex = args.indexOf('--uid');
 const onlyUid = uidIndex !== -1 && args[uidIndex + 1] ? args[uidIndex + 1] : null;
 const fillHostUids = !args.includes('--skip-host-uids');
+const rebuildTitles = args.includes('--rebuild-titles');
 
 const { initializeApp, cert } = await import('firebase-admin/app');
 const { getFirestore } = await import('firebase-admin/firestore');
@@ -133,7 +137,7 @@ async function run() {
   for (const uid of uids) {
     try {
       if (fillHostUids) hostUidsFilled += await fillMissingHostUids(uid);
-      const result = await recomputeLeaderboardStatsForUser(db, uid);
+      const result = await recomputeLeaderboardStatsForUser(db, uid, { rebuildTitles });
       totalPeriods += result.periods;
       totalDeleted += result.deleted;
       if (result.titles?.written) titleDocsWritten += 1;

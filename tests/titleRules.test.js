@@ -109,13 +109,14 @@ describe('evaluateTitles', () => {
     expect(evaluateTitles(stats({ tournament: { topDraws: 10 } })).mysteryTop).toBe(4);
     expect(evaluateTitles(stats({ tournament: { rebuyCount: 100 } })).rebuyer).toBe(3);
     expect(evaluateTitles(stats({ tournament: { maxRebuyItm: 6 } })).phoenix).toBe(4);
-    expect(evaluateTitles(stats({ total: { winStreakBest: 3 } })).hotStreak).toBe(2);
+    expect(evaluateTitles(stats({ total: { winStreakBest: 3 } })).hotStreak).toBeUndefined();
+    expect(evaluateTitles(stats({ total: { winStreakBest: 4 } })).hotStreak).toBe(2);
   });
 
   it('hidden ones unlock like the rest', () => {
     const got = evaluateTitles(stats({
       total: { nightGames: 10 },
-      tournament: { runnerUp: 5, bubble: 3, firstOut: 5 },
+      tournament: { runnerUp: 5, bubble: 5, firstOut: 5 },
     }));
     expect(got).toMatchObject({ nightOwl: 3, runnerUp: 3, bubble: 3, firstOut: 3 });
   });
@@ -235,9 +236,9 @@ describe('頭像框', () => {
     return out;
   };
 
-  it('frames at 3 / 6 / 9 / 15 / 25 titles', () => {
+  it('frames at 4 / 8 / 16 / 22 / 30 titles', () => {
     expect(FRAME_TIERS.map((f) => [f.id, f.min])).toEqual([
-      ['bronze', 3], ['silver', 6], ['gold', 9], ['platinum', 15], ['diamond', 25],
+      ['bronze', 4], ['silver', 8], ['gold', 16], ['platinum', 22], ['diamond', 30],
     ]);
   });
 
@@ -260,28 +261,28 @@ describe('頭像框', () => {
 
   it('earnedFrame at each threshold', () => {
     expect(earnedFrame({})).toBeNull();
-    expect(earnedFrame(held(2))).toBeNull();
-    expect(earnedFrame(held(3))).toBe('bronze');
-    expect(earnedFrame(held(5))).toBe('bronze');
-    expect(earnedFrame(held(6))).toBe('silver');
-    expect(earnedFrame(held(9))).toBe('gold');
-    expect(earnedFrame(held(14))).toBe('gold');
-    expect(earnedFrame(held(15))).toBe('platinum');
-    expect(earnedFrame(held(25))).toBe('diamond');
+    expect(earnedFrame(held(3))).toBeNull();
+    expect(earnedFrame(held(4))).toBe('bronze');
+    expect(earnedFrame(held(7))).toBe('bronze');
+    expect(earnedFrame(held(8))).toBe('silver');
+    expect(earnedFrame(held(16))).toBe('gold');
+    expect(earnedFrame(held(21))).toBe('gold');
+    expect(earnedFrame(held(22))).toBe('platinum');
+    expect(earnedFrame(held(30))).toBe('diamond');
     expect(earnedFrame(held(40))).toBe('diamond');
-    expect(earnedFrames(held(9))).toEqual(['bronze', 'silver', 'gold']);
+    expect(earnedFrames(held(16))).toEqual(['bronze', 'silver', 'gold']);
     expect(earnedFrames({})).toEqual([]);
   });
 
   it('the shown frame: picked while earned, else the highest earned', () => {
-    expect(resolveFrame(held(9), null)).toBe('gold');
-    expect(resolveFrame(held(9), { frame: 'bronze' })).toBe('bronze');
-    expect(resolveFrame(held(9), { frame: 'diamond' })).toBe('gold');
+    expect(resolveFrame(held(16), null)).toBe('gold');
+    expect(resolveFrame(held(16), { frame: 'bronze' })).toBe('bronze');
+    expect(resolveFrame(held(16), { frame: 'diamond' })).toBe('gold');
     expect(resolveFrame({}, { frame: 'bronze' })).toBeNull();
   });
 
   it('frames never drop: unlocked only grows', () => {
-    const before = held(6);
+    const before = held(8);
     const { unlocked } = mergeUnlocked(before, {}, 5);
     expect(earnedFrame(unlocked)).toBe('silver');
   });
@@ -313,27 +314,59 @@ describe('buildUserTitles', () => {
 
   it('recomputes the frame: a doc from before frames gets one written', () => {
     const prev = {
-      unlocked: { regular: { tier: 2, at: 5 }, host: { tier: 1, at: 6 } },
+      unlocked: { regular: { tier: 2, at: 5 }, host: { tier: 2, at: 6 } },
       prefs: { mode: 'off', titleId: null, showRoomTitles: true },
       display: null,
     };
-    const next = buildUserTitles(prev, stats({ total: { games: 12, hostedGames: 5 } }), 9);
+    const next = buildUserTitles(prev, stats({ total: { games: 40, hostedGames: 15 } }), 9);
     expect(next.changed).toBe(true);
     expect(next.display).toEqual({ familyId: null, tier: null, frame: 'bronze' });
     expect(next.prefs.frame).toBe('auto');
     // Written once; the same again is no change
-    expect(buildUserTitles({ ...prev, display: next.display }, stats({ total: { games: 12, hostedGames: 5 } }), 10).changed)
+    expect(buildUserTitles({ ...prev, display: next.display }, stats({ total: { games: 40, hostedGames: 15 } }), 10).changed)
       .toBe(false);
   });
 
   it('a new tier that crosses a frame threshold updates the frame', () => {
     const prev = {
-      unlocked: { regular: { tier: 2, at: 5 } },
+      unlocked: { regular: { tier: 2, at: 5 }, host: { tier: 1, at: 6 } },
       prefs: { mode: 'auto', titleId: null, showRoomTitles: true, frame: 'auto' },
       display: { familyId: 'regular', tier: 2, frame: null },
     };
-    const next = buildUserTitles(prev, stats({ total: { games: 60 } }), 9);
+    // host 1 → 2: 4 titles held
+    const next = buildUserTitles(prev, stats({ total: { games: 40, hostedGames: 15 } }), 9);
     expect(next.changed).toBe(true);
-    expect(next.display).toEqual({ familyId: 'regular', tier: 3, frame: 'bronze' });
+    expect(next.display).toEqual({ familyId: 'host', tier: 2, frame: 'bronze' });
+  });
+
+  it('rebuild: tiers can go down after a threshold change; earlier unlock times stay', () => {
+    const prev = {
+      unlocked: {
+        regular: { tier: 3, at: 5 }, // given by an older, lower threshold
+        host: { tier: 1, at: 6 },
+        bubble: { tier: 3, at: 7 }, // no longer reached at all
+        someNewFamily: { tier: 2, at: 8 }, // a newer catalog: left alone
+      },
+      prefs: { mode: 'pick', titleId: 'bubble', showRoomTitles: true, frame: 'auto' },
+      display: { familyId: 'bubble', tier: 3, frame: null },
+    };
+    const s = stats({ total: { games: 66, hostedGames: 15 }, tournament: { bubble: 3 } });
+    // The normal path only adds
+    expect(buildUserTitles(prev, s, 9).unlocked.regular).toEqual({ tier: 3, at: 5 });
+
+    const next = buildUserTitles(prev, s, 9, { rebuild: true });
+    expect(next.changed).toBe(true);
+    expect(next.unlocked).toEqual({
+      regular: { tier: 2, at: 5 },
+      host: { tier: 2, at: 9 },
+      someNewFamily: { tier: 2, at: 8 },
+    });
+    expect(next.upgraded).toEqual([{ familyId: 'host', tier: 2 }]);
+    // The picked title is gone: shown as auto, the pick itself kept
+    expect(next.prefs.titleId).toBe('bubble');
+    expect(next.display.familyId).toBe('host');
+    // Rebuilding what is already right writes nothing
+    expect(buildUserTitles({ ...prev, unlocked: next.unlocked, display: next.display }, s, 10, { rebuild: true }).changed)
+      .toBe(false);
   });
 });
