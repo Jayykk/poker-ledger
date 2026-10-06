@@ -246,6 +246,9 @@ export function buildUserProjectionDocs(gameId, game) {
         ...(Number.isFinite(row.cash) ? { profitCash: row.cash } : {}),
         cashDecimals: normalizeCashDecimals(game.cashDecimals),
         baseBuyIn: roundNumber(game.baseBuyIn),
+        // Who ran the game (稱號 開房 counts hosted games). Older projections
+        // lack it: backfill_leaderboard_stats.js fills it in from games/{gameId}.
+        hostUid: game.hostUid || null,
         placement: row.placement ?? null,
         settlement,
         sourceCollection: 'games',

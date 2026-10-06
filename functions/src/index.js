@@ -64,6 +64,7 @@ import {
 } from './handlers/tournamentSettlement.js';
 import { settleCashGame as settleCashGameHandler } from './handlers/cashSettlement.js';
 import { reportClientError as reportClientErrorHandler } from './handlers/clientErrors.js';
+import { setTitlePrefs as setTitlePrefsHandler } from './handlers/userTitles.js';
 
 // Initialize Firebase Admin
 initializeApp();
@@ -670,6 +671,16 @@ export const reportClientError = onCall(async (request) => {
     console.error('Error in reportClientError:', error);
     return { ok: false };
   }
+});
+
+/**
+ * 稱號: display mode (off / auto / pick), the picked title (must be unlocked)
+ * and the in-room titles toggle. userTitles is server-written only, so the
+ * profile page saves through here; returns the prefs and resolved display.
+ */
+export const setTitlePrefs = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Authentication required');
+  return setTitlePrefsHandler(getFirestore(), request.auth.uid, request.data || {});
 });
 
 // ============================================

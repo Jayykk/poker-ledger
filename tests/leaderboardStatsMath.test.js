@@ -71,8 +71,8 @@ describe('aggregateHistoryRecords', () => {
     const periods = aggregateHistoryRecords(uid, records);
     const monthly = periods.get('2026-07');
 
-    expect(monthly.total).toEqual({ games: 3, wins: 2, profit: 330 });
-    expect(monthly.cash).toEqual({ games: 2, wins: 1, profit: 30 });
+    expect(monthly.total).toMatchObject({ games: 3, wins: 2, profit: 330 });
+    expect(monthly.cash).toMatchObject({ games: 2, wins: 1, profit: 30 });
     expect(monthly.tournament.games).toBe(1);
     expect(monthly.tournament.profit).toBe(300);
     expect(monthly.tournament.champion).toBe(1);
@@ -201,5 +201,102 @@ describe('buildLeaderboardStatsDocs', () => {
   it('returns no docs for a user with no datable history', () => {
     expect(buildLeaderboardStatsDocs({ uid: 'u1', name: 'A', hidden: false, records: [] }))
       .toEqual([]);
+  });
+
+  it('stamps sourceVersion 4 (titles fields)', () => {
+    const docs = buildLeaderboardStatsDocs({
+      uid: 'u1', name: 'A', hidden: false,
+      records: [{ type: 'live', profit: 1, createdAt: twMillis('2026-07-22T20:00:00') }],
+    });
+    expect(docs[0].data.sourceVersion).toBe(4);
+  });
+});
+
+describe('titles stats fields', () => {
+  const uid = 'me';
+  // One game per hour on 2026-07-22, Taipei
+  const hour = (h) => twMillis(`2026-07-22T${String(h).padStart(2, '0')}:00:00`);
+  const cash = (profit, h, extra = {}) => ({
+    type: 'live', profit, rate: 1, baseBuyIn: 1000, createdAt: hour(h), completedAt: hour(h), ...extra,
+  });
+
+  it('per-game result in 組: biggest win / loss and Σx, Σx²', () => {
+    const t = aggregateHistoryRecords(uid, [
+      cash(3000, 10), cash(-5000, 11), cash(500, 12),
+      // No baseBuyIn: counts as a game, not as a 組 result
+      { type: 'live', profit: 99999, rate: 1, createdAt: hour(13) },
+    ]).get('all').total;
+
+    expect(t).toMatchObject({
+      games: 4, groupGames: 3, maxWinGroups: 3, maxLossGroups: 5, sumGroups: -1.5, sumSqGroups: 34.25,
+    });
+  });
+
+  it('streaks follow completedAt order, not input order; a 0 result breaks both', () => {
+    const records = [
+      cash(100, 15), cash(100, 10), cash(100, 11), cash(0, 12),
+      cash(-100, 13), cash(-100, 14), cash(-100, 16), cash(-100, 17),
+    ];
+    // order: + + 0 - - + - -  → best win 2 (10,11), best loss 2
+    const t = aggregateHistoryRecords(uid, records).get('all').total;
+    expect(t.winStreakBest).toBe(2);
+    expect(t.lossStreakBest).toBe(2);
+
+    const runs = aggregateHistoryRecords(uid, [cash(1, 10), cash(1, 11), cash(1, 12), cash(-1, 13)]).get('all');
+    expect(runs.total.winStreakBest).toBe(3);
+    expect(runs.cash.winStreakBest).toBe(3);
+    expect(runs.tournament.winStreakBest).toBe(0);
+  });
+
+  it('counts hosted games and games finished 03:00-06:00 Taipei', () => {
+    const t = aggregateHistoryRecords(uid, [
+      cash(1, 3, { hostUid: uid }),
+      cash(1, 5),
+      cash(1, 6, { hostUid: 'someone' }),
+      cash(1, 2),
+    ]).get('all').total;
+    expect(t.hostedGames).toBe(1);
+    expect(t.nightGames).toBe(2);
+  });
+
+  it('tournament: max rebuys that still cashed, last place, bubble, heads lost', () => {
+    const at = hour(20);
+    const rows = (own) => [
+      { odId: 'a', placement: 1, prize: 5000 },
+      { odId: 'b', placement: 2, prize: 3000 },
+      { odId: 'c', placement: 3, prize: 0 },
+      { odId: 'd', placement: 4, prize: 0 },
+    ].map((row) => (row.placement === own.placement ? { ...row, odId: uid, ...own } : row));
+    const records = [
+      // ITM after 3 rebuys, champion of a bounty game: 4 entries, 3 heads lost
+      {
+        type: 'tournament', profit: 1, placement: 1, baseBuyIn: 1000, createdAt: at,
+        settlement: rows({ placement: 1, buyIn: 4000, rebuyCount: 3, entryCount: 4, bounty: 0, knockouts: 2 }),
+      },
+      // Bubble (3rd, two places paid), bounty game, 2 entries → 2 heads lost
+      {
+        type: 'tournament', profit: -2000, placement: 3, baseBuyIn: 1000, createdAt: at,
+        settlement: rows({ placement: 3, buyIn: 2000, rebuyCount: 1, bounty: 0 }),
+      },
+      // Last of four, no bounty
+      {
+        type: 'tournament', profit: -1000, placement: 4, baseBuyIn: 1000, createdAt: at,
+        settlement: rows({ placement: 4, buyIn: 1000, rebuyCount: 0 }),
+      },
+    ];
+    const t = aggregateHistoryRecords(uid, records).get('all').tournament;
+    expect(t).toMatchObject({
+      maxRebuyItm: 3, knockedOut: 5, bubble: 1, firstOut: 1, knockouts: 2, champion: 1,
+    });
+  });
+
+  it('heads-up last place is not "first out"', () => {
+    const t = aggregateHistoryRecords(uid, [{
+      type: 'tournament', profit: -1, placement: 2, createdAt: hour(20),
+      settlement: [{ odId: 'x', placement: 1, prize: 2 }, { odId: uid, placement: 2, prize: 0 }],
+    }]).get('all').tournament;
+    expect(t.firstOut).toBe(0);
+    // Paid places = 1, 2nd is one outside → bubble
+    expect(t.bubble).toBe(1);
   });
 });

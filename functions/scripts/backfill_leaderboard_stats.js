@@ -8,6 +8,14 @@
  * can never disagree. Fully idempotent — safe to re-run any time; it also
  * DELETES stat docs for periods that no longer have games.
  *
+ * The same recompute also evaluates each user's 稱號 into userTitles/{uid}
+ * (handlers/userTitles.js), so this script is the titles backfill as well.
+ *
+ * Before recomputing a user, history_sub docs written before projections
+ * carried `hostUid` get it copied from games/{gameId} (null when the game is
+ * gone), so the 開房 title counts older games. Docs that already have the
+ * field are skipped, so re-runs only read what is still missing.
+ *
  * ORDER MATTERS: run migrate_legacy_history_to_history_sub.js FIRST.
  * The recompute reads history_sub only; legacy `users.history` arrays that have
  * not been migrated yet are invisible to it.
@@ -16,8 +24,9 @@
  *   node functions/scripts/backfill_leaderboard_stats.js [options]
  *
  * Options:
- *   --help         Show usage and exit
- *   --uid <uid>    Recompute a single user only
+ *   --help             Show usage and exit
+ *   --uid <uid>        Recompute a single user only
+ *   --skip-host-uids   Don't fill missing history_sub.hostUid first
  *
  * Prerequisites: same credentials setup as migrate_legacy_history_to_history_sub.js
  * (serviceAccountKey.json at repo root / functions, or GOOGLE_APPLICATION_CREDENTIALS).
@@ -42,6 +51,7 @@ if (args.includes('--help')) {
 
 const uidIndex = args.indexOf('--uid');
 const onlyUid = uidIndex !== -1 && args[uidIndex + 1] ? args[uidIndex + 1] : null;
+const fillHostUids = !args.includes('--skip-host-uids');
 
 const { initializeApp, cert } = await import('firebase-admin/app');
 const { getFirestore } = await import('firebase-admin/firestore');
@@ -77,6 +87,31 @@ try {
 
 const db = getFirestore(process.env.FIRESTORE_DATABASE_ID || 'poker-tw');
 
+// games/{gameId}.hostUid, cached across users (a game appears in every
+// player's history)
+const hostUidCache = new Map();
+async function hostUidOf(gameId) {
+  if (!hostUidCache.has(gameId)) {
+    const gameSnap = await db.collection('games').doc(gameId).get();
+    hostUidCache.set(gameId, gameSnap.exists ? (gameSnap.data().hostUid || null) : null);
+  }
+  return hostUidCache.get(gameId);
+}
+
+/** Copy hostUid onto this user's history_sub docs that predate the field. */
+async function fillMissingHostUids(uid) {
+  const historySnap = await db.collection('users').doc(uid).collection('history_sub').get();
+  let filled = 0;
+  for (const historyDoc of historySnap.docs) {
+    const history = historyDoc.data();
+    if (Object.prototype.hasOwnProperty.call(history, 'hostUid')) continue;
+    const hostUid = await hostUidOf(history.gameId || historyDoc.id);
+    await historyDoc.ref.set({ hostUid }, { merge: true });
+    filled += 1;
+  }
+  return filled;
+}
+
 async function run() {
   let uids;
   if (onlyUid) {
@@ -91,14 +126,21 @@ async function run() {
   let totalPeriods = 0;
   let totalDeleted = 0;
   let failures = 0;
+  let hostUidsFilled = 0;
+  let titleDocsWritten = 0;
+  let titlesUnlocked = 0;
 
   for (const uid of uids) {
     try {
+      if (fillHostUids) hostUidsFilled += await fillMissingHostUids(uid);
       const result = await recomputeLeaderboardStatsForUser(db, uid);
       totalPeriods += result.periods;
       totalDeleted += result.deleted;
+      if (result.titles?.written) titleDocsWritten += 1;
+      titlesUnlocked += result.titles?.unlocked || 0;
       if (result.periods > 0 || result.deleted > 0) {
-        console.log(`  ${uid}: ${result.periods} period docs, ${result.deleted} stale deleted`);
+        const titles = result.titles ? `, ${result.titles.unlocked} titles` : ', titles FAILED';
+        console.log(`  ${uid}: ${result.periods} period docs, ${result.deleted} stale deleted${titles}`);
       }
     } catch (error) {
       failures++;
@@ -107,7 +149,9 @@ async function run() {
   }
 
   console.log('\n=== Summary ===');
-  console.log(JSON.stringify({ users: uids.length, totalPeriods, totalDeleted, failures }, null, 2));
+  console.log(JSON.stringify({
+    users: uids.length, totalPeriods, totalDeleted, hostUidsFilled, titleDocsWritten, titlesUnlocked, failures,
+  }, null, 2));
   if (failures > 0) process.exit(2);
 }
 

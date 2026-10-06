@@ -23,3 +23,15 @@ it('projects tournament base buy-in and immutable rebuy metrics', () => {
   expect(docs[0].data.baseBuyIn).toBe(1000);
   expect(docs[0].data.settlement[0]).toMatchObject({ entryCount: 3, rebuyCount: 2 });
 });
+
+it('projects the host uid (稱號 開房), null when the game has none', () => {
+  const game = {
+    type: 'live',
+    status: 'completed',
+    completedAt: 1000,
+    hostUid: 'host1',
+    players: [{ uid: 'u1', name: 'A', buyIn: 100, stack: 150 }],
+  };
+  expect(buildUserProjectionDocs('g1', game)[0].data.hostUid).toBe('host1');
+  expect(buildUserProjectionDocs('g1', { ...game, hostUid: undefined })[0].data.hostUid).toBeNull();
+});

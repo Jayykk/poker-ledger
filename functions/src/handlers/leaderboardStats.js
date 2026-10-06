@@ -1,5 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore';
-import { buildLeaderboardStatsDocs } from '../utils/leaderboardStatsMath.js';
+import { buildLeaderboardStatsDocs, statsDocId } from '../utils/leaderboardStatsMath.js';
+import { recomputeUserTitles } from './userTitles.js';
 
 const STATS_COLLECTION = 'leaderboardStats';
 const MAX_BATCH_SIZE = 400;
@@ -16,9 +17,13 @@ const MAX_BATCH_SIZE = 400;
  * Stat docs whose period no longer has any games (e.g. a correction moved a
  * game across a month boundary) are deleted.
  *
+ * Then the user's 稱號 are re-evaluated from the fresh all-time stats
+ * (handlers/userTitles.js). A titles failure is logged, never thrown: the
+ * stats are already written and the next recompute retries the titles.
+ *
  * @param {FirebaseFirestore.Firestore} db Firestore instance.
  * @param {string} uid User to recompute.
- * @return {Promise<{periods: number, deleted: number}>} Write summary.
+ * @return {Promise<{periods: number, deleted: number, titles: ?object}>} Write summary.
  */
 export async function recomputeLeaderboardStatsForUser(db, uid) {
   const userRef = db.collection('users').doc(uid);
@@ -63,5 +68,13 @@ export async function recomputeLeaderboardStatsForUser(db, uid) {
     await batch.commit();
   }
 
-  return { periods: statDocs.length, deleted: staleIds.length };
+  const allTime = statDocs.find((item) => item.id === statsDocId(uid, 'all'))?.data || null;
+  let titles = null;
+  try {
+    titles = await recomputeUserTitles(db, uid, allTime);
+  } catch (titlesError) {
+    console.error(`userTitles recompute failed for user ${uid}:`, titlesError);
+  }
+
+  return { periods: statDocs.length, deleted: staleIds.length, titles };
 }
