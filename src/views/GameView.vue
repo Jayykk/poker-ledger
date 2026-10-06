@@ -97,17 +97,19 @@
          buy-in: 加人 is hidden past a timed cutoff) -->
     <RoomActionBar>
       <button v-if="!timedBuyInClosed" type="button" class="bar-btn" @click="showAddPlayer = true">
-        <i class="fas fa-plus"></i>{{ $t('room.addPlayer') }}
+        <i class="fas fa-user-plus"></i>{{ $t('room.addPlayer') }}
       </button>
       <button type="button" class="bar-btn" @click="scrollToLog">
         <i class="fas fa-list"></i>{{ $t('room.records') }}
       </button>
       <button type="button" class="bar-btn" @click="showHandRecord = true">
-        <i class="fas fa-save"></i>{{ $t('room.hands') }}
+        <i class="fas fa-clone"></i>{{ $t('room.hands') }}
       </button>
-      <button v-if="isHost || seated" type="button" class="bar-btn" :aria-label="$t('seats.title')" @click="showSeats = true">🎴</button>
+      <button v-if="isHost || seated" type="button" class="bar-btn" @click="showSeats = true">
+        <i class="fas fa-chair"></i>{{ $t('seats.title') }}
+      </button>
       <button type="button" class="bar-btn primary" @click="showSettlement = true">
-        {{ $t('room.settle') }}
+        <i class="fas fa-flag-checkered"></i>{{ $t('room.settle') }}
       </button>
     </RoomActionBar>
 
