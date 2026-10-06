@@ -136,7 +136,7 @@ export const TITLE_FAMILIES = Object.freeze([
   family('firstOut', 'tournament', (s) => num(tour(s).firstOut), [5], { tiers: [3], hidden: true }),
 
   // ── 出席 ────────────────────────────────────────────────────────
-  family('regular', 'attendance', (s) => num(total(s).games), [10, 30, 60, 120]),
+  family('regular', 'attendance', (s) => num(total(s).games), [10, 40, 100, 200]),
   family('host', 'attendance', (s) => num(total(s).hostedGames), [5, 15, 30, 60]),
   family('hotStreak', 'attendance', (s) => num(total(s).winStreakBest), [3, 5, 8]),
   family('coldStreak', 'attendance', (s) => num(total(s).lossStreakBest), [3, 5, 8]),

@@ -119,9 +119,9 @@ describe('evaluateTitles', () => {
 
 describe('nextTierProgress', () => {
   it('reports the next goal and how far along', () => {
-    const p = nextTierProgress('regular', stats({ total: { games: 20 } }));
-    expect(p).toMatchObject({ value: 20, tier: 1, from: 10, maxed: false });
-    expect(p.next).toMatchObject({ tier: 2, threshold: 30 });
+    const p = nextTierProgress('regular', stats({ total: { games: 25 } }));
+    expect(p).toMatchObject({ value: 25, tier: 1, from: 10, maxed: false });
+    expect(p.next).toMatchObject({ tier: 2, threshold: 40 });
     expect(p.ratio).toBeCloseTo(0.5);
   });
 
