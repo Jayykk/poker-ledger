@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import {
+import { isLegacyDefaultPrefs,
   TITLE_FAMILIES,
   TITLE_GROUPS,
   evaluateTitles,
@@ -177,29 +177,47 @@ describe('prefs and display', () => {
 
   // 2 + 2 + 1 = 5 titles held → bronze
   it('auto: highest tier, ties go to the most recent', () => {
-    expect(resolveDisplay(unlocked, { mode: 'auto' })).toEqual({ familyId: 'champion', tier: 2, frame: 'bronze' });
+    expect(resolveDisplay(unlocked, { mode: 'auto', frame: 'auto' })).toEqual({ familyId: 'champion', tier: 2, frame: 'bronze' });
     expect(resolveDisplay({}, { mode: 'auto' })).toBeNull();
     expect(resolveTitle(unlocked, { mode: 'auto' })).toEqual({ familyId: 'champion', tier: 2 });
   });
 
   it('off hides the title but keeps the frame; pick shows the chosen one (auto if it is not unlocked)', () => {
-    expect(resolveDisplay(unlocked, { mode: 'off' })).toEqual({ familyId: null, tier: null, frame: 'bronze' });
-    expect(resolveDisplay({ host: { tier: 1, at: 1 } }, { mode: 'off' })).toBeNull();
-    expect(resolveDisplay(unlocked, { mode: 'pick', titleId: 'host' })).toEqual({ familyId: 'host', tier: 1, frame: 'bronze' });
-    expect(resolveDisplay(unlocked, { mode: 'pick', titleId: 'nightOwl' })).toEqual({ familyId: 'champion', tier: 2, frame: 'bronze' });
+    expect(resolveDisplay(unlocked, { mode: 'off', frame: 'auto' })).toEqual({ familyId: null, tier: null, frame: 'bronze' });
+    expect(resolveDisplay({ host: { tier: 1, at: 1 } }, { mode: 'off', frame: 'auto' })).toBeNull();
+    expect(resolveDisplay(unlocked, { mode: 'pick', titleId: 'host', frame: 'auto' })).toEqual({ familyId: 'host', tier: 1, frame: 'bronze' });
+    expect(resolveDisplay(unlocked, { mode: 'pick', titleId: 'nightOwl', frame: 'auto' })).toEqual({ familyId: 'champion', tier: 2, frame: 'bronze' });
     // A title but no frame yet
-    expect(resolveDisplay({ host: { tier: 1, at: 1 } }, null)).toEqual({ familyId: 'host', tier: 1, frame: null });
+    expect(resolveDisplay({ host: { tier: 1, at: 1 } }, { mode: 'auto', frame: 'auto' })).toEqual({ familyId: 'host', tier: 1, frame: null });
   });
 
-  it('defaults: auto, nothing picked, room titles on, auto frame', () => {
-    expect(normalizeTitlePrefs(null)).toEqual({ mode: 'auto', titleId: null, showRoomTitles: true, frame: 'auto' });
-    expect(normalizeTitlePrefs({ frame: 'ruby' }).frame).toBe('auto');
+  it('opt-in: with no prefs set nothing shows, not even an earned frame', () => {
+    expect(resolveDisplay(unlocked, null)).toBeNull();
+    expect(resolveDisplay(unlocked, { mode: 'auto', frame: 'none' })).toEqual({ familyId: 'champion', tier: 2, frame: null });
+    expect(resolveFrame(unlocked, { frame: 'none' })).toBeNull();
+  });
+
+  it('defaults are all off (opt-in): no title, no frame, no room titles', () => {
+    expect(normalizeTitlePrefs(null)).toEqual({ mode: 'off', titleId: null, showRoomTitles: false, frame: 'none' });
+    expect(normalizeTitlePrefs({ frame: 'ruby' }).frame).toBe('none');
     expect(normalizeTitlePrefs({ frame: 'gold' }).frame).toBe('gold');
+    expect(normalizeTitlePrefs({ frame: 'auto' }).frame).toBe('auto');
+  });
+
+  it('spots prefs that are only the old defaults from before opt-in', () => {
+    expect(isLegacyDefaultPrefs(null)).toBe(true);
+    expect(isLegacyDefaultPrefs({ mode: 'auto', titleId: null, showRoomTitles: true, frame: 'auto' })).toBe(true);
+    expect(isLegacyDefaultPrefs({ mode: 'auto', titleId: null, showRoomTitles: true })).toBe(true);
+    // Anything the player changed
+    expect(isLegacyDefaultPrefs({ mode: 'pick', titleId: 'host', showRoomTitles: true, frame: 'auto' })).toBe(false);
+    expect(isLegacyDefaultPrefs({ mode: 'off', showRoomTitles: true, frame: 'auto' })).toBe(false);
+    expect(isLegacyDefaultPrefs({ mode: 'auto', showRoomTitles: false, frame: 'auto' })).toBe(false);
+    expect(isLegacyDefaultPrefs({ mode: 'auto', showRoomTitles: true, frame: 'gold' })).toBe(false);
   });
 
   it('validates setTitlePrefs input', () => {
     expect(validateTitlePrefs({ mode: 'pick', titleId: 'host' }, null, unlocked).prefs)
-      .toEqual({ mode: 'pick', titleId: 'host', showRoomTitles: true, frame: 'auto' });
+      .toEqual({ mode: 'pick', titleId: 'host', showRoomTitles: false, frame: 'none' });
     expect(validateTitlePrefs({ mode: 'pick', titleId: 'nightOwl' }, null, unlocked).error).toBe('not-unlocked');
     expect(validateTitlePrefs({ mode: 'pick' }, null, unlocked).error).toBe('not-unlocked');
     expect(validateTitlePrefs({ mode: 'loud' }, null, unlocked).error).toBe('bad-mode');
@@ -213,6 +231,8 @@ describe('prefs and display', () => {
   it('validates the frame pick: auto or an earned frame', () => {
     expect(validateTitlePrefs({ frame: 'bronze' }, null, unlocked).prefs.frame).toBe('bronze');
     expect(validateTitlePrefs({ frame: 'auto' }, { frame: 'bronze' }, unlocked).prefs.frame).toBe('auto');
+    expect(validateTitlePrefs({ frame: 'none' }, { frame: 'bronze' }, unlocked).prefs.frame).toBe('none');
+    expect(validateTitlePrefs({ frame: 'none' }, null, {}).prefs.frame).toBe('none');
     expect(validateTitlePrefs({ frame: 'silver' }, null, unlocked).error).toBe('frame-locked');
     expect(validateTitlePrefs({ frame: 'bronze' }, null, {}).error).toBe('frame-locked');
     expect(validateTitlePrefs({ frame: 'ruby' }, null, unlocked).error).toBe('bad-frame');
@@ -275,7 +295,8 @@ describe('頭像框', () => {
   });
 
   it('the shown frame: picked while earned, else the highest earned', () => {
-    expect(resolveFrame(held(16), null)).toBe('gold');
+    expect(resolveFrame(held(16), null)).toBeNull();
+    expect(resolveFrame(held(16), { frame: 'auto' })).toBe('gold');
     expect(resolveFrame(held(16), { frame: 'bronze' })).toBe('bronze');
     expect(resolveFrame(held(16), { frame: 'diamond' })).toBe('gold');
     expect(resolveFrame({}, { frame: 'bronze' })).toBeNull();
@@ -293,11 +314,12 @@ describe('buildUserTitles', () => {
     expect(buildUserTitles(null, stats(), 1).changed).toBe(false);
   });
 
-  it('first unlock creates the doc with auto display', () => {
+  it('first unlock creates the doc, shown nowhere until the player turns it on', () => {
     const next = buildUserTitles(null, stats({ total: { games: 10 } }), 5);
     expect(next.changed).toBe(true);
     expect(next.unlocked).toEqual({ regular: { tier: 1, at: 5 } });
-    expect(next.display).toEqual({ familyId: 'regular', tier: 1, frame: null });
+    expect(next.prefs).toEqual({ mode: 'off', titleId: null, showRoomTitles: false, frame: 'none' });
+    expect(next.display).toBeNull();
   });
 
   it('unchanged stats → no write; keeps the user prefs', () => {
@@ -315,7 +337,7 @@ describe('buildUserTitles', () => {
   it('recomputes the frame: a doc from before frames gets one written', () => {
     const prev = {
       unlocked: { regular: { tier: 2, at: 5 }, host: { tier: 2, at: 6 } },
-      prefs: { mode: 'off', titleId: null, showRoomTitles: true },
+      prefs: { mode: 'off', titleId: null, showRoomTitles: true, frame: 'auto' },
       display: null,
     };
     const next = buildUserTitles(prev, stats({ total: { games: 40, hostedGames: 15 } }), 9);

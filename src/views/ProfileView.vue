@@ -71,8 +71,16 @@
           {{ $t('titles.unlockedCount', { n: unlockedTitles.length, total: TITLE_FAMILIES.length }) }}
         </div>
 
-        <div class="mt-3 text-left">
-          <div class="text-xs text-gray-400 mb-1.5">{{ $t('titles.mode') }}</div>
+        <!-- 顯示方式 + 指定: folded to one row showing what's on now -->
+        <button type="button" class="title-fold" :aria-expanded="titleOpen" @click="titleOpen = !titleOpen">
+          <span class="text-xs text-gray-400 whitespace-nowrap">{{ $t('titles.mode') }}</span>
+          <span class="title-fold-now">
+            <TitleBadge v-if="titlePrefs.mode !== 'off' && myDisplay?.familyId" :family-id="myDisplay.familyId" :tier="myDisplay.tier" />
+            <span v-else class="text-xs text-gray-300">{{ $t(`titles.mode${titlePrefs.mode === 'off' ? 'Off' : titlePrefs.mode === 'auto' ? 'Auto' : 'Pick'}`) }}</span>
+          </span>
+          <i class="fas fa-chevron-down title-fold-icon" :class="{ open: titleOpen }" aria-hidden="true"></i>
+        </button>
+        <div v-if="titleOpen" class="text-left">
           <div class="grid grid-cols-3 gap-2">
             <button
               v-for="m in titleModes"
@@ -91,7 +99,6 @@
             <template v-else-if="titlePrefs.mode === 'auto'">{{ $t('titles.modeAutoHint') }}</template>
             <template v-else>{{ $t('titles.pick') }}</template>
           </p>
-        </div>
 
         <div v-if="titlePrefs.mode === 'pick' && unlockedTitles.length" class="title-pick-grid">
           <button
@@ -109,14 +116,29 @@
           </button>
         </div>
         <p v-if="!unlockedTitles.length" class="text-xs text-gray-500 text-left mt-2">{{ $t('titles.noneUnlocked') }}</p>
+        </div>
 
-        <!-- 頭像框: earned ones to pick, locked ones dashed with what they need -->
-        <div class="mt-4 text-left">
-          <div class="flex justify-between items-baseline gap-2 mb-1.5">
-            <span class="text-xs text-gray-400">{{ $t('titles.frame') }}</span>
+        <!-- 頭像框: folded the same way; earned ones to pick, locked ones dashed with what they need -->
+        <button type="button" class="title-fold" :aria-expanded="frameOpen" @click="frameOpen = !frameOpen">
+          <span class="text-xs text-gray-400 whitespace-nowrap">{{ $t('titles.frame') }}</span>
+          <span class="title-fold-now">
             <span class="text-[11px] text-amber-400 whitespace-nowrap">{{ $t('titles.titleCount', { n: myTitleCount }) }}</span>
-          </div>
-          <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            <span class="text-xs text-gray-300 truncate">{{ frameSummary }}</span>
+          </span>
+          <i class="fas fa-chevron-down title-fold-icon" :class="{ open: frameOpen }" aria-hidden="true"></i>
+        </button>
+        <div v-if="frameOpen" class="text-left">
+          <div class="grid grid-cols-4 sm:grid-cols-7 gap-2">
+            <button
+              type="button"
+              class="frame-opt"
+              :class="{ active: titlePrefs.frame === 'none' }"
+              :disabled="titleSaving"
+              @click="pickFrame('none')"
+            >
+              <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="null" />
+              <span class="frame-opt-name">{{ $t('titles.frameOff') }}</span>
+            </button>
             <button
               type="button"
               class="frame-opt"
@@ -335,6 +357,13 @@ const titleSaving = ref(false);
 const myTitleCount = computed(() => titleCount(myTitles.value?.unlocked));
 const myEarnedFrame = computed(() => earnedFrame(myTitles.value?.unlocked));
 const myFrame = computed(() => myDisplay.value?.frame || null);
+// Both pickers start folded: the card is one short row each until opened
+const titleOpen = ref(false);
+const frameOpen = ref(false);
+const frameSummary = computed(() => {
+  if (titlePrefs.value.frame === 'none') return t('titles.frameOff');
+  return myFrame.value ? t(`titles.frames.${myFrame.value}`) : t('titles.frameNone');
+});
 const frameOptions = computed(() => FRAME_TIERS.map((f) => ({
   id: f.id,
   min: f.min,
@@ -462,6 +491,30 @@ const handleLogout = async () => {
   background: rgb(var(--tw-slate-900) / 0.5);
 }
 .theme-opt.active { border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.08); }
+/* Folded picker row: label · what's on now · chevron */
+.title-fold {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.6rem 0 0.3rem;
+  border-top: 1px solid rgb(var(--tw-slate-700));
+  text-align: left;
+}
+.title-fold + div { margin-top: 0.5rem; }
+.title-fold-now {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+.title-fold-now > .title-badge { max-width: 100%; }
+.title-fold-icon { flex-shrink: 0; font-size: 0.7rem; color: rgb(var(--tw-slate-400)); transition: transform 0.2s; }
+.title-fold-icon.open { transform: rotate(180deg); }
 .title-mode {
   padding: 0.4rem 0;
   border-radius: 0.6rem;
