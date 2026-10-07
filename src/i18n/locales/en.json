@@ -1342,11 +1342,11 @@
       },
       "crownProfit": {
         "t4": "Money Printer of the Month",
-        "desc": "Biggest net win in your circle this month"
+        "desc": "Hottest hand in your circle this month"
       },
       "crownLoss": {
         "t4": "Philanthropist of the Month",
-        "desc": "Biggest net loss in your circle this month"
+        "desc": "Most generous at the table in your circle this month"
       },
       "crownRegular": {
         "t4": "Regular of the Month",
