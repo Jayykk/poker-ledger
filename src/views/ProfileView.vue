@@ -2,7 +2,7 @@
   <div class="pt-8 px-4 pb-nav w-full max-w-md md:max-w-3xl lg:max-w-5xl mx-auto text-center">
     <!-- Avatar, in the 頭像框 you show -->
     <div class="flex justify-center mb-4">
-      <PlayerAvatar size="lg" :src="userAvatar || ''" :name="displayName || ''" :frame="myFrame" />
+      <PlayerAvatar size="lg" :src="userAvatar || ''" :name="displayName || ''" :frame="myFrame" :uid="user?.uid || ''" />
     </div>
 
     <h2 class="text-xl font-bold text-white mb-1">

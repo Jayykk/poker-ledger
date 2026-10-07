@@ -59,11 +59,14 @@ describe('TitleBadge', () => {
     expect(reads.filter((id) => id === 'alice')).toHaveLength(1);
   });
 
-  it('a 本月王座 crown: legendary, crown icon, its own glow', () => {
+  it('a 本月王座 crown: crown icon and its own red-gold, apart from a legendary title', () => {
     const w = mountBadge({ familyId: 'crownHunter', tier: 4 });
     expect(w.text()).toBe('本月獵頭王');
     expect(w.classes()).toEqual(expect.arrayContaining(['legendary', 'crown']));
     expect(w.find('.fa-crown').exists()).toBe(true);
+    const css = readFileSync(resolve(__dirname, '..', 'src/components/common/TitleBadge.vue'), 'utf-8');
+    expect(css).toMatch(/\.title-badge\.crown \{[^}]*background: rgba\(190, 18, 60, 0\.3\);/);
+    expect(css).toMatch(/:root\[data-mode="light"\] \.title-badge\.crown \{[^}]*color: #9f1239;/);
   });
 
   it('can show a given family + tier (codex / picker)', () => {
