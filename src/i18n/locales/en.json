@@ -1199,14 +1199,14 @@
     "loadFailed": "Couldn't load titles",
     "families": {
       "netWin": {
-        "desc": "Lifetime net winnings",
+        "desc": "Lifetime luck at the table",
         "t1": "Small Fry Winner",
         "t2": "Rising Star",
         "t3": "Money Printer",
         "t4": "God of Gamblers"
       },
       "netLoss": {
-        "desc": "Lifetime net losses",
+        "desc": "Lifetime sponsorship",
         "t1": "Kind Donor",
         "t2": "Philanthropist",
         "t3": "Angel Investor",
@@ -1220,14 +1220,14 @@
         "t4": "Empire in a Night"
       },
       "bigLoss": {
-        "desc": "Biggest single-game loss (buy-ins)",
+        "desc": "Biggest single-night sponsorship (buy-ins)",
         "t1": "Big Spender",
         "t2": "High Roller",
         "t3": "Grand Patron",
         "t4": "Fortune Giver"
       },
       "volatile": {
-        "desc": "Swing per game, σ in buy-ins (10+ games)",
+        "desc": "Ups and downs per game, σ in buy-ins (10+ games)",
         "t1": "Small Boss",
         "t2": "Boss",
         "t3": "Chairman",
@@ -1322,7 +1322,7 @@
         "t4": "Undefeated"
       },
       "coldStreak": {
-        "desc": "Longest losing streak",
+        "desc": "Longest run against the wind",
         "t2": "Never Quit",
         "t3": "Comeback Spirit",
         "t4": "Unbreakable"
@@ -1338,15 +1338,15 @@
       },
       "crownBoss": {
         "t4": "Big Boss of the Month",
-        "desc": "Biggest swings (σ) in your circle this month (4+ games with a buy-in size)"
+        "desc": "Biggest ups and downs in your circle this month (4+ games with a buy-in size)"
       },
       "crownProfit": {
         "t4": "Money Printer of the Month",
-        "desc": "Biggest net win in your circle this month"
+        "desc": "Hottest hand in your circle this month"
       },
       "crownLoss": {
         "t4": "Philanthropist of the Month",
-        "desc": "Biggest net loss in your circle this month"
+        "desc": "Sponsored the most in your circle this month"
       },
       "crownRegular": {
         "t4": "Regular of the Month",

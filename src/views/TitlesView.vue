@@ -60,13 +60,14 @@
                   <span v-if="row.holders.length > 3" class="tv-more">+{{ row.holders.length - 3 }}</span>
                 </span>
                 <span class="tv-holders">{{ row.holders.map(nameOf).join(' · ') }}</span>
-                <span class="tv-value">{{ formatCrown(row.id, row.value) }}</span>
+                <span v-if="!row.private" class="tv-value">{{ formatCrown(row.id, row.value) }}</span>
               </template>
               <span v-else class="tv-vacant">{{ $t('titles.throne.vacant') }}</span>
             </div>
 
-            <!-- Me against the holder -->
-            <div class="tv-me">
+            <!-- Me against the holder (money crowns show no amounts: who won or
+                 lost how much this month isn't for the whole circle to read) -->
+            <div v-if="!row.private || row.mine" class="tv-me">
               <template v-if="row.mine">
                 <i class="fas fa-crown text-amber-400 mr-1" aria-hidden="true"></i>{{ row.holders.length > 1 ? $t('titles.throne.youShare') : $t('titles.throne.youHold') }}
               </template>
@@ -222,6 +223,7 @@ const throne = computed(() => {
     const myValue = crownValue(id, mine);
     return {
       id,
+      private: getCrown(id)?.unit === 'money',
       holders,
       value,
       myValue,
