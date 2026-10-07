@@ -204,10 +204,14 @@
         </div>
       </BaseCard>
 
-      <!-- Theme -->
+      <!-- Theme: folded to one row showing the current theme, like the 稱號 pickers -->
       <BaseCard padding="md">
-        <div class="text-white mb-3">{{ $t('profile.theme') }}</div>
-        <div class="grid grid-cols-2 gap-2">
+        <button type="button" class="pv-fold" :aria-expanded="themeOpen" @click="themeOpen = !themeOpen">
+          <span class="text-white">{{ $t('profile.theme') }}</span>
+          <span class="pv-fold-now">{{ $t(`profile.themes.${currentTheme}.name`) }}</span>
+          <i class="fas fa-chevron-down title-fold-icon" :class="{ open: themeOpen }" aria-hidden="true"></i>
+        </button>
+        <div v-if="themeOpen" class="grid grid-cols-2 gap-2 mt-3">
           <button
             v-for="th in themeOptions"
             :key="th.id"
@@ -321,6 +325,8 @@ const isLineUser = computed(() => user.value?.uid?.startsWith('line_') ?? false)
 
 const selectedLanguage = ref(locale.value);
 const currentTheme = ref(resolveThemeId(localStorage.getItem(STORAGE_KEYS.THEME)));
+// The theme list starts folded: one row with the current theme until opened
+const themeOpen = ref(false);
 const themeOptions = THEME_LIST.map((th) => ({ id: th.id }));
 const soundEnabled = ref(localStorage.getItem(STORAGE_KEYS.SOUND_ENABLED) !== 'false');
 
@@ -502,6 +508,18 @@ const handleLogout = async () => {
   background: rgb(var(--tw-slate-900) / 0.5);
 }
 .theme-opt.active { border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.08); }
+/* Folded card (主題): label · current choice · chevron */
+.pv-fold { display: flex; align-items: center; gap: 0.5rem; width: 100%; text-align: left; }
+.pv-fold-now {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-size: 0.75rem;
+  color: rgb(var(--tw-slate-300));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 /* Folded picker row: label · what's on now · chevron */
 .title-fold {
   display: flex;
