@@ -1206,7 +1206,7 @@
         "t4": "God of Gamblers"
       },
       "netLoss": {
-        "desc": "Lifetime generosity at the table",
+        "desc": "Lifetime sponsorship",
         "t1": "Kind Donor",
         "t2": "Philanthropist",
         "t3": "Angel Investor",
@@ -1220,7 +1220,7 @@
         "t4": "Empire in a Night"
       },
       "bigLoss": {
-        "desc": "Boldest single night (buy-ins)",
+        "desc": "Biggest single-night sponsorship (buy-ins)",
         "t1": "Big Spender",
         "t2": "High Roller",
         "t3": "Grand Patron",
@@ -1346,7 +1346,7 @@
       },
       "crownLoss": {
         "t4": "Philanthropist of the Month",
-        "desc": "Most generous at the table in your circle this month"
+        "desc": "Sponsored the most in your circle this month"
       },
       "crownRegular": {
         "t4": "Regular of the Month",
