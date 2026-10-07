@@ -88,6 +88,14 @@ describe('稱號圖鑑 王座 section', () => {
     // nobody won money: vacant; me and bob tie on the loss
     expect(card('crownProfit').text()).toContain('從缺');
     expect(card('crownLoss').find('.tv-holders').text()).toBe('Me · BOB');
+    // Money crowns show who, never how much: no value, no gap
+    for (const id of ['crownProfit', 'crownLoss']) {
+      expect(card(id).find('.tv-value').exists()).toBe(false);
+      expect(card(id).text()).not.toMatch(/\d{3}|差/);
+    }
+    expect(card('crownLoss').find('.tv-me').text()).toContain('你和牌友並列王座');
+    expect(card('crownProfit').find('.tv-me').exists()).toBe(false);
+    expect(card('crownHunter').find('.tv-value').exists()).toBe(true);
     expect(card('crownBoss').find('.tv-me').text()).toBe('本月滿 4 場有組數的牌局才列入');
 
     // One month doc per circle member
