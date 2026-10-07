@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import {
-  CROWN_IDS, activeCrowns, applyCrownMonth, crownLeaders, crownMonthOf, crownStateFromScratch, crownValue,
-  heldCrowns,
+  CROWN_IDS, CROWN_MIN_PALS, activeCrowns, applyCrownMonth, crownLeaders, crownMonthOf, crownStateFromScratch,
+  crownValue, heldCrowns as heldCrownsRaw,
 } from '../functions/src/utils/crownRules.js';
 import {
   CROWN_FAMILIES, TITLE_FAMILIES, TITLE_SOURCES, buildCrownUpdate, buildUserTitles, effectiveDisplay,
@@ -59,13 +59,32 @@ describe('crown catalog', () => {
   });
 
   it('the frontend re-exports the crown rules', () => {
-    expect(frontend.heldCrowns).toBe(heldCrowns);
+    expect(frontend.heldCrowns).toBe(heldCrownsRaw);
     expect(frontend.CROWN_FAMILIES).toBe(CROWN_FAMILIES);
   });
 
   it('month key on the Asia/Taipei calendar', () => {
     expect(crownMonthOf(Date.parse('2026-09-30T16:30:00Z'))).toBe('2026-10');
     expect(crownMonthOf(Date.parse('2026-09-30T15:30:00Z'))).toBe('2026-09');
+  });
+});
+
+// The rule cases below use small circles: pad them with pals who played no
+// game this month (they count toward CROWN_MIN_PALS, never compete)
+const idle = Array(CROWN_MIN_PALS).fill(null);
+const heldCrowns = (own, pals) => heldCrownsRaw(own, [...pals, ...idle]);
+
+describe('a circle big enough to compete', () => {
+  const champ = month({ knockouts: 5, games: 5, profit: 900 });
+
+  it('fewer than 3 pals (someone new): no crown at all, whatever they did', () => {
+    expect(CROWN_MIN_PALS).toBe(3);
+    expect(heldCrownsRaw(champ, [])).toEqual([]);
+    expect(heldCrownsRaw(champ, [null, month({ games: 1 })])).toEqual([]);
+  });
+
+  it('3 pals, even ones with no games this month, is enough', () => {
+    expect(heldCrownsRaw(champ, [null, null, null])).toEqual(['crownHunter', 'crownProfit', 'crownRegular']);
   });
 });
 

@@ -20,13 +20,15 @@ const month = (uid, { games = 1, profit = 0, knockouts = 0 } = {}) => ({
 const docs = {
   'userTitles/me': {
     unlocked: { regular: { tier: 1, at: 1 } },
-    pals: ['amy', 'bob'],
+    // cy played nothing this month: still a pal, so the circle is big enough
+    pals: ['amy', 'bob', 'cy'],
     crowns: { crownRegular: MONTH },
     crownHistory: { crownHunter: ['2026-01', '2026-03'] },
     display: { familyId: 'crownRegular', tier: 4, frame: null, month: MONTH },
   },
   'userTitles/amy': { unlocked: {}, name: 'Amy' },
   'userTitles/bob': { unlocked: {}, name: 'Bob' },
+  'userTitles/cy': { unlocked: {}, name: 'Cy' },
   // A crown display from an older month: shown as what auto falls back to
   'userTitles/old': {
     unlocked: { host: { tier: 2, at: 1 } },
@@ -60,7 +62,7 @@ vi.mock('../src/composables/useAuth.js', () => ({
 }));
 
 const { default: TitlesView } = await import('../src/views/TitlesView.vue');
-const { ensureUserTitles, titleDisplayOf } = await import('../src/composables/useUserTitles.js');
+const { ensureUserTitles, titleDisplayOf, useUserTitles } = await import('../src/composables/useUserTitles.js');
 const i18n = createI18n({ legacy: false, locale: 'zh-TW', messages: { 'zh-TW': zhTW } });
 
 describe('稱號圖鑑 王座 section', () => {
@@ -90,7 +92,24 @@ describe('稱號圖鑑 王座 section', () => {
 
     // One month doc per circle member
     expect(reads.filter((p) => p.startsWith('leaderboardStats/') && p.endsWith(MONTH)).sort())
-      .toEqual(['amy', 'bob', 'me'].map((u) => `leaderboardStats/${u}_${MONTH}`));
+      .toEqual(['amy', 'bob', 'cy', 'me'].map((u) => `leaderboardStats/${u}_${MONTH}`));
+  });
+
+  it('fewer than 3 pals (someone new): a note on how to join instead of the crowns', async () => {
+    // The shared cache already holds me from the test above
+    const cached = useUserTitles().titles.me;
+    const saved = cached.pals;
+    cached.pals = ['amy'];
+    try {
+      const w = mount(TitlesView, { global: { plugins: [i18n], mocks: { $router: { push: () => {} } } } });
+      await flushPromises();
+      await flushPromises();
+      const throne = w.find('[data-testid="throne"]');
+      expect(throne.findAll('[data-crown]')).toHaveLength(0);
+      expect(throne.find('[data-testid="throne-need-pals"]').text()).toBe('再和 2 位牌友同桌（同一人滿 2 場）就能參加本月王座');
+    } finally {
+      cached.pals = saved;
+    }
   });
 
   it('client display: a crown from an older month falls back like auto', async () => {

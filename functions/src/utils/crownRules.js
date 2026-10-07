@@ -29,6 +29,9 @@ const round4 = (n) => Math.round(n * 10000) / 10000;
 
 // 本月老闆 needs this many games with a 組 size in the month
 export const CROWN_MIN_GROUP_GAMES = 4;
+// Fewer pals than this is no contest: someone new (no pals until they've
+// shared 2 games with someone) would hold every crown they qualify for alone
+export const CROWN_MIN_PALS = 3;
 
 // Fixed order: also the order auto display picks from when several are held
 export const CROWN_DEFS = Object.freeze([
@@ -133,14 +136,15 @@ export function crownQualifies(id, value) {
 }
 
 /**
- * Crowns a user holds for a month: meets the minimum and no pal is strictly
- * greater (ties share).
+ * Crowns a user holds for a month: at least CROWN_MIN_PALS pals, meets the
+ * minimum and no pal is strictly greater (ties share).
  *
  * @param {?object} ownStats The user's month stats.
  * @param {Array<?object>} palStats Month stats of each pal (null: no games).
  * @return {Array<string>} Crown ids held, in CROWN_IDS order.
  */
 export function heldCrowns(ownStats, palStats) {
+  if ((palStats || []).length < CROWN_MIN_PALS) return [];
   const held = [];
   for (const id of CROWN_IDS) {
     const mine = crownValue(id, ownStats);

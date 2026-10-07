@@ -1400,7 +1400,8 @@
       "units": {
         "knockouts": "{n} KO",
         "games": "{n} games"
-      }
+      },
+      "needPals": "Share 2 games with {n} more players to join this month's crowns"
     }
   }
 }
