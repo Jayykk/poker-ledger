@@ -4,8 +4,15 @@ import { createI18n } from 'vue-i18n';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import zhTW from '../src/i18n/locales/zh-TW.json';
+import { crownMonthOf } from '../functions/src/utils/crownRules.js';
+
+const NOW_MONTH = crownMonthOf(Date.now());
 
 const docs = {
+  // Wears a crown this month, titles on / off, and one from an older month
+  kim: { unlocked: {}, prefs: { mode: 'auto' }, crowns: { crownHunter: NOW_MONTH } },
+  lee: { unlocked: {}, prefs: { mode: 'off' }, crowns: { crownHunter: NOW_MONTH } },
+  max: { unlocked: {}, prefs: { mode: 'pick', titleId: 'regular' }, crowns: { crownHunter: '2020-01' } },
   dave: {
     display: { familyId: 'regular', tier: 2, frame: 'gold' },
     unlocked: { regular: { tier: 2, at: 1 } },
@@ -44,7 +51,30 @@ vi.mock('firebase/firestore', () => ({
 const { default: PlayerAvatar } = await import('../src/components/common/PlayerAvatar.vue');
 const { default: TitleBadge } = await import('../src/components/common/TitleBadge.vue');
 const { default: LiveTitleBadge } = await import('../src/components/common/LiveTitleBadge.vue');
-const { titleDisplayOf, frameOf, allowsRoomTitles, ensureUserTitles } = await import('../src/composables/useUserTitles.js');
+const { titleDisplayOf, frameOf, allowsRoomTitles, ensureUserTitles, wearsCrown } = await import('../src/composables/useUserTitles.js');
+
+describe('本月王座 corner crown', () => {
+  it('only while wearing a crown this month with titles turned on', async () => {
+    await ensureUserTitles(['kim', 'lee', 'max']);
+    expect(wearsCrown('kim')).toBe(true);
+    expect(wearsCrown('lee')).toBe(false); // titles off: the crown is a title too
+    expect(wearsCrown('max')).toBe(false); // last time was 2020
+    expect(wearsCrown('nobody')).toBe(false);
+  });
+
+  it('sits on the avatar by uid, or as given', async () => {
+    const i18n = createI18n({ legacy: false, locale: 'zh-TW', messages: { 'zh-TW': zhTW } });
+    const at = (props) => mount(PlayerAvatar, { props, global: { plugins: [i18n] } });
+    const kim = at({ uid: 'kim', name: 'Kim' });
+    const lee = at({ uid: 'lee', name: 'Lee' });
+    await flushPromises();
+    expect(kim.find('.pa-crown .fa-crown').exists()).toBe(true);
+    expect(kim.find('.pa-crown').attributes('title')).toBe('本月王座');
+    expect(lee.find('.pa-crown').exists()).toBe(false);
+    expect(at({ name: 'A', crown: true }).find('.pa-crown').exists()).toBe(true);
+    expect(at({ uid: 'kim', name: 'Kim', crown: false }).find('.pa-crown').exists()).toBe(false);
+  });
+});
 const i18n = createI18n({ legacy: false, locale: 'zh-TW', messages: { 'zh-TW': zhTW } });
 const mountWith = (component, props) => mount(component, { props, global: { plugins: [i18n] } });
 
@@ -212,7 +242,7 @@ describe('where avatars and live titles go', () => {
     expect(board).toContain('<PlayerAvatar size="sm" :src="avatarSrcOf(entry, user)" :name="entry.name" :uid="entry.uid" />');
     expect(board).toContain('<PlayerAvatar size="sm" :src="avatarSrcOf(myRankInfo, user)"');
     const profile = read('src/views/ProfileView.vue');
-    expect(profile).toContain('<PlayerAvatar size="lg" :src="userAvatar || \'\'" :name="displayName || \'\'" :frame="myFrame" />');
+    expect(profile).toContain('<PlayerAvatar size="lg" :src="userAvatar || \'\'" :name="displayName || \'\'" :frame="myFrame" :uid="user?.uid || \'\'" />');
     expect(profile).toContain('@click="pickFrame(f.id)"');
     expect(profile).toContain("$t('titles.frameNeed', { n: f.min })");
     expect(read('src/views/TitlesView.vue')).toContain("$t('titles.titleCount', { n: myTitleCount })");

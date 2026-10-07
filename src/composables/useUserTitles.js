@@ -10,7 +10,7 @@ import { reactive } from 'vue';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../firebase-init.js';
-import { crownMonthOf, effectiveDisplay, normalizeTitlePrefs } from '../utils/titles.js';
+import { activeCrowns, crownMonthOf, effectiveDisplay, normalizeTitlePrefs } from '../utils/titles.js';
 
 const COLLECTION = 'userTitles';
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -101,6 +101,18 @@ export function frameOf(uid) {
 }
 
 /**
+ * Wears a 本月王座 right now (the avatar's corner crown): holds one this month
+ * and has titles turned on — a crown is a title, so it follows the opt-in.
+ * @param {string} uid
+ * @return {boolean}
+ */
+export function wearsCrown(uid) {
+  const entry = uid ? cache[uid] : null;
+  if (!entry || entry.prefs.mode === 'off') return false;
+  return activeCrowns(entry.crowns, currentCrownMonth()).length > 0;
+}
+
+/**
  * Whether a user lets the room give them live titles (prefs.showRoomTitles).
  * null while their doc isn't loaded yet (load it with ensureUserTitles).
  * @param {string} uid
@@ -182,6 +194,7 @@ export function useUserTitles() {
     palsOf,
     currentCrownMonth,
     frameOf,
+    wearsCrown,
     avatarOf,
     allowsRoomTitles,
     watchMyTitles,

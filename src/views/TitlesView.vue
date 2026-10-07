@@ -32,7 +32,11 @@
           </h3>
           <span class="text-[11px] text-gray-400 truncate">{{ $t('titles.throne.sub', { month: crownMonth, n: myPals.length }) }}</span>
         </div>
-        <div class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+        <!-- Too few pals to compete yet (someone new) -->
+        <p v-if="myPals.length < CROWN_MIN_PALS" class="tv-card text-xs text-gray-300" data-testid="throne-need-pals">
+          {{ $t('titles.throne.needPals', { n: CROWN_MIN_PALS - myPals.length }) }}
+        </p>
+        <div v-else class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
           <div v-for="row in throne" :key="row.id" class="tv-card tv-throne" :class="{ held: row.mine }" :data-crown="row.id">
             <div class="flex items-center justify-between gap-2 min-w-0">
               <TitleBadge :family-id="row.id" :tier="4" />
@@ -51,6 +55,7 @@
                     :uid="uid"
                     :src="uid === user?.uid ? (user?.photoURL || '') : ''"
                     :name="nameOf(uid)"
+                    :crown="false"
                   />
                   <span v-if="row.holders.length > 3" class="tv-more">+{{ row.holders.length - 3 }}</span>
                 </span>
@@ -133,7 +138,7 @@ import PlayerAvatar from '../components/common/PlayerAvatar.vue';
 import { formatNumber } from '../utils/formatters.js';
 import {
   TITLE_FAMILIES, TITLE_GROUPS, nextTierProgress, titleRarity, titleCount,
-  CROWN_IDS, CROWN_MIN_GROUP_GAMES, crownLeaders, crownValue, getCrown,
+  CROWN_IDS, CROWN_MIN_GROUP_GAMES, CROWN_MIN_PALS, crownLeaders, crownValue, getCrown,
 } from '../utils/titles.js';
 import { statsDocId } from '../../functions/src/utils/leaderboardStatsMath.js';
 

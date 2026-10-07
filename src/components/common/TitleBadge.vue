@@ -15,7 +15,8 @@
 // that player chose to display, loaded through the shared cache) or a
 // `familyId` + `tier` (稱號圖鑑 / profile picker). Renders nothing when there
 // is no title. Rarity colors: 1 gray · 2 blue · 3 purple · 4 gold + crown.
-// 本月王座 crowns are legendary with the crown icon (and a stronger glow);
+// 本月王座 crowns are red-gold with the crown icon, so they read apart from a
+// legendary title;
 // titleDisplayOf only gives one while it is this month's.
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -78,15 +79,20 @@ const name = computed(() => (shown.value ? t(titleTierOf(shown.value.familyId, s
   box-shadow: 0 0 6px rgba(251, 191, 36, 0.35);
 }
 
-/* 本月王座: the legendary gold, a touch brighter so a crown reads apart from a
-   tier-4 title (the glow stays small: badges sit in tight rows) */
+/* 本月王座: red-gold, set apart from a tier-4 title's gold (the glow stays
+   small: badges sit in tight rows) */
 .title-badge.crown {
-  background: linear-gradient(135deg, rgba(253, 224, 71, 0.4), rgba(234, 88, 12, 0.24));
-  box-shadow: 0 0 6px rgba(253, 224, 71, 0.5);
+  color: #fecaca;
+  background: rgba(190, 18, 60, 0.3);
+  border-color: rgba(224, 160, 48, 0.9);
+  box-shadow: 0 0 6px rgba(244, 63, 94, 0.35);
 }
+.title-badge.crown .title-badge-crown { color: #f5c542; }
 
 :root[data-mode="light"] .title-badge.common { color: #475569; background: rgba(100, 116, 139, 0.12); }
 :root[data-mode="light"] .title-badge.rare { color: #1d4ed8; background: rgba(59, 130, 246, 0.12); }
 :root[data-mode="light"] .title-badge.epic { color: #7e22ce; background: rgba(168, 85, 247, 0.12); }
 :root[data-mode="light"] .title-badge.legendary { color: #92400e; background: linear-gradient(135deg, rgba(251, 191, 36, 0.35), rgba(245, 158, 11, 0.2)); box-shadow: none; }
+:root[data-mode="light"] .title-badge.crown { color: #9f1239; background: rgba(244, 63, 94, 0.12); border-color: #d97706; box-shadow: none; }
+:root[data-mode="light"] .title-badge.crown .title-badge-crown { color: #b45309; }
 </style>

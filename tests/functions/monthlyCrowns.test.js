@@ -124,13 +124,17 @@ describe('setTitlePrefs with a crown', () => {
   });
 });
 
+// Pals who played nothing this month: they make a circle big enough to hold a
+// crown (CROWN_MIN_PALS) without competing
+const IDLE = ['i1', 'i2', 'i3'];
+
 describe('recomputeMonthlyCrowns', () => {
   // amy – bob – cat in a row of pals: amy and cat are not pals of each other
   const base = () => ({
-    ...titles('amy', { pals: ['bob'] }),
-    ...titles('bob', { pals: ['amy', 'cat'] }),
-    ...titles('cat', { pals: ['bob', 'dan'] }),
-    ...titles('dan', { pals: ['cat'] }),
+    ...titles('amy', { pals: ['bob', ...IDLE] }),
+    ...titles('bob', { pals: ['amy', 'cat', ...IDLE] }),
+    ...titles('cat', { pals: ['bob', 'dan', ...IDLE] }),
+    ...titles('dan', { pals: ['cat', ...IDLE] }),
     ...stats('amy', { knockouts: 5, games: 3 }),
     ...stats('bob', { knockouts: 2, games: 3 }),
     ...stats('cat', { knockouts: 3, games: 1, profit: 900 }),
@@ -157,8 +161,8 @@ describe('recomputeMonthlyCrowns', () => {
     const first = await recomputeMonthlyCrowns(db, ['bob'], [OCT], { now: NOW });
     expect(first.written).toBe(3);
     const statReads = db.reads.filter((p) => p.startsWith('leaderboardStats/'));
-    // amy, bob, cat, dan once each
-    expect(statReads.sort()).toEqual(['amy', 'bob', 'cat', 'dan'].map((u) => `leaderboardStats/${u}_${OCT}`));
+    // amy, bob, cat, dan and the idle pals once each
+    expect(statReads.sort()).toEqual(['amy', 'bob', 'cat', 'dan', ...IDLE].map((u) => `leaderboardStats/${u}_${OCT}`));
     db.writes.length = 0;
     const again = await recomputeMonthlyCrowns(db, ['bob'], [OCT], { now: NOW });
     expect(again.written).toBe(0);
@@ -207,8 +211,8 @@ describe('recomputeMonthlyCrowns', () => {
 describe('rebuildCrownHistory (backfill --crown-history)', () => {
   it('replays every month with today\'s pals, from scratch, idempotent', async () => {
     const db = fakeDb({
-      ...titles('amy', { pals: ['bob'], crownHistory: { crownLoss: ['2026-01'] } }),
-      ...titles('bob', { pals: ['amy'] }),
+      ...titles('amy', { pals: ['bob', ...IDLE], crownHistory: { crownLoss: ['2026-01'] } }),
+      ...titles('bob', { pals: ['amy', ...IDLE] }),
       ...stats('amy', { knockouts: 4, period: '2026-08' }),
       ...stats('bob', { knockouts: 2, period: '2026-08' }),
       ...stats('amy', { knockouts: 1, period: '2026-09' }),

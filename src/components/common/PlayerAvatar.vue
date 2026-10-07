@@ -15,6 +15,10 @@
       />
       <span v-else class="pa-initial" aria-hidden="true">{{ initial }}</span>
     </span>
+    <!-- 本月王座: a small crown on the corner, whatever title shows by the name -->
+    <span v-if="showCrown" class="pa-crown" :title="$t('titles.throne.title')">
+      <i class="fas fa-crown" aria-hidden="true"></i>
+    </span>
     <!-- Seat linked to an account (the rows' old blue ● next to the name) -->
     <span v-if="linked" class="pa-linked" aria-hidden="true"></span>
   </span>
@@ -27,9 +31,11 @@
 // none) or read from the player's userTitles display through the shared cache
 // (`uid`; the same doc TitleBadge loads, so no extra read). No frame → a thin
 // neutral ring. Sizes: sm 28px (rows) · md 40px · lg 80px (profile).
+// A small crown sits on the corner while the player wears a 本月王座 (given
+// as `crown`, or read through `uid` like the frame).
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { avatarOf, ensureUserTitles, frameOf } from '../../composables/useUserTitles.js';
+import { avatarOf, ensureUserTitles, frameOf, wearsCrown } from '../../composables/useUserTitles.js';
 import { FRAME_IDS } from '../../utils/titles.js';
 
 const props = defineProps({
@@ -41,6 +47,8 @@ const props = defineProps({
   frame: { type: String, default: undefined },
   // Small blue dot: the seat belongs to an account
   linked: { type: Boolean, default: false },
+  // Given corner crown (wins over the uid lookup)
+  crown: { type: Boolean, default: undefined },
 });
 
 const { t } = useI18n();
@@ -53,6 +61,7 @@ watch(() => props.uid, (uid) => {
 }, { immediate: true });
 
 const shownSrc = computed(() => props.src || avatarOf(props.uid));
+const showCrown = computed(() => (props.crown !== undefined ? props.crown : wearsCrown(props.uid)));
 
 const shownFrame = computed(() => {
   const id = given.value ? props.frame : frameOf(props.uid);
@@ -123,6 +132,23 @@ const initial = computed(() => {
   box-shadow: 0 0 0 2px rgb(var(--tw-slate-800));
 }
 .pa-lg .pa-linked { width: 14px; height: 14px; right: 3px; bottom: 3px; }
+.pa-crown {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 15px;
+  height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 8px;
+  color: #f5c542;
+  background: rgb(var(--tw-slate-900));
+  box-shadow: 0 0 0 1px rgba(224, 160, 48, 0.9);
+}
+.pa-md .pa-crown { width: 18px; height: 18px; font-size: 10px; }
+.pa-lg .pa-crown { width: 26px; height: 26px; font-size: 13px; top: -2px; right: -2px; }
 
 .frame-bronze { background: #c47f45; }
 .frame-silver { background: #cbd5e1; }
@@ -134,6 +160,7 @@ const initial = computed(() => {
 }
 
 :root[data-mode="light"] .pa-linked { background: #2563eb; }
+:root[data-mode="light"] .pa-crown { color: #b45309; background: #fff; box-shadow: 0 0 0 1px #d97706; }
 :root[data-mode="light"] .frame-bronze { background: #a0582a; }
 :root[data-mode="light"] .frame-silver { background: #8b97a8; }
 :root[data-mode="light"] .frame-gold { background: #c8960c; }
