@@ -30,8 +30,13 @@ if ('serviceWorker' in navigator) {
       const reg = await navigator.serviceWorker.register(
         import.meta.env.BASE_URL + 'sw.js'
       );
-      // Check for updates every 5 minutes
-      setInterval(() => reg.update(), 5 * 60 * 1000);
+      // Check for updates every 5 minutes. A check that can't reach sw.js
+      // (offline, a flaky phone network, the app backgrounded) rejects; that's
+      // harmless — the next check retries — so it's not an app error.
+      setInterval(() => {
+        if (!navigator.onLine) return;
+        reg.update().catch((err) => console.warn('[SW] Update check failed:', err?.message || err));
+      }, 5 * 60 * 1000);
 
       // Reload only after the user ACCEPTS the update. The old flow reloaded
       // on every controllerchange, which — combined with sw.js's former
