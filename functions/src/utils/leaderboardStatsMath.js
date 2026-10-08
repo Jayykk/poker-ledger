@@ -130,6 +130,23 @@ const emptyTournamentBucket = () => ({
   bestDraw: 0,
 });
 
+// Hand-record / knockout-log events of one game (history_sub.handEvents,
+// written by the projection from handEvents.js), summed into the TOTAL bucket
+// only (they are counted the same in cash and tournaments):
+//   quads / straightFlush / royalFlush  final hands made
+//   tragicHero    four of a kind or better in a hand someone else took
+//   badBeatWins   hands won from way behind (see handEvents.js)
+//   coolers       two big hands head to head
+//   revenge       players paid back in the same game (knockoutLog.js)
+export const HAND_EVENT_KEYS = Object.freeze([
+  'quads', 'straightFlush', 'royalFlush', 'tragicHero', 'badBeatWins', 'coolers', 'revenge',
+]);
+
+/** @return {Object<string, number>} Every HAND_EVENT_KEYS count at 0. */
+export function emptyHandEvents() {
+  return Object.fromEntries(HAND_EVENT_KEYS.map((key) => [key, 0]));
+}
+
 const round2 = (n) => Math.round(n * 100) / 100;
 const round4 = (n) => Math.round(n * 10000) / 10000;
 
@@ -264,7 +281,7 @@ export function aggregateHistoryRecords(uid, records) {
     if (!entry) {
       entry = {
         periodType,
-        total: emptyBucket(),
+        total: { ...emptyBucket(), ...emptyHandEvents() },
         cash: emptyBucket(),
         tournament: emptyTournamentBucket(),
       };
@@ -318,6 +335,10 @@ export function aggregateHistoryRecords(uid, records) {
       const streaks = streakState.get(periodKey);
 
       addGame(entry.total, streaks.total, game);
+      for (const key of HAND_EVENT_KEYS) {
+        const count = Number(record.handEvents?.[key]);
+        if (Number.isFinite(count) && count > 0) entry.total[key] += count;
+      }
 
       if (bucketType) {
         const bucket = entry[bucketType];
@@ -391,7 +412,8 @@ export function aggregateHistoryRecords(uid, records) {
 }
 
 // 4: titles fields (groups / streaks / hosted / night / knockedOut / bubble …)
-export const LEADERBOARD_STATS_VERSION = 4;
+// 5: hand events in the total bucket (quads / badBeatWins / revenge …)
+export const LEADERBOARD_STATS_VERSION = 5;
 
 /**
  * Build the full leaderboardStats doc set for a user (Firestore payloads).
