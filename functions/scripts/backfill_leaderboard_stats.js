@@ -43,6 +43,13 @@
  *                      only ever go up. Prefs and earlier unlock times stay.
  *   --crown-history    Also rebuild every past month's crowns into
  *                      crownHistory (all users, whatever --uid says)
+ *   --hand-events      Before recomputing a user, recompute history_sub
+ *                      .handEvents (手牌 / 復仇者 titles) on each of their
+ *                      docs whose game still exists, from games/{id}/hands and
+ *                      the game's 'eliminate' transactions (each game read
+ *                      once, cached across users). Only docs whose counts
+ *                      differ are written, so it is idempotent. Titles stay
+ *                      opt-in: nobody's display is turned on (prefs untouched).
  *
  * Prerequisites: same credentials setup as migrate_legacy_history_to_history_sub.js
  * (serviceAccountKey.json at repo root / functions, or GOOGLE_APPLICATION_CREDENTIALS).
@@ -70,12 +77,14 @@ const onlyUid = uidIndex !== -1 && args[uidIndex + 1] ? args[uidIndex + 1] : nul
 const fillHostUids = !args.includes('--skip-host-uids');
 const rebuildTitles = args.includes('--rebuild-titles');
 const crownHistory = args.includes('--crown-history');
+const handEvents = args.includes('--hand-events');
 
 const { initializeApp, cert } = await import('firebase-admin/app');
 const { getFirestore } = await import('firebase-admin/firestore');
 const { recomputeLeaderboardStatsForUser } = await import('../src/handlers/leaderboardStats.js');
 const { recomputeMonthlyCrowns, rebuildCrownHistory } = await import('../src/handlers/monthlyCrowns.js');
 const { crownMonthOf } = await import('../src/utils/crownRules.js');
+const { fillHandEventsForUser } = await import('../src/handlers/gameHandEvents.js');
 
 try {
   const serviceAccountPaths = [
@@ -149,10 +158,16 @@ async function run() {
   let hostUidsFilled = 0;
   let titleDocsWritten = 0;
   let titlesUnlocked = 0;
+  const handEventsCache = new Map();
+  const handEventsSummary = { checked: 0, written: 0, skipped: 0 };
 
   for (const uid of uids) {
     try {
       if (fillHostUids) hostUidsFilled += await fillMissingHostUids(uid);
+      if (handEvents) {
+        const filled = await fillHandEventsForUser(db, uid, handEventsCache);
+        for (const key of Object.keys(handEventsSummary)) handEventsSummary[key] += filled[key];
+      }
       const result = await recomputeLeaderboardStatsForUser(db, uid, { rebuildTitles });
       totalPeriods += result.periods;
       totalDeleted += result.deleted;
@@ -187,7 +202,15 @@ async function run() {
 
   console.log('\n=== Summary ===');
   console.log(JSON.stringify({
-    users: uids.length, totalPeriods, totalDeleted, hostUidsFilled, titleDocsWritten, titlesUnlocked, crowns, failures,
+    users: uids.length,
+    totalPeriods,
+    totalDeleted,
+    hostUidsFilled,
+    ...(handEvents ? { handEvents: { ...handEventsSummary, games: handEventsCache.size } } : {}),
+    titleDocsWritten,
+    titlesUnlocked,
+    crowns,
+    failures,
   }, null, 2));
   if (failures > 0) process.exit(2);
 }

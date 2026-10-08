@@ -5,6 +5,7 @@ import {
   aggregateHistoryRecords,
   buildLeaderboardStatsDocs,
   statsDocId,
+  HAND_EVENT_KEYS,
 } from '../functions/src/utils/leaderboardStatsMath.js';
 
 const twMillis = (iso) => Date.parse(`${iso}+08:00`);
@@ -203,12 +204,39 @@ describe('buildLeaderboardStatsDocs', () => {
       .toEqual([]);
   });
 
-  it('stamps sourceVersion 4 (titles fields)', () => {
+  it('stamps sourceVersion 5 (hand events)', () => {
     const docs = buildLeaderboardStatsDocs({
       uid: 'u1', name: 'A', hidden: false,
       records: [{ type: 'live', profit: 1, createdAt: twMillis('2026-07-22T20:00:00') }],
     });
-    expect(docs[0].data.sourceVersion).toBe(4);
+    expect(docs[0].data.sourceVersion).toBe(5);
+  });
+});
+
+describe('hand events', () => {
+  const rec = (createdAt, handEvents, type = 'live') => ({ type, profit: 0, createdAt, handEvents });
+
+  it('sums history_sub.handEvents into the total bucket of every period', () => {
+    const periods = aggregateHistoryRecords('me', [
+      rec(twMillis('2026-07-22T20:00:00'), { quads: 1, badBeatWins: 2, coolers: 1 }),
+      rec(twMillis('2026-08-05T20:00:00'), { quads: 1, royalFlush: 1, revenge: 1 }, 'tournament'),
+      rec(twMillis('2026-08-06T20:00:00'), undefined),
+    ]);
+    expect(periods.get('all').total).toMatchObject({
+      quads: 2, straightFlush: 0, royalFlush: 1, tragicHero: 0, badBeatWins: 2, coolers: 1, revenge: 1,
+    });
+    expect(periods.get('2026-07').total).toMatchObject({ quads: 1, badBeatWins: 2, royalFlush: 0 });
+    expect(periods.get('2026-08').total).toMatchObject({ quads: 1, royalFlush: 1, revenge: 1 });
+    // Only the total bucket carries them
+    expect(periods.get('all').cash.quads).toBeUndefined();
+    expect(periods.get('all').tournament.revenge).toBeUndefined();
+  });
+
+  it('ignores junk counts and starts every total at 0', () => {
+    const all = aggregateHistoryRecords('me', [
+      rec(twMillis('2026-07-22T20:00:00'), { quads: 'x', coolers: -1, tragicHero: null }),
+    ]).get('all').total;
+    for (const key of HAND_EVENT_KEYS) expect(all[key]).toBe(0);
   });
 });
 

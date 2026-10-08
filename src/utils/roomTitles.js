@@ -33,7 +33,8 @@
 //               stat uses.
 //   first KO    the active 'eliminate' records in status order (restore.seq,
 //               then timestamp): the first whose bounty.awards name an
-//               eliminator (KO / PKO), or whose mysteryTicket's `by` does.
+//               eliminator (KO / PKO), or whose mysteryTicket's `by` does
+//               (functions/src/utils/knockoutLog.js).
 //
 // The subject decides, and it's opt-in: only a player whose userTitles
 // prefs.showRoomTitles is true gets one (prefsOf), whatever the viewer's own
@@ -42,6 +43,8 @@
 // opt in, so they never get one.
 
 import { DEFAULT_BUY_IN } from './constants.js';
+// The ordered knockout log (shared with the server's 復仇者)
+import { orderedKnockouts } from '../../functions/src/utils/knockoutLog.js';
 
 export const ROOM_TITLE_IDS = Object.freeze([
   'hunter', 'chipLeader', 'phoenix', 'patron', 'prey', 'firstBlood',
@@ -96,27 +99,7 @@ function leaders(players, valueOf, min) {
 
 /** Eliminators of the game's first knockout (see the header). */
 function firstBloodIds(players, transactions) {
-  const ticketBy = new Map();
-  for (const p of players) {
-    for (const ticket of p.mysteryTickets || []) ticketBy.set(ticket.id, ticket.by || []);
-  }
-  const order = (tx) => [num(tx.restore?.seq) || Infinity, num(tx.timestamp)];
-  const records = (transactions || [])
-    .filter((tx) => tx?.type === 'eliminate' && tx.status === 'active')
-    .sort((a, b) => {
-      const [seqA, atA] = order(a);
-      const [seqB, atB] = order(b);
-      return (seqA - seqB) || (atA - atB);
-    });
-  const ids = new Set(players.map((p) => p.id));
-  for (const tx of records) {
-    const by = [
-      ...(tx.restore?.bounty?.awards || []).map((a) => a.playerId),
-      ...(tx.restore?.mysteryTicket ? ticketBy.get(tx.restore.mysteryTicket) || [] : []),
-    ].filter((id) => ids.has(id));
-    if (by.length) return [...new Set(by)];
-  }
-  return [];
+  return orderedKnockouts(players, transactions).find((ko) => ko.by.length)?.by || [];
 }
 
 /**

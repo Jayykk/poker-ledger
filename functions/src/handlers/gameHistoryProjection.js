@@ -7,6 +7,8 @@ import { recomputeLeaderboardStatsForUser } from './leaderboardStats.js';
 import { recomputeMonthlyCrowns } from './monthlyCrowns.js';
 import { crownMonthOf } from '../utils/crownRules.js';
 import { deriveTournamentEntryMetrics } from '../utils/tournamentSettlementMath.js';
+import { emptyHandEvents } from '../utils/leaderboardStatsMath.js';
+import { loadGameHandEvents } from './gameHandEvents.js';
 
 const HISTORY_SUBCOLLECTION = 'history_sub';
 const PROJECTION_VERSION = 1;
@@ -231,9 +233,13 @@ function gameCompletedMillis(game, now = Date.now()) {
  *
  * @param {string} gameId Game document id.
  * @param {object} game Source game document.
+ * @param {object} [options] `{ handEvents }`: uid → hand-event counts
+ *   (loadGameHandEvents); each participant gets theirs (zeros when none).
+ *   Left out (e.g. the load failed): the docs carry no handEvents field, so a
+ *   merge keeps what was stored.
  * @return {Array<object>} Projection writes grouped by user id.
  */
-export function buildUserProjectionDocs(gameId, game) {
+export function buildUserProjectionDocs(gameId, game, { handEvents = null } = {}) {
   const settlement = buildSettlementSnapshot(game);
   const rate = Number(game.rate) || 1;
   const syncToken = game.historyProjection?.requestToken || null;
@@ -263,6 +269,8 @@ export function buildUserProjectionDocs(gameId, game) {
         hostUid: game.hostUid || null,
         placement: row.placement ?? null,
         settlement,
+        // 手牌 / 復仇者 titles (utils/handEvents.js), summed by leaderboardStats
+        ...(handEvents ? { handEvents: handEvents[row.odId] || emptyHandEvents() } : {}),
         sourceCollection: 'games',
         sourceVersion: PROJECTION_VERSION,
         sourceGameUpdatedAt: toMillis(game.updatedAt) || roundNumber(completedAt),
@@ -366,7 +374,17 @@ export async function syncCompletedGameHistoryProjection(gameId, options = {}) {
     throw new HttpsError('failed-precondition', 'Game is not completed');
   }
 
-  const writes = buildUserProjectionDocs(gameId, game);
+  // Hand records + knockout log → each player's hand events. Logged, never
+  // thrown: the projection must not fail over a title count (the docs then
+  // keep whatever handEvents they had; the backfill can fill them in).
+  let handEvents = null;
+  try {
+    handEvents = await loadGameHandEvents(db, gameId, game);
+  } catch (handEventsError) {
+    console.error(`hand events failed for game ${gameId}:`, handEventsError);
+  }
+
+  const writes = buildUserProjectionDocs(gameId, game, { handEvents });
   const nextUserIds = writes.map((item) => item.uid);
   // Only attempt to extract stale user IDs from beforeGame when it was already
   // 'completed'.  If the transition is active→completed (initial settlement) the
