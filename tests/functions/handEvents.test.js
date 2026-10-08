@@ -239,6 +239,13 @@ describe('gameHandEvents', () => {
     for (const key of HAND_EVENT_KEYS) expect(typeof got.u2[key]).toBe('number');
   });
 
+  it('hands marked excludeFromTitles (test data) are skipped', () => {
+    const quads = hand([], [['p1', [], { ...W, handType: 'four_of_a_kind' }], ['p2', []]]);
+    const hands = [quads, { ...quads, excludeFromTitles: true }];
+    expect(gameHandEvents({ players, hands }).u1).toMatchObject({ quads: 1 });
+    expect(gameHandEvents({ players, hands: [{ ...quads, excludeFromTitles: true }] }).u1).toMatchObject({ quads: 0 });
+  });
+
   it('a seat no longer on the roster falls back to the hand\'s playerUid', () => {
     const hands = [hand([], [['gone', [], { ...W, handType: 'four_of_a_kind', playerUid: 'u9' }], ['p1', []]])];
     expect(gameHandEvents({ players, hands }).u9).toMatchObject({ quads: 1 });
