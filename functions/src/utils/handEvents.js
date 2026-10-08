@@ -526,6 +526,8 @@ export function gameHandEvents({ players, hands, transactions }, options = {}) {
   };
 
   for (const hand of Array.isArray(hands) ? hands : []) {
+    // Test hands kept for the record but marked out of the titles
+    if (hand?.excludeFromTitles === true) continue;
     for (const [playerId, counts] of Object.entries(handEventsOfHand(hand, options))) {
       const uid = uidOf(playerId, hand);
       for (const key of HAND_EVENT_KEYS) add(uid, key, counts[key] || 0);
