@@ -1340,9 +1340,9 @@
       },
       "badBeat": {
         "desc": "Under 20% preflop, on the flop or on the turn, and still took the hand",
-        "t2": "King of Sneaky",
-        "t3": "Child of the River",
-        "t4": "River God",
+        "t2": "Little Sneak",
+        "t3": "Master Sneak",
+        "t4": "King of Sneaky",
         "hint": "The river is your best friend"
       },
       "cooler": {
