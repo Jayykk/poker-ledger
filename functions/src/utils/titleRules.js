@@ -42,9 +42,9 @@
 // a frame can't drop when a crown goes. In auto an active crown beats any
 // other title (CROWN_IDS order when several); pick may choose a held crown and
 // falls back to auto once it is gone.
-// Hooks for later phases (not implemented yet):
-//   - source 'hand'   hand-history titles; 'event' one-off titles such as
-//                     復仇者 / 悲劇英雄
+// 手牌 (and 復仇者 under 獵頭) are plain stats families too: the projection
+// stores each game's hand events on history_sub (utils/handEvents.js) and the
+// stats sum them into the total bucket. Sources 'hand' / 'event' stay unused.
 // Live in-room titles (獵人 / 本場金主 …) are computed on the client from the
 // room itself and never stored: src/utils/roomTitles.js. Each player's
 // prefs.showRoomTitles decides whether they can be given one. In a room the
@@ -58,7 +58,7 @@ import {
   sameCrownHistory, sameCrowns,
 } from './crownRules.js';
 
-export const TITLE_GROUPS = Object.freeze(['wallet', 'hunter', 'tournament', 'attendance']);
+export const TITLE_GROUPS = Object.freeze(['wallet', 'hunter', 'tournament', 'hands', 'attendance']);
 
 export const TITLE_SOURCES = Object.freeze({
   STATS: 'stats',
@@ -184,6 +184,8 @@ export const TITLE_FAMILIES = Object.freeze([
   family('hunter', 'hunter', (s) => num(tour(s).knockouts), [5, 20, 50, 120]),
   family('hunted', 'hunter', (s) => num(tour(s).knockedOut), [5, 20, 50, 120]),
   family('mysteryTop', 'hunter', (s) => num(tour(s).topDraws), [1, 3, 10]),
+  // Paid back in the same game (knockoutLog.js revengeCounts)
+  family('avenger', 'hunter', (s) => num(total(s).revenge), [1], { tiers: [3], hidden: true }),
 
   // ── 錦標賽 ──────────────────────────────────────────────────────
   family('champion', 'tournament', (s) => num(tour(s).champion), [1, 3, 6, 12]),
@@ -193,6 +195,16 @@ export const TITLE_FAMILIES = Object.freeze([
   family('runnerUp', 'tournament', (s) => num(tour(s).runnerUp), [5], { tiers: [3], hidden: true }),
   family('bubble', 'tournament', (s) => num(tour(s).bubble), [5], { tiers: [3], hidden: true }),
   family('firstOut', 'tournament', (s) => num(tour(s).firstOut), [5], { tiers: [3], hidden: true }),
+
+  // ── 手牌 ────────────────────────────────────────────────────────
+  // From the recorded hands (games/{id}/hands, utils/handEvents.js), summed
+  // into the total bucket. Only hands someone recorded count.
+  family('badBeat', 'hands', (s) => num(total(s).badBeatWins), [1, 3, 10], { tiers: [2, 3, 4], hidden: true }),
+  family('cooler', 'hands', (s) => num(total(s).coolers), [1, 3, 5], { tiers: [2, 3, 4] }),
+  family('tragicHero', 'hands', (s) => num(total(s).tragicHero), [1], { tiers: [3], hidden: true }),
+  family('quads', 'hands', (s) => num(total(s).quads), [1, 5], { tiers: [2, 3] }),
+  family('straightFlush', 'hands', (s) => num(total(s).straightFlush), [1], { tiers: [3], hidden: true }),
+  family('royalFlush', 'hands', (s) => num(total(s).royalFlush), [1], { tiers: [4], hidden: true }),
 
   // ── 出席 ────────────────────────────────────────────────────────
   family('regular', 'attendance', (s) => num(total(s).games), [10, 40, 100, 200]),

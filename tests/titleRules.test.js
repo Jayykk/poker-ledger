@@ -121,6 +121,40 @@ describe('evaluateTitles', () => {
     expect(got).toMatchObject({ nightOwl: 3, runnerUp: 3, bubble: 3, firstOut: 3 });
   });
 
+  it('手牌 and 復仇者 read the hand events in the total bucket', () => {
+    expect(evaluateTitles(stats({ total: { badBeatWins: 1 } })).badBeat).toBe(2);
+    expect(evaluateTitles(stats({ total: { badBeatWins: 3 } })).badBeat).toBe(3);
+    expect(evaluateTitles(stats({ total: { badBeatWins: 10 } })).badBeat).toBe(4);
+    expect(evaluateTitles(stats({ total: { coolers: 1 } })).cooler).toBe(2);
+    expect(evaluateTitles(stats({ total: { coolers: 5 } })).cooler).toBe(4);
+    expect(evaluateTitles(stats({ total: { quads: 4 } })).quads).toBe(2);
+    expect(evaluateTitles(stats({ total: { quads: 5 } })).quads).toBe(3);
+    expect(evaluateTitles(stats({
+      total: { tragicHero: 1, straightFlush: 1, royalFlush: 1, revenge: 1 },
+    }))).toMatchObject({ tragicHero: 3, straightFlush: 3, royalFlush: 4, avenger: 3 });
+    expect(evaluateTitles(stats())).toEqual({});
+    expect(getTitleFamily('avenger').group).toBe('hunter');
+    for (const id of ['badBeat', 'cooler', 'tragicHero', 'quads', 'straightFlush', 'royalFlush']) {
+      expect(getTitleFamily(id).group).toBe('hands');
+    }
+    for (const id of ['badBeat', 'tragicHero', 'straightFlush', 'royalFlush', 'avenger']) {
+      expect(getTitleFamily(id).hidden).toBe(true);
+    }
+    expect(getTitleFamily('cooler').hidden).toBe(false);
+    expect(getTitleFamily('quads').hidden).toBe(false);
+  });
+
+  it('a hand title from aggregated history unlocks but shows nothing until opted in', () => {
+    const at = Date.parse('2026-07-22T20:00:00+08:00');
+    const all = aggregateHistoryRecords('me', [
+      { type: 'live', profit: 0, rate: 1, createdAt: at, handEvents: { badBeatWins: 1, quads: 1 } },
+    ]).get('all');
+    const built = buildUserTitles(null, all, at);
+    expect(built.unlocked).toMatchObject({ badBeat: { tier: 2 }, quads: { tier: 2 } });
+    expect(built.prefs.mode).toBe('off');
+    expect(built.display).toBeNull();
+  });
+
   it('works on real aggregated stats', () => {
     const at = Date.parse('2026-07-22T20:00:00+08:00');
     const records = Array.from({ length: 10 }, (_, i) => ({

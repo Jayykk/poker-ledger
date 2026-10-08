@@ -1174,6 +1174,7 @@
       "wallet": "Wallet",
       "hunter": "Headhunter",
       "tournament": "Tournament",
+      "hands": "Hands",
       "attendance": "Attendance",
       "crown": "Monthly crowns"
     },
@@ -1331,6 +1332,44 @@
         "desc": "Games finished 3–6 a.m.",
         "t3": "Night Owl",
         "hint": "The city sleeps; your game is just getting started"
+      },
+      "avenger": {
+        "desc": "Sent home the player who knocked you out, in the same game",
+        "t3": "Avenger",
+        "hint": "What's owed gets paid back tonight"
+      },
+      "badBeat": {
+        "desc": "Under 20% preflop, on the flop or on the turn, and still took the hand",
+        "t2": "King of Sneaky",
+        "t3": "Child of the River",
+        "t4": "River God",
+        "hint": "The river is your best friend"
+      },
+      "cooler": {
+        "desc": "Two monster hands, head to head",
+        "t2": "Fated Showdown",
+        "t3": "Old Rivals",
+        "t4": "Clash of Destiny"
+      },
+      "tragicHero": {
+        "desc": "Held quads or better, but that pot went elsewhere",
+        "t3": "Tragic Hero",
+        "hint": "Holding a monster, but fate had other plans"
+      },
+      "quads": {
+        "desc": "Four of a kind in a recorded hand",
+        "t2": "Four Heavenly Kings",
+        "t3": "Quads Collector"
+      },
+      "straightFlush": {
+        "desc": "A straight flush (not royal) in a recorded hand",
+        "t3": "Heaven's Blessing",
+        "hint": "One suit, all in a row"
+      },
+      "royalFlush": {
+        "desc": "A royal flush in a recorded hand",
+        "t4": "The Chosen One",
+        "hint": "The five noblest cards at the table"
       },
       "crownHunter": {
         "t4": "Headhunter of the Month",
