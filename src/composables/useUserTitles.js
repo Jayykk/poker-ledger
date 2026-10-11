@@ -10,12 +10,14 @@ import { reactive } from 'vue';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../firebase-init.js';
-import { activeCrowns, crownMonthOf, effectiveDisplay, normalizeTitlePrefs } from '../utils/titles.js';
+import {
+  TITLE_LADDER_VERSION, activeCrowns, crownMonthOf, effectiveDisplay, normalizeTitlePrefs, upgradeTitlesDoc,
+} from '../utils/titles.js';
 
 const COLLECTION = 'userTitles';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-// uid → { unlocked, prefs, display, crowns, crownHistory, pals, avatar, name }
+// uid → { ladder, unlocked, prefs, display, crowns, crownHistory, pals, avatar, name }
 // (an empty entry when the user has no doc)
 const cache = reactive({});
 const fetchedAt = new Map();
@@ -30,20 +32,26 @@ export function currentCrownMonth() {
 // `display` is what Cloud Functions stored. titleDisplayOf() re-resolves it
 // with the shared rules when it can't be shown as is: a crown from an older
 // month (the server only rewrites after the next game), or a doc written
-// before 頭像框 (no display.frame).
-const toEntry = (data) => ({
-  unlocked: data?.unlocked || {},
-  prefs: normalizeTitlePrefs(data?.prefs),
-  display: data?.display || null,
-  // 本月王座: { crownId: monthKey } held, { crownId: [monthKey] } past ones
-  crowns: data?.crowns || {},
-  crownHistory: data?.crownHistory || {},
-  // 牌友圈 (uids)
-  pals: Array.isArray(data?.pals) ? data.pals : [],
-  // LINE photo + name, copied from users/{uid} by Cloud Functions
-  avatar: data?.avatar || '',
-  name: data?.name || '',
-});
+// before 頭像框 (no display.frame). A doc from before the ten-step ladders
+// (old 1..4 tiers) is read on them (upgradeTitlesDoc: tiers mapped, its
+// display resolved again), so the cache always holds ten-step tiers.
+const toEntry = (raw) => {
+  const data = upgradeTitlesDoc(raw);
+  return {
+    ladder: TITLE_LADDER_VERSION,
+    unlocked: data?.unlocked || {},
+    prefs: normalizeTitlePrefs(data?.prefs),
+    display: data?.display || null,
+    // 本月王座: { crownId: monthKey } held, { crownId: [monthKey] } past ones
+    crowns: data?.crowns || {},
+    crownHistory: data?.crownHistory || {},
+    // 牌友圈 (uids)
+    pals: Array.isArray(data?.pals) ? data.pals : [],
+    // LINE photo + name, copied from users/{uid} by Cloud Functions
+    avatar: data?.avatar || '',
+    name: data?.name || '',
+  };
+};
 
 async function fetchOne(uid) {
   if (inFlight.has(uid)) return inFlight.get(uid);

@@ -14,6 +14,7 @@ const docs = {
   lee: { unlocked: {}, prefs: { mode: 'off' }, crowns: { crownHunter: NOW_MONTH } },
   max: { unlocked: {}, prefs: { mode: 'pick', titleId: 'regular' }, crowns: { crownHunter: '2020-01' } },
   dave: {
+    ladder: 2,
     display: { familyId: 'regular', tier: 2, frame: 'gold' },
     unlocked: { regular: { tier: 2, at: 1 } },
     avatar: 'https://profile.line-scdn.net/dave.jpg',
@@ -21,18 +22,20 @@ const docs = {
   },
   // Title off, frame still shown
   erin: {
+    ladder: 2,
     display: { familyId: null, tier: null, frame: 'diamond' },
     unlocked: {},
     prefs: { mode: 'off', showRoomTitles: false },
   },
   // Written before frames existed: 4 + 4 + 1 = 9 titles → silver, resolved on the client
   olga: {
+    ladder: 2,
     display: { familyId: 'champion', tier: 4 },
     unlocked: { champion: { tier: 4, at: 3 }, regular: { tier: 4, at: 2 }, host: { tier: 1, at: 1 } },
     prefs: { mode: 'auto', frame: 'auto' },
   },
   // Title off before frames existed (display null), 4 titles → bronze
-  pete: { display: null, unlocked: { regular: { tier: 4, at: 1 } }, prefs: { mode: 'off', frame: 'auto' } },
+  pete: { ladder: 2, display: null, unlocked: { regular: { tier: 4, at: 1 } }, prefs: { mode: 'off', frame: 'auto' } },
 };
 const reads = [];
 

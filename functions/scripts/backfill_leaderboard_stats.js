@@ -41,6 +41,10 @@
  *   --rebuild-titles   Rebuild each userTitles from scratch, so tiers can go
  *                      down too (after raising a threshold). Without it titles
  *                      only ever go up. Prefs and earlier unlock times stay.
+ *                      Docs from before the ten-step ladders (old 1..4 tiers,
+ *                      no `ladder`) are read on the new ladders first, so an
+ *                      unlock time stays where the new tier is not above it.
+ *                      Run simulate_title_tiers.js first to set FRAME_TIERS.
  *   --crown-history    Also rebuild every past month's crowns into
  *                      crownHistory (all users, whatever --uid says)
  *   --hand-events      Before recomputing a user, recompute history_sub

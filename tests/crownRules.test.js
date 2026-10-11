@@ -6,7 +6,7 @@ import {
   crownValue, heldCrowns as heldCrownsRaw,
 } from '../functions/src/utils/crownRules.js';
 import {
-  CROWN_FAMILIES, TITLE_FAMILIES, TITLE_SOURCES, buildCrownUpdate, buildUserTitles, effectiveDisplay,
+  CROWN_FAMILIES, TITLE_FAMILIES, TITLE_LADDER_VERSION, TITLE_SOURCES, buildCrownUpdate, buildUserTitles, effectiveDisplay,
   getTitleFamily, resolveDisplay, resolveTitle, titleCount, titleTierOf, validateTitlePrefs,
 } from '../functions/src/utils/titleRules.js';
 import * as frontend from '../src/utils/titles.js';
@@ -227,6 +227,7 @@ describe('display with crowns', () => {
 
   it('client: a stored crown display from an older month is re-resolved', () => {
     const doc = {
+      ladder: TITLE_LADDER_VERSION,
       unlocked,
       prefs: { mode: 'auto', frame: 'auto' },
       crowns,
@@ -242,12 +243,14 @@ describe('display with crowns', () => {
 
   it('server: the next recompute drops a stale crown display', () => {
     const prev = {
+      ladder: TITLE_LADDER_VERSION,
       unlocked,
       prefs: { mode: 'auto', frame: 'auto' },
       crowns,
       display: { familyId: 'crownHunter', tier: 4, frame: 'bronze', month: OCT },
     };
-    const stats = { total: { games: 200 }, cash: {}, tournament: { champion: 3 } };
+    // regular 4 (30 games), champion 2: nothing new
+    const stats = { total: { games: 30 }, cash: {}, tournament: { champion: 2 } };
     const nov = Date.parse('2026-11-02T12:00:00+08:00');
     const next = buildUserTitles(prev, stats, nov);
     expect(next.changed).toBe(true);
@@ -271,7 +274,12 @@ describe('display with crowns', () => {
   });
 
   it('buildCrownUpdate: crowns + history + the display they give', () => {
-    const stored = { unlocked, prefs: { mode: 'auto', frame: 'auto' }, display: { familyId: 'regular', tier: 4, frame: 'bronze' } };
+    const stored = {
+      ladder: TITLE_LADDER_VERSION,
+      unlocked,
+      prefs: { mode: 'auto', frame: 'auto' },
+      display: { familyId: 'regular', tier: 4, frame: 'bronze' },
+    };
     const gain = buildCrownUpdate(stored, [[OCT, ['crownRegular']]], OCT);
     expect(gain).toMatchObject({
       crowns: { crownRegular: OCT },

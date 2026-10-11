@@ -19,6 +19,7 @@ const month = (uid, { games = 1, profit = 0, knockouts = 0 } = {}) => ({
 // collection/id → data
 const docs = {
   'userTitles/me': {
+    ladder: 2,
     unlocked: { regular: { tier: 1, at: 1 } },
     // cy played nothing this month: still a pal, so the circle is big enough
     pals: ['amy', 'bob', 'cy'],
@@ -31,10 +32,15 @@ const docs = {
   'userTitles/cy': { unlocked: {}, name: 'Cy' },
   // A crown display from an older month: shown as what auto falls back to
   'userTitles/old': {
+    ladder: 2,
     unlocked: { host: { tier: 2, at: 1 } },
     prefs: { mode: 'auto' },
     crowns: { crownHunter: '2020-01' },
     display: { familyId: 'crownHunter', tier: 4, frame: null, month: '2020-01' },
+  },
+  // All-time: 25 games → 常客 (regular Ⅲ), next 老主顧 at 30
+  'leaderboardStats/me_all': {
+    uid: 'me', period: 'all', total: { games: 25, profit: 0 }, cash: {}, tournament: {},
   },
   [`leaderboardStats/me_${MONTH}`]: month('me', { games: 3, knockouts: 2, profit: -300 }),
   [`leaderboardStats/amy_${MONTH}`]: month('amy', { games: 3, knockouts: 4 }),
@@ -130,6 +136,54 @@ describe('稱號圖鑑 王座 section', () => {
     expect(src).toMatch(/\.tv-holders \{[^}]*min-width: 0;[^}]*text-overflow: ellipsis;/);
     expect(src).toMatch(/\.tv-me \{[^}]*overflow: hidden;/);
     expect(src).toContain('row.holders.slice(0, 3)');
+  });
+});
+
+describe('稱號圖鑑 family cards (ten steps)', () => {
+  it('current tier as Ⅲ / Ⅹ with ten dots, the next step and its bar; the steps fold open on a tap', async () => {
+    const w = mount(TitlesView, { global: { plugins: [i18n], mocks: { $router: { push: () => {} } } } });
+    await flushPromises();
+    await flushPromises();
+    const card = w.find('[data-family="regular"]');
+    expect(card.find('.title-badge').text()).toBe('常客');
+    expect(card.find('[data-testid="tier-roman"]').text()).toBe('Ⅲ / Ⅹ');
+    expect(card.findAll('.tv-dot')).toHaveLength(10);
+    expect(card.findAll('.tv-dot.reached')).toHaveLength(3);
+    expect(card.find('[data-testid="tier-next"]').text()).toBe('下一階：老主顧');
+    expect(card.text()).toContain('25 / 30');
+    expect(card.find('.tv-fill').attributes('style')).toContain('width: 50%');
+    // No wall of ten chips until asked
+    expect(card.find('[data-testid="tier-steps"]').exists()).toBe(false);
+    await card.find('.tv-steps-toggle').trigger('click');
+    const steps = card.findAll('[data-testid="tier-steps"] li');
+    expect(steps).toHaveLength(10);
+    expect(steps[0].text()).toContain('新面孔');
+    expect(steps[2].classes()).toEqual(expect.arrayContaining(['reached', 'current', 'rare']));
+    expect(steps[9].classes()).toContain('mythic');
+    expect(steps[9].text()).toContain('與牌桌合一');
+    expect(steps[9].text()).toContain('300');
+    await card.find('.tv-steps-toggle').trigger('click');
+    expect(card.find('[data-testid="tier-steps"]').exists()).toBe(false);
+
+    // Not reached yet: — / Ⅹ, the first step as the goal
+    const host = w.find('[data-family="host"]');
+    expect(host.find('[data-testid="tier-roman"]').text()).toBe('— / Ⅹ');
+    expect(host.find('[data-testid="tier-next"]').text()).toBe('下一階：開房');
+
+    // Hidden and locked: ??? and the riddle only, no ladder
+    const owl = w.find('[data-family="nightOwl"]');
+    expect(owl.text()).toContain('???');
+    expect(owl.find('.tv-hint').exists()).toBe(true);
+    expect(owl.find('.tv-ladder').exists()).toBe(false);
+    expect(owl.find('.tv-steps-toggle').exists()).toBe(false);
+  });
+
+  it('nothing overflows a phone: the step rows truncate, the dots shrink', () => {
+    const src = readFileSync(resolve(__dirname, '../src/views/TitlesView.vue'), 'utf-8');
+    expect(src).toMatch(/\.tv-step-name \{[^}]*min-width: 0;[^}]*text-overflow: ellipsis;/);
+    expect(src).toMatch(/\.tv-dots \{[^}]*min-width: 0;/);
+    expect(src).toMatch(/\.tv-ladder \{[^}]*min-width: 0;/);
+    expect(src).toMatch(/\.tv-step \{[^}]*min-width: 0;/);
   });
 });
 

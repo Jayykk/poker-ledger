@@ -5,7 +5,7 @@
     :class="[rarity, { crown: isCrown }]"
     :title="`${$t(`titles.rarity.${rarity}`)} · ${name}`"
   >
-    <i v-if="shown.tier === 4" class="fas fa-crown title-badge-crown" aria-hidden="true"></i>
+    <i v-if="hasCrownIcon" class="fas fa-crown title-badge-crown" aria-hidden="true"></i>
     <span class="title-badge-text">{{ name }}</span>
   </span>
 </template>
@@ -14,14 +14,15 @@
 // 稱號 pill next to a player's name. Either give it a `uid` (shows the title
 // that player chose to display, loaded through the shared cache) or a
 // `familyId` + `tier` (稱號圖鑑 / profile picker). Renders nothing when there
-// is no title. Rarity colors: 1 gray · 2 blue · 3 purple · 4 gold + crown.
+// is no title. Rarity colors by tier: 1–2 gray · 3–4 blue · 5–6 purple ·
+// 7–8 gold + crown · 9–10 mythic (prismatic edge) + crown.
 // 本月王座 crowns are red-gold with the crown icon, so they read apart from a
-// legendary title;
+// legendary or mythic title;
 // titleDisplayOf only gives one while it is this month's.
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ensureUserTitles, titleDisplayOf } from '../../composables/useUserTitles.js';
-import { isCrownId, titleRarity, titleTierOf } from '../../utils/titles.js';
+import { CROWN_ICON_MIN_TIER, isCrownId, titleRarity, titleTierOf } from '../../utils/titles.js';
 
 const props = defineProps({
   uid: { type: String, default: '' },
@@ -42,8 +43,9 @@ const shown = computed(() => {
   // Unknown families (a newer catalog than this build) stay hidden
   return display && titleTierOf(display.familyId, display.tier) ? display : null;
 });
-const rarity = computed(() => titleRarity(shown.value?.tier));
+const rarity = computed(() => titleRarity(shown.value?.tier, shown.value?.familyId));
 const isCrown = computed(() => isCrownId(shown.value?.familyId));
+const hasCrownIcon = computed(() => isCrown.value || (shown.value?.tier || 0) >= CROWN_ICON_MIN_TIER);
 const name = computed(() => (shown.value ? t(titleTierOf(shown.value.familyId, shown.value.tier).nameKey) : ''));
 </script>
 
@@ -78,6 +80,31 @@ const name = computed(() => (shown.value ? t(titleTierOf(shown.value.familyId, s
   border-color: rgba(251, 191, 36, 0.7);
   box-shadow: 0 0 6px rgba(251, 191, 36, 0.35);
 }
+/* Mythic (tier 9–10): a deep indigo pill inside a prismatic edge that slowly
+   drifts. Two background layers: the opaque inner one clipped to the padding
+   box, the rainbow one to the border box, so the 1px border shows the
+   rainbow. Cool hues (cyan → violet → pink) so it never reads as the crown's
+   red-gold. */
+.title-badge.mythic {
+  color: #f5f3ff;
+  border-color: transparent;
+  background-image:
+    linear-gradient(135deg, #1e1b4b, #2e1065),
+    linear-gradient(90deg, #22d3ee, #a78bfa, #f472b6, #a78bfa, #22d3ee);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  background-size: 100% 100%, 200% 100%;
+  box-shadow: 0 0 6px rgba(167, 139, 250, 0.45);
+  animation: title-badge-prism 4s linear infinite;
+}
+.title-badge.mythic .title-badge-crown { color: #c4b5fd; }
+@keyframes title-badge-prism {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 0, 200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-badge.mythic { animation: none; }
+}
 
 /* 本月王座: red-gold, set apart from a tier-4 title's gold (the glow stays
    small: badges sit in tight rows) */
@@ -93,6 +120,14 @@ const name = computed(() => (shown.value ? t(titleTierOf(shown.value.familyId, s
 :root[data-mode="light"] .title-badge.rare { color: #1d4ed8; background: rgba(59, 130, 246, 0.12); }
 :root[data-mode="light"] .title-badge.epic { color: #7e22ce; background: rgba(168, 85, 247, 0.12); }
 :root[data-mode="light"] .title-badge.legendary { color: #92400e; background: linear-gradient(135deg, rgba(251, 191, 36, 0.35), rgba(245, 158, 11, 0.2)); box-shadow: none; }
+:root[data-mode="light"] .title-badge.mythic {
+  color: #5b21b6;
+  background-image:
+    linear-gradient(135deg, #faf5ff, #ecfeff),
+    linear-gradient(90deg, #06b6d4, #8b5cf6, #ec4899, #8b5cf6, #06b6d4);
+  box-shadow: none;
+}
+:root[data-mode="light"] .title-badge.mythic .title-badge-crown { color: #7c3aed; }
 :root[data-mode="light"] .title-badge.crown { color: #9f1239; background: rgba(244, 63, 94, 0.12); border-color: #d97706; box-shadow: none; }
 :root[data-mode="light"] .title-badge.crown .title-badge-crown { color: #b45309; }
 </style>

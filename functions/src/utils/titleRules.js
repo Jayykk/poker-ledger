@@ -6,14 +6,14 @@
 //   - src/utils/titles.js                     (badge names, 稱號圖鑑 progress)
 //   - tests/titleRules.test.js
 //
-// A title family is one achievement with up to four steps. Its tier is the
-// rarity of the highest step reached: 1 common (gray), 2 rare (blue),
-// 3 epic (purple), 4 legendary (gold). Families with fewer steps start higher
-// (e.g. 神秘賞金頭獎 goes 2 → 3 → 4) so the hardest step is always the rarest.
+// A title family is one achievement with ten steps, tier 1 → 10, each its own
+// name. The rarity comes from the tier in bands of two (src/utils/titles.js
+// titleRarity): 1–2 common, 3–4 rare, 5–6 epic, 7–8 legendary (crown icon),
+// 9–10 mythic.
 //
 // Families read the user's all-time leaderboardStats doc ({ total, cash,
-// tournament } buckets, see leaderboardStatsMath.js). Thresholds are plain
-// numbers in the catalog below; tune them there.
+// tournament } buckets, see leaderboardStatsMath.js). The thresholds are
+// TITLE_LADDERS below, one line per family; tune them there.
 //
 // Stored per user in userTitles/{uid} (server-written only):
 //   unlocked  { [familyId]: { tier, at } }  only ever goes up; `at` = when the
@@ -24,12 +24,15 @@
 //             familyId / tier are null when the title is off (or none is
 //             unlocked) but a frame is still shown; the whole display is
 //             null only when there is neither a title nor a frame.
+//   ladder    TITLE_LADDER_VERSION: the tiers are on the ten-step ladders.
+//             Docs without it use the old 1..4 numbering; upgradeTitlesDoc
+//             reads them on the new ladders until the backfill rewrites them.
 //
 // 頭像框 (avatar frames): every step of a family is its own named title, so
-// the titles held = the steps reached across all families (titleCount). 3 / 6
-// / 9 / 15 / 25 of them earn bronze / silver / gold / platinum / diamond.
-// `unlocked` only grows, so a frame never drops. prefs.frame 'auto' shows the
-// highest earned; a lower earned one can be picked.
+// the titles held = the steps reached across all families (titleCount);
+// FRAME_TIERS says how many earn each frame. `unlocked` only grows, so a frame
+// never drops. prefs.frame 'auto' shows the highest earned; a lower earned one
+// can be picked.
 //
 // 本月王座 (source 'crown', CROWN_FAMILIES): monthly #1 inside the user's
 // 牌友圈, judged in crownRules.js and stored apart from `unlocked`:
@@ -95,13 +98,22 @@ export function isLegacyDefaultPrefs(prefs) {
     && (p.frame === undefined || p.frame === 'auto');
 }
 
-// 頭像框, lowest first: `min` titles held (see titleCount) earn the frame
+// 頭像框: titles held (see titleCount) needed for each frame. Still the
+// numbers from the 1..4 ladders: pick new ones from
+// functions/scripts/simulate_title_tiers.js (a family at tier n holds n now).
+export const FRAME_MIN_BRONZE = 4;
+export const FRAME_MIN_SILVER = 8;
+export const FRAME_MIN_GOLD = 16;
+export const FRAME_MIN_PLATINUM = 22;
+export const FRAME_MIN_DIAMOND = 30;
+
+// 頭像框, lowest first: `min` titles held earn the frame
 export const FRAME_TIERS = Object.freeze([
-  Object.freeze({ id: 'bronze', min: 4 }),
-  Object.freeze({ id: 'silver', min: 8 }),
-  Object.freeze({ id: 'gold', min: 16 }),
-  Object.freeze({ id: 'platinum', min: 22 }),
-  Object.freeze({ id: 'diamond', min: 30 }),
+  Object.freeze({ id: 'bronze', min: FRAME_MIN_BRONZE }),
+  Object.freeze({ id: 'silver', min: FRAME_MIN_SILVER }),
+  Object.freeze({ id: 'gold', min: FRAME_MIN_GOLD }),
+  Object.freeze({ id: 'platinum', min: FRAME_MIN_PLATINUM }),
+  Object.freeze({ id: 'diamond', min: FRAME_MIN_DIAMOND }),
 ]);
 export const FRAME_IDS = Object.freeze(FRAME_TIERS.map((f) => f.id));
 // prefs.frame: the highest earned frame
@@ -112,8 +124,86 @@ const FRAME_PREFS = Object.freeze([FRAME_AUTO, FRAME_NONE, ...FRAME_IDS]);
 
 // σ (volatility / steadiness) needs this many games with a known 組 size
 export const TITLE_MIN_GROUP_GAMES = 10;
-// 穩健: σ of the per-game result (組) below this (老闆 starts at 2)
+// 穩健: σ of the per-game result (組) below this (where 老闆's ladder starts)
 export const STEADY_MAX_STDDEV = 1.5;
+
+// Steps per family
+export const TITLE_TIER_COUNT = 10;
+// userTitles.ladder of docs on the ten-step ladders (old docs have none)
+export const TITLE_LADDER_VERSION = 2;
+
+// The thresholds of tier 1 → 10, one line per family. Set after about a year
+// of play (the production high in each comment): tier 1 is a first taste,
+// today's leaders sit around tier 5–7, tier 9–10 take years. Money is in the
+// leaderboard's unit (cash), 組 / σ as the stats store them.
+export const TITLE_LADDERS = Object.freeze({
+  // ── 錢包
+  netWin: [500, 1000, 2000, 4000, 7000, 10000, 15000, 25000, 40000, 60000], // top +12.5K → 6
+  netLoss: [500, 1000, 2000, 4000, 7000, 12000, 25000, 40000, 60000, 90000], // top 20.6K → 6
+  bigWin: [2, 3, 4, 6, 8, 10, 14, 18, 22, 30], // 組, top 12.95 → 6
+  bigLoss: [2, 3, 4, 5, 6, 8, 10, 13, 16, 20], // 組, top 9.1 → 6
+  volatile: [1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7], // σ (組), top 3.76 → 5
+  steady: [10, 15, 20, 30, 40, 55, 70, 90, 120, 160], // games (most played 105)
+  // ── 獵頭
+  hunter: [1, 2, 3, 4, 5, 7, 10, 15, 25, 40], // top 5 → 5
+  hunted: [1, 2, 3, 5, 7, 10, 15, 20, 30, 50], // top 3 → 3
+  mysteryTop: [1, 2, 3, 4, 5, 6, 8, 10, 15, 20], // top 1 → 1
+  avenger: [1, 2, 3, 4, 5, 7, 10, 15, 20, 30],
+  // ── 錦標賽
+  champion: [1, 2, 3, 5, 7, 10, 15, 20, 30, 50], // top 7 → 5
+  itm: [1, 3, 5, 7, 10, 14, 20, 30, 45, 70], // top 12 → 5
+  phoenix: [1, 2, 3, 4, 5, 6, 7, 8, 9, 12], // rebuys in a game that still cashed
+  rebuyer: [1, 3, 5, 8, 12, 16, 22, 30, 50, 80], // top 14 → 5
+  runnerUp: [1, 2, 3, 4, 6, 8, 10, 15, 20, 30], // top 6 → 5
+  bubble: [1, 2, 3, 4, 5, 7, 10, 13, 17, 25], // top 5 → 5
+  firstOut: [1, 2, 3, 4, 5, 7, 10, 13, 17, 25], // top 5 → 5
+  // ── 手牌 (single digits so far)
+  badBeat: [1, 2, 3, 4, 5, 6, 8, 10, 15, 20],
+  cooler: [1, 2, 3, 4, 5, 7, 10, 13, 17, 25],
+  tragicHero: [1, 2, 3, 4, 5, 6, 8, 10, 15, 20],
+  quads: [1, 2, 3, 4, 5, 7, 10, 13, 17, 25],
+  straightFlush: [1, 2, 3, 4, 5, 6, 7, 8, 10, 12],
+  royalFlush: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  // ── 出席
+  regular: [5, 10, 20, 30, 50, 80, 120, 160, 220, 300], // top 105 → 6
+  host: [3, 5, 10, 20, 35, 50, 75, 100, 150, 250], // top 72 → 6
+  hotStreak: [2, 3, 4, 5, 6, 8, 10, 12, 15, 20], // top 8 → 6
+  coldStreak: [2, 3, 4, 6, 8, 10, 13, 16, 20, 25], // top 12 → 6
+  nightOwl: [1, 3, 5, 10, 15, 20, 30, 40, 60, 100], // top 1 → 1
+});
+
+// The 1..4 ladders before ten steps: { oldTier: threshold } per family, only
+// to read docs written before TITLE_LADDER_VERSION (upgradeTitlesDoc)
+const LEGACY_LADDERS = Object.freeze({
+  netWin: { 1: 2000, 2: 5000, 3: 10000, 4: 30000 },
+  netLoss: { 1: 2000, 2: 5000, 3: 15000, 4: 40000 },
+  bigWin: { 1: 4, 2: 7, 3: 10, 4: 15 },
+  bigLoss: { 1: 3, 2: 5, 3: 8, 4: 12 },
+  volatile: { 1: 2, 2: 3, 3: 3.5, 4: 5 },
+  steady: { 1: 10, 2: 20, 3: 40, 4: 80 },
+  hunter: { 1: 5, 2: 20, 3: 50, 4: 120 },
+  hunted: { 1: 5, 2: 20, 3: 50, 4: 120 },
+  mysteryTop: { 2: 1, 3: 3, 4: 10 },
+  avenger: { 3: 1 },
+  champion: { 1: 1, 2: 3, 3: 6, 4: 12 },
+  itm: { 1: 3, 2: 10, 3: 25, 4: 50 },
+  phoenix: { 2: 2, 3: 4, 4: 6 },
+  rebuyer: { 1: 10, 2: 30, 3: 100 },
+  runnerUp: { 3: 5 },
+  bubble: { 3: 5 },
+  firstOut: { 3: 5 },
+  badBeat: { 2: 1, 3: 3, 4: 10 },
+  cooler: { 2: 1, 3: 3, 4: 5 },
+  tragicHero: { 3: 1 },
+  quads: { 2: 1, 3: 5 },
+  straightFlush: { 3: 1 },
+  royalFlush: { 4: 1 },
+  regular: { 1: 10, 2: 40, 3: 100, 4: 200 },
+  host: { 1: 5, 2: 15, 3: 40, 4: 100 },
+  hotStreak: { 2: 4, 3: 7, 4: 10 },
+  coldStreak: { 2: 4, 3: 7, 4: 10 },
+  nightOwl: { 3: 10 },
+});
 
 const num = (value) => Number(value) || 0;
 const total = (stats) => stats?.total || {};
@@ -133,17 +223,20 @@ function stdDevOf(stats) {
 }
 
 /**
- * Build a family. `thresholds[i]` unlocks tier `tiers[i]`.
+ * Build a family on its TITLE_LADDERS line: threshold i unlocks tier i + 1.
  *
  * @param {string} id Family id (stable: stored in userTitles docs).
  * @param {string} group One of TITLE_GROUPS.
  * @param {function(object): number} metric all-time stats → value.
- * @param {Array<number>} thresholds Ascending thresholds.
- * @param {object} [options] { tiers: rarity per threshold, hidden }.
+ * @param {object} [options] `{ hidden }`: ??? + a riddle until tier 1.
  * @return {object} Family definition.
  */
-function family(id, group, metric, thresholds, { tiers, hidden = false } = {}) {
-  const rarities = tiers || [1, 2, 3, 4].slice(4 - thresholds.length);
+function family(id, group, metric, { hidden = false } = {}) {
+  const thresholds = TITLE_LADDERS[id];
+  const ascending = thresholds?.every((t, i) => i === 0 || t > thresholds[i - 1]);
+  if (thresholds?.length !== TITLE_TIER_COUNT || !ascending) {
+    throw new Error(`titleRules: ${id} needs ${TITLE_TIER_COUNT} ascending thresholds`);
+  }
   return Object.freeze({
     id,
     group,
@@ -153,68 +246,70 @@ function family(id, group, metric, thresholds, { tiers, hidden = false } = {}) {
     descKey: `titles.families.${id}.desc`,
     hintKey: hidden ? `titles.families.${id}.hint` : null,
     tiers: Object.freeze(thresholds.map((threshold, i) => Object.freeze({
-      tier: rarities[i],
+      tier: i + 1,
       threshold,
-      nameKey: `titles.families.${id}.t${rarities[i]}`,
+      nameKey: `titles.families.${id}.t${i + 1}`,
     }))),
   });
 }
 
 export const TITLE_FAMILIES = Object.freeze([
   // ── 錢包 ────────────────────────────────────────────────────────
-  // Money in the leaderboard's unit (cash: profitCash, or chips / rate).
-  // Set for a one-group buy-in of 600 after a year where the top winner sat
-  // at +12K and the top loser at -20K: tier 3 is where the leaders are now,
-  // tier 4 another year or so of that at 600.
-  family('netWin', 'wallet', (s) => Math.max(0, num(total(s).profit)), [2000, 5000, 10000, 30000]),
-  family('netLoss', 'wallet', (s) => Math.max(0, -num(total(s).profit)), [2000, 5000, 15000, 40000]),
-  family('bigWin', 'wallet', (s) => num(total(s).maxWinGroups), [4, 7, 10, 15]),
-  family('bigLoss', 'wallet', (s) => num(total(s).maxLossGroups), [3, 5, 8, 12]),
+  // Money in the leaderboard's unit (cash: profitCash, or chips / rate)
+  family('netWin', 'wallet', (s) => Math.max(0, num(total(s).profit))),
+  family('netLoss', 'wallet', (s) => Math.max(0, -num(total(s).profit))),
+  family('bigWin', 'wallet', (s) => num(total(s).maxWinGroups)),
+  family('bigLoss', 'wallet', (s) => num(total(s).maxLossGroups)),
   family('volatile', 'wallet', (s) => {
     const sd = stdDevOf(s);
     return sd == null ? 0 : round2(sd);
-  }, [2, 3, 3.5, 5]),
+  }),
   family('steady', 'wallet', (s) => {
     const sd = stdDevOf(s);
     const ok = sd != null && sd < STEADY_MAX_STDDEV && num(total(s).profit) > 0;
     return ok ? num(total(s).games) : 0;
-  }, [10, 20, 40, 80]),
+  }),
 
   // ── 獵頭 ────────────────────────────────────────────────────────
-  family('hunter', 'hunter', (s) => num(tour(s).knockouts), [5, 20, 50, 120]),
-  family('hunted', 'hunter', (s) => num(tour(s).knockedOut), [5, 20, 50, 120]),
-  family('mysteryTop', 'hunter', (s) => num(tour(s).topDraws), [1, 3, 10]),
+  family('hunter', 'hunter', (s) => num(tour(s).knockouts)),
+  family('hunted', 'hunter', (s) => num(tour(s).knockedOut)),
+  family('mysteryTop', 'hunter', (s) => num(tour(s).topDraws)),
   // Paid back in the same game (knockoutLog.js revengeCounts)
-  family('avenger', 'hunter', (s) => num(total(s).revenge), [1], { tiers: [3], hidden: true }),
+  family('avenger', 'hunter', (s) => num(total(s).revenge), { hidden: true }),
 
   // ── 錦標賽 ──────────────────────────────────────────────────────
-  family('champion', 'tournament', (s) => num(tour(s).champion), [1, 3, 6, 12]),
-  family('itm', 'tournament', (s) => num(tour(s).itm), [3, 10, 25, 50]),
-  family('phoenix', 'tournament', (s) => num(tour(s).maxRebuyItm), [2, 4, 6]),
-  family('rebuyer', 'tournament', (s) => num(tour(s).rebuyCount), [10, 30, 100], { tiers: [1, 2, 3] }),
-  family('runnerUp', 'tournament', (s) => num(tour(s).runnerUp), [5], { tiers: [3], hidden: true }),
-  family('bubble', 'tournament', (s) => num(tour(s).bubble), [5], { tiers: [3], hidden: true }),
-  family('firstOut', 'tournament', (s) => num(tour(s).firstOut), [5], { tiers: [3], hidden: true }),
+  family('champion', 'tournament', (s) => num(tour(s).champion)),
+  family('itm', 'tournament', (s) => num(tour(s).itm)),
+  family('phoenix', 'tournament', (s) => num(tour(s).maxRebuyItm)),
+  family('rebuyer', 'tournament', (s) => num(tour(s).rebuyCount)),
+  family('runnerUp', 'tournament', (s) => num(tour(s).runnerUp), { hidden: true }),
+  family('bubble', 'tournament', (s) => num(tour(s).bubble), { hidden: true }),
+  family('firstOut', 'tournament', (s) => num(tour(s).firstOut), { hidden: true }),
 
   // ── 手牌 ────────────────────────────────────────────────────────
   // From the recorded hands (games/{id}/hands, utils/handEvents.js), summed
   // into the total bucket. Only hands someone recorded count.
-  family('badBeat', 'hands', (s) => num(total(s).badBeatWins), [1, 3, 10], { tiers: [2, 3, 4], hidden: true }),
-  family('cooler', 'hands', (s) => num(total(s).coolers), [1, 3, 5], { tiers: [2, 3, 4] }),
-  family('tragicHero', 'hands', (s) => num(total(s).tragicHero), [1], { tiers: [3], hidden: true }),
-  family('quads', 'hands', (s) => num(total(s).quads), [1, 5], { tiers: [2, 3] }),
-  family('straightFlush', 'hands', (s) => num(total(s).straightFlush), [1], { tiers: [3], hidden: true }),
-  family('royalFlush', 'hands', (s) => num(total(s).royalFlush), [1], { tiers: [4], hidden: true }),
+  family('badBeat', 'hands', (s) => num(total(s).badBeatWins), { hidden: true }),
+  family('cooler', 'hands', (s) => num(total(s).coolers)),
+  family('tragicHero', 'hands', (s) => num(total(s).tragicHero), { hidden: true }),
+  family('quads', 'hands', (s) => num(total(s).quads)),
+  family('straightFlush', 'hands', (s) => num(total(s).straightFlush), { hidden: true }),
+  family('royalFlush', 'hands', (s) => num(total(s).royalFlush), { hidden: true }),
 
   // ── 出席 ────────────────────────────────────────────────────────
-  family('regular', 'attendance', (s) => num(total(s).games), [10, 40, 100, 200]),
-  family('host', 'attendance', (s) => num(total(s).hostedGames), [5, 15, 40, 100]),
-  family('hotStreak', 'attendance', (s) => num(total(s).winStreakBest), [4, 7, 10]),
-  family('coldStreak', 'attendance', (s) => num(total(s).lossStreakBest), [4, 7, 10]),
-  family('nightOwl', 'attendance', (s) => num(total(s).nightGames), [10], { tiers: [3], hidden: true }),
+  family('regular', 'attendance', (s) => num(total(s).games)),
+  family('host', 'attendance', (s) => num(total(s).hostedGames)),
+  family('hotStreak', 'attendance', (s) => num(total(s).winStreakBest)),
+  family('coldStreak', 'attendance', (s) => num(total(s).lossStreakBest)),
+  family('nightOwl', 'attendance', (s) => num(total(s).nightGames), { hidden: true }),
 ]);
 
-// 本月王座: one legendary step each (crown icon), judged monthly in the 牌友圈
+// A crown's one step. Stored in displays as is, so it stays 4 from the old
+// ladders; the badge styles crowns by family (red-gold + crown icon), not by
+// this number.
+export const CROWN_TIER = 4;
+
+// 本月王座: one step each (crown icon), judged monthly in the 牌友圈
 // (crownRules.js), never in `unlocked` and never toward frames. Kept out of
 // TITLE_FAMILIES so the 圖鑑 counts and evaluateTitles only see stats titles;
 // getTitleFamily / titleTierOf know them.
@@ -227,9 +322,9 @@ export const CROWN_FAMILIES = Object.freeze(CROWN_DEFS.map((crown) => Object.fre
   descKey: `titles.families.${crown.id}.desc`,
   hintKey: null,
   tiers: Object.freeze([Object.freeze({
-    tier: 4,
+    tier: CROWN_TIER,
     threshold: crown.min,
-    nameKey: `titles.families.${crown.id}.t4`,
+    nameKey: `titles.families.${crown.id}.t${CROWN_TIER}`,
   })]),
 })));
 
@@ -285,6 +380,44 @@ export function evaluateTitles(allTimeStats) {
     if (tier > 0) result[fam.id] = tier;
   }
   return result;
+}
+
+/**
+ * A tier stored with the old 1..4 numbering, on the ten-step ladder: the tier
+ * the old step's threshold reaches now (at least 1: it was unlocked). This is
+ * a floor (the value was at least that), so the backfill can only move it up.
+ *
+ * @param {string} id Family id.
+ * @param {number} oldTier Stored tier.
+ * @return {number}
+ */
+export function legacyTier(id, oldTier) {
+  const fam = getTitleFamily(id);
+  const threshold = LEGACY_LADDERS[id]?.[oldTier];
+  if (!fam || threshold == null) return Math.min(TITLE_TIER_COUNT, oldTier);
+  return Math.max(1, tierForValue(fam, threshold));
+}
+
+/**
+ * A userTitles doc with its tiers on the ten-step ladders. Docs written
+ * before them (no `ladder`) get each stats family's tier mapped (legacyTier)
+ * and their stored display dropped, so it is resolved again from the mapped
+ * tiers (effectiveDisplay) instead of showing an old tier number under the
+ * new rarity. Crowns, families this build doesn't know and everything else
+ * on the doc stay as they are. Docs already on the ladders come back as is.
+ *
+ * @param {?object} doc userTitles doc.
+ * @return {?object}
+ */
+export function upgradeTitlesDoc(doc) {
+  if (!doc || doc.ladder === TITLE_LADDER_VERSION) return doc;
+  const unlocked = {};
+  for (const [id, entry] of Object.entries(doc.unlocked || {})) {
+    const stats = getTitleFamily(id)?.source === TITLE_SOURCES.STATS;
+    const valid = entry && Number.isInteger(entry.tier) && entry.tier > 0;
+    unlocked[id] = stats && valid ? { ...entry, tier: legacyTier(id, entry.tier) } : entry;
+  }
+  return { ...doc, unlocked, display: null, ladder: TITLE_LADDER_VERSION };
 }
 
 /**
@@ -346,7 +479,8 @@ export function mergeUnlocked(previous, evaluated, now) {
  * would otherwise keep what the old one gave). A family at or below the tier
  * it had keeps its `at`; one that is now higher gets `now`. Entries this
  * can't judge (crowns, anything expiring, families this build doesn't know)
- * stay as they are.
+ * stay as they are. `previous` must already be on the ten-step ladders
+ * (upgradeTitlesDoc; buildUserTitles does that).
  *
  * @param {?Object<string, {tier: number, at: number}>} previous Stored map.
  * @param {Object<string, number>} evaluated evaluateTitles() result.
@@ -402,10 +536,8 @@ function countsTowardFrames(id, entry) {
 
 /**
  * Titles held: every step of a family is its own named title, so a family at
- * tier 3 of 1-2-3-4 holds three. Families with fewer steps start at a higher
- * tier (神秘賞金頭獎 2-3-4, the hidden ones a single 3), so this counts the
- * steps reached, not the tier number: a hidden title is one title. A family
- * this build doesn't know (newer catalog) counts its tier.
+ * tier 3 holds three (the steps reached; with ten steps 1..10 that is the
+ * tier). A family this build doesn't know (newer catalog) counts its tier.
  *
  * @param {?Object<string, {tier: number}>} unlocked Stored unlocked map.
  * @return {number}
@@ -560,7 +692,7 @@ export function resolveTitle(unlocked, prefs, crownCtx = null) {
   if (p.mode === 'off') return null;
   const map = unlocked || {};
   const crowns = activeCrowns(crownCtx?.crowns, crownCtx?.month);
-  const crownTitle = (id) => ({ familyId: id, tier: 4, month: crownCtx.month });
+  const crownTitle = (id) => ({ familyId: id, tier: CROWN_TIER, month: crownCtx.month });
   if (p.mode === 'pick' && p.titleId) {
     if (crowns.includes(p.titleId)) return crownTitle(p.titleId);
     if (!isCrownId(p.titleId) && map[p.titleId]?.tier > 0) {
@@ -603,19 +735,21 @@ export function resolveDisplay(unlocked, prefs, crownCtx = null) {
 /**
  * The display to show now. The stored one is written by Cloud Functions after
  * games and prefs changes, so a crown in it goes stale when the month changes
- * (and docs from before frames lack `frame`): those are resolved again here
- * with the same rules. Used by the client for every badge.
+ * (and docs from before frames lack `frame`, docs from before the ten-step
+ * ladders hold old tier numbers): those are resolved again here with the same
+ * rules. Used by the client for every badge.
  *
  * @param {?object} doc userTitles doc ({ unlocked, prefs, display, crowns }).
  * @param {string} month Current month key (crownMonthOf(Date.now())).
  * @return {?object} Display.
  */
 export function effectiveDisplay(doc, month) {
-  const stored = doc?.display || null;
+  const current = upgradeTitlesDoc(doc);
+  const stored = current?.display || null;
   const stale = !stored || stored.frame === undefined
     || (isCrownId(stored.familyId) && stored.month !== month);
   if (!stale) return stored;
-  return resolveDisplay(doc?.unlocked, doc?.prefs, { crowns: doc?.crowns, month });
+  return resolveDisplay(current?.unlocked, current?.prefs, { crowns: current?.crowns, month });
 }
 
 /**
@@ -635,29 +769,35 @@ export function sameDisplay(a, b) {
 /**
  * Next userTitles payload from the stored doc and fresh all-time stats.
  *
+ * A stored doc from before the ten-step ladders is read through
+ * upgradeTitlesDoc first (always a change, so it gets written with `ladder`).
+ *
  * @param {?object} previous Stored userTitles doc (or null).
  * @param {?object} allTimeStats leaderboardStats `all` doc.
  * @param {number} now Unix millis.
  * @param {object} [options] `{ rebuild }`: rebuildUnlocked instead of merging,
  *   so tiers can also go down (backfill after a threshold change).
- * @return {object} { unlocked, prefs, display (title + frame), upgraded, changed }.
+ * @return {object} { unlocked, prefs, display (title + frame), ladder,
+ *   upgraded, changed }.
  */
 export function buildUserTitles(previous, allTimeStats, now, { rebuild = false } = {}) {
+  const legacy = !!previous && previous.ladder !== TITLE_LADDER_VERSION;
+  const current = upgradeTitlesDoc(previous);
   const { unlocked, upgraded } = (rebuild ? rebuildUnlocked : mergeUnlocked)(
-    previous?.unlocked, evaluateTitles(allTimeStats), now,
+    current?.unlocked, evaluateTitles(allTimeStats), now,
   );
-  const prefs = normalizeTitlePrefs(previous?.prefs);
+  const prefs = normalizeTitlePrefs(current?.prefs);
   // Display = title + frame (+ an active crown), so a new frame, a crown that
   // went stale at the month change, or a doc written before frames existed is
   // a change too
-  const crownCtx = { crowns: previous?.crowns, month: crownMonthOf(now) };
+  const crownCtx = { crowns: current?.crowns, month: crownMonthOf(now) };
   const display = resolveDisplay(unlocked, prefs, crownCtx);
   // No doc yet and nothing unlocked: nothing worth writing
-  const changed = previous
-    ? upgraded.length > 0 || !sameDisplay(previous.display, display)
-      || (rebuild && !sameUnlocked(previous.unlocked, unlocked))
+  const changed = current
+    ? legacy || upgraded.length > 0 || !sameDisplay(current.display, display)
+      || (rebuild && !sameUnlocked(current.unlocked, unlocked))
     : Object.keys(unlocked).length > 0;
-  return { unlocked, prefs, display, upgraded, changed };
+  return { unlocked, prefs, display, ladder: TITLE_LADDER_VERSION, upgraded, changed };
 }
 
 /**
@@ -690,7 +830,10 @@ export function buildCrownUpdate(stored, verdicts, currentMonth, { fromScratch =
     }
   }
   const crownCtx = { crowns: state.crowns, month: currentMonth };
-  const display = resolveDisplay(stored?.unlocked, stored?.prefs, crownCtx);
+  // Tiers of an old doc read on the ten-step ladders (only `display` is
+  // written here; readers resolve an old doc's display again anyway)
+  const current = upgradeTitlesDoc(stored);
+  const display = resolveDisplay(current?.unlocked, current?.prefs, crownCtx);
   const changed = !sameCrowns(stored?.crowns, state.crowns)
     || !sameCrownHistory(stored?.crownHistory, state.crownHistory)
     || !sameDisplay(stored?.display, display);

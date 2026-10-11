@@ -45,7 +45,9 @@ describe('public profile in userTitles (LINE photo + name)', () => {
     const db = fakeDb();
     const profile = { avatar: 'https://p/a.jpg', name: '阿傑' };
     await recomputeUserTitles(db, 'u1', stats({ games: 10 }), 5, { profile });
-    expect(db.docs.get('u1')).toMatchObject({ uid: 'u1', avatar: 'https://p/a.jpg', name: '阿傑', unlocked: { regular: { tier: 1, at: 5 } } });
+    expect(db.docs.get('u1')).toMatchObject({
+      uid: 'u1', avatar: 'https://p/a.jpg', name: '阿傑', unlocked: { regular: { tier: 2, at: 5 } }, ladder: 2,
+    });
   });
 
   it('a photo but no titles yet still gets a doc; neither gets none', async () => {
@@ -65,14 +67,39 @@ describe('public profile in userTitles (LINE photo + name)', () => {
     expect(db.writes).toEqual([]);
     // A rebuild that changes titles but carries no profile leaves the photo alone
     await recomputeUserTitles(db, 'u1', stats({ games: 40 }), 9);
-    expect(db.docs.get('u1')).toMatchObject({ avatar: 'https://p/a.jpg', unlocked: { regular: { tier: 2 } } });
+    expect(db.docs.get('u1')).toMatchObject({ avatar: 'https://p/a.jpg', unlocked: { regular: { tier: 4 } } });
   });
 
   it('a rebuild replaces the unlocked map whole (dropped tiers go)', async () => {
-    const db = fakeDb({ u1: { uid: 'u1', avatar: 'x', unlocked: { regular: { tier: 3, at: 1 }, bubble: { tier: 3, at: 1 } }, prefs: {}, display: null } });
+    const db = fakeDb({ u1: { uid: 'u1', avatar: 'x', ladder: 2, unlocked: { regular: { tier: 6, at: 1 }, bubble: { tier: 3, at: 1 } }, prefs: {}, display: null } });
     await recomputeUserTitles(db, 'u1', stats({ games: 66 }), 9, { rebuild: true });
-    expect(db.docs.get('u1').unlocked).toEqual({ regular: { tier: 2, at: 1 } });
+    expect(db.docs.get('u1').unlocked).toEqual({ regular: { tier: 5, at: 1 } });
     expect(db.docs.get('u1').avatar).toBe('x');
+  });
+
+  it('the --rebuild-titles backfill moves an old doc (1..4 tiers) onto the ten-step ladders', async () => {
+    const prefs = { mode: 'pick', titleId: 'regular', showRoomTitles: true, frame: 'none' };
+    const db = fakeDb({
+      u1: {
+        uid: 'u1',
+        avatar: 'x',
+        // Old numbering: regular 3 = 100 games, bubble 3 = its one step (5)
+        unlocked: { regular: { tier: 3, at: 1 }, bubble: { tier: 3, at: 2 } },
+        prefs,
+        display: { familyId: 'regular', tier: 3, frame: null },
+      },
+    });
+    // 105 games: regular 6 (the old 100 maps to 6 too, so the time stays)
+    await recomputeUserTitles(db, 'u1', stats({ games: 105 }), 9, { rebuild: true });
+    const doc = db.docs.get('u1');
+    expect(doc.ladder).toBe(2);
+    expect(doc.unlocked).toEqual({ regular: { tier: 6, at: 1 } });
+    // Prefs untouched; the pick still resolves
+    expect(doc.prefs).toEqual(prefs);
+    expect(doc.display).toEqual({ familyId: 'regular', tier: 6, frame: null });
+    // Rebuilding again changes nothing
+    db.writes.length = 0;
+    expect((await recomputeUserTitles(db, 'u1', stats({ games: 105 }), 10, { rebuild: true })).written).toBe(false);
   });
 
   it('users/{uid} trigger: a new photo or name syncs; other edits are skipped', async () => {

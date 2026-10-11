@@ -1,6 +1,8 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
-import { buildUserTitles, resolveDisplay, validateTitlePrefs } from '../utils/titleRules.js';
+import {
+  TITLE_LADDER_VERSION, buildUserTitles, resolveDisplay, upgradeTitlesDoc, validateTitlePrefs,
+} from '../utils/titleRules.js';
 import { crownMonthOf } from '../utils/crownRules.js';
 import { filterPals, isHiddenAccount, samePals } from '../utils/palsMath.js';
 
@@ -72,6 +74,7 @@ export async function recomputeUserTitles(db, uid, allTimeStats, now = Date.now(
         unlocked: result.unlocked,
         prefs: result.prefs,
         display: result.display,
+        ladder: result.ladder,
         ...(profile || {}),
         ...(palsChanged ? { pals, palsUpdatedAt: now } : {}),
         updatedAt: FieldValue.serverTimestamp(),
@@ -157,7 +160,8 @@ export async function setTitlePrefs(db, uid, data, now = Date.now()) {
   const ref = db.collection(TITLES_COLLECTION).doc(uid);
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    const stored = snap.exists ? snap.data() : {};
+    // A doc from before the ten-step ladders is written back on them
+    const stored = upgradeTitlesDoc(snap.exists ? snap.data() : {});
     const unlocked = stored.unlocked || {};
     // A crown held this month can be picked too
     const crownCtx = { crowns: stored.crowns, month: crownMonthOf(now) };
@@ -174,6 +178,7 @@ export async function setTitlePrefs(db, uid, data, now = Date.now()) {
       unlocked,
       prefs: result.prefs,
       display,
+      ladder: TITLE_LADDER_VERSION,
       updatedAt: FieldValue.serverTimestamp(),
     };
     // mergeFields, not merge: a display map is replaced whole (merge would
