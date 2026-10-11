@@ -54,7 +54,10 @@ function close() {
 </script>
 
 <style scoped>
-.mpr { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; background: rgb(0 0 0 / 0.72); padding: 1.5rem; }
+/* Opaque, not a see-through dim: behind it the draw screen already shows the
+   new result (envelopes left, the drawn list with its amount), which would
+   spoil the reveal while the phone says "watch the TV" */
+.mpr { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; background: rgb(var(--tw-slate-950)); padding: 1.5rem; }
 .mpr-card {
   width: 100%;
   max-width: 22rem;
