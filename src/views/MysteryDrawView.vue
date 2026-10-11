@@ -102,9 +102,9 @@
       <section class="md-card">
         <div class="md-section">{{ $t('mystery.left') }} {{ remaining.length }} / {{ slots.length }}</div>
         <div class="md-envelopes">
-          <div v-for="tier in tiers" :key="tier.tier" class="md-env" :class="{ gone: !tier.left }">
+          <div v-for="tier in tiers" :key="tier.tier" class="md-env" :class="{ gone: !tier.left && !holding }">
             <div class="md-env-amount">${{ formatNumber(tier.amount) }}</div>
-            <div class="md-sub">× {{ tier.left }} / {{ tier.total }}</div>
+            <div class="md-sub">× {{ holding ? '?' : tier.left }} / {{ tier.total }}</div>
           </div>
         </div>
         <template v-if="isHost && !anyDrawn">
@@ -129,7 +129,7 @@
             <div class="font-bold truncate">{{ namesOf(tk.by) }}</div>
             <div class="md-sub">{{ tk.final ? $t('mystery.ticketFinal') : $t('mystery.ticketKo', { victim: nameOf(tk.holderId) }) }}</div>
           </div>
-          <div class="md-won">${{ formatNumber(amounts[tk.envelope] || 0) }}</div>
+          <div class="md-won">{{ freshIds.has(tk.id) ? '$ ?' : `$${formatNumber(amounts[tk.envelope] || 0)}` }}</div>
           <button v-if="isHost" type="button" class="md-icon" :aria-label="$t('mystery.undo')" :disabled="busy" @click="undoDraw(tk)">
             <i class="fas fa-undo"></i>
           </button>
@@ -206,6 +206,28 @@ const drawn = computed(() => tickets.value
   .filter((tk) => tk.envelope !== null && tk.envelope !== undefined)
   .sort((a, b) => (b.at || 0) - (a.at || 0)));
 const anyDrawn = computed(() => drawn.value.length > 0);
+
+// A draw that lands while this screen is open is held back as long as the TV
+// stage takes to reveal it: the drawn list's amount and the envelopes-left
+// counts would otherwise give away which envelope it was, on every phone
+// watching. Draws already there when the screen opened show as usual.
+const REVEAL_HOLD_MS = 6500;
+const seenDrawn = new Set();
+let seenReady = false;
+const freshIds = ref(new Set());
+let freshTimer = null;
+watch(drawn, (list) => {
+  const ids = list.map((tk) => tk.id);
+  const added = seenReady ? ids.filter((id) => !seenDrawn.has(id)) : [];
+  ids.forEach((id) => seenDrawn.add(id));
+  if (game.value) seenReady = true;
+  if (!added.length || !game.value?.tournamentSessionId) return;
+  freshIds.value = new Set([...freshIds.value, ...added]);
+  clearTimeout(freshTimer);
+  freshTimer = setTimeout(() => { freshIds.value = new Set(); }, REVEAL_HOLD_MS);
+}, { immediate: true });
+onUnmounted(() => clearTimeout(freshTimer));
+const holding = computed(() => freshIds.value.size > 0);
 const aliveCount = computed(() => players.value.filter((p) => !p.eliminated).length);
 
 // ── who may draw now (canDrawTicket) ──
