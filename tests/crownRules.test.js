@@ -6,7 +6,7 @@ import {
   crownValue, heldCrowns as heldCrownsRaw,
 } from '../functions/src/utils/crownRules.js';
 import {
-  CROWN_FAMILIES, TITLE_FAMILIES, TITLE_SOURCES, buildCrownUpdate, buildUserTitles, effectiveDisplay,
+  CROWN_FAMILIES, TITLE_FAMILIES, TITLE_LADDER_VERSION, TITLE_SOURCES, buildCrownUpdate, buildUserTitles, effectiveDisplay,
   getTitleFamily, resolveDisplay, resolveTitle, titleCount, titleTierOf, validateTitlePrefs,
 } from '../functions/src/utils/titleRules.js';
 import * as frontend from '../src/utils/titles.js';
@@ -198,7 +198,8 @@ describe('lazy finalisation', () => {
 
 describe('display with crowns', () => {
   const OCT = '2026-10';
-  const unlocked = { regular: { tier: 4, at: 1 }, champion: { tier: 2, at: 2 } };
+  // 8 + 2 = 10 titles: bronze
+  const unlocked = { regular: { tier: 8, at: 1 }, champion: { tier: 2, at: 2 } };
   const crowns = { crownProfit: OCT, crownHunter: OCT, crownLoss: '2026-09' };
 
   it('active crowns: only this month, fixed order', () => {
@@ -209,8 +210,8 @@ describe('display with crowns', () => {
   it('auto: an active crown beats any title; the frame is unchanged', () => {
     expect(resolveDisplay(unlocked, { mode: 'auto', frame: 'auto' }, { crowns, month: OCT }))
       .toEqual({ familyId: 'crownHunter', tier: 4, frame: 'bronze', month: OCT });
-    expect(resolveTitle(unlocked, { mode: 'auto' }, { crowns, month: '2026-11' })).toEqual({ familyId: 'regular', tier: 4 });
-    expect(resolveTitle(unlocked, { mode: 'auto' })).toEqual({ familyId: 'regular', tier: 4 });
+    expect(resolveTitle(unlocked, { mode: 'auto' }, { crowns, month: '2026-11' })).toEqual({ familyId: 'regular', tier: 8 });
+    expect(resolveTitle(unlocked, { mode: 'auto' })).toEqual({ familyId: 'regular', tier: 8 });
     // Opt-in: nothing set means nothing shown, crowns included
     expect(resolveTitle(unlocked, null, { crowns, month: OCT })).toBeNull();
   });
@@ -218,7 +219,7 @@ describe('display with crowns', () => {
   it('pick: a held crown, falls back like auto once it is gone; off hides crowns too', () => {
     const pick = { mode: 'pick', titleId: 'crownProfit' };
     expect(resolveTitle(unlocked, pick, { crowns, month: OCT })).toMatchObject({ familyId: 'crownProfit', month: OCT });
-    expect(resolveTitle(unlocked, pick, { crowns, month: '2026-11' })).toEqual({ familyId: 'regular', tier: 4 });
+    expect(resolveTitle(unlocked, pick, { crowns, month: '2026-11' })).toEqual({ familyId: 'regular', tier: 8 });
     // A picked normal title wins over an active crown
     expect(resolveTitle(unlocked, { mode: 'pick', titleId: 'champion' }, { crowns, month: OCT }))
       .toEqual({ familyId: 'champion', tier: 2 });
@@ -227,31 +228,34 @@ describe('display with crowns', () => {
 
   it('client: a stored crown display from an older month is re-resolved', () => {
     const doc = {
+      ladder: TITLE_LADDER_VERSION,
       unlocked,
       prefs: { mode: 'auto', frame: 'auto' },
       crowns,
       display: { familyId: 'crownHunter', tier: 4, frame: 'bronze', month: OCT },
     };
     expect(effectiveDisplay(doc, OCT)).toBe(doc.display);
-    expect(effectiveDisplay(doc, '2026-11')).toEqual({ familyId: 'regular', tier: 4, frame: 'bronze' });
+    expect(effectiveDisplay(doc, '2026-11')).toEqual({ familyId: 'regular', tier: 8, frame: 'bronze' });
     // Normal titles are shown as stored
-    const plain = { ...doc, display: { familyId: 'regular', tier: 4, frame: 'bronze' } };
+    const plain = { ...doc, display: { familyId: 'regular', tier: 8, frame: 'bronze' } };
     expect(effectiveDisplay(plain, '2026-11')).toBe(plain.display);
     expect(effectiveDisplay(null, OCT)).toBeNull();
   });
 
   it('server: the next recompute drops a stale crown display', () => {
     const prev = {
+      ladder: TITLE_LADDER_VERSION,
       unlocked,
       prefs: { mode: 'auto', frame: 'auto' },
       crowns,
       display: { familyId: 'crownHunter', tier: 4, frame: 'bronze', month: OCT },
     };
-    const stats = { total: { games: 200 }, cash: {}, tournament: { champion: 3 } };
+    // regular 8 (160 games), champion 2: nothing new
+    const stats = { total: { games: 160 }, cash: {}, tournament: { champion: 2 } };
     const nov = Date.parse('2026-11-02T12:00:00+08:00');
     const next = buildUserTitles(prev, stats, nov);
     expect(next.changed).toBe(true);
-    expect(next.display).toEqual({ familyId: 'regular', tier: 4, frame: 'bronze' });
+    expect(next.display).toEqual({ familyId: 'regular', tier: 8, frame: 'bronze' });
     const oct = Date.parse('2026-10-20T12:00:00+08:00');
     expect(buildUserTitles(prev, stats, oct).changed).toBe(false);
   });
@@ -271,7 +275,12 @@ describe('display with crowns', () => {
   });
 
   it('buildCrownUpdate: crowns + history + the display they give', () => {
-    const stored = { unlocked, prefs: { mode: 'auto', frame: 'auto' }, display: { familyId: 'regular', tier: 4, frame: 'bronze' } };
+    const stored = {
+      ladder: TITLE_LADDER_VERSION,
+      unlocked,
+      prefs: { mode: 'auto', frame: 'auto' },
+      display: { familyId: 'regular', tier: 8, frame: 'bronze' },
+    };
     const gain = buildCrownUpdate(stored, [[OCT, ['crownRegular']]], OCT);
     expect(gain).toMatchObject({
       crowns: { crownRegular: OCT },

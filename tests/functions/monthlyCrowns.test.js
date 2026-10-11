@@ -59,7 +59,8 @@ const stats = (uid, { games = 1, profit = 0, knockouts = 0, period = OCT, hidden
     tournament: { knockouts },
   },
 });
-const titles = (uid, data) => ({ [`userTitles/${uid}`]: { uid, unlocked: {}, prefs: { mode: 'auto' }, display: null, ...data } });
+// Docs on the ten-step ladders (ladder: 2) unless a test says otherwise
+const titles = (uid, data) => ({ [`userTitles/${uid}`]: { uid, ladder: 2, unlocked: {}, prefs: { mode: 'auto' }, display: null, ...data } });
 
 describe('pals in the titles recompute', () => {
   it('stores the sorted pals; new candidates get one users read, hidden ones left out', async () => {
@@ -115,6 +116,14 @@ describe('setTitlePrefs with a crown', () => {
     await setTitlePrefs(db, 'me', { mode: 'pick', titleId: 'regular' }, NOW);
     expect(db.docs.get('userTitles/me').display).toEqual({ familyId: 'regular', tier: 2, frame: null });
     expect(db.docs.get('userTitles/me').pals).toEqual(['amy']);
+  });
+
+  it('a doc from before the ten-step ladders is written back on them', async () => {
+    // Old regular 2 = 40 games: tier 4 on the new ladder
+    const db = fakeDb(titles('me', { ladder: undefined, unlocked: { regular: { tier: 2, at: 1 } } }));
+    const result = await setTitlePrefs(db, 'me', { mode: 'pick', titleId: 'regular' }, NOW);
+    expect(result.display).toEqual({ familyId: 'regular', tier: 4, frame: null });
+    expect(db.docs.get('userTitles/me')).toMatchObject({ ladder: 2, unlocked: { regular: { tier: 4, at: 1 } } });
   });
 
   it('a crown from an older month cannot be picked', async () => {

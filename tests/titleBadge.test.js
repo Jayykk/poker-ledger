@@ -7,9 +7,12 @@ import zhTW from '../src/i18n/locales/zh-TW.json';
 
 const docs = {
   // Turned on (titles are opt-in); displays from before frames, resolved on the client
-  alice: { display: { familyId: 'champion', tier: 4 }, unlocked: { champion: { tier: 4, at: 1 } }, prefs: { mode: 'auto', frame: 'auto' } },
-  bob: { display: { familyId: 'regular', tier: 2 }, unlocked: { regular: { tier: 2, at: 1 } }, prefs: { mode: 'auto', frame: 'auto' } },
-  carol: { display: null, unlocked: {} },
+  alice: { ladder: 2, display: { familyId: 'champion', tier: 7 }, unlocked: { champion: { tier: 7, at: 1 } }, prefs: { mode: 'auto', frame: 'auto' } },
+  bob: { ladder: 2, display: { familyId: 'regular', tier: 3 }, unlocked: { regular: { tier: 3, at: 1 } }, prefs: { mode: 'auto', frame: 'auto' } },
+  carol: { ladder: 2, display: null, unlocked: {} },
+  dora: { ladder: 2, display: { familyId: 'hunter', tier: 10, frame: null }, unlocked: { hunter: { tier: 10, at: 1 } }, prefs: { mode: 'auto' } },
+  // Written before the ten-step ladders: old champion 4 (12 wins) is 王朝 (6) now
+  evan: { display: { familyId: 'champion', tier: 4, frame: null }, unlocked: { champion: { tier: 4, at: 1 } }, prefs: { mode: 'auto', frame: 'none' } },
 };
 const reads = [];
 
@@ -30,18 +33,47 @@ const i18n = createI18n({ legacy: false, locale: 'zh-TW', messages: { 'zh-TW': z
 const mountBadge = (props) => mount(TitleBadge, { props, global: { plugins: [i18n] } });
 
 describe('TitleBadge', () => {
-  it('shows the title a player displays, with rarity and a crown only for legendary', async () => {
+  it('shows the title a player displays, with rarity and a crown from legendary (tier 7) up', async () => {
     const gold = mountBadge({ uid: 'alice' });
     const blue = mountBadge({ uid: 'bob' });
     await flushPromises();
 
-    expect(gold.text()).toBe('不朽傳奇');
+    expect(gold.text()).toBe('冠軍帝國');
     expect(gold.classes()).toContain('legendary');
     expect(gold.find('.fa-crown').exists()).toBe(true);
 
     expect(blue.text()).toBe('常客');
     expect(blue.classes()).toContain('rare');
     expect(blue.find('.fa-crown').exists()).toBe(false);
+  });
+
+  it('mythic (tier 9–10): its own prismatic look, crown icon, readable in both themes, no motion when asked', async () => {
+    const w = mountBadge({ uid: 'dora' });
+    await flushPromises();
+    expect(w.text()).toBe('冥王');
+    expect(w.classes()).toContain('mythic');
+    expect(w.classes()).not.toContain('crown');
+    expect(w.find('.fa-crown').exists()).toBe(true);
+    expect(mountBadge({ familyId: 'netWin', tier: 9 }).classes()).toContain('mythic');
+    const css = readFileSync(resolve(__dirname, '..', 'src/components/common/TitleBadge.vue'), 'utf-8');
+    const mythic = css.match(/\.title-badge\.mythic \{[^}]*\}/)[0];
+    expect(mythic).toContain('animation: title-badge-prism');
+    expect(mythic).toContain('background-clip: padding-box, border-box;');
+    // Never the crown's red-gold
+    expect(mythic).not.toMatch(/190, 18, 60|224, 160, 48/);
+    expect(css).toMatch(/:root\[data-mode="light"\] \.title-badge\.mythic \{[^}]*color: #5b21b6;/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\.title-badge\.mythic \{ animation: none; \}/);
+    // Still a capped pill that truncates
+    expect(css).toMatch(/\.title-badge \{[^}]*max-width: 8\.5rem;/);
+    expect(css).toContain('.title-badge-text { overflow: hidden; text-overflow: ellipsis; }');
+  });
+
+  it('a doc from before the ten-step ladders shows its mapped tier, not the old number', async () => {
+    const w = mountBadge({ uid: 'evan' });
+    await flushPromises();
+    expect(w.text()).toBe('王朝');
+    expect(w.classes()).toContain('epic');
+    expect(w.find('.fa-crown').exists()).toBe(false);
   });
 
   it('renders nothing without a displayed title', async () => {
@@ -70,9 +102,13 @@ describe('TitleBadge', () => {
   });
 
   it('can show a given family + tier (codex / picker)', () => {
-    const w = mountBadge({ familyId: 'nightOwl', tier: 3 });
+    const w = mountBadge({ familyId: 'nightOwl', tier: 1 });
     expect(w.text()).toBe('夜貓子');
-    expect(w.classes()).toContain('epic');
+    expect(w.classes()).toContain('common');
+    const legendary = mountBadge({ familyId: 'champion', tier: 8 });
+    expect(legendary.classes()).toContain('legendary');
+    expect(legendary.find('.fa-crown').exists()).toBe(true);
+    expect(mountBadge({ familyId: 'champion', tier: 6 }).find('.fa-crown').exists()).toBe(false);
   });
 });
 

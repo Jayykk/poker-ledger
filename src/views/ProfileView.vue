@@ -308,7 +308,7 @@ import PlayerAvatar from '../components/common/PlayerAvatar.vue';
 import { useUserTitles } from '../composables/useUserTitles.js';
 import {
   TITLE_FAMILIES, FRAME_TIERS, getTitleFamily, normalizeTitlePrefs, titleCount, earnedFrame, frameRank,
-  activeCrowns, isCrownId,
+  activeCrowns, isCrownId, CROWN_TIER,
 } from '../utils/titles.js';
 import { STORAGE_KEYS } from '../utils/constants.js';
 import { THEMES as THEME_LIST, applyTheme, resolveThemeId } from '../utils/themes.js';
@@ -365,7 +365,7 @@ const unlockedTitles = computed(() => Object.entries(myTitles.value?.unlocked ||
 // 指定 grid: this month's 王座 first (CROWN_IDS order), then the titles
 const heldCrownIds = computed(() => activeCrowns(myTitles.value?.crowns, currentCrownMonth()));
 const pickableTitles = computed(() => [
-  ...heldCrownIds.value.map((familyId) => ({ familyId, tier: 4, at: 0 })),
+  ...heldCrownIds.value.map((familyId) => ({ familyId, tier: CROWN_TIER, at: 0 })),
   ...unlockedTitles.value,
 ]);
 const titleSaving = ref(false);

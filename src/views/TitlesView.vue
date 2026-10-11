@@ -39,7 +39,7 @@
         <div v-else class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
           <div v-for="row in throne" :key="row.id" class="tv-card tv-throne" :class="{ held: row.mine }" :data-crown="row.id">
             <div class="flex items-center justify-between gap-2 min-w-0">
-              <TitleBadge :family-id="row.id" :tier="4" />
+              <TitleBadge :family-id="row.id" :tier="CROWN_TIER" />
               <span class="text-[10px] text-gray-400 flex-shrink-0">{{ $t('titles.throne.history', { n: row.history }) }}</span>
             </div>
             <p class="tv-desc">{{ $t(`titles.families.${row.id}.desc`) }}</p>
@@ -86,7 +86,7 @@
       <section v-for="group in groups" :key="group.id" class="mb-6">
         <h3 class="text-sm font-bold text-gray-300 mb-2">{{ $t(`titles.groups.${group.id}`) }}</h3>
         <div class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-          <div v-for="card in group.cards" :key="card.id" class="tv-card" :class="{ locked: !card.tier }">
+          <div v-for="card in group.cards" :key="card.id" class="tv-card" :class="{ locked: !card.tier }" :data-family="card.id">
             <div class="flex items-center justify-between gap-2 min-w-0">
               <TitleBadge v-if="card.tier" :family-id="card.id" :tier="card.tier" />
               <span v-else class="tv-locked">
@@ -99,24 +99,49 @@
             <p v-if="card.secret" class="tv-hint">🔮 {{ $t(card.hintKey) }}</p>
             <template v-else>
               <p class="tv-desc">{{ $t(card.descKey) }}</p>
+              <!-- Where on the ten steps: Ⅲ / Ⅹ and a dot per step in its rarity -->
+              <div class="tv-ladder" :aria-label="$t('titles.stepsOf', { n: card.tier, total: card.steps.length })">
+                <span class="tv-roman" data-testid="tier-roman">{{ roman(card.tier) }} / {{ roman(card.steps.length) }}</span>
+                <span class="tv-dots" aria-hidden="true">
+                  <span
+                    v-for="step in card.steps"
+                    :key="step.tier"
+                    class="tv-dot"
+                    :class="[titleRarity(step.tier), { reached: step.tier <= card.tier }]"
+                  ></span>
+                </span>
+              </div>
               <div class="tv-bar"><div class="tv-fill" :class="titleRarity(card.progress.next?.tier || card.tier)" :style="{ width: `${Math.round(card.progress.ratio * 100)}%` }"></div></div>
-              <div class="flex justify-between gap-2 text-[11px] mt-1">
-                <span class="text-gray-300 font-mono">
+              <div class="flex justify-between gap-2 text-[11px] mt-1 min-w-0">
+                <span class="text-gray-300 font-mono flex-shrink-0">
                   {{ formatValue(card.id, card.progress.value) }}<template v-if="card.progress.next"> / {{ formatValue(card.id, card.progress.next.threshold) }}</template>
                 </span>
-                <span class="text-gray-400 truncate">
+                <span class="text-gray-400 truncate" data-testid="tier-next">
                   {{ card.progress.next ? $t('titles.next', { name: $t(card.progress.next.nameKey) }) : $t('titles.maxed') }}
                 </span>
               </div>
-              <!-- Every step of the family -->
-              <div class="flex flex-wrap gap-1 mt-2">
-                <span
+              <!-- Every step, folded away until asked for -->
+              <button
+                type="button"
+                class="tv-steps-toggle"
+                :aria-expanded="!!openSteps[card.id]"
+                @click="openSteps[card.id] = !openSteps[card.id]"
+              >
+                {{ openSteps[card.id] ? $t('titles.hideSteps') : $t('titles.showSteps') }}
+                <i class="fas fa-chevron-down tv-steps-icon" :class="{ open: openSteps[card.id] }" aria-hidden="true"></i>
+              </button>
+              <ol v-if="openSteps[card.id]" class="tv-steps" data-testid="tier-steps">
+                <li
                   v-for="step in card.steps"
                   :key="step.tier"
                   class="tv-step"
-                  :class="[titleRarity(step.tier), { reached: step.tier <= card.tier }]"
-                >{{ $t(step.nameKey) }} · {{ formatValue(card.id, step.threshold) }}</span>
-              </div>
+                  :class="[titleRarity(step.tier), { reached: step.tier <= card.tier, current: step.tier === card.tier }]"
+                >
+                  <span class="tv-step-roman">{{ roman(step.tier) }}</span>
+                  <span class="tv-step-name">{{ $t(step.nameKey) }}</span>
+                  <span class="tv-step-value">{{ formatValue(card.id, step.threshold) }}</span>
+                </li>
+              </ol>
             </template>
           </div>
         </div>
@@ -126,9 +151,10 @@
 </template>
 
 <script setup>
-// 稱號圖鑑: every title family by 系列, the tier you hold, progress to the next
-// one (from your all-time leaderboardStats), hidden ones as ??? + a riddle.
-import { ref, computed, watch, onBeforeUnmount } from 'vue';
+// 稱號圖鑑: every title family by 系列, the tier you hold (Ⅲ / Ⅹ), progress to
+// the next one (from your all-time leaderboardStats) and the ten steps on a
+// tap; hidden ones as ??? + a riddle until their first step.
+import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase-init.js';
@@ -138,7 +164,7 @@ import TitleBadge from '../components/common/TitleBadge.vue';
 import PlayerAvatar from '../components/common/PlayerAvatar.vue';
 import { formatNumber } from '../utils/formatters.js';
 import {
-  TITLE_FAMILIES, TITLE_GROUPS, nextTierProgress, titleRarity, titleCount,
+  TITLE_FAMILIES, TITLE_GROUPS, CROWN_TIER, nextTierProgress, titleRarity, titleCount,
   CROWN_IDS, CROWN_MIN_GROUP_GAMES, CROWN_MIN_PALS, crownLeaders, crownValue, getCrown,
 } from '../utils/titles.js';
 import { statsDocId } from '../../functions/src/utils/leaderboardStatsMath.js';
@@ -170,10 +196,20 @@ const groups = computed(() => TITLE_GROUPS.map((id) => ({
       hintKey: f.hintKey,
       descKey: f.descKey,
       progress,
-      steps: f.tiers.filter((step) => !f.hidden || step.tier <= tier),
+      // A hidden family shows its whole ladder once its first step is reached
+      steps: f.tiers,
     };
   }),
 })));
+
+// Cards whose ten steps are unfolded (familyId → true)
+const openSteps = reactive({});
+
+const ROMAN = ['—', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ', 'Ⅹ'];
+// Tier as a roman numeral (— before the first step)
+function roman(tier) {
+  return ROMAN[tier] || String(tier);
+}
 
 // Money families show as amounts, σ with decimals, the rest as counts
 function formatValue(familyId, value) {
@@ -325,21 +361,65 @@ onBeforeUnmount(() => stopWatch());
 .tv-fill.rare { background: #3b82f6; }
 .tv-fill.epic { background: #a855f7; }
 .tv-fill.legendary { background: linear-gradient(90deg, #f59e0b, #fde047); }
-.tv-step {
-  font-size: 0.62rem;
-  padding: 0.05rem 0.4rem;
-  border-radius: 999px;
-  border: 1px dashed rgb(var(--tw-slate-600));
-  color: rgb(var(--tw-slate-400));
-  white-space: nowrap;
+.tv-fill.mythic { background: linear-gradient(90deg, #22d3ee, #a78bfa, #f472b6); }
+
+/* Ⅲ / Ⅹ and ten dots: fixed sizes, the dots shrink before anything wraps */
+.tv-ladder { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; min-width: 0; }
+.tv-roman {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: rgb(var(--tw-slate-300));
+  font-variant-numeric: tabular-nums;
 }
-.tv-step.reached { border-style: solid; font-weight: 700; }
-.tv-step.reached.common { color: #cbd5e1; border-color: rgba(148, 163, 184, 0.5); }
-.tv-step.reached.rare { color: #93c5fd; border-color: rgba(59, 130, 246, 0.6); }
-.tv-step.reached.epic { color: #d8b4fe; border-color: rgba(168, 85, 247, 0.6); }
-.tv-step.reached.legendary { color: #fde68a; border-color: rgba(251, 191, 36, 0.7); }
+.tv-dots { display: flex; gap: 0.2rem; min-width: 0; flex: 0 1 auto; }
+.tv-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  min-width: 0.25rem;
+  flex: 0 1 auto;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--tw-slate-600));
+}
+.tv-dot.reached { border-color: transparent; }
+.tv-dot.reached.common { background: #94a3b8; }
+.tv-dot.reached.rare { background: #3b82f6; }
+.tv-dot.reached.epic { background: #a855f7; }
+.tv-dot.reached.legendary { background: #f59e0b; }
+.tv-dot.reached.mythic { background: linear-gradient(135deg, #22d3ee, #a78bfa, #f472b6); }
+
+.tv-steps-toggle {
+  margin-top: 0.4rem;
+  font-size: 0.68rem;
+  color: rgb(var(--tw-slate-400));
+}
+.tv-steps-icon { font-size: 0.55rem; margin-left: 0.2rem; transition: transform 0.2s ease; }
+.tv-steps-icon.open { transform: rotate(180deg); }
+/* The ten steps: one row each (roman · name · threshold), the name truncates */
+.tv-steps { margin-top: 0.3rem; display: flex; flex-direction: column; gap: 0.15rem; }
+.tv-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.4rem;
+  font-size: 0.68rem;
+  color: rgb(var(--tw-slate-400));
+}
+.tv-step-roman { flex-shrink: 0; width: 1.1rem; text-align: center; }
+.tv-step-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-step-value { flex-shrink: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.tv-step.current { background: rgb(var(--tw-slate-700) / 0.6); }
+.tv-step.reached { font-weight: 700; }
+.tv-step.reached.common { color: #cbd5e1; }
+.tv-step.reached.rare { color: #93c5fd; }
+.tv-step.reached.epic { color: #d8b4fe; }
+.tv-step.reached.legendary { color: #fde68a; }
+.tv-step.reached.mythic { color: #c4b5fd; }
 :root[data-mode="light"] .tv-step.reached.common { color: #475569; }
 :root[data-mode="light"] .tv-step.reached.rare { color: #1d4ed8; }
 :root[data-mode="light"] .tv-step.reached.epic { color: #7e22ce; }
 :root[data-mode="light"] .tv-step.reached.legendary { color: #92400e; }
+:root[data-mode="light"] .tv-step.reached.mythic { color: #6d28d9; }
 </style>
