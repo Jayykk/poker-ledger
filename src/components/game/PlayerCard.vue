@@ -4,16 +4,21 @@
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-1.5">
         <span v-if="seatLabel" class="c-seat">{{ seatLabel }}</span>
-        <span class="c-name truncate shrink-[10]">{{ player.name }}</span>
+        <span class="c-name">{{ player.name }}</span>
         <span v-if="isButton" class="c-button">D</span>
+      </div>
+      <!-- Its own line under the name, so neither squeezes the other to "…" -->
+      <div v-if="liveTitle || player.uid" class="c-titles">
         <!-- 房內即時稱號 replaces the regular one while it lasts -->
         <LiveTitleBadge v-if="liveTitle" :title-id="liveTitle" />
-        <TitleBadge v-else-if="player.uid" :uid="player.uid" />
-        <!-- Seat without an account: claim it (bind) or send it to someone (invite) -->
-        <button v-if="!player.uid && canBind" type="button" class="c-chip accent flex-shrink-0" @click="$emit('bind', player)">
+        <TitleBadge v-else :uid="player.uid" />
+      </div>
+      <!-- Seat without an account: claim it (bind) or send it to someone (invite) -->
+      <div v-else class="c-titles">
+        <button v-if="canBind" type="button" class="c-chip accent" @click="$emit('bind', player)">
           {{ $t('game.bind') }}
         </button>
-        <button v-else-if="!player.uid" type="button" class="c-chip flex-shrink-0 whitespace-nowrap" @click="$emit('invite', player)">
+        <button v-else type="button" class="c-chip whitespace-nowrap" @click="$emit('invite', player)">
           <i class="fas fa-share-alt mr-1"></i>{{ $t('game.invite') }}
         </button>
       </div>
@@ -24,21 +29,25 @@
       <div v-if="player.notes" class="c-note">📝 {{ player.notes }}</div>
     </div>
 
-    <div class="c-net" :class="netProfit >= 0 ? 'up' : 'down'">
-      {{ netProfit > 0 ? '+' : '' }}{{ formatNumber(netProfit) }}
+    <!-- Net result over the buttons (not beside them): the name keeps the width -->
+    <div class="c-side">
+      <div class="c-net" :class="netProfit >= 0 ? 'up' : 'down'">
+        {{ netProfit > 0 ? '+' : '' }}{{ formatNumber(netProfit) }}
+      </div>
+      <div class="c-actions">
+        <button
+          type="button"
+          class="c-btn"
+          :disabled="buyInDisabled"
+          @click="$emit('add-buy', player)"
+        >
+          <i class="fas fa-plus"></i>{{ $t('room.addBuy') }}
+        </button>
+        <button type="button" class="c-icon" :aria-label="$t('game.modify')" @click="$emit('edit', player)">
+          <i class="fas fa-ellipsis-h"></i>
+        </button>
+      </div>
     </div>
-
-    <button
-      type="button"
-      class="c-btn"
-      :disabled="buyInDisabled"
-      @click="$emit('add-buy', player)"
-    >
-      <i class="fas fa-plus"></i>{{ $t('room.addBuy') }}
-    </button>
-    <button type="button" class="c-icon" :aria-label="$t('game.modify')" @click="$emit('edit', player)">
-      <i class="fas fa-ellipsis-h"></i>
-    </button>
   </div>
 </template>
 
@@ -85,14 +94,34 @@ const groups = computed(() => (props.baseBuyIn > 0
   border-bottom: 1px solid rgb(var(--tw-slate-700) / 0.7);
 }
 .c-row:last-child { border-bottom: none; }
-.c-name { color: rgb(var(--tw-white)); font-weight: 700; min-width: 1.5em; }
+.c-name {
+  color: rgb(var(--tw-white));
+  font-weight: 700;
+  min-width: 1.5em;
+  /* A long name wraps to a second line instead of turning into "…"
+     (only past two lines is it cut) */
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.25;
+}
 .c-seat { flex-shrink: 0; min-width: 1.5rem; height: 1.5rem; padding: 0 0.3rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: rgb(var(--tw-white)); background: rgb(var(--tw-slate-600)); }
 .c-button { flex-shrink: 0; width: 1.3rem; height: 1.3rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 900; color: #1f2937; background: #f8fafc; border: 2px solid #cbd5e1; }
 /* One line on a phone: what doesn't fit ends in … instead of wrapping */
+/* The title line: the badge gets the whole column (no 8.5rem cap); a player
+   whose badge renders nothing leaves no gap (:empty ignores Vue's comment) */
+.c-titles { display: flex; align-items: center; gap: 0.35rem; min-width: 0; margin-top: 0.2rem; }
+.c-titles:empty { display: none; }
+.c-titles > .title-badge, .c-titles > .live-badge { max-width: 100%; }
 .c-sub { font-size: 0.72rem; color: rgb(var(--tw-slate-400)); margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .c-note { font-size: 0.72rem; color: rgb(var(--tw-slate-300)); margin-top: 0.2rem; }
+.c-side { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; }
+.c-actions { display: flex; align-items: center; gap: 0.15rem; }
 .c-net {
   flex-shrink: 0;
+  line-height: 1.1;
   font-family: 'JetBrains Mono', monospace;
   font-size: 1.1rem;
   font-weight: 700;

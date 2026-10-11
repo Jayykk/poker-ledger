@@ -206,7 +206,7 @@ describe('where avatars and live titles go', () => {
   ])('%s: sm avatar first, the live title replaces the regular one', (file) => {
     const src = read(file);
     expect(src).toContain('<PlayerAvatar size="sm" :src="avatar" :name="player.name" :uid="player.uid || \'\'" :linked="!!player.uid" />');
-    expect(src).toMatch(/<LiveTitleBadge v-if="liveTitle" :title-id="liveTitle" \/>\s*<TitleBadge v-else-if="player.uid"/);
+    expect(src).toMatch(/<LiveTitleBadge v-if="liveTitle" :title-id="liveTitle" \/>\s*<TitleBadge v-else :uid="player.uid"/);
     // The account dot moved onto the avatar; the second line never wraps
     expect(src).not.toContain('●');
     expect(src).toMatch(/-sub \{[^}]*white-space: nowrap; overflow: hidden; text-overflow: ellipsis;/);
