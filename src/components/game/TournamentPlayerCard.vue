@@ -7,12 +7,15 @@
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-1.5">
         <span v-if="seatLabel" class="t-seat">{{ seatLabel }}</span>
-        <span class="t-name truncate shrink-[10]">{{ player.name }}</span>
+        <span class="t-name">{{ player.name }}</span>
         <span v-if="isButton" class="t-button">D</span>
+        <span v-if="champion" class="text-amber-400 text-xs font-bold flex-shrink-0">🏆 {{ $t('tournament.champion') }}</span>
+      </div>
+      <!-- Its own line under the name, so neither squeezes the other to "…" -->
+      <div v-if="liveTitle || player.uid" class="t-titles">
         <!-- 房內即時稱號 replaces the regular one while it lasts -->
         <LiveTitleBadge v-if="liveTitle" :title-id="liveTitle" />
-        <TitleBadge v-else-if="player.uid" :uid="player.uid" />
-        <span v-if="champion" class="text-amber-400 text-xs font-bold flex-shrink-0">🏆 {{ $t('tournament.champion') }}</span>
+        <TitleBadge v-else :uid="player.uid" />
       </div>
       <div class="t-sub">
         <template v-if="player.eliminated && knockedOutBy">{{ $t('room.knockedOutBy', { name: knockedOutBy }) }} · </template>
@@ -129,13 +132,30 @@ const entryCount = computed(() => {
   background: rgb(var(--tw-slate-700) / 0.7);
 }
 .t-menu button.danger { color: rgb(var(--tw-rose-300)); }
-.t-name { color: rgb(var(--tw-white)); font-weight: 700; min-width: 1.5em; }
+.t-name {
+  color: rgb(var(--tw-white));
+  font-weight: 700;
+  min-width: 1.5em;
+  /* A long name wraps to a second line instead of turning into "…"
+     (only past two lines is it cut) */
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.25;
+}
 .t-seat { flex-shrink: 0; min-width: 1.5rem; height: 1.5rem; padding: 0 0.3rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: rgb(var(--tw-white)); background: rgb(var(--tw-slate-600)); }
 .t-button { flex-shrink: 0; width: 1.3rem; height: 1.3rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 900; color: #1f2937; background: #f8fafc; border: 2px solid #cbd5e1; }
 .t-row.out .t-name { color: rgb(var(--tw-slate-400)); font-weight: 500; }
 .t-row.out :deep(.pa) { opacity: 0.55; }
 .t-place { width: 1.8rem; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: rgb(var(--tw-slate-400)); }
 /* One line on a phone: what doesn't fit ends in … instead of wrapping */
+/* The title line: the badge gets the whole column (no 8.5rem cap); a player
+   whose badge renders nothing leaves no gap (:empty ignores Vue's comment) */
+.t-titles { display: flex; align-items: center; gap: 0.35rem; min-width: 0; margin-top: 0.2rem; }
+.t-titles:empty { display: none; }
+.t-titles > .title-badge, .t-titles > .live-badge { max-width: 100%; }
 .t-sub { font-size: 0.72rem; color: rgb(var(--tw-slate-400)); margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .t-btn {
   flex-shrink: 0;

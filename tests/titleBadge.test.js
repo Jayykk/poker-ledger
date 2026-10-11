@@ -79,8 +79,8 @@ describe('TitleBadge', () => {
 describe('badges next to names', () => {
   const read = (p) => readFileSync(resolve(__dirname, '..', p), 'utf-8');
   it.each([
-    ['src/components/game/PlayerCard.vue', '<TitleBadge v-else-if="player.uid" :uid="player.uid" />'],
-    ['src/components/game/TournamentPlayerCard.vue', '<TitleBadge v-else-if="player.uid" :uid="player.uid" />'],
+    ['src/components/game/PlayerCard.vue', '<TitleBadge v-else :uid="player.uid" />'],
+    ['src/components/game/TournamentPlayerCard.vue', '<TitleBadge v-else :uid="player.uid" />'],
     ['src/components/game/SeatDrawModal.vue', '<TitleBadge v-else-if="s.player?.uid" :uid="s.player.uid" />'],
     ['src/components/common/SettlementDetailModal.vue', '<TitleBadge v-if="player.odId" :uid="player.odId" />'],
     ['src/components/social/Leaderboard.vue', '<TitleBadge :uid="entry.uid" />'],
@@ -88,8 +88,22 @@ describe('badges next to names', () => {
   ])('%s', (file, tag) => {
     const src = read(file);
     expect(src).toContain(tag);
-    // The name gives way first on a narrow phone
-    if (!file.includes('SeatDraw') && !file.includes('ProfileView')) expect(src).toContain('truncate shrink-[10]');
+    // The name gives way first on a narrow phone (room rows: the title has its own line)
+    if (/SettlementDetail|Leaderboard/.test(file)) expect(src).toContain('truncate shrink-[10]');
+  });
+
+  it.each([
+    ['src/components/game/PlayerCard.vue', 'c'],
+    ['src/components/game/TournamentPlayerCard.vue', 't'],
+  ])('%s: the title sits on its own line under the name, full width', (file, p) => {
+    const src = read(file);
+    expect(src).toContain(`<div v-if="liveTitle || player.uid" class="${p}-titles">`);
+    expect(src).toContain(`.${p}-titles:empty { display: none; }`);
+    expect(src).toContain(`.${p}-titles > .title-badge, .${p}-titles > .live-badge { max-width: 100%; }`);
+    // the name line holds only seat, name and the D button
+    expect(src).toMatch(new RegExp(`<span class="${p}-name">\\{\\{ player\\.name \\}\\}</span>\\s*<span v-if="isButton"`));
+    // a long name wraps to two lines instead of "…"
+    expect(src).toMatch(new RegExp(`\\.${p}-name \\{[^}]*-webkit-line-clamp: 2;`));
   });
 
   it('the codex has a route and the page width every page uses', () => {
