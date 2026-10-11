@@ -98,14 +98,14 @@ export function isLegacyDefaultPrefs(prefs) {
     && (p.frame === undefined || p.frame === 'auto');
 }
 
-// 頭像框: titles held (see titleCount) needed for each frame. Still the
-// numbers from the 1..4 ladders: pick new ones from
-// functions/scripts/simulate_title_tiers.js (a family at tier n holds n now).
-export const FRAME_MIN_BRONZE = 4;
-export const FRAME_MIN_SILVER = 8;
-export const FRAME_MIN_GOLD = 16;
-export const FRAME_MIN_PLATINUM = 22;
-export const FRAME_MIN_DIAMOND = 30;
+// 頭像框: titles held (see titleCount; a family at tier n holds n) needed for
+// each frame. Set from functions/scripts/simulate_title_tiers.js on
+// production (2026-10); run it again before moving them.
+export const FRAME_MIN_BRONZE = 10;
+export const FRAME_MIN_SILVER = 25;
+export const FRAME_MIN_GOLD = 50;
+export const FRAME_MIN_PLATINUM = 70;
+export const FRAME_MIN_DIAMOND = 100;
 
 // 頭像框, lowest first: `min` titles held earn the frame
 export const FRAME_TIERS = Object.freeze([

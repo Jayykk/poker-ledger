@@ -27,15 +27,15 @@ const docs = {
     unlocked: {},
     prefs: { mode: 'off', showRoomTitles: false },
   },
-  // Written before frames existed: 4 + 4 + 1 = 9 titles → silver, resolved on the client
+  // Written before frames existed: 10 + 10 + 5 = 25 titles → silver, resolved on the client
   olga: {
     ladder: 2,
-    display: { familyId: 'champion', tier: 4 },
-    unlocked: { champion: { tier: 4, at: 3 }, regular: { tier: 4, at: 2 }, host: { tier: 1, at: 1 } },
+    display: { familyId: 'champion', tier: 10 },
+    unlocked: { champion: { tier: 10, at: 3 }, regular: { tier: 10, at: 2 }, host: { tier: 5, at: 1 } },
     prefs: { mode: 'auto', frame: 'auto' },
   },
-  // Title off before frames existed (display null), 4 titles → bronze
-  pete: { ladder: 2, display: null, unlocked: { regular: { tier: 4, at: 1 } }, prefs: { mode: 'off', frame: 'auto' } },
+  // Title off before frames existed (display null), 10 titles → bronze
+  pete: { ladder: 2, display: null, unlocked: { regular: { tier: 10, at: 1 } }, prefs: { mode: 'off', frame: 'auto' } },
 };
 const reads = [];
 
@@ -169,7 +169,7 @@ describe('display with frames (cache)', () => {
 
   it('docs from before frames get their frame resolved on the client', async () => {
     await ensureUserTitles(['olga', 'pete']);
-    expect(titleDisplayOf('olga')).toEqual({ familyId: 'champion', tier: 4, frame: 'silver' });
+    expect(titleDisplayOf('olga')).toEqual({ familyId: 'champion', tier: 10, frame: 'silver' });
     expect(titleDisplayOf('pete')).toEqual({ familyId: null, tier: null, frame: 'bronze' });
     // Room titles are opt-in: olga never turned them on
     expect(allowsRoomTitles('olga')).toBe(false);

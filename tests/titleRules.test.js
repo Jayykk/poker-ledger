@@ -325,16 +325,16 @@ describe('mergeUnlocked', () => {
 
 describe('prefs and display', () => {
   const unlocked = {
-    regular: { tier: 2, at: 100 },
-    champion: { tier: 2, at: 300 },
-    host: { tier: 1, at: 900 },
+    regular: { tier: 4, at: 100 },
+    champion: { tier: 4, at: 300 },
+    host: { tier: 2, at: 900 },
   };
 
-  // 2 + 2 + 1 = 5 titles held → bronze
+  // 4 + 4 + 2 = 10 titles held → bronze (FRAME_MIN_BRONZE)
   it('auto: highest tier, ties go to the most recent', () => {
-    expect(resolveDisplay(unlocked, { mode: 'auto', frame: 'auto' })).toEqual({ familyId: 'champion', tier: 2, frame: 'bronze' });
+    expect(resolveDisplay(unlocked, { mode: 'auto', frame: 'auto' })).toEqual({ familyId: 'champion', tier: 4, frame: 'bronze' });
     expect(resolveDisplay({}, { mode: 'auto' })).toBeNull();
-    expect(resolveTitle(unlocked, { mode: 'auto' })).toEqual({ familyId: 'champion', tier: 2 });
+    expect(resolveTitle(unlocked, { mode: 'auto' })).toEqual({ familyId: 'champion', tier: 4 });
   });
 
   it('auto with tiers up to 10: a mythic tier beats everything below it', () => {
@@ -351,15 +351,15 @@ describe('prefs and display', () => {
   it('off hides the title but keeps the frame; pick shows the chosen one (auto if it is not unlocked)', () => {
     expect(resolveDisplay(unlocked, { mode: 'off', frame: 'auto' })).toEqual({ familyId: null, tier: null, frame: 'bronze' });
     expect(resolveDisplay({ host: { tier: 1, at: 1 } }, { mode: 'off', frame: 'auto' })).toBeNull();
-    expect(resolveDisplay(unlocked, { mode: 'pick', titleId: 'host', frame: 'auto' })).toEqual({ familyId: 'host', tier: 1, frame: 'bronze' });
-    expect(resolveDisplay(unlocked, { mode: 'pick', titleId: 'nightOwl', frame: 'auto' })).toEqual({ familyId: 'champion', tier: 2, frame: 'bronze' });
+    expect(resolveDisplay(unlocked, { mode: 'pick', titleId: 'host', frame: 'auto' })).toEqual({ familyId: 'host', tier: 2, frame: 'bronze' });
+    expect(resolveDisplay(unlocked, { mode: 'pick', titleId: 'nightOwl', frame: 'auto' })).toEqual({ familyId: 'champion', tier: 4, frame: 'bronze' });
     // A title but no frame yet
     expect(resolveDisplay({ host: { tier: 1, at: 1 } }, { mode: 'auto', frame: 'auto' })).toEqual({ familyId: 'host', tier: 1, frame: null });
   });
 
   it('opt-in: with no prefs set nothing shows, not even an earned frame', () => {
     expect(resolveDisplay(unlocked, null)).toBeNull();
-    expect(resolveDisplay(unlocked, { mode: 'auto', frame: 'none' })).toEqual({ familyId: 'champion', tier: 2, frame: null });
+    expect(resolveDisplay(unlocked, { mode: 'auto', frame: 'none' })).toEqual({ familyId: 'champion', tier: 4, frame: null });
     expect(resolveFrame(unlocked, { frame: 'none' })).toBeNull();
   });
 
@@ -421,9 +421,9 @@ describe('頭像框', () => {
     return out;
   };
 
-  it('frames at 4 / 8 / 16 / 22 / 30 titles (to be re-set from the simulation)', () => {
+  it('frames at 10 / 25 / 50 / 70 / 100 titles (set from the 2026-10 simulation)', () => {
     expect(FRAME_TIERS.map((f) => [f.id, f.min])).toEqual([
-      ['bronze', 4], ['silver', 8], ['gold', 16], ['platinum', 22], ['diamond', 30],
+      ['bronze', 10], ['silver', 25], ['gold', 50], ['platinum', 70], ['diamond', 100],
     ]);
   });
 
@@ -444,29 +444,29 @@ describe('頭像框', () => {
 
   it('earnedFrame at each threshold', () => {
     expect(earnedFrame({})).toBeNull();
-    expect(earnedFrame(held(3))).toBeNull();
-    expect(earnedFrame(held(4))).toBe('bronze');
-    expect(earnedFrame(held(7))).toBe('bronze');
-    expect(earnedFrame(held(8))).toBe('silver');
-    expect(earnedFrame(held(16))).toBe('gold');
-    expect(earnedFrame(held(21))).toBe('gold');
-    expect(earnedFrame(held(22))).toBe('platinum');
-    expect(earnedFrame(held(30))).toBe('diamond');
-    expect(earnedFrame(held(40))).toBe('diamond');
-    expect(earnedFrames(held(16))).toEqual(['bronze', 'silver', 'gold']);
+    expect(earnedFrame(held(9))).toBeNull();
+    expect(earnedFrame(held(10))).toBe('bronze');
+    expect(earnedFrame(held(24))).toBe('bronze');
+    expect(earnedFrame(held(25))).toBe('silver');
+    expect(earnedFrame(held(50))).toBe('gold');
+    expect(earnedFrame(held(69))).toBe('gold');
+    expect(earnedFrame(held(70))).toBe('platinum');
+    expect(earnedFrame(held(100))).toBe('diamond');
+    expect(earnedFrame(held(120))).toBe('diamond');
+    expect(earnedFrames(held(50))).toEqual(['bronze', 'silver', 'gold']);
     expect(earnedFrames({})).toEqual([]);
   });
 
   it('the shown frame: picked while earned, else the highest earned', () => {
-    expect(resolveFrame(held(16), null)).toBeNull();
-    expect(resolveFrame(held(16), { frame: 'auto' })).toBe('gold');
-    expect(resolveFrame(held(16), { frame: 'bronze' })).toBe('bronze');
-    expect(resolveFrame(held(16), { frame: 'diamond' })).toBe('gold');
+    expect(resolveFrame(held(50), null)).toBeNull();
+    expect(resolveFrame(held(50), { frame: 'auto' })).toBe('gold');
+    expect(resolveFrame(held(50), { frame: 'bronze' })).toBe('bronze');
+    expect(resolveFrame(held(50), { frame: 'diamond' })).toBe('gold');
     expect(resolveFrame({}, { frame: 'bronze' })).toBeNull();
   });
 
   it('frames never drop: unlocked only grows', () => {
-    const before = held(8);
+    const before = held(25);
     const { unlocked } = mergeUnlocked(before, {}, 5);
     expect(earnedFrame(unlocked)).toBe('silver');
   });
@@ -504,11 +504,12 @@ describe('buildUserTitles', () => {
   it('recomputes the frame: a doc from before frames gets one written', () => {
     const prev = {
       ladder: L,
-      unlocked: { regular: { tier: 2, at: 5 }, host: { tier: 2, at: 6 } },
+      // 5 + 5 = 10 titles: bronze
+      unlocked: { regular: { tier: 5, at: 5 }, host: { tier: 5, at: 6 } },
       prefs: { mode: 'off', titleId: null, showRoomTitles: true, frame: 'auto' },
       display: null,
     };
-    const s = stats({ total: { games: 10, hostedGames: 5 } });
+    const s = stats({ total: { games: 50, hostedGames: 35 } });
     const next = buildUserTitles(prev, s, 9);
     expect(next.changed).toBe(true);
     expect(next.display).toEqual({ familyId: null, tier: null, frame: 'bronze' });
@@ -520,14 +521,14 @@ describe('buildUserTitles', () => {
   it('a new tier that crosses a frame threshold updates the frame', () => {
     const prev = {
       ladder: L,
-      unlocked: { regular: { tier: 2, at: 5 }, host: { tier: 1, at: 6 } },
+      unlocked: { regular: { tier: 5, at: 5 }, host: { tier: 4, at: 6 } },
       prefs: { mode: 'auto', titleId: null, showRoomTitles: true, frame: 'auto' },
-      display: { familyId: 'regular', tier: 2, frame: null },
+      display: { familyId: 'regular', tier: 5, frame: null },
     };
-    // host 1 → 2: 4 titles held
-    const next = buildUserTitles(prev, stats({ total: { games: 10, hostedGames: 5 } }), 9);
+    // host 4 → 5: 10 titles held (FRAME_MIN_BRONZE)
+    const next = buildUserTitles(prev, stats({ total: { games: 50, hostedGames: 35 } }), 9);
     expect(next.changed).toBe(true);
-    expect(next.display).toEqual({ familyId: 'host', tier: 2, frame: 'bronze' });
+    expect(next.display).toEqual({ familyId: 'host', tier: 5, frame: 'bronze' });
   });
 
   it('rebuild: tiers can go down after a threshold change; earlier unlock times stay', () => {
@@ -609,13 +610,14 @@ describe('docs from before the ten-step ladders (old 1..4 tiers)', () => {
 
   it('client: an old doc shows the mapped tier (same rarity band as before), never the old number', () => {
     const old = {
-      unlocked: { netWin: { tier: 4, at: 3 }, regular: { tier: 1, at: 1 } },
+      unlocked: { netWin: { tier: 4, at: 3 }, regular: { tier: 4, at: 1 } },
       prefs: { mode: 'pick', titleId: 'netWin', frame: 'auto' },
       display: { familyId: 'netWin', tier: 4, frame: null },
     };
     const shown = effectiveDisplay(old, '2026-10');
-    // 賭神 (old legendary 4) → 富可敵國 (8, legendary); 8 + 2 titles → silver
-    expect(shown).toEqual({ familyId: 'netWin', tier: 8, frame: 'silver' });
+    // 賭神 (old legendary 4) → 富可敵國 (8, legendary); with regular 4 → 8: 16 titles
+    expect(shown).toEqual({ familyId: 'netWin', tier: 8, frame: earnedFrame({ netWin: { tier: 8 }, regular: { tier: 8 } }) });
+    expect(shown.frame).toBe('bronze');
     expect(frontend.titleRarity(shown.tier)).toBe('legendary');
   });
 
@@ -692,9 +694,11 @@ describe('simulate_title_tiers (pure part)', () => {
     expect(summary.counts).toEqual([0, 2, 12]);
     expect(summary.histogram).toEqual({ 0: 1, 2: 1, 12: 1 });
     expect(summary.percentiles).toMatchObject({ p50: 2, p100: 12 });
-    expect(summary.frames.map((f) => [f.id, f.players])).toEqual([
-      ['bronze', 1], ['silver', 1], ['gold', 0], ['platinum', 0], ['diamond', 0],
-    ]);
+    // Players per frame: whoever holds at least each frame's min
+    expect(summary.frames.map((f) => [f.id, f.min, f.players])).toEqual(
+      FRAME_TIERS.map((f) => [f.id, f.min, [0, 2, 12].filter((n) => n >= f.min).length]),
+    );
+    expect(summary.frames[0]).toMatchObject({ id: 'bronze', players: 1 });
     const text = formatTitleTierSummary(summary).join('\n');
     expect(text).toContain('Players: 3');
     expect(text).toMatch(/regular\s+2\s+2\s+1\s+1\s+1\s+1\s+0\s+0\s+0\s+0\s+105/);
