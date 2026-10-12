@@ -68,7 +68,7 @@
           </router-link>
         </div>
         <div class="text-xs text-gray-400 text-left mt-1">
-          {{ $t('titles.unlockedCount', { n: unlockedTitles.length, total: TITLE_FAMILIES.length }) }}
+          {{ $t('titles.unlockedCount', { n: myTitleCount, total: totalTitleSteps }) }}
         </div>
 
         <!-- 顯示方式 + 指定: folded to one row showing what's on now -->
@@ -371,6 +371,8 @@ const pickableTitles = computed(() => [
 const titleSaving = ref(false);
 // 頭像框: titles held, the frame they earn, the one shown (from the display)
 const myTitleCount = computed(() => titleCount(myTitles.value?.unlocked));
+// Every tier is its own title: count steps held out of all steps (28 × 10)
+const totalTitleSteps = TITLE_FAMILIES.reduce((sum, f) => sum + f.tiers.length, 0);
 const myEarnedFrame = computed(() => earnedFrame(myTitles.value?.unlocked));
 const myFrame = computed(() => myDisplay.value?.frame || null);
 // Both pickers start folded: the card is one short row each until opened

@@ -78,6 +78,8 @@ describe('稱號圖鑑 王座 section', () => {
     await flushPromises();
     const throne = w.find('[data-testid="throne"]');
     expect(throne.exists()).toBe(true);
+    // The header counts tiers held out of every tier (28 families × 10), not families
+    expect(w.text()).toMatch(/已解鎖 \d+ \/ 280/);
     const card = (id) => throne.find(`[data-crown="${id}"]`);
     expect(throne.findAll('[data-crown]')).toHaveLength(5);
 

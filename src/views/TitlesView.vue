@@ -15,7 +15,7 @@
           {{ $t('titles.titleCount', { n: myTitleCount }) }}
           <span class="text-gray-400 font-normal">· {{ myFrame ? $t(`titles.frames.${myFrame}`) : $t('titles.frameNone') }}</span>
         </div>
-        <div class="text-xs text-amber-400">{{ $t('titles.unlockedCount', { n: unlockedCount, total: TITLE_FAMILIES.length }) }}</div>
+        <div class="text-xs text-amber-400">{{ $t('titles.unlockedCount', { n: myTitleCount, total: totalTitleSteps }) }}</div>
       </div>
     </div>
 
@@ -178,7 +178,8 @@ const loading = ref(true);
 let stopWatch = () => {};
 
 const unlocked = computed(() => titles[user.value?.uid]?.unlocked || {});
-const unlockedCount = computed(() => TITLE_FAMILIES.filter((f) => unlocked.value[f.id]).length);
+// Every tier is its own title: count steps held out of all steps (28 × 10)
+const totalTitleSteps = TITLE_FAMILIES.reduce((sum, f) => sum + f.tiers.length, 0);
 // 頭像框: every step reached is one title; the frame shown comes from the display
 const myTitleCount = computed(() => titleCount(unlocked.value));
 const myFrame = computed(() => titles[user.value?.uid]?.display?.frame || null);
