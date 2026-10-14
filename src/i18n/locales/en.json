@@ -400,6 +400,8 @@
     "participants": "Participants",
     "noHandRecords": "No hand records",
     "viewDetails": "View Details",
+    "recordAfter": "Add a hand",
+    "recordAfterHint": "Hands can be added up to 7 days after the game; hand titles update with them",
     "recognition": {
       "button": "Scan Cards",
       "takePhoto": "Take Photo",

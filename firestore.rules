@@ -177,10 +177,82 @@ service cloud.firestore {
         allow create: if isAuthenticated();
       }
 
-      // Manual hand records (created/managed from the frontend)
+      // Manual hand records (created/managed from the frontend).
+      //  - While the game is not completed (in the room): any signed-in user,
+      //    as before.
+      //  - Once completed: the host / an admin (CashTableEditView), or 補記手牌
+      //    (src/utils/handBackfill.js, keep in step): a player of the game
+      //    within 7 days of its end, the hand signed as theirs
+      //    (recordedBy + recordedAfter). Rules can't search the roster (a list
+      //    of maps), so the hand names the recorder's roster slot
+      //    (recorderIndex) and that one slot must hold their uid.
+      //  - A hand recorded afterwards is changed / removed only by whoever
+      //    recorded it, the host, or an admin, and stays signed as theirs.
       match /hands/{handId} {
+        function parentGame() {
+          return get(/databases/$(database)/documents/games/$(gameId)).data;
+        }
+
+        function isGameHost(game) {
+          return game.get('hostUid', null) == request.auth.uid;
+        }
+
+        // A stored time (Timestamp or millis) less than 7 days ago
+        function withinBackfillWindow(time) {
+          return (time is timestamp && request.time < time + duration.value(7, 'd')) ||
+            (time is number && request.time.toMillis() < time + 604800000);
+        }
+
+        // The game's end: completedAt, else updatedAt, else createdAt
+        function backfillOpen(game) {
+          return game.get('completedAt', null) != null
+            ? withinBackfillWindow(game.completedAt)
+            : (game.get('updatedAt', null) != null
+              ? withinBackfillWindow(game.updatedAt)
+              : withinBackfillWindow(game.get('createdAt', null)));
+        }
+
+        function isRosterSlotOfCaller(game, index) {
+          return index is int && index >= 0 &&
+            game.get('players', []) is list && index < game.get('players', []).size() &&
+            game.players[index] is map &&
+            game.players[index].get('uid', null) == request.auth.uid;
+        }
+
+        function isBackfillByParticipant(game) {
+          let data = request.resource.data;
+          return data.get('recordedBy', null) == request.auth.uid &&
+            data.get('recordedAfter', false) == true &&
+            isRosterSlotOfCaller(game, data.get('recorderIndex', -1)) &&
+            backfillOpen(game);
+        }
+
         allow read: if isAuthenticated();
-        allow create, update, delete: if isAuthenticated();
+
+        // Nobody signs a hand as someone else
+        allow create: if isAuthenticated() &&
+          request.resource.data.get('recordedBy', request.auth.uid) == request.auth.uid && (
+          parentGame().get('status', null) != 'completed' ||
+          isGameHost(parentGame()) ||
+          isAdmin() ||
+          isBackfillByParticipant(parentGame())
+        );
+
+        allow update: if isAuthenticated() && (
+          resource.data.get('recordedAfter', false) != true ||
+          ((resource.data.get('recordedBy', null) == request.auth.uid ||
+            isGameHost(parentGame()) ||
+            isAdmin()) &&
+           !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['recordedBy', 'recordedAfter', 'recorderIndex']))
+        );
+
+        allow delete: if isAuthenticated() && (
+          resource.data.get('recordedAfter', false) != true ||
+          resource.data.get('recordedBy', null) == request.auth.uid ||
+          isGameHost(parentGame()) ||
+          isAdmin()
+        );
       }
     }
 

@@ -400,6 +400,8 @@
     "participants": "参加者",
     "noHandRecords": "ハンド記録がありません",
     "viewDetails": "詳細を表示",
+    "recordAfter": "ハンドを追加記録",
+    "recordAfterHint": "終了後 7 日以内なら追加できます。ハンド称号も更新されます",
     "recognition": {
       "button": "写真で読み取り",
       "takePhoto": "撮影",

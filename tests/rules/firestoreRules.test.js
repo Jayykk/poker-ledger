@@ -67,6 +67,26 @@ beforeEach(async () => {
     await setDoc(doc(db, 'games', 'active-game', 'hands', 'hand-1'), {
       players: [], createdAt: new Date(),
     });
+    // 補記手牌: finished games. Roster slot 0 is a guest, slot 1 is Bob;
+    // Alice hosts without playing.
+    const DAY = 24 * 60 * 60 * 1000;
+    const roster = [{ id: 'g', name: 'Guest' }, { id: 'p1', uid: BOB, name: 'Bob' }];
+    await setDoc(doc(db, 'games', 'recent-game'), {
+      status: 'completed', hostUid: ALICE, players: roster, name: 'Yesterday',
+      completedAt: new Date(Date.now() - DAY),
+    });
+    await setDoc(doc(db, 'games', 'old-game'), {
+      status: 'completed', hostUid: ALICE, players: roster, name: 'Last month',
+      completedAt: new Date(Date.now() - 8 * DAY),
+    });
+    // Settled before completedAt was written: updatedAt stands in
+    await setDoc(doc(db, 'games', 'legacy-game'), {
+      status: 'completed', hostUid: ALICE, players: roster, name: 'Legacy',
+      updatedAt: new Date(Date.now() - DAY),
+    });
+    await setDoc(doc(db, 'games', 'recent-game', 'hands', 'bob-after'), {
+      players: [], createdAt: Date.now(), recordedBy: BOB, recordedAfter: true, recorderIndex: 1,
+    });
 
     await setDoc(doc(db, 'pokerGames', 'waiting-room'), {
       status: 'waiting', meta: { createdBy: ALICE, blinds: { small: 10, big: 20 } },
@@ -236,6 +256,65 @@ describe('games (ledger)', () => {
       { players: [], createdAt: new Date() }
     ));
     await assertSucceeds(getDocs(collection(bobDb(), 'games', 'active-game', 'hands')));
+  });
+
+  it('in the room anyone signed in may still change a hand, but nobody signs one as someone else', async () => {
+    await assertSucceeds(updateDoc(doc(charlieDb(), 'games', 'active-game', 'hands', 'hand-1'), { note: 'x' }));
+    await assertFails(addDoc(
+      collection(bobDb(), 'games', 'active-game', 'hands'),
+      { players: [], createdAt: Date.now(), recordedBy: ALICE },
+    ));
+  });
+});
+
+describe('補記手牌 (hands of a finished game)', () => {
+  const hands = (db, gameId) => collection(db, 'games', gameId, 'hands');
+  const signed = (uid, recorderIndex) => ({
+    players: [], createdAt: Date.now(), recordedBy: uid, recordedAfter: true, recorderIndex,
+  });
+
+  it('a player of the game, within 7 days, signing the hand as theirs (their roster slot)', async () => {
+    await assertSucceeds(addDoc(hands(bobDb(), 'recent-game'), signed(BOB, 1)));
+    // completedAt missing: updatedAt is the end
+    await assertSucceeds(addDoc(hands(bobDb(), 'legacy-game'), signed(BOB, 1)));
+  });
+
+  it('not an outsider, not through someone else\'s slot, not unsigned', async () => {
+    await assertFails(addDoc(hands(charlieDb(), 'recent-game'), signed(CHARLIE, 1)));
+    await assertFails(addDoc(hands(charlieDb(), 'recent-game'), signed(CHARLIE, 0)));
+    await assertFails(addDoc(hands(bobDb(), 'recent-game'), signed(BOB, 0)));
+    await assertFails(addDoc(hands(bobDb(), 'recent-game'), signed(BOB, 5)));
+    await assertFails(addDoc(hands(bobDb(), 'recent-game'), signed(BOB, '1')));
+    await assertFails(addDoc(hands(bobDb(), 'recent-game'), { players: [], createdAt: Date.now() }));
+    await assertFails(addDoc(hands(bobDb(), 'recent-game'), { ...signed(BOB, 1), recordedAfter: false }));
+    await assertFails(addDoc(hands(charlieDb(), 'recent-game'), signed(BOB, 1)));
+  });
+
+  it('closed after 7 days for players', async () => {
+    await assertFails(addDoc(hands(bobDb(), 'old-game'), signed(BOB, 1)));
+  });
+
+  it('the host and admins still record into a finished game (CashTableEditView), any time', async () => {
+    await assertSucceeds(addDoc(hands(aliceDb(), 'old-game'), { players: [], createdAt: Date.now() }));
+    await assertSucceeds(addDoc(hands(adminDb(), 'settled-game'), { players: [], createdAt: Date.now() }));
+  });
+
+  it('a hand recorded afterwards: changed or removed only by its recorder, the host or an admin', async () => {
+    const ref = (db) => doc(db, 'games', 'recent-game', 'hands', 'bob-after');
+    await assertFails(updateDoc(ref(charlieDb()), { communityCards: ['A♠'] }));
+    await assertSucceeds(updateDoc(ref(bobDb()), { communityCards: ['A♠'] }));
+    await assertSucceeds(updateDoc(ref(aliceDb()), { communityCards: ['K♠'] }));
+    // stays signed as Bob's
+    await assertFails(updateDoc(ref(bobDb()), { recordedBy: CHARLIE }));
+    await assertFails(updateDoc(ref(bobDb()), { recordedAfter: false }));
+    const { deleteDoc } = await import('firebase/firestore');
+    await assertFails(deleteDoc(ref(charlieDb())));
+    await assertSucceeds(deleteDoc(ref(aliceDb())));
+  });
+
+  it('the recorder may remove their own', async () => {
+    const { deleteDoc } = await import('firebase/firestore');
+    await assertSucceeds(deleteDoc(doc(bobDb(), 'games', 'recent-game', 'hands', 'bob-after')));
   });
 });
 

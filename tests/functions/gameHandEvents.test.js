@@ -70,7 +70,10 @@ vi.mock('../../functions/src/handlers/monthlyCrowns.js', () => ({
 }));
 
 const { syncCompletedGameHistoryProjection } = await import('../../functions/src/handlers/gameHistoryProjection.js');
-const { fillHandEventsForUser, loadGameHandEvents, sameHandEvents } = await import('../../functions/src/handlers/gameHandEvents.js');
+const {
+  fillHandEventsForUser, loadGameHandEvents, sameHandEvents, refreshGameHandEvents,
+} = await import('../../functions/src/handlers/gameHandEvents.js');
+const { recomputeLeaderboardStatsForUser } = await import('../../functions/src/handlers/leaderboardStats.js');
 const { emptyHandEvents } = await import('../../functions/src/utils/leaderboardStatsMath.js');
 
 const roster = [
@@ -188,5 +191,87 @@ describe('backfill: fillHandEventsForUser', () => {
     const db = fakeDb({ 'games/g1/hands/h1': quadsHand }, { failing: ['transactions'] });
     const got = await loadGameHandEvents(db, 'g1', cashGame);
     expect(got.u2).toMatchObject({ quads: 1, tragicHero: 1 });
+  });
+});
+
+describe('hands trigger: refreshGameHandEvents (補記手牌)', () => {
+  // A finished game whose projection already ran (zeros), u3 not projected yet
+  const projected = (extra = {}) => ({
+    'games/g1': { ...cashGame, historyProjection: { syncedUserIds: ['u1', 'u2'] }, ...extra },
+    'users/u1/history_sub/g1': { gameId: 'g1', profit: 500, handEvents: emptyHandEvents() },
+    'users/u2/history_sub/g1': { gameId: 'g1', profit: -500, handEvents: emptyHandEvents() },
+  });
+  beforeEach(() => recomputeLeaderboardStatsForUser.mockClear());
+
+  it('a hand added afterwards: patches the changed players, then rebuilds their stats + titles', async () => {
+    const db = fakeDb({ ...projected(), 'games/g1/hands/h1': { ...quadsHand, recordedAfter: true, recordedBy: 'u2' } });
+    const result = await refreshGameHandEvents(db, 'g1');
+    expect(result).toEqual({ status: 'done', written: ['u1', 'u2'], recomputed: ['u1', 'u2'] });
+    expect(db.docs.get('users/u1/history_sub/g1')).toEqual({
+      gameId: 'g1', profit: 500, handEvents: { ...emptyHandEvents(), straightFlush: 1 },
+    });
+    expect(db.docs.get('users/u2/history_sub/g1').handEvents).toEqual({ ...emptyHandEvents(), quads: 1, tragicHero: 1 });
+    expect(recomputeLeaderboardStatsForUser.mock.calls.map(([, uid]) => uid)).toEqual(['u1', 'u2']);
+    // recomputed exactly as at completion: no options that could turn a title on
+    expect(recomputeLeaderboardStatsForUser.mock.calls.every((call) => call.length === 2)).toBe(true);
+  });
+
+  it('idempotent: run again, nothing written, nobody recomputed', async () => {
+    const db = fakeDb({ ...projected(), 'games/g1/hands/h1': quadsHand });
+    await refreshGameHandEvents(db, 'g1');
+    db.writes.length = 0;
+    recomputeLeaderboardStatsForUser.mockClear();
+    expect(await refreshGameHandEvents(db, 'g1')).toEqual({ status: 'done', written: [], recomputed: [] });
+    expect(db.writes).toEqual([]);
+    expect(recomputeLeaderboardStatsForUser).not.toHaveBeenCalled();
+  });
+
+  it('a hand removed: the counts go back down', async () => {
+    const db = fakeDb({
+      ...projected(),
+      'users/u2/history_sub/g1': { gameId: 'g1', profit: -500, handEvents: { ...emptyHandEvents(), quads: 1, tragicHero: 1 } },
+    });
+    const result = await refreshGameHandEvents(db, 'g1');
+    expect(result.written).toEqual(['u2']);
+    expect(db.docs.get('users/u2/history_sub/g1').handEvents).toEqual(emptyHandEvents());
+  });
+
+  it('test hands marked out of the titles stay out', async () => {
+    const db = fakeDb({ ...projected(), 'games/g1/hands/h1': { ...quadsHand, excludeFromTitles: true } });
+    expect((await refreshGameHandEvents(db, 'g1')).written).toEqual([]);
+    expect(db.writes).toEqual([]);
+  });
+
+  it('a history the projection has not written yet is not created', async () => {
+    const db = fakeDb({
+      'games/g1': cashGame,
+      'games/g1/hands/h1': quadsHand,
+      'users/u1/history_sub/g1': { gameId: 'g1', handEvents: emptyHandEvents() },
+    });
+    const result = await refreshGameHandEvents(db, 'g1');
+    expect(result.written).toEqual(['u1']);
+    expect(db.docs.has('users/u2/history_sub/g1')).toBe(false);
+  });
+
+  it('active or missing games are left to the projection', async () => {
+    const db = fakeDb({ ...projected({ status: 'active' }), 'games/g1/hands/h1': quadsHand });
+    expect((await refreshGameHandEvents(db, 'g1')).status).toBe('not-completed');
+    expect((await refreshGameHandEvents(db, 'nope')).status).toBe('not-found');
+    expect(db.writes).toEqual([]);
+    expect(recomputeLeaderboardStatsForUser).not.toHaveBeenCalled();
+  });
+
+  it('failures are logged, never thrown', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const failingRead = fakeDb({ ...projected(), 'games/g1/hands/h1': quadsHand }, { failing: ['games/g1/hands'] });
+    expect((await refreshGameHandEvents(failingRead, 'g1')).status).toBe('failed');
+    expect(failingRead.writes).toEqual([]);
+
+    recomputeLeaderboardStatsForUser.mockRejectedValueOnce(new Error('stats down'));
+    const db = fakeDb({ ...projected(), 'games/g1/hands/h1': quadsHand });
+    const result = await refreshGameHandEvents(db, 'g1');
+    expect(result).toEqual({ status: 'done', written: ['u1', 'u2'], recomputed: ['u2'] });
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
   });
 });

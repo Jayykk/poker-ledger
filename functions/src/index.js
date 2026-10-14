@@ -65,6 +65,7 @@ import {
 import { settleCashGame as settleCashGameHandler } from './handlers/cashSettlement.js';
 import { reportClientError as reportClientErrorHandler } from './handlers/clientErrors.js';
 import { setTitlePrefs as setTitlePrefsHandler, syncPublicProfile } from './handlers/userTitles.js';
+import { refreshGameHandEvents } from './handlers/gameHandEvents.js';
 
 // Initialize Firebase Admin
 initializeApp();
@@ -789,6 +790,21 @@ export const onUserProfileWrite = onDocumentWritten({ document: 'users/{uid}', d
     await syncPublicProfile(getFirestore(), event.params.uid, before, after);
   } catch (error) {
     console.error('onUserProfileWrite failed:', event.params.uid, error);
+  }
+});
+
+// 補記手牌: a hand added / changed / removed after a game finished brings the
+// players' hand titles up to date (active games: the projection counts their
+// hands at completion). Logged, never thrown.
+export const onGameHandWrite = onDocumentWritten({ document: 'games/{gameId}/hands/{handId}', database: FIRESTORE_DATABASE_ID }, async (event) => {
+  const { gameId, handId } = event.params;
+  try {
+    const result = await refreshGameHandEvents(getFirestore(), gameId);
+    if (result.written.length) {
+      console.log('onGameHandWrite: hand events updated', gameId, handId, result);
+    }
+  } catch (error) {
+    console.error('onGameHandWrite failed:', gameId, handId, error);
   }
 });
 

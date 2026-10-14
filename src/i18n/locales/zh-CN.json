@@ -400,6 +400,8 @@
     "participants": "参与玩家",
     "noHandRecords": "暂无牌局记录",
     "viewDetails": "查看详情",
+    "recordAfter": "补记手牌",
+    "recordAfterHint": "牌局结束 7 天内都能补记，手牌称号会跟着更新",
     "recognition": {
       "button": "拍照识别",
       "takePhoto": "拍照",
