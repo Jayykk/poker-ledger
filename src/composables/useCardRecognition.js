@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 import {
   GEMINI_MODEL,
+  GEMINI_THINKING_LEVEL,
   CARD_RESPONSE_SCHEMA,
   CARD_RECOGNITION_PROMPT,
   CardRecognitionError,
@@ -27,10 +28,11 @@ async function getModel() {
       const aiInstance = ai.getAI(app, { backend: new ai.GoogleAIBackend() });
       return ai.getGenerativeModel(aiInstance, {
         model: GEMINI_MODEL,
+        // No temperature: 3.8 Flash's migration notes say to drop it
         generationConfig: {
           responseMimeType: 'application/json',
           responseSchema: CARD_RESPONSE_SCHEMA,
-          temperature: 0
+          thinkingConfig: { thinkingLevel: ai.ThinkingLevel?.[GEMINI_THINKING_LEVEL] || GEMINI_THINKING_LEVEL }
         }
       });
     })().catch((e) => {
@@ -39,6 +41,15 @@ async function getModel() {
     });
   }
   return modelPromise;
+}
+
+/**
+ * Start loading firebase/ai and App Check (reCAPTCHA token) in the background,
+ * e.g. when the camera / picker opens, so the first recognition doesn't wait
+ * for them. Safe to call repeatedly; a failure is retried on real use.
+ */
+export function prewarmCardRecognition() {
+  getModel().catch(() => {});
 }
 
 /**
@@ -57,9 +68,14 @@ export function useCardRecognition() {
   const recognizeCards = async (file) => {
     loading.value = true;
     errorCode.value = null;
+    const t0 = performance.now();
+    const timing = {};
     try {
       const { data, mimeType } = await fileToCompressedBase64(file);
+      timing.compress = performance.now() - t0;
       const model = await getModel();
+      timing.prepare = performance.now() - t0 - timing.compress;
+      const t1 = performance.now();
       const result = await model.generateContent({
         contents: [{
           role: 'user',
@@ -68,6 +84,17 @@ export function useCardRecognition() {
             { inlineData: { mimeType, data } }
           ]
         }]
+      });
+      timing.gemini = performance.now() - t1;
+      // Where the time goes (always logged: phones are where it matters)
+      console.info('[cardRecognition] timing ms', {
+        compress: Math.round(timing.compress),
+        prepare: Math.round(timing.prepare),
+        gemini: Math.round(timing.gemini),
+        total: Math.round(performance.now() - t0),
+        kb: Math.round((data.length * 3) / 4 / 1024),
+        model: GEMINI_MODEL,
+        thinking: GEMINI_THINKING_LEVEL,
       });
       const recognition = normalizeRecognition(parseGeminiJson(result.response.text()));
       if (recognition.cards.length === 0) {
