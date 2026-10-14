@@ -196,7 +196,7 @@
 <script setup>
 import { ref, computed, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useCardRecognition } from '../../composables/useCardRecognition.js';
+import { useCardRecognition, prewarmCardRecognition } from '../../composables/useCardRecognition.js';
 import { useNotification } from '../../composables/useNotification.js';
 import { CARD_LIMITS } from '../../utils/constants.js';
 import { suggestCommunityGroup } from '../../utils/cardRecognition.js';
@@ -311,6 +311,8 @@ const reset = () => {
 
 const openPicker = (input) => {
   if (loading.value || !input) return;
+  // While the camera / picker is open, get the AI SDK and App Check ready
+  prewarmCardRecognition();
   input.click();
 };
 

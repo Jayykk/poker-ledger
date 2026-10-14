@@ -7,8 +7,19 @@
  */
 import { SUITS, RANKS, CARD_LIMITS } from './constants.js';
 
-/** Gemini model used for recognition. Override with VITE_GEMINI_MODEL. */
-export const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.7-flash';
+/**
+ * Gemini model used for recognition. Override with VITE_GEMINI_MODEL.
+ * Named explicitly: gemini-3.7-flash was retired on 2026-10-08 and silently
+ * routed to 3.8 Flash, which thinks at MEDIUM by default (slower, more tokens).
+ */
+export const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.8-flash';
+
+/**
+ * Thinking level for recognition. Reading suits and ranks needs little
+ * reasoning, so LOW (3.8 Flash's lowest; MINIMAL is rejected). Raise to MEDIUM
+ * with VITE_GEMINI_THINKING_LEVEL if cards get misread.
+ */
+export const GEMINI_THINKING_LEVEL = import.meta.env.VITE_GEMINI_THINKING_LEVEL || 'LOW';
 
 /** Suit names the model is asked to emit (lower-case English). */
 export const RECOGNITION_SUIT_NAMES = ['spades', 'hearts', 'diamonds', 'clubs'];
