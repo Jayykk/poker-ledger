@@ -63,7 +63,15 @@
           <i class="fas fa-file-alt mr-2"></i>
           {{ $t('hand.handRecords') }} ({{ hands.length }})
         </h4>
-        
+
+        <!-- 補記手牌: players of this game, within 7 days of the end -->
+        <div v-if="canRecordAfter" class="mb-3" data-test="record-after">
+          <BaseButton variant="ghost" size="sm" full-width @click="showHandSheet = true">
+            <i class="fas fa-plus mr-2 text-amber-400"></i>{{ $t('hand.recordAfter') }}
+          </BaseButton>
+          <p class="text-xs text-gray-500 mt-1.5 text-center">{{ $t('hand.recordAfterHint') }}</p>
+        </div>
+
         <!-- Loading state -->
         <div v-if="loadingHands" class="text-center text-gray-500 py-4">
           <i class="fas fa-spinner fa-spin mr-2"></i>{{ $t('common.loading') }}
@@ -168,18 +176,37 @@
       </div>
     </div>
   </BaseModal>
+
+  <!-- Outside the detail modal so its overlay covers the page, not the scroll box -->
+  <HandRecordSheet
+    v-if="canRecordAfter"
+    v-model="showHandSheet"
+    :game-id="record.gameId"
+    :players="game.players"
+    :base-buy-in="Number(game.baseBuyIn) || undefined"
+    include-eliminated
+    :extra-fields="backfillFields"
+    @saved="reloadHands"
+  />
 </template>
 
 <script setup>
 import { rowCash, formatCashAmount } from '../../utils/cashRounding.js';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase-init.js';
 import BaseModal from './BaseModal.vue';
+import BaseButton from './BaseButton.vue';
 import TitleBadge from './TitleBadge.vue';
+import HandRecordSheet from '../game/HandRecordSheet.vue';
 import { formatNumber, formatDate, getProfitColorClass } from '../../utils/formatters.js';
 import { useHand } from '../../composables/useHand.js';
+import { useAuthStore } from '../../store/modules/auth.js';
+import { canRecordHandAfter, backfillHandFields } from '../../utils/handBackfill.js';
 
 const { t } = useI18n();
+const authStore = useAuthStore();
 
 const props = defineProps({
   modelValue: {
@@ -229,21 +256,47 @@ const getSettlementSummary = (player) => {
   return `${t('game.buyIn')}: ${formatNumber(player?.buyIn || 0)} | ${t('game.stack')}: ${formatNumber(player?.stack || 0)}`;
 };
 
-// Load hand records when modal opens with a gameId
+// 補記手牌: the game doc (its roster and end time) decides, read on open
+const game = ref(null);
+const showHandSheet = ref(false);
+const viewerUid = computed(() => authStore.user?.uid || '');
+const canRecordAfter = computed(() => !!props.record?.gameId && game.value?.id === props.record.gameId
+  && canRecordHandAfter(game.value, viewerUid.value, Date.now()));
+const backfillFields = computed(() => (game.value ? backfillHandFields(game.value, viewerUid.value) : null));
+
+async function loadGame(gameId) {
+  try {
+    const snap = await getDoc(doc(db, 'games', gameId));
+    if (props.record?.gameId === gameId) game.value = snap.exists() ? { id: gameId, ...snap.data() } : null;
+  } catch (error) {
+    // No button then; the hand list still shows
+    console.error('Failed to load game for hand backfill:', error);
+  }
+}
+
+async function reloadHands() {
+  if (!props.record?.gameId) return;
+  loadingHands.value = true;
+  try {
+    await loadHandRecords(props.record.gameId);
+  } catch (error) {
+    console.error('Failed to load hand records:', error);
+  } finally {
+    loadingHands.value = false;
+  }
+}
+
+// Load hand records (and the game) when the modal opens with a gameId
 watch(() => props.modelValue, async (isOpen) => {
   if (isOpen && props.record?.gameId) {
-    loadingHands.value = true;
     expandedHands.value = {};
-    try {
-      await loadHandRecords(props.record.gameId);
-    } catch (error) {
-      console.error('Failed to load hand records:', error);
-    } finally {
-      loadingHands.value = false;
-    }
+    game.value = null;
+    await Promise.all([reloadHands(), loadGame(props.record.gameId)]);
   } else if (!isOpen) {
     cleanup();
     expandedHands.value = {};
+    game.value = null;
+    showHandSheet.value = false;
   }
 });
 

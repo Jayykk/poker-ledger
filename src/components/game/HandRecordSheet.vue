@@ -197,6 +197,10 @@ const props = defineProps({
   baseBuyIn: { type: Number, default: DEFAULT_BUY_IN },
   // The clock's big blind (tournaments / timed games) for the quick amounts
   bigBlind: { type: Number, default: 0 },
+  // 補記手牌 (a finished game): everyone on the roster, the eliminated too
+  includeEliminated: { type: Boolean, default: false },
+  // Saved with the hand (補記: recordedBy / recordedAfter / recorderIndex)
+  extraFields: { type: Object, default: null },
 });
 const emit = defineEmits(['update:modelValue', 'saved']);
 
@@ -215,7 +219,7 @@ const seatKey = (p) => (p.seat ? p.seat.seat : 99);
 watch(() => props.players, (list) => {
   const prev = new Map(handRecord.value.players.map((p) => [p.playerId, p]));
   handRecord.value.players = [...(list || [])]
-    .filter((p) => !p.eliminated)
+    .filter((p) => props.includeEliminated || !p.eliminated)
     .sort((a, b) => seatKey(a) - seatKey(b))
     .map((p) => prev.get(p.id) || {
       playerId: p.id,
@@ -366,6 +370,7 @@ async function handleSave() {
         chips: p.winner ? shareOf(p) : -Math.max(0, Number(p.putIn) || 0),
         ...(p.winner ? { winner: true } : {}),
       })),
+      ...(props.extraFields || {}),
     };
     const handId = await createHandRecord(props.gameId, data);
     if (!handId) {
