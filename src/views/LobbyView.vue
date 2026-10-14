@@ -47,38 +47,6 @@
       </button>
     </div>
 
-    <!-- Pending Invitations -->
-    <div v-if="pendingInvitations.length > 0" class="mb-6">
-      <h3 class="text-lg font-bold text-white mb-3">{{ $t('invitations.pending') }}</h3>
-      <div class="grid gap-2 md:grid-cols-2">
-        <BaseCard
-          v-for="inv in pendingInvitations"
-          :key="inv.id"
-          padding="md"
-          class="border-l-4 border-amber-500"
-        >
-          <div class="flex justify-between items-center">
-            <div>
-              <div class="text-white font-bold">{{ inv.gameName }}</div>
-              <div class="text-xs text-gray-400">
-                {{ $t('invitations.from') }}: {{ inv.fromName }}
-              </div>
-              <div class="text-xs text-gray-500">
-                {{ $t('lobby.roomCode') }}: {{ inv.roomCode }}
-              </div>
-            </div>
-            <div class="flex gap-2">
-              <BaseButton @click="handleAcceptInvitation(inv)" size="sm" variant="primary">
-                {{ $t('invitations.accept') }}
-              </BaseButton>
-              <BaseButton @click="handleRejectInvitation(inv)" size="sm" variant="danger">
-                {{ $t('invitations.reject') }}
-              </BaseButton>
-            </div>
-          </div>
-        </BaseCard>
-      </div>
-    </div>
 
     <!-- My Rooms -->
     <div v-if="myRooms.length > 0" class="mb-6">
@@ -523,8 +491,6 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
-import { useInvitation } from '../composables/useInvitation.js';
-import { usePushNotification } from '../composables/usePushNotification.js';
 import { useLoading } from '../composables/useLoading.js';
 import { useGameStore } from '../store/modules/game.js';
 import { useUserStore } from '../store/modules/user.js';
@@ -555,17 +521,8 @@ const gameStore = useGameStore();
 const { createGame, checkGameStatus, joinByBinding, joinAsNewPlayer, joinGameListener } = gameStore;
 const userStore = useUserStore();
 const { success, error: showError } = useNotification();
-const { sendInvitationNotification } = usePushNotification();
 const { withLoading, stopLoading } = useLoading();
 
-// Invitation composable
-const {
-  pendingInvitations,
-  loadInvitations,
-  acceptInvitation,
-  rejectInvitation,
-  cleanup: cleanupInvitations
-} = useInvitation();
 
 const stats = computed(() => userStore.stats);
 
@@ -720,8 +677,6 @@ watch(selectedTemplate, (tmpl) => {
   if (tmpl) createBuyIn.value = tmpl.buyIn.amount;
 });
 
-// Track previously seen invitations to show notifications for new ones
-const seenInvitationIds = ref(new Set());
 
 const formatDate = (timestamp) => {
   if (!timestamp) return '';
@@ -902,26 +857,6 @@ const handleEditRoom = (room) => {
   }
 };
 
-const handleAcceptInvitation = async (invitation) => {
-  await withLoading(async () => {
-    const accepted = await acceptInvitation(invitation.id);
-    if (accepted) {
-      success(t('invitations.accepted'));
-      // Join the game
-      await joinGameListener(invitation.gameId);
-      router.push('/game');
-    }
-  }, t('loading.accepting'));
-};
-
-const handleRejectInvitation = async (invitation) => {
-  await withLoading(async () => {
-    const rejected = await rejectInvitation(invitation.id);
-    if (rejected) {
-      success(t('invitations.rejected'));
-    }
-  }, t('loading.rejecting'));
-};
 
 onMounted(async () => {
   // Attach the live-event listeners BEFORE any awaited work: they render from
@@ -931,42 +866,15 @@ onMounted(async () => {
   unsubMySessions = listenMySessions();
   unsubJoinedSessions = listenJoinedSessions();
 
-  // Load invitations and mark existing ones as seen
-  loadInvitations();
-
   await gameStore.loadMyRooms();
 
   // Auto-open the create-game modal when navigated with ?create=1|cash|tournament
   openCreateFromQuery();
 
-  // Wait a bit for the first snapshot to arrive, then mark all as seen
-  setTimeout(() => {
-    pendingInvitations.value.forEach(inv => {
-      seenInvitationIds.value.add(inv.id);
-    });
-  }, 1000);
 });
 
-// Watch for new invitations and show action notifications
-watch(pendingInvitations, (newInvitations, oldInvitations) => {
-  newInvitations.forEach(inv => {
-    // Only show notification for new invitations not seen before
-    if (!seenInvitationIds.value.has(inv.id)) {
-      seenInvitationIds.value.add(inv.id);
-      
-      // Show interactive notification
-      sendInvitationNotification(
-        inv.fromName,
-        inv.gameName,
-        () => handleAcceptInvitation(inv), // onConfirm
-        () => handleRejectInvitation(inv)  // onDecline
-      );
-    }
-  });
-}, { deep: true });
 
 onUnmounted(() => {
-  cleanupInvitations();
   if (unsubMySessions) {
     unsubMySessions();
     unsubMySessions = null;

@@ -17,8 +17,12 @@ describe('pages widen on tablets / desktops like the rooms', () => {
     expect(lobby.match(/class="grid gap-2 md:grid-cols-2 lg:grid-cols-3"/g)).toHaveLength(2);
   });
 
-  it('friends: list and leaderboard side by side on desktops', () => {
-    expect(read('src/views/FriendsView.vue')).toContain('lg:grid lg:grid-cols-2');
+  it('friends: only the leaderboard now (no friend list / requests / room invites)', () => {
+    const page = read('src/views/FriendsView.vue');
+    expect(page).toContain('<Leaderboard />');
+    expect(page).not.toContain('FriendList');
+    expect(page).not.toContain('useInvitation');
+    expect(read('src/views/LobbyView.vue')).not.toContain('pendingInvitations');
   });
 
   it('mystery draw page: two columns on desktops, phone order kept', () => {
