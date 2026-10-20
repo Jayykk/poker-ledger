@@ -2,7 +2,8 @@
   <Transition name="fade">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4"
+      class="fixed inset-0 flex items-end justify-center bg-black/60 p-4"
+      :class="layer"
       @click.self="handleClose"
     >
       <Transition name="slide-up">
@@ -53,6 +54,11 @@ const props = defineProps({
   closeOnClickOutside: {
     type: Boolean,
     default: true
+  },
+  /** z-index class; raise it for dialogs that must cover full-screen editors */
+  layer: {
+    type: String,
+    default: 'z-50'
   }
 });
 

@@ -22,6 +22,7 @@ export const RECEIPT_RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
     merchant: { type: 'STRING', nullable: true },
+    platform: { type: 'STRING', nullable: true },
     items: {
       type: 'ARRAY',
       items: {
@@ -53,7 +54,8 @@ export const RECEIPT_RESPONSE_SCHEMA = {
 
 export const RECEIPT_PROMPT = `You are reading a screenshot or photo of a food delivery order or a receipt (Uber Eats, foodpanda, a restaurant or drink shop bill).
 Extract:
-- "merchant": the store name, or null.
+- "merchant": the store / restaurant name as printed (often at the top of the order), or null.
+- "platform": the delivery app if recognisable ("Uber Eats", "foodpanda", ...), or null.
 - "items": every ordered line. "name" as printed (keep the original language, drop add-on detail lines unless they carry their own price), "quantity" (default 1), "amount" = the TOTAL price of that line (quantity x unit price) after any discount printed on that specific line, as a plain number without currency symbols.
   "person": group orders list items under each participant's name (e.g. "Amy's items", "Amy", "Amy 的餐點"); put that name here exactly as shown. Use null when the screenshot does not say who ordered it.
 - "fees": extra charges shown as separate lines (delivery fee, service fee, small order fee, bag fee, tip, tax) and order-level discounts or promotions. Discounts are NEGATIVE amounts.
@@ -62,7 +64,7 @@ Rules:
 - Never list subtotal or total lines as items or fees, and never count a discount twice.
 - A discount printed under one item belongs to that item's amount, not to fees.
 - If the image is not a receipt or order, return empty lists.
-Respond with JSON only: {"merchant":"店名","items":[{"name":"雞腿飯","quantity":1,"amount":120,"person":"Amy"}],"fees":[{"name":"外送費","amount":39},{"name":"優惠","amount":-50}],"total":229}`;
+Respond with JSON only: {"merchant":"店名","platform":"Uber Eats","items":[{"name":"雞腿飯","quantity":1,"amount":120,"person":"Amy"}],"fees":[{"name":"外送費","amount":39},{"name":"優惠","amount":-50}],"total":229}`;
 
 const toNumber = (v) => {
   if (typeof v === 'number') return Number.isFinite(v) ? v : null;
@@ -78,7 +80,7 @@ const cleanText = (v) => (typeof v === 'string' ? v.trim() : '');
  * readable amount are dropped; item amounts must be positive.
  *
  * @param {unknown} raw
- * @returns {{ merchant: string, items: Array<{name: string, quantity: number, amount: number, person: string}>,
+ * @returns {{ merchant: string, platform: string, items: Array<{name: string, quantity: number, amount: number, person: string}>,
  *   fees: Array<{name: string, amount: number}>, total: number | null }}
  */
 export function normalizeReceipt(raw) {
@@ -101,7 +103,26 @@ export function normalizeReceipt(raw) {
     fees.push({ name, amount });
   }
   const total = toNumber(obj.total);
-  return { merchant: cleanText(obj.merchant), items, fees, total: total !== null && total > 0 ? total : null };
+  return {
+    merchant: cleanText(obj.merchant),
+    platform: cleanText(obj.platform),
+    items,
+    fees,
+    total: total !== null && total > 0 ? total : null
+  };
+}
+
+/**
+ * A name for the expense from a recognised receipt: "Uber Eats · 八方雲集",
+ * or whichever of the two was read.
+ */
+export function receiptTitle(receipt) {
+  const merchant = cleanText(receipt?.merchant);
+  const platform = cleanText(receipt?.platform);
+  if (merchant && platform && !normalizeName(merchant).includes(normalizeName(platform))) {
+    return `${platform} · ${merchant}`;
+  }
+  return merchant || platform;
 }
 
 // ── Name matching ────────────────────────────────────────────────────

@@ -925,7 +925,10 @@
       "confirmDelete": "确定要删除这笔垫付吗？",
       "confirmClose": "还没保存，确定要关闭吗？",
       "saved": "已保存",
-      "noItems": "没有读到品项，请换一张清楚的截图，或手动输入"
+      "noItems": "没有读到品项，请换一张清楚的截图，或手动输入",
+      "needLine": "先新增至少一个项目（上传截图或手动输入）才能保存",
+      "feesCharged": "收 ${amount}",
+      "feesNotCharged": "不收费"
     }
   },
   "timed": {

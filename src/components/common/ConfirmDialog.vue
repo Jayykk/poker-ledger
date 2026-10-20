@@ -4,6 +4,7 @@
     @update:model-value="handleClose"
     :closable="true"
     :close-on-click-outside="false"
+    layer="z-[200]"
   >
     <div class="text-center">
       <div class="mb-4 flex justify-center">
