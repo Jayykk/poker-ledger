@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
-    <!-- Above the bottom nav (z-index 100); toasts and confirm dialogs sit above this -->
-    <div v-if="modelValue" class="fixed inset-0 z-[110] bg-slate-900 overflow-y-auto overscroll-contain">
+    <!-- Above the bottom nav (main.css, z-index 9999); toasts and confirm dialogs sit above this -->
+    <div v-if="modelValue" class="fixed inset-0 z-[10010] bg-slate-900 overflow-y-auto overscroll-contain">
       <div class="w-full max-w-md md:max-w-2xl mx-auto px-4 pt-4 pb-40">
         <!-- Header -->
         <div class="flex items-center justify-between mb-4">
