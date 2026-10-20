@@ -14,34 +14,43 @@ import { fileToCompressedBase64 } from '../utils/imageCompression.js';
 import { logger } from '../utils/logger.js';
 import { app, ensureAppCheck } from '../firebase-init.js';
 
-// Module-level singleton so the firebase/ai chunk and the model are only
-// created once per page load, and only after the user actually taps the button.
-let modelPromise = null;
-
-async function getModel() {
-  if (!modelPromise) {
-    modelPromise = (async () => {
-      // Lazy: firebase/ai is only downloaded when recognition is first used.
-      const ai = await import('firebase/ai');
-      // App Check is enforced for Firebase AI Logic; must be initialised before getAI().
-      await ensureAppCheck();
-      const aiInstance = ai.getAI(app, { backend: new ai.GoogleAIBackend() });
-      return ai.getGenerativeModel(aiInstance, {
-        model: GEMINI_MODEL,
-        // No temperature: 3.8 Flash's migration notes say to drop it
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: CARD_RESPONSE_SCHEMA,
-          thinkingConfig: { thinkingLevel: ai.ThinkingLevel?.[GEMINI_THINKING_LEVEL] || GEMINI_THINKING_LEVEL }
-        }
+/**
+ * Loader for a Gemini model that answers JSON in the given schema. The
+ * firebase/ai chunk and the model are only created once per page load, and
+ * only after the user actually taps something; a failed load is retried on
+ * the next call. Also used for receipt recognition (useEventExpenses).
+ * @param {object} responseSchema firebase/ai SchemaRequest literal
+ * @returns {() => Promise<object>} resolves to the GenerativeModel
+ */
+export function lazyGeminiJsonModel(responseSchema) {
+  let modelPromise = null;
+  return () => {
+    if (!modelPromise) {
+      modelPromise = (async () => {
+        // Lazy: firebase/ai is only downloaded when recognition is first used.
+        const ai = await import('firebase/ai');
+        // App Check is enforced for Firebase AI Logic; must be initialised before getAI().
+        await ensureAppCheck();
+        const aiInstance = ai.getAI(app, { backend: new ai.GoogleAIBackend() });
+        return ai.getGenerativeModel(aiInstance, {
+          model: GEMINI_MODEL,
+          // No temperature: 3.8 Flash's migration notes say to drop it
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema,
+            thinkingConfig: { thinkingLevel: ai.ThinkingLevel?.[GEMINI_THINKING_LEVEL] || GEMINI_THINKING_LEVEL }
+          }
+        });
+      })().catch((e) => {
+        modelPromise = null; // allow a retry on the next call
+        throw e;
       });
-    })().catch((e) => {
-      modelPromise = null; // allow a retry on the next call
-      throw e;
-    });
-  }
-  return modelPromise;
+    }
+    return modelPromise;
+  };
 }
+
+const getModel = lazyGeminiJsonModel(CARD_RESPONSE_SCHEMA);
 
 /**
  * Start loading firebase/ai and App Check (reCAPTCHA token) in the background,

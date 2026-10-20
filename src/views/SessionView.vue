@@ -113,25 +113,75 @@
       <section v-if="view.mode === 'completed'" class="summary">
         <h3>{{ t('session.summary') }}</h3>
         <div v-if="!summary" class="muted">{{ t('loading') }}</div>
-        <template v-else-if="summary.tableCount > 0">
-          <div class="summary-totals">
-            <div><span>{{ t('session.summaryTables') }}</span><strong>{{ summary.tableCount }}</strong></div>
-            <div><span>{{ t('session.summaryTotalBuyIn') }}</span><strong>{{ Math.round(summary.totalBuyIn) }}</strong></div>
+        <template v-else-if="summary.tableCount > 0 || expenseRows.length">
+          <!-- 總和 / 牌局 / 代墊, once anyone logged an expense -->
+          <div v-if="expenseRows.length" class="summary-tabs" role="tablist">
+            <button
+              v-for="tab in SUMMARY_TABS"
+              :key="tab"
+              type="button"
+              role="tab"
+              :aria-selected="summaryTab === tab"
+              :class="{ on: summaryTab === tab }"
+              @click="summaryTab = tab"
+            >
+              {{ t(`expense.tabs.${tab}`) }}
+            </button>
           </div>
-          <h4>{{ t('session.ranking') }}</h4>
-          <ol class="rank-list">
-            <li v-for="(p, i) in summary.ranking" :key="p.odId || p.name || i">
-              <span class="rank-medal">{{ medal(i) }}</span>
-              <span class="rank-name">{{ p.name }}</span>
-              <span class="rank-profit" :class="p.profitCash >= 0 ? 'pos' : 'neg'">
-                {{ p.profitCash >= 0 ? '+' : '' }}{{ formatCashTotal(p.profitCash, summary.cashDecimals) }}
-              </span>
-            </li>
-          </ol>
+
+          <template v-if="summaryTab === 'total' && expenseRows.length">
+            <p class="muted tab-hint">{{ t('expense.totalHint') }}</p>
+            <ol class="rank-list">
+              <li v-for="r in totalRows" :key="r.key">
+                <span class="rank-name">
+                  {{ r.name }}
+                  <span class="rank-sub">{{ t('expense.tabs.poker') }} {{ signed(r.poker) }} · {{ t('expense.tabs.expense') }} {{ signed(r.expense) }}</span>
+                </span>
+                <span class="rank-profit" :class="r.total >= 0 ? 'pos' : 'neg'">{{ signed(r.total) }}</span>
+              </li>
+            </ol>
+          </template>
+
+          <template v-else-if="summaryTab === 'expense' && expenseRows.length">
+            <p class="muted tab-hint">{{ t('expense.netHint') }}</p>
+            <ol class="rank-list">
+              <li v-for="r in expenseRows" :key="r.uid">
+                <span class="rank-name">{{ r.name }}</span>
+                <span class="rank-profit" :class="r.net >= 0 ? 'pos' : 'neg'">{{ r.net >= 0 ? '+' : '' }}{{ r.net }}</span>
+              </li>
+            </ol>
+          </template>
+
+          <template v-else-if="summary.tableCount > 0">
+            <div class="summary-totals">
+              <div><span>{{ t('session.summaryTables') }}</span><strong>{{ summary.tableCount }}</strong></div>
+              <div><span>{{ t('session.summaryTotalBuyIn') }}</span><strong>{{ Math.round(summary.totalBuyIn) }}</strong></div>
+            </div>
+            <h4>{{ t('session.ranking') }}</h4>
+            <ol class="rank-list">
+              <li v-for="(p, i) in summary.ranking" :key="p.odId || p.name || i">
+                <span class="rank-medal">{{ medal(i) }}</span>
+                <span class="rank-name">{{ p.name }}</span>
+                <span class="rank-profit" :class="p.profitCash >= 0 ? 'pos' : 'neg'">
+                  {{ p.profitCash >= 0 ? '+' : '' }}{{ formatCashTotal(p.profitCash, summary.cashDecimals) }}
+                </span>
+              </li>
+            </ol>
+          </template>
+          <div v-else class="muted">{{ t('session.noSettlement') }}</div>
           <button class="btn-ghost full-w" @click="onShareSummary">📤 {{ t('session.shareSummary') }}</button>
         </template>
         <div v-else class="muted">{{ t('session.noSettlement') }}</div>
       </section>
+
+      <!-- Shared expenses (代墊分帳): players of the event and the host -->
+      <EventExpenses
+        v-if="canSeeExpenses"
+        :session-id="route.params.sessionId"
+        :expenses="expenses"
+        :people="people"
+        :is-host="isHostView"
+      />
 
       <p v-if="notice" class="notice">{{ notice }}</p>
     </div>
@@ -152,6 +202,9 @@ import {
 } from '../utils/sessionFlow.js';
 import { markSessionReturn } from '../utils/sessionReturn.js';
 import { formatCashTotal } from '../utils/cashRounding.js';
+import { eventPeople, aggregateExpenses, combineEventTotals } from '../utils/eventExpenses.js';
+import { useEventExpenses, deleteEventExpenses } from '../composables/useEventExpenses.js';
+import EventExpenses from '../components/session/EventExpenses.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -164,6 +217,7 @@ const {
 } = useSessions();
 const { shareSessionInvite, sendSessionRsvpMessage, shareSessionTableCard, shareSessionSummary } = useLiff();
 const { confirm } = useConfirm();
+const { expenses, listen: listenExpenses, stop: stopExpenses } = useEventExpenses();
 
 const uid = computed(() => authStore.user?.uid || null);
 const summary = ref(null);
@@ -186,6 +240,15 @@ const joinDisabled = computed(() => !amJoined.value && selectedPeriodIds.value.l
 // The host participates by default and manages their own sign-ups from the
 // console, so the period picker + RSVP CTA show for both RSVP and host views.
 const canPick = computed(() => view.value.mode === 'rsvp' || view.value.mode === 'host-console');
+// Expenses are readable by the event's players and its host (firestore.rules).
+const isHostView = computed(() => !!session.value && session.value.hostUid === uid.value);
+const canSeeExpenses = computed(() => isHostView.value || amJoined.value);
+const people = computed(() => eventPeople(session.value));
+const expenseRows = computed(() => aggregateExpenses(expenses.value));
+const totalRows = computed(() => combineEventTotals(summary.value?.ranking || [], expenseRows.value));
+const SUMMARY_TABS = ['total', 'poker', 'expense'];
+const summaryTab = ref('total');
+const signed = (n) => `${n >= 0 ? '+' : ''}${formatCashTotal(n, summary.value?.cashDecimals)}`;
 const hasQueuedPeriod = computed(() => (session.value?.periods || []).some((p) => p.status === 'queued'));
 
 const activeLabel = computed(() => {
@@ -262,6 +325,8 @@ const onEnd = () => withNotice(async () => {
 });
 const onDelete = () => withNotice(async () => {
   if (!await confirm({ message: t('session.confirmDelete'), type: 'danger' })) return;
+  // Expenses first: their rules read the session doc
+  await deleteEventExpenses(route.params.sessionId);
   await deleteSession(route.params.sessionId);
   router.push('/lobby');
 });
@@ -274,7 +339,16 @@ const enterTable = () => {
 
 const onShareInvite = () => withNotice(() => shareSessionInvite(session.value));
 const onShareTable = () => withNotice(() => shareSessionTableCard(session.value));
-const onShareSummary = () => withNotice(() => shareSessionSummary(session.value, summary.value));
+// Share what's on screen: with expenses logged, the 總和 / 代墊 tabs replace the poker ranking.
+const onShareSummary = () => withNotice(() => {
+  let shared = summary.value;
+  if (expenseRows.value.length && summaryTab.value === 'total') {
+    shared = { ...shared, ranking: totalRows.value.map((r) => ({ name: r.name, profitCash: r.total })) };
+  } else if (expenseRows.value.length && summaryTab.value === 'expense') {
+    shared = { ...shared, ranking: expenseRows.value.map((r) => ({ name: r.name, profitCash: r.net })) };
+  }
+  return shareSessionSummary(session.value, shared);
+});
 
 // Redirect a participant into their active linked table — after verifying the
 // table is still running. Auto-advance only runs while the host has this page
@@ -329,6 +403,12 @@ watch(() => (view.value.mode === 'host-console' ? session.value?.activeSlot?.gam
       finally { advancing = false; }
     }
   });
+}, { immediate: true });
+
+// Only members may read expenses; start listening once we know we are one.
+watch(canSeeExpenses, (ok) => {
+  if (ok) listenExpenses(route.params.sessionId);
+  else stopExpenses();
 }, { immediate: true });
 
 onMounted(() => { listenSession(route.params.sessionId); });
@@ -420,6 +500,11 @@ button { padding: 10px 16px; border: none; border-radius: 8px; font-weight: bold
 .rank-list { list-style: none; padding: 0; margin: 0; }
 .rank-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgb(var(--tw-white) / 0.06); }
 .rank-medal { width: 24px; }
+.rank-sub { display: block; font-size: 11px; color: rgb(var(--tw-white) / 0.45); }
+.summary-tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 10px; border-radius: 10px; background: rgb(var(--tw-white) / 0.06); }
+.summary-tabs button { flex: 1; padding: 8px 0; border-radius: 8px; background: transparent; color: rgb(var(--tw-white) / 0.65); }
+.summary-tabs button.on { background: rgb(var(--tw-amber-500)); color: var(--on-accent, white); }
+.tab-hint { font-size: 12px; margin: 0 0 6px; }
 .rank-name { flex: 1; }
 .rank-profit.pos { color: rgb(var(--tw-emerald-500)); font-weight: bold; }
 .rank-profit.neg { color: rgb(var(--tw-rose-400)); font-weight: bold; }

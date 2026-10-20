@@ -589,6 +589,58 @@ describe('sessions (live event layer)', () => {
   });
 });
 
+describe('sessions/{id}/expenses (代墊分帳)', () => {
+  const expense = (over = {}) => ({
+    title: 'UE', payerUid: BOB, payerName: 'Bob', createdBy: BOB,
+    lines: [{ id: 'l1', kind: 'item', name: '便當', amount: 120, charged: true, assignees: [ALICE] }],
+    names: { [BOB]: 'Bob', [ALICE]: 'Alice' }, receiptTotal: null,
+    ...over,
+  });
+  const expenseRef = (db, id = 'exp-1') => doc(db, 'sessions', 'evt-joined', 'expenses', id);
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(expenseRef(ctx.firestore(), 'seeded'), expense());
+    });
+  });
+
+  it('players of the event and the host read expenses; strangers cannot', async () => {
+    await assertSucceeds(getDocs(collection(bobDb(), 'sessions', 'evt-joined', 'expenses')));
+    await assertSucceeds(getDocs(collection(aliceDb(), 'sessions', 'evt-joined', 'expenses')));
+    await assertFails(getDocs(collection(charlieDb(), 'sessions', 'evt-joined', 'expenses')));
+    await assertFails(getDoc(expenseRef(charlieDb(), 'seeded')));
+  });
+
+  it('a player records their own expense, not one paid by someone else', async () => {
+    await assertSucceeds(setDoc(expenseRef(bobDb()), expense()));
+    await assertFails(setDoc(expenseRef(bobDb(), 'exp-2'), expense({ payerUid: ALICE })));
+    await assertFails(setDoc(expenseRef(bobDb(), 'exp-3'), expense({ createdBy: ALICE })));
+    // Not in the event
+    await assertFails(setDoc(expenseRef(charlieDb(), 'exp-4'),
+      expense({ payerUid: CHARLIE, createdBy: CHARLIE })));
+  });
+
+  it('the host can record an expense on someone else\'s behalf', async () => {
+    await assertSucceeds(setDoc(expenseRef(aliceDb(), 'exp-h'), expense({ createdBy: ALICE })));
+  });
+
+  it('the payer edits and deletes, but cannot hand the expense to someone else', async () => {
+    await assertSucceeds(updateDoc(expenseRef(bobDb(), 'seeded'), { title: '晚餐' }));
+    await assertFails(updateDoc(expenseRef(bobDb(), 'seeded'), { payerUid: ALICE }));
+    await assertFails(updateDoc(expenseRef(bobDb(), 'seeded'), { createdBy: ALICE }));
+    const { deleteDoc } = await import('firebase/firestore');
+    await assertSucceeds(deleteDoc(expenseRef(bobDb(), 'seeded')));
+  });
+
+  it('the host can edit or delete any expense; other users cannot', async () => {
+    await assertFails(updateDoc(expenseRef(charlieDb(), 'seeded'), { title: 'x' }));
+    await assertSucceeds(updateDoc(expenseRef(aliceDb(), 'seeded'), { payerUid: ALICE }));
+    const { deleteDoc } = await import('firebase/firestore');
+    await assertFails(deleteDoc(expenseRef(charlieDb(), 'seeded')));
+    await assertSucceeds(deleteDoc(expenseRef(aliceDb(), 'seeded')));
+  });
+});
+
 describe('timeBankSessions', () => {
   it('shared-URL viewers can GET; only the host can update', async () => {
     await assertSucceeds(getDoc(doc(bobDb(), 'timeBankSessions', 'tb-1')));
