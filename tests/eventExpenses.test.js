@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   LINE_KIND,
   normalizeReceipt,
+  receiptTitle,
   normalizeName,
   matchPersonName,
   linesFromReceipt,
@@ -51,13 +52,24 @@ describe('normalizeReceipt', () => {
   });
 
   it('tolerates a non-object answer', () => {
-    expect(normalizeReceipt(null)).toEqual({ merchant: '', items: [], fees: [], total: null });
+    expect(normalizeReceipt(null)).toEqual({ merchant: '', platform: '', items: [], fees: [], total: null });
     expect(normalizeReceipt([1, 2]).items).toEqual([]);
   });
 
   it('defaults a missing or bad quantity to 1', () => {
     const r = normalizeReceipt({ items: [{ name: 'a', amount: 1 }, { name: 'b', amount: 1, quantity: -3 }] });
     expect(r.items.map((i) => i.quantity)).toEqual([1, 1]);
+  });
+});
+
+describe('receiptTitle', () => {
+  it('names the expense after the app and the store', () => {
+    expect(receiptTitle({ merchant: '八方雲集', platform: 'Uber Eats' })).toBe('Uber Eats · 八方雲集');
+    expect(receiptTitle({ merchant: '', platform: 'foodpanda' })).toBe('foodpanda');
+    expect(receiptTitle({ merchant: '八方雲集', platform: '' })).toBe('八方雲集');
+    // Store name already says it
+    expect(receiptTitle({ merchant: 'Uber Eats 優惠店', platform: 'Uber Eats' })).toBe('Uber Eats 優惠店');
+    expect(receiptTitle(null)).toBe('');
   });
 });
 

@@ -925,7 +925,10 @@
       "confirmDelete": "Delete this expense?",
       "confirmClose": "Discard unsaved changes?",
       "saved": "Saved",
-      "noItems": "No items found. Try a clearer screenshot or enter them by hand"
+      "noItems": "No items found. Try a clearer screenshot or enter them by hand",
+      "needLine": "Add at least one line (upload a screenshot or type it) to save",
+      "feesCharged": "${amount} charged",
+      "feesNotCharged": "Not charged"
     }
   },
   "timed": {

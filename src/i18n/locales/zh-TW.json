@@ -925,7 +925,10 @@
       "confirmDelete": "確定要刪除這筆代墊嗎？",
       "confirmClose": "還沒儲存，確定要關閉嗎？",
       "saved": "已儲存",
-      "noItems": "沒有讀到品項，請換一張清楚的截圖，或手動輸入"
+      "noItems": "沒有讀到品項，請換一張清楚的截圖，或手動輸入",
+      "needLine": "先新增至少一個項目（上傳截圖或手動輸入）才能儲存",
+      "feesCharged": "收 ${amount}",
+      "feesNotCharged": "不收費"
     }
   },
   "timed": {

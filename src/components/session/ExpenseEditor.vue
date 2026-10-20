@@ -1,6 +1,7 @@
 <template>
   <Teleport to="body">
-    <div v-if="modelValue" class="fixed inset-0 z-50 bg-slate-900 overflow-y-auto overscroll-contain">
+    <!-- Above the bottom nav (main.css, z-index 9999); toasts and confirm dialogs sit above this -->
+    <div v-if="modelValue" class="fixed inset-0 z-[10010] bg-slate-900 overflow-y-auto overscroll-contain">
       <div class="w-full max-w-md md:max-w-2xl mx-auto px-4 pt-4 pb-40">
         <!-- Header -->
         <div class="flex items-center justify-between mb-4">
@@ -62,71 +63,87 @@
 
         <!-- Lines: items then fees -->
         <section v-for="group in groups" :key="group.kind" class="mb-5">
-          <div class="flex items-baseline justify-between mb-1">
+          <button
+            v-if="group.kind === 'fee'"
+            type="button"
+            class="w-full flex items-center justify-between mb-1 py-1 text-left"
+            :aria-expanded="feesOpen"
+            @click="feesOpen = !feesOpen"
+          >
+            <h3 class="text-sm font-bold text-white">
+              <i class="fas fa-chevron-right text-xs mr-1 transition-transform" :class="{ 'rotate-90': feesOpen }"></i>
+              {{ group.title }}
+              <span v-if="group.lines.length" class="text-gray-400 font-normal">({{ group.lines.length }})</span>
+            </h3>
+            <span v-if="!feesOpen && group.lines.length" class="text-xs text-gray-400">{{ feeSummary }}</span>
+          </button>
+          <div v-else class="flex items-baseline justify-between mb-1">
             <h3 class="text-sm font-bold text-white">{{ group.title }}</h3>
           </div>
-          <p v-if="canEdit" class="text-xs text-gray-500 mb-2">{{ group.hint }}</p>
+          <template v-if="group.kind !== 'fee' || feesOpen">
+            <p v-if="canEdit" class="text-xs text-gray-500 mb-2">{{ group.hint }}</p>
 
-          <div
-            v-for="line in group.lines"
-            :key="line.id"
-            class="rounded-lg border p-2 mb-2 transition"
-            :class="lineClass(line)"
-          >
-            <div class="flex items-center gap-2">
-              <input
-                v-model="line.charged"
-                type="checkbox"
-                :disabled="!canEdit"
-                class="w-5 h-5 flex-shrink-0 accent-emerald-500"
-              />
-              <input
-                v-model="line.name"
-                :disabled="!canEdit"
-                :placeholder="t('expense.editor.namePlaceholder')"
-                class="field flex-1 min-w-0"
-              />
-              <span v-if="line.quantity > 1" class="text-xs text-gray-400 flex-shrink-0">×{{ line.quantity }}</span>
-              <input
-                v-model="line.amount"
-                type="number"
-                step="any"
-                :inputmode="line.kind === 'fee' ? undefined : 'decimal'"
-                :disabled="!canEdit"
-                :placeholder="t('expense.editor.amountPlaceholder')"
-                class="field w-24 flex-shrink-0 text-right"
-                :class="{ 'border-rose-500': line.charged && problems.badAmount.includes(line.id) }"
-              />
-              <button
-                v-if="canEdit"
-                type="button"
-                class="text-gray-500 hover:text-rose-400 text-xs px-1 flex-shrink-0"
-                :aria-label="t('expense.editor.remove')"
-                @click="removeLine(line.id)"
-              >
-                <i class="fas fa-trash"></i>
-              </button>
+            <div
+              v-for="line in group.lines"
+              :key="line.id"
+              class="rounded-lg border p-2 mb-2 transition"
+              :class="lineClass(line)"
+            >
+              <div class="flex items-center gap-2">
+                <input
+                  v-model="line.charged"
+                  type="checkbox"
+                  :disabled="!canEdit"
+                  class="w-5 h-5 flex-shrink-0 accent-emerald-500"
+                />
+                <input
+                  v-model="line.name"
+                  :disabled="!canEdit"
+                  :placeholder="t('expense.editor.namePlaceholder')"
+                  class="field flex-1 min-w-0"
+                />
+                <span v-if="line.quantity > 1" class="text-xs text-gray-400 flex-shrink-0">×{{ line.quantity }}</span>
+                <input
+                  v-model="line.amount"
+                  type="number"
+                  step="any"
+                  :inputmode="line.kind === 'fee' ? undefined : 'decimal'"
+                  :disabled="!canEdit"
+                  :placeholder="t('expense.editor.amountPlaceholder')"
+                  class="field w-24 flex-shrink-0 text-right"
+                  :class="{ 'border-rose-500': line.charged && problems.badAmount.includes(line.id) }"
+                />
+                <button
+                  v-if="canEdit"
+                  type="button"
+                  class="text-gray-500 hover:text-rose-400 text-xs px-1 flex-shrink-0"
+                  :aria-label="t('expense.editor.remove')"
+                  @click="removeLine(line.id)"
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+              <div v-if="line.charged || line.person" class="flex items-center gap-2 mt-2 pl-7">
+                <button
+                  v-if="line.charged"
+                  type="button"
+                  :disabled="!canEdit"
+                  class="assignee"
+                  :class="assigneeClass(line)"
+                  @click="openAssign(line)"
+                >
+                  <i class="fas fa-user-tag mr-1"></i>{{ assigneeText(line) }}
+                </button>
+                <span v-if="line.person" class="text-xs text-gray-500 truncate">
+                  {{ t('expense.editor.receiptName', { name: line.person }) }}
+                </span>
+              </div>
             </div>
-            <div v-if="line.charged || line.person" class="flex items-center gap-2 mt-2 pl-7">
-              <button
-                v-if="line.charged"
-                type="button"
-                :disabled="!canEdit"
-                class="assignee"
-                :class="assigneeClass(line)"
-                @click="openAssign(line)"
-              >
-                <i class="fas fa-user-tag mr-1"></i>{{ assigneeText(line) }}
-              </button>
-              <span v-if="line.person" class="text-xs text-gray-500 truncate">
-                {{ t('expense.editor.receiptName', { name: line.person }) }}
-              </span>
-            </div>
-          </div>
 
-          <button v-if="canEdit" type="button" class="add-line" @click="addLine(group.kind)">
-            <i class="fas fa-plus mr-1"></i>{{ group.addLabel }}
-          </button>
+            <button v-if="canEdit" type="button" class="add-line" @click="addLine(group.kind)">
+              <i class="fas fa-plus mr-1"></i>{{ group.addLabel }}
+            </button>
+          </template>
         </section>
 
         <!-- Totals + who pays the payer -->
@@ -169,6 +186,7 @@
         style="padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px)"
       >
         <div class="w-full max-w-md md:max-w-2xl mx-auto space-y-2">
+          <p v-if="problems.empty" class="text-xs text-gray-400">{{ t('expense.editor.needLine') }}</p>
           <p v-if="problems.unassigned.length" class="text-xs text-rose-300">
             {{ t('expense.editor.needAssign', { count: problems.unassigned.length }) }}
           </p>
@@ -245,7 +263,7 @@ import { useEventExpenses, prewarmReceiptRecognition } from '../../composables/u
 import { RECOGNITION_ERROR } from '../../utils/cardRecognition.js';
 import {
   LINE_KIND, blankLine, isBlankLine, linesFromReceipt, expenseProblems, expenseDebts,
-  chargedTotal, serializeExpense,
+  chargedTotal, serializeExpense, receiptTitle,
 } from '../../utils/eventExpenses.js';
 
 const props = defineProps({
@@ -273,6 +291,8 @@ const saving = ref(false);
 const assigning = ref(null);
 const previewUrl = ref(null);
 const showImage = ref(false);
+// Fees are the payer's to absorb by default, so their section starts folded
+const feesOpen = ref(false);
 const cameraInput = ref(null);
 const fileInput = ref(null);
 
@@ -308,6 +328,7 @@ watch(() => props.modelValue, (open) => {
   initialJson = snapshot();
   assigning.value = null;
   showImage.value = false;
+  feesOpen.value = draft.value.lines.some((l) => l.kind === LINE_KIND.FEE && l.charged);
   revokePreview();
 }, { immediate: true });
 
@@ -358,6 +379,10 @@ const groups = computed(() => [
 ]);
 
 const problems = computed(() => expenseProblems(draft.value));
+const feeSummary = computed(() => {
+  const charged = chargedTotal(draft.value.lines.filter((l) => l.kind === LINE_KIND.FEE));
+  return charged ? t('expense.editor.feesCharged', { amount: fmt(charged) }) : t('expense.editor.feesNotCharged');
+});
 const charged = computed(() => chargedTotal(draft.value.lines));
 const debts = computed(() => expenseDebts(draft.value));
 const receiptDiff = computed(() => {
@@ -443,7 +468,7 @@ async function onFile(event) {
     const receipt = await recognizeReceipt(file);
     const added = linesFromReceipt(receipt, props.people);
     draft.value.lines = [...draft.value.lines.filter((l) => !isBlankLine(l)), ...added];
-    if (!draft.value.title.trim() && receipt.merchant) draft.value.title = receipt.merchant.slice(0, 100);
+    if (!draft.value.title.trim()) draft.value.title = receiptTitle(receipt).slice(0, 100);
     if (!draft.value.receiptTotal && receipt.total) draft.value.receiptTotal = receipt.total;
     success(t('expense.editor.recognized', { items: receipt.items.length, fees: receipt.fees.length }));
   } catch (e) {
