@@ -423,6 +423,44 @@ service cloud.firestore {
       );
       allow delete: if isAuthenticated() &&
         (resource.data.hostUid == request.auth.uid || isAdmin());
+
+      // Expenses (代墊分帳): orders someone paid for and how the event's
+      // players pay them back. Players of the event (any period) and the host
+      // read them and record their own; the payer, whoever recorded it, and
+      // the host edit or delete one. Only the host may record or move an
+      // expense on someone else's behalf.
+      match /expenses/{expenseId} {
+        function event() {
+          return get(/databases/$(database)/documents/sessions/$(sessionId)).data;
+        }
+        function isEventHost() {
+          return event().hostUid == request.auth.uid;
+        }
+        function isEventMember() {
+          return isEventHost() || request.auth.uid in event().participantUids;
+        }
+        function validExpense(d) {
+          return d.payerUid is string && d.lines is list && d.lines.size() <= 200 &&
+            d.names is map && d.title is string && d.title.size() <= 100;
+        }
+
+        allow read: if isAuthenticated() && (isEventMember() || isAdmin());
+        allow create: if isAuthenticated() && isEventMember() &&
+          validExpense(request.resource.data) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          (request.resource.data.payerUid == request.auth.uid || isEventHost());
+        allow update: if isAuthenticated() && validExpense(request.resource.data) &&
+          request.resource.data.createdBy == resource.data.createdBy && (
+            isEventHost() || isAdmin() ||
+            ((resource.data.payerUid == request.auth.uid || resource.data.createdBy == request.auth.uid) &&
+             request.resource.data.payerUid == resource.data.payerUid)
+          );
+        allow delete: if isAuthenticated() && (
+          resource.data.payerUid == request.auth.uid ||
+          resource.data.createdBy == request.auth.uid ||
+          isEventHost() || isAdmin()
+        );
+      }
     }
 
     // ============================================
