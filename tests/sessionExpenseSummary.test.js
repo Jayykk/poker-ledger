@@ -1,6 +1,6 @@
 /**
  * SessionView with expenses: the completed summary gains 總和 / 牌局 / 代墊
- * tabs, sharing follows the tab on screen, the expense section only shows to
+ * tabs, sharing sends the poker summary with the expenses, the expense section only shows to
  * the event's players, and deleting the event removes its expenses first.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -144,20 +144,15 @@ describe('SessionView expense summary', () => {
     expect(rows(w)).toEqual(['🥇 Amy +400', '🥈 Jay -400']);
   });
 
-  it('shares the tab on screen', async () => {
+  it('shares the poker summary plus the expenses, whichever tab is on screen', async () => {
     expenses.value = [dinner];
     const w = await mountAs('amy');
-    await w.find('.summary .full-w').trigger('click');
-    await flushPromises();
-    expect(shareSessionSummary.mock.calls[0][1].ranking).toEqual([
-      { name: 'Amy', profitCash: 200 },
-      { name: 'Jay', profitCash: -200 },
-    ]);
-
     await w.findAll('.summary-tabs button')[1].trigger('click');
     await w.find('.summary .full-w').trigger('click');
     await flushPromises();
-    expect(shareSessionSummary.mock.calls[1][1].ranking[0]).toMatchObject({ odId: 'amy', profitCash: 400 });
+    const [, shared, sharedExpenses] = shareSessionSummary.mock.calls[0];
+    expect(shared.ranking.map((p) => p.profitCash)).toEqual([400, -400]);
+    expect(sharedExpenses).toEqual([dinner]);
   });
 
   it('players and the host see the expense section, others do not', async () => {

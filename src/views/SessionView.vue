@@ -339,16 +339,8 @@ const enterTable = () => {
 
 const onShareInvite = () => withNotice(() => shareSessionInvite(session.value));
 const onShareTable = () => withNotice(() => shareSessionTableCard(session.value));
-// Share what's on screen: with expenses logged, the 總和 / 代墊 tabs replace the poker ranking.
-const onShareSummary = () => withNotice(() => {
-  let shared = summary.value;
-  if (expenseRows.value.length && summaryTab.value === 'total') {
-    shared = { ...shared, ranking: totalRows.value.map((r) => ({ name: r.name, profitCash: r.total })) };
-  } else if (expenseRows.value.length && summaryTab.value === 'expense') {
-    shared = { ...shared, ranking: expenseRows.value.map((r) => ({ name: r.name, profitCash: r.net })) };
-  }
-  return shareSessionSummary(session.value, shared);
-});
+// The card carries every tab (總和 / 牌局 / 代墊), whichever one is on screen.
+const onShareSummary = () => withNotice(() => shareSessionSummary(session.value, summary.value, expenses.value));
 
 // Redirect a participant into their active linked table — after verifying the
 // table is still running. Auto-advance only runs while the host has this page
