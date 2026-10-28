@@ -4,6 +4,7 @@ import { STORAGE_KEYS } from '../utils/constants.js';
 import { rowCash, formatCashAmount, roundCashTotal, formatCashTotal } from '../utils/cashRounding.js';
 import { liffLink } from '../utils/liffLink.js';
 import { summarizeTournamentSettlement, bountyDetail } from '../utils/tournamentSettlementSummary.js';
+import { buildSessionSummaryBubble } from '../utils/sessionSummaryCard.js';
 
 const LIFF_ID = import.meta.env.VITE_LIFF_ID || '';
 // LINE Flex Message altText is limited; truncate settlement reports for the preview
@@ -1048,37 +1049,13 @@ const shareSessionTableCard = async (session) => {
 };
 
 /**
- * Card D — session summary. Green theme: table count, total buy-in, top ranking.
+ * Card D — session summary: every player's result; with expenses logged, the
+ * 總和 / 牌局 / 代墊 sections too (see buildSessionSummaryBubble).
  */
-const shareSessionSummary = async (session, summary) => {
+const shareSessionSummary = async (session, summary, expenses = []) => {
   if (!isInitialized.value || !session || !summary) return false;
   try {
-    const uri = sessionLiffUrl(session.id);
-    const medals = ['🥇', '🥈', '🥉'];
-    const rankRows = (summary.ranking || []).slice(0, 5).map((p, i) => ({
-      type: 'box', layout: 'horizontal', margin: i === 0 ? 'lg' : 'sm', contents: [
-        { type: 'text', text: `${medals[i] || `${i + 1}.`} ${p.name || ''}`, size: 'sm', color: '#333333', flex: 5, wrap: true },
-        { type: 'text', text: `${p.profitCash >= 0 ? '+' : ''}${formatCashTotal(p.profitCash, summary.cashDecimals)}`, size: 'sm', weight: 'bold', align: 'end', color: p.profitCash >= 0 ? '#1DB446' : '#DC143C', flex: 3 },
-      ],
-    }));
-
-    const bubble = {
-      type: 'bubble',
-      header: {
-        type: 'box', layout: 'vertical', backgroundColor: '#1DB446',
-        contents: [{ type: 'text', text: '🏆 活動總結', color: '#FFFFFF', weight: 'bold', size: 'lg' }],
-        ...(uri ? { action: { type: 'uri', label: '查看總結', uri } } : {}),
-      },
-      body: { type: 'box', layout: 'vertical', contents: [
-        { type: 'text', text: session.name || '撲克活動', weight: 'bold', size: 'md', color: '#333333', wrap: true },
-        { type: 'box', layout: 'horizontal', margin: 'md', contents: [
-          { type: 'text', text: `桌數 ${summary.tableCount || 0}`, size: 'sm', color: '#777777', flex: 0 },
-          { type: 'text', text: `總買入 ${Math.round(summary.totalBuyIn || 0)}`, size: 'sm', color: '#777777', align: 'end' },
-        ] },
-        { type: 'separator', color: '#EEEEEE', margin: 'lg' },
-        ...rankRows,
-      ], ...(uri ? { action: { type: 'uri', label: '查看總結', uri } } : {}) },
-    };
+    const bubble = buildSessionSummaryBubble(session, summary, expenses, sessionLiffUrl(session.id));
     const result = await liff.shareTargetPicker([{ type: 'flex', altText: `🏆 ${session.name || '活動'} 總結`, contents: bubble }]);
     return result !== undefined;
   } catch (err) {
