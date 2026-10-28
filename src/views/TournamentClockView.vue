@@ -162,6 +162,7 @@
       v-if="showStage"
       :game="stageGame"
       :current="stageCurrent"
+      :hold="stageHold"
       :can-control="canControlStage"
       :subtitle="stageSubtitle"
       @done="onStageDone"
@@ -225,7 +226,10 @@ const {
 const stageGameId = computed(() => (config.value?.bounty?.type === 'mystery' ? session.value?.gameId || null : null));
 const {
   game: stageGame, current: stageCurrent, next: stageNext, markDrawn: stageMarkDrawn, pendingCount: stagePending,
+  queue: stageQueue,
 } = useMysteryStage(stageGameId);
+// Draws waiting for their reveal: kept off the stage until they land
+const stageHold = computed(() => stageQueue.value.map((tk) => tk.id));
 const stageOpen = computed(() => session.value?.state?.mysteryStage?.open === true);
 // Open with 🎁, or on its own while a draw is being revealed (8 s, then back)
 const showStage = computed(() => !!stageGameId.value && !!stageGame.value && (stageOpen.value || !!stageCurrent.value));
