@@ -37,7 +37,7 @@ describe('buildSessionSummaryBubble', () => {
     ]);
   });
 
-  it('with expenses: 總和, 牌局 and 代墊 sections plus a line per expense', () => {
+  it('with expenses: 總和, 牌局 and 代墊 sections split by dividers, no per-expense detail', () => {
     const dinner = {
       title: 'Uber Eats · 八方雲集', payerUid: 'jay', payerName: 'Jay',
       names: { jay: 'Jay', joy: 'JOY', ann: 'Annie' },
@@ -47,7 +47,8 @@ describe('buildSessionSummaryBubble', () => {
         { id: 'c', kind: 'item', amount: 90, charged: true, assignees: ['jay'] },
       ],
     };
-    const out = lines(buildSessionSummaryBubble({ name: 'x' }, summary, [dinner]));
+    const bubble = buildSessionSummaryBubble({ name: 'x' }, summary, [dinner]);
+    const out = lines(bubble);
     expect(out.slice(2)).toEqual([
       '💰 總和（牌局＋代墊）',
       '🥇 JOY | +4,705',
@@ -67,9 +68,12 @@ describe('buildSessionSummaryBubble', () => {
       'Jay | +300',
       'Annie | -100',
       'JOY | -200',
-      'Uber Eats · 八方雲集（Jay 付，收 $300）',
-      'JOY $200、Annie $100',
     ]);
+    // Header line, then one divider before 牌局 and one before 代墊
+    const kinds = bubble.body.contents.map((c) => (c.type === 'separator' ? '—' : c.text || 'row'));
+    expect(kinds.filter((k) => k === '—')).toHaveLength(3);
+    expect(kinds[kinds.indexOf('🃏 牌局') - 1]).toBe('—');
+    expect(kinds[kinds.indexOf('💸 代墊') - 1]).toBe('—');
   });
 
   it('links header and body to the event page', () => {
