@@ -105,3 +105,23 @@ describe('TV stage card on a phone', () => {
     expect(stage).toMatch(/\.ms-card-name, \.ms-card-split \{[^}]*overflow-wrap: anywhere/);
   });
 });
+
+describe('TV stage: no spoilers behind the card', () => {
+  const stage = fs.readFileSync('src/components/tournament/MysteryStage.vue', 'utf8');
+  it('unrevealed draws (queued, or on screen until they land) stay off the wall and the history', () => {
+    expect(stage).toContain('hold: { type: Array, default: () => [] },');
+    expect(stage).toMatch(/const hidden = computed\(\(\) => new Set\(\[\s*\.\.\.props\.hold,\s*\.\.\.\(reveal\.value && !landed\.value \? \[reveal\.value\.id\] : \[\]\),/);
+    expect(stage).toContain('!hiddenSlots.value.has(slot)');
+    expect(stage).toMatch(/const history = computed[\s\S]*?!hidden\.value\.has\(tk\.id\)/);
+  });
+  it('the card rises from the middle of the wall, not its own envelope', () => {
+    expect(stage).not.toContain('querySelector(`[data-slot="${slot}"]`)');
+    expect(stage).not.toContain('flying:');
+    expect(stage).toContain("stageEl.querySelector('.ms-wall')");
+  });
+  for (const f of ['src/views/TournamentClockView.vue', 'src/views/DealerClockView.vue']) {
+    it(`${f} passes the queue as hold`, () => {
+      expect(fs.readFileSync(f, 'utf8')).toContain(':hold="stageHold"');
+    });
+  }
+});

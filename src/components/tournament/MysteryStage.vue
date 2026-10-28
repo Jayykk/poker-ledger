@@ -24,7 +24,7 @@
         :key="s.slot"
         :data-slot="s.slot"
         class="ms-env"
-        :class="{ gone: isGone(s.slot), top: s.tier === 0, flying: reveal && reveal.slot === s.slot }"
+        :class="{ gone: isGone(s.slot), top: s.tier === 0 }"
       >
         <span class="ms-env-amt">${{ fmt(amounts[s.slot] || 0) }}</span>
       </div>
@@ -117,6 +117,8 @@ const props = defineProps({
   // Host / dealer-mode clock: may draw here and close the stage
   canControl: { type: Boolean, default: false },
   subtitle: { type: String, default: '' },
+  // Ids of drawn tickets still waiting for their reveal (the queue)
+  hold: { type: Array, default: () => [] },
   // @draw="(ticket, slot) => Promise<boolean>": writes the draw (awaited, so
   // a name can't be tapped twice and a failure shows here)
   onDraw: { type: Function, default: null },
@@ -137,11 +139,18 @@ const wallCols = computed(() => Math.min(8, Math.max(3, Math.ceil(Math.sqrt(slot
 const tickets = computed(() => allTickets(players.value));
 const pending = computed(() => tickets.value.filter((tk) => tk.envelope === null || tk.envelope === undefined));
 // Hide the draw being revealed from the wall / history until it lands
+// Draws not revealed yet — queued, or the one on screen until it lands — stay
+// off the wall and out of the history, or the result shows behind the card
+const hidden = computed(() => new Set([
+  ...props.hold,
+  ...(reveal.value && !landed.value ? [reveal.value.id] : []),
+]));
+const hiddenSlots = computed(() => new Set(tickets.value.filter((tk) => hidden.value.has(tk.id)).map((tk) => tk.envelope)));
 const history = computed(() => tickets.value
-  .filter((tk) => tk.envelope !== null && tk.envelope !== undefined && (!reveal.value || tk.id !== reveal.value.id || landed.value))
+  .filter((tk) => tk.envelope !== null && tk.envelope !== undefined && !hidden.value.has(tk.id))
   .sort((a, b) => (b.drawnAt || 0) - (a.drawnAt || 0)));
 const remaining = computed(() => remainingSlots(bounty.value, players.value));
-const isGone = (slot) => !remaining.value.some((s) => s.slot === slot) && !(reveal.value && reveal.value.slot === slot && !flown.value);
+const isGone = (slot) => !remaining.value.some((s) => s.slot === slot) && !hiddenSlots.value.has(slot);
 const tiersLeft = computed(() => (bounty.value?.envelopes || []).map((e, tier) => ({
   tier,
   amount: amounts.value[slots.value.find((s) => s.tier === tier)?.slot] || 0,
@@ -200,7 +209,6 @@ const rays = ref(null);
 const flash = ref(null);
 const qmark = ref(null);
 const reveal = ref(null); // { id, slot, amount, names, split }
-const flown = ref(false); // the envelope has left the wall
 const landed = ref(false); // the result is in the history
 const shownAmount = ref(0);
 const nameShown = ref(false);
@@ -270,7 +278,6 @@ async function sequence(tk) {
     names: namesOf(tk.by),
     split: tk.by.length > 1 ? t('mystery.split', { names: namesOf(tk.by) }) : '',
   };
-  flown.value = false;
   landed.value = false;
   nameShown.value = false;
   revealed.value = false;
@@ -279,9 +286,11 @@ async function sequence(tk) {
 
   const stageEl = stage.value;
   const cardEl = card.value;
-  const src = stageEl.querySelector(`[data-slot="${slot}"]`);
+  // The card rises from the middle of the wall, not from its own envelope —
+  // where it came from would give the amount away
   const s = stageEl.getBoundingClientRect();
-  const r = src ? src.getBoundingClientRect() : { left: s.left + s.width / 2, top: s.top + s.height / 2, width: 10, height: 10 };
+  const wall = stageEl.querySelector('.ms-wall')?.getBoundingClientRect() || s;
+  const r = { left: wall.left + wall.width / 2 - 24, top: wall.top + wall.height / 2 - 17, width: 48, height: 34 };
   // Final card: about a third of the stage wide
   // Landscape (the TV): about a third of the stage wide. Portrait (a phone):
   // most of its width, so the amount and names fit
@@ -297,7 +306,6 @@ async function sequence(tk) {
   // The card's text is sized off the card itself (--cw), not the screen
   cardEl.style.setProperty('--cw', `${W}px`);
   const scale0 = r.width / W;
-  flown.value = true;
 
   // 1 · lift off the wall and fly to the centre
   await step(cardEl.animate([
@@ -462,7 +470,6 @@ onUnmounted(() => {
   color: #2b1f07;
 }
 .ms-env.gone { opacity: 0.16; filter: grayscale(0.7); }
-.ms-env.flying { opacity: 0; }
 
 .ms-side { position: absolute; right: 3cqw; top: 19cqh; width: 31cqw; bottom: 5cqh; display: flex; flex-direction: column; gap: 1.6cqh; }
 .ms-box { border-radius: 1cqw; background: rgba(24, 33, 58, 0.85); border: 1px solid rgba(255, 255, 255, 0.06); padding: 1.6cqh 1.4cqw; }
