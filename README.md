@@ -1,332 +1,230 @@
 # Poker Sync Pro
 
-A modern, progressive web application for tracking and synchronizing poker game sessions with real-time collaboration features.
+撲克牌局記帳同步工具：現金桌／限時賽記帳、錦標賽（含 KO / PKO / 神秘賞金）、活動報名與代墊分帳、戰績排行與稱號系統，並整合 LINE LIFF。PWA，主要在手機與 LINE 內使用。
 
-## ✨ Features
+- 前端：<https://jayykk.github.io/poker-ledger/>（GitHub Pages）
+- 後端：Firebase（Firestore 具名資料庫 `poker-tw`、Cloud Functions `asia-east1`）
 
-### Core Functionality
-- 🎮 **Real-time Game Management** - Create and join poker games with live synchronization
-- 💰 **Buy-in & Stack Tracking** - Track player buy-ins, rebuys, and current stacks
-- 📊 **Settlement System** - Automatic profit/loss calculation with customizable exchange rates
-- 👥 **Multi-player Support** - Support up to 10 players per game
-- 🔗 **Invite System** - Share game links to invite players to specific seats
+---
 
-### 🗓️ Live Events (Sessions)
-A scheduling layer above tables — plan a poker night once, and let sign-ups drive the tables:
-- 🕑 **Time-period Model** - An event holds ordered periods (cash / tournament / custom), each with its own RSVP roster and player cap
-- ✋ **Per-period RSVP** - Players sign up or cancel per period via a shared LIFF link; new periods added while editing copy existing sign-ups
-- 📣 **Roster Cards to LINE** - RSVP changes auto-post an updated roster Flex card to the group chat
-- 🔗 **Table Linkage** - Activating a period lazily creates the underlying cash/tournament table and routes participants to it; auto-advances between periods
-- 🧑‍💼 **Host Console** - Manage periods, dissolve/settle linked tables, and return participants to the event page afterward
-- ⚡ **Personal Quick-setup** - Save your usual event configuration for one-tap event creation
+## ✨ 功能
 
-### 🏆 Tournament System
-- 🕐 **Tournament Clock** - Full-screen blind level timer with auto-advance, break periods, and sound alerts
-- 🎛️ **Dealer Clock Mode** - Dedicated dealer view with anonymous auth, shareable via URL
-- ⏱️ **Time Bank** - Configurable countdown timer with quick presets, synced via Firestore
-- 📋 **Tournament Presets** - Save and reuse custom blind structures and tournament configurations
-- 🎮 **Tournament Game View** - Integrated game management with re-entry controls and prize pool tracking
-- 💤 **Screen Wake Lock** - Prevents device sleep during tournament clock display (cross-browser, including iOS)
-- 🔄 **Re-entry Management** - Per-player buy-in count limits with undo support and session counter sync
+### 記帳房（現金桌／限時賽）
+- 建房、連結入座、座位抽籤（一房一桌，1–9 號位 + 荷官）
+- 買入／加買／退帳，交易紀錄可撤銷（用戶端 transaction + `rev` 版本號防覆寫）
+- 以買入金額決定匯率，結算支援進位規則；結算由 Cloud Function `settleCashGame` 寫入
+- 手牌紀錄（三步驟、帳必平衡）、結束後 7 天內可補記手牌
+- 📷 **AI 牌面辨識**：拍整桌照片，Gemini 讀出牌面並分組，3–5 張一列預設為公共牌（見[設定](#-ai-牌面辨識設定)）
+- 文字報表（含最少轉帳路徑）、CSV 匯出
 
-### Analytics & Reports
-- 📈 **Profit Trend Charts** - Visualize your poker performance over time
-- 🎯 **Win Rate Analysis** - Track wins, losses, and win rate percentages
-- 📅 **Time Period Filters** - Analyze by week, month, year, or all-time
-- 💾 **CSV Export** - Export game history for external analysis
-- 📋 **Game Reports** - Copy formatted reports to share with friends
-- 📆 **Daily Reports** - Aggregate settlements by date range with player rankings
+### 🏆 錦標賽
+- 開桌設定（`tableTemplates`）＝賽制 + 模組；盲注結構庫
+- Re-entry、淘汰（可撤銷）、獎池與錢圈
+- 賞金模組：**KO → PKO → 神秘賞金**（信封編輯、手機抽獎、時鐘 TV 舞台開獎）
+- 協議結算（Deal）：ICM（Malmuth-Harville）／Chip Chop／自訂
+- 錦標賽時鐘：主持／TV 兩種畫面（記分板、牌桌風）、自動升盲、休息、音效（可蓋過背景音樂、相容 iOS / LINE WebView）、螢幕常亮
+- 荷官時鐘 `/dealer-clock/:id`：匿名登入、以連結分享
 
-### Social Features
-- 👫 **Friend System** - Add friends and track their performance
-- 🏆 **Leaderboards** - Compete with friends on monthly/quarterly rankings
-- 💬 **Game Chat** - Real-time chat during games with emoji support
-- 🎯 **Friend Invitations** - Directly invite friends to your games
+### 🗓️ 活動（Sessions）
+- 一場活動含多個時段（現金／錦標賽／自訂），各自報名名單與人數上限
+- 報名變動自動產生名單 Flex 卡分享到 LINE 群組（`liff.sendMessages`，免費）
+- 啟用時段時自動建立對應牌桌、結束後自動推進下一時段
+- 代墊分帳：`sessions/{id}/expenses`，收據拍照由 Gemini 讀金額
+- 活動總結卡（總和／牌局／代墊，列出所有人）、歷史活動頁
 
-### 🃏 Live Texas Hold'em
-- 🃏 **Server-side Dealing** - Fair card dealing handled by Cloud Functions
-- 👥 **Multiplayer** - Up to 10 players per table
-- 💰 **Integrated Ledger** - Seamless integration with the existing buy-in tracking system
-- 📱 **Mobile Optimized** - Touch-optimized betting controls with slider and quick buttons
-- ⚡ **Real-time Sync** - Firestore real-time listeners for instant game state updates
-- 🎬 **Animations** - Card reveal and showdown animations
+### 📊 戰績與排行
+- 個人戰績：損益走勢、勝率、期間篩選、賞金戰績卡、每日報表
+- 排行榜（`leaderboardStats`，週／月／季／年／總，Asia/Taipei 切界）：賽制篩選、冠亞軍、Hunter／歐皇、「只看牌友」（牌友圈由同桌紀錄推算）
 
-### Advanced Game Features
-- ⏱️ **Blind Timer** - Customizable blind level timer with break periods
-- 🔊 **Sound Notifications** - Web Audio API alerts (audible over background music, iOS/LINE WebView compatible)
-- 💱 **Multi-currency Support** - Track in TWD, USD, CNY, or JPY
-- 📜 **Rebuy History** - Complete tracking of all rebuys during a session
-- 📝 **Hand Records** - View, create, and manage individual hand histories
-- 📷 **AI Card Recognition** - Photograph the table, Gemini (Firebase AI Logic) reads the face-up cards and groups them by placement; the 3–5 card row is pre-assigned to the board, the rest you multi-select and assign to players before anything is written into the hand record (see [AI Card Recognition Setup](#-ai-card-recognition-setup))
-- 🎚️ **Cash Table Presets** - Save and reuse cash game configurations with a unified create-game flow
+### 🎖️ 稱號
+- 稱號家族各 10 階、神話稀有度、需主動開啟
+- 頭像框、房內即時稱號、手牌事件稱號（四條、同花順…）、復仇者
+- 本月王座（需至少 3 位牌友）
 
-### Admin Tools
-- 🗂️ **Table Management** - Browse and manage all cash games and tournament sessions (`/admin/tables`)
-- ✏️ **Cash Table Edit** - Edit live cash game state, buy-ins, and history with diff preview (`/admin/cash/:gameId`)
-- 🏆 **Tournament Edit** - Edit tournament sessions and settlement results (`/admin/tournament/:sessionId`)
+### 📱 LINE
+- LIFF 登入；主畫面 App 的 LINE 登入交接（`lineLoginHandoffs`，PKCE + 一次性授權碼）
+- 依執行環境分享：LINE 內用 Flex 卡、外部用系統分享
+- `?__path=` 深層連結，LINE 卡片兩次載入內進房
+- ❌ 不做 LINE Bot／付費推播（Messaging API push）
 
-### LINE Integration
-- 📱 **LINE Login** - Sign in with LINE account via LIFF SDK
-- 💬 **Chat Room Messages** - Send buy-in/settlement notifications to LINE chat via Flex Messages
-- 🔗 **Game Invites** - Share game links to LINE friends/groups with `shareTargetPicker`
-- 📒 **Transaction Audit** - Full buy-in history with "who did it for whom" tracking
-- ↩️ **Undo Support** - Reverse buy-in transactions with audit trail
-- 🏆 **Tournament Links** - Deep links route correctly to tournament game views
+### 🃏 線上德撲（實驗性）
+- Cloud Functions 發牌與狀態機、Cloud Tasks 處理逾時／攤牌／下一手、15 分鐘閒置清掃
+- 底牌存放於 `pokerGames/{id}/private/{uid}`
 
-### Internationalization
-- 🌍 **Multi-language Support**
-  - 繁體中文 (Traditional Chinese)
-  - 简体中文 (Simplified Chinese)
-  - English
-  - 日本語 (Japanese)
-- 🔄 **Auto-detection** - Automatically detects browser language
-- 💾 **Saved Preferences** - Remembers your language choice
+### 平台
+- PWA：Service Worker 快取、有新版時提示更新
+- 四語系：繁中、簡中、English、日本語；深色／淺色主題
+- 錯誤自動回報：未捕捉錯誤由 `reportClientError` 開到私有 repo 的 GitHub issue
+- 管理員（`admins/{uid}`）：牌桌管理、現金桌／錦標賽編輯（含版本紀錄）
 
-### Theming
-- 🌙 **Dark Mode** (default)
-- ☀️ **Light Mode**
-- 🔄 **System Preference Detection**
-- 💾 **Persistent Settings**
+---
 
-### Progressive Web App
-- 📱 **Install to Home Screen** - Works like a native app
-- ⚡ **Offline Support** - Service worker caching for offline functionality
-- 🔄 **Auto-sync** - Automatic synchronization when back online
-- 📦 **Optimized Bundle** - Code splitting for faster loading
+## 🛠️ 技術棧
 
-## 🛠️ Technology Stack
+| 層 | 技術 |
+|---|---|
+| 前端 | Vue 3.5（Composition API）、Vue Router 4（hash history）、Pinia 2、vue-i18n 9、Tailwind CSS 3、Chart.js 4、Font Awesome 6 |
+| 建置／測試 | Vite 5、Vitest 4（jsdom）、@firebase/rules-unit-testing |
+| Firebase（前端） | Firebase JS SDK 12：Auth（Email／匿名／LINE custom token）、Firestore（persistent cache）、AI Logic（Gemini）、App Check（reCAPTCHA Enterprise） |
+| 後端 | Cloud Functions v2（Node.js 22、firebase-functions 7、firebase-admin 12）、Cloud Tasks、pokersolver |
+| LINE | LIFF SDK v2 |
+| CI/CD | GitHub Actions → GitHub Pages（前端）、Firebase（Functions + rules/indexes） |
 
-- **Frontend Framework**: Vue 3 (Composition API)
-- **Build Tool**: Vite 5
-- **State Management**: Pinia
-- **Routing**: Vue Router 4
-- **Internationalization**: vue-i18n
-- **Database**: Firebase Firestore — named database `poker-tw` (not `(default)`), configured in `firebase.json`
-- **Authentication**: Firebase Auth (Email/Password, Anonymous, LINE Login)
-- **Backend**: Firebase Cloud Functions v2 (Node.js 22, firebase-admin 12, region `asia-east1`)
-- **Task Scheduling**: Google Cloud Tasks (turn timeouts, auto-close, showdown delays)
-- **AI Vision**: Firebase AI Logic (`firebase/ai`, Gemini Developer API) + Firebase App Check (reCAPTCHA Enterprise) — client-side, lazy-loaded
-- **Hand Evaluation**: pokersolver
-- **LINE Integration**: LIFF SDK v2
-- **Charts**: Chart.js 4
-- **Styling**: Tailwind CSS 3
-- **Icons**: Font Awesome 6
-- **Screen Wake Lock**: nosleep.js
-- **Testing**: Vitest + @vue/test-utils
+## 🏗️ 架構
 
-## 📁 Project Structure
+```
+瀏覽器 / LINE LIFF (Vue PWA, GitHub Pages)
+   │  直接讀寫 Firestore（受 firestore.rules 限制）
+   │  呼叫 onCall Cloud Functions（結算、德撲、LINE 登入…）
+   │  直接呼叫 Gemini（Firebase AI Logic + App Check）
+   ▼
+Firestore `poker-tw` ──trigger──▶ Cloud Functions (asia-east1)
+                                   ├─ 結算後投影：history_sub → leaderboardStats → 稱號 / 本月王座
+                                   ├─ 手牌事件、公開個人資料同步
+                                   └─ Cloud Tasks / 排程：德撲逾時、房間自動關閉
+```
+
+**寫入分工**
+
+- **用戶端直接寫**：記帳房名單（`games`，transaction + `rev`）、`transactions`、活動報名與代墊、錦標賽時鐘狀態、手牌、開桌設定與盲注結構。非主辦者只能動名單相關欄位（rules 把關）。
+- **只有 Cloud Functions 寫**：結算結果（`settlementSnapshot`、`status: completed`）、`users/{uid}/history_sub`、`leaderboardStats`、`userTitles`、德撲牌局狀態與底牌、`clientErrors`、`lineLoginHandoffs`。
+- **共用計算**：`src/utils/` 的賞金／稱號／結算數學直接 re-export `functions/src/utils`，前後端同一份；`@engine` alias 指向德撲引擎。
+
+### 主要 Firestore 集合
+
+| 集合 | 用途 |
+|---|---|
+| `users/{uid}` | 個人資料；子集合 `history_sub`（逐場戰績投影）、`tableTemplates`、`blindStructures` |
+| `games/{id}` | 記帳房（現金／限時賽／錦標賽）；子集合 `hands`、`chat`、`configVersions` |
+| `sessions/{id}` | 活動；子集合 `expenses`（代墊） |
+| `tournamentSessions/{id}` | 錦標賽時鐘狀態 |
+| `transactions` | 買入稽核紀錄 |
+| `leaderboardStats/{uid}_{period}` | 排行榜彙總（CF 寫） |
+| `userTitles/{uid}` | 稱號與王座（CF 寫） |
+| `pokerGames/{id}` | 線上德撲房；`private/{uid}` 底牌 |
+| `admins`、`clientErrors`、`lineLoginHandoffs`、`taskFailures` | 後端／管理用 |
+
+### 目錄
 
 ```
 poker-ledger/
-├── src/                    # Vue 3 frontend (views, components, composables, Pinia stores, i18n)
-├── functions/src/          # Cloud Functions v2 (handlers, game engines, Cloud Tasks utils)
-├── tests/                  # Vitest test suites
-├── scripts/                # One-off maintenance/migration scripts
-├── docs/                   # Historical implementation notes (snapshots; see TODO.md for current state)
-├── public/                 # PWA assets (manifest, service worker, icons)
-├── firestore.rules         # Firestore security rules (authoritative)
-├── firestore.indexes.json  # Composite index definitions
-└── firebase.json           # Hosting / Functions / emulator config
+├── src/
+│   ├── main.js            # 路由定義（全部在這裡）與 app 啟動
+│   ├── views/             # 頁面（admin/ 為管理頁）
+│   ├── components/        # game / tournament / session / social / common …
+│   ├── composables/       # useSessions、useTournamentClock、useLiff …
+│   ├── store/modules/     # Pinia：auth、game、user、hand、poker …
+│   ├── utils/             # 純函式（多數有單元測試）
+│   └── i18n/locales/      # zh-TW、zh-CN、en、ja
+├── functions/src/
+│   ├── index.js           # 所有 Cloud Functions 匯出點
+│   ├── handlers/          # 結算、投影、稱號、LINE、德撲流程…
+│   ├── engines/           # 德撲狀態機、底池、動作驗證
+│   └── utils/             # 前後端共用數學、Cloud Tasks、驗簽
+├── functions/scripts/     # 回填／遷移腳本（需 production 憑證，手動執行）
+├── scripts/               # 其他維運腳本
+├── tests/                 # Vitest（tests/functions 為 CF 單元測試、tests/rules 為 rules 測試）
+├── public/                # manifest、sw.js、圖示
+├── firestore.rules        # 安全規則（唯一來源）
+├── firestore.indexes.json
+└── firebase.json          # Functions / Firestore / emulator 設定
 ```
 
-## 📦 Installation
+---
 
-### Prerequisites
-- Node.js 22 (see `.nvmrc` / `.node-version`; Cloud Functions runtime is `nodejs22`) and npm
+## 📦 本機開發
 
-### Development Setup
+需求：**Node.js 22**（`.nvmrc` / `.node-version`；Functions runtime `nodejs22`）與 npm。
 
-1. Clone the repository:
-```bash
-git clone https://github.com/Jayykk/poker-ledger.git
-cd poker-ledger
-```
-
-2. Install dependencies:
 ```bash
 npm install
-# or
-yarn install
-# or
-pnpm install
-```
-
-3. Configure Firebase:
-- Update `src/firebase-init.js` with your Firebase configuration
-- Enable Authentication (Email/Password and Anonymous)
-- Enable Firestore Database
-
-4. (Optional) Configure LINE LIFF:
-- Create a LINE Login Channel in [LINE Developers Console](https://developers.line.biz/)
-- Create a LIFF App (Size: Full) pointing to your app URL
-- Copy the LIFF ID into `.env`:
-  ```bash
-  VITE_LIFF_ID=your-liff-id
-  ```
-- Copy Channel ID/Secret into `functions/.env`:
-  ```bash
-  LINE_CHANNEL_ID=your-channel-id
-  LINE_CHANNEL_SECRET=your-channel-secret
-  ```
-
-5. Run development server:
-```bash
+cd functions && npm install && cd ..   # 測試會 import functions/src，需要它的 node_modules
 npm run dev
 ```
 
-6. Build for production:
-```bash
-npm run build
-```
+環境變數（`.env.local`，範本見 `.env.example`）：
 
-7. Preview production build:
-```bash
-npm run preview
-```
+| 變數 | 用途 |
+|---|---|
+| `VITE_LIFF_ID` | LIFF App ID（LINE 登入／分享） |
+| `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY` | App Check（AI 辨識需要） |
+| `VITE_APPCHECK_DEBUG_TOKEN` | 本機 App Check debug token |
+| `VITE_GEMINI_MODEL` | 選填，覆寫 Gemini 模型 |
 
-## 🚀 Deployment
+Functions 環境變數（`functions/.env`，範本見 `functions/.env.example`）：`LINE_CHANNEL_ID`、`LINE_CHANNEL_SECRET`、`POKER_TASKS_SECRET`、`ERRORS_GITHUB_TOKEN`、`ERRORS_GITHUB_REPO`。
 
-部署分成兩條線，push 到 `main` 即自動觸發：
+Firebase web config 預設寫在 `src/firebase-init.js`（公開資訊），可用 `VITE_FIREBASE_*` 覆寫成其他專案。Functions 另有逾時／冷啟動等選填參數，見 `functions/.env.example`。
 
-| 對象 | Workflow | 目的地 | 認證 |
-|------|----------|--------|------|
-| 前端 | `.github/workflows/deploy.yml` | GitHub Pages（base `/poker-ledger/`） | GitHub Pages 內建 |
-| Cloud Functions | `.github/workflows/firebase-deploy.yml` | Firebase（`asia-east1`） | Service Account 金鑰 |
-
-### 前端（GitHub Pages）
-
-每次 push `main`：跑測試 → `npm run build`（注入 repository variable `VITE_LIFF_ID`）→ 部署到 GitHub Pages。無需手動操作。
-
-### Cloud Functions（Firebase）
-
-push `main` 且變更觸及 `functions/**`、`firestore.rules`、`src/**` 等路徑時觸發：先跑測試 + functions lint，通過後 `firebase deploy --only functions`。
-
-必要的 Repository 設定（Settings → Secrets and variables → Actions）：
-
-- **Secret `FIREBASE_SERVICE_ACCOUNT`**：Service Account 金鑰 JSON 全文（`google-github-actions/auth@v2` 的 `credentials_json`）。
-  註：曾嘗試 WIF（Workload Identity Federation），但 `firebase deploy` 不支援 external_account 憑證，故採 SA 金鑰。
-- **Secret `POKER_TASKS_SECRET`**（建議設定）：Cloud Tasks HMAC 簽章密鑰，部署時寫入 `functions/.env`；未設定時 task endpoint 會跳過驗證（向後相容，但較不安全）。
-- **Variable `VITE_LIFF_ID`**：LIFF App ID，前端建置時注入。
-- **Variable `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY`**：App Check 用的 reCAPTCHA Enterprise site key（AI 辨識牌面需要，見下方）。
-- **Variable `VITE_GEMINI_MODEL`**（選填）：覆寫 Gemini 模型名稱，預設 `gemini-3.7-flash`。
-
-### 🤖 AI Card Recognition Setup
-
-「記錄這手牌」表單的「拍照辨識」直接在前端透過 Firebase AI Logic 呼叫 Gemini，不經過 Cloud Functions。Firebase 對 AI Logic **強制 App Check**（未設定會得到 403 `PERMISSION_DENIED`），所以需要一次性的 Console 設定：
-
-1. **啟用 AI Logic**：Firebase Console → Build → AI Logic → Get started → 選 **Gemini Developer API**（免費額度）。若瀏覽器 API key 有設 API 限制，需放行 *Firebase AI Logic API*。
-2. **建立 reCAPTCHA Enterprise key**：Google Cloud Console → Security → reCAPTCHA Enterprise → Create key → 類型 **Website**，網域加入 `jayykk.github.io` 與 `localhost`。
-3. **註冊 App Check**：Firebase Console → App Check → Apps → 對 web app 選 reCAPTCHA Enterprise，貼上 site key。APIs 分頁 → Firebase AI Logic → **Enforce**。
-4. **設定環境變數**：
-   - 本機 `.env.local`：`VITE_RECAPTCHA_ENTERPRISE_SITE_KEY=<site key>`、`VITE_APPCHECK_DEBUG_TOKEN=true`。第一次按「拍照辨識」時瀏覽器 console 會印出 debug token → Firebase Console → App Check → Apps → ⋮ → Manage debug tokens → 新增。之後可把該 token 直接填進 `VITE_APPCHECK_DEBUG_TOKEN`。
-   - GitHub：Repository variable `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY`（`deploy.yml` 會在 build 時注入）。
-5. **模型**：預設 `gemini-3.7-flash`；若 Console 顯示不可用，以 `VITE_GEMINI_MODEL` 覆寫。
-
-未設定 site key 時，App Check 不會初始化，其他功能不受影響，只有拍照辨識會失敗並顯示對應錯誤提示。圖片會先在瀏覽器縮到最長邊 1280px 的 JPEG 再送出，Gemini Developer API 免費層有每分鐘 / 每日次數上限，超過會顯示「次數已達上限」。
-
-### ⚠️ Firestore Rules / Indexes（CI 不會部署）
-
-CI 只會「測試」rules（emulator），**不會部署**。修改 `firestore.rules` 或 `firestore.indexes.json` 後需手動執行：
+## 🧪 測試
 
 ```bash
-firebase deploy --only firestore:rules,firestore:indexes --project poker-ledger-a0e06
+npm test            # Vitest：前端工具函式 + Cloud Functions 引擎/handler
+npm run test:watch
+npm run test:rules  # Firestore rules 測試（需 firebase-tools + Java 21，CI 會跑）
+cd functions && npm run lint
 ```
 
-部署前建議先比對 production 現行 rules 與 repo 版本的差異，避免互相覆蓋。
+`.claude/`（本機 agent worktree）已排除在測試收集之外。Vue 元件與依賴 Firebase 的 composable 尚未有測試，見 `TODO.md`。
+
+---
+
+## 🚀 部署
+
+push 到 `main` 自動觸發：
+
+| 對象 | Workflow | 目的地 |
+|---|---|---|
+| 前端 | `deploy.yml` | 測試 → build → **先部署 Firestore rules** → GitHub Pages（base `/poker-ledger/`） |
+| 後端 | `firebase-deploy.yml`（變更觸及 `functions/**`、`firestore.rules`、`src/**` 等） | 測試 + lint + rules 測試 → `firebase deploy --only functions,firestore` |
+| PR / 非 main | `ci.yml` | 測試、build、functions lint、rules 測試 |
+
+前端一定比 rules 晚上線（`deploy.yml` 先發 rules），避免新版前端寫入被舊 rules 擋下。Firebase Hosting 未使用，`firebase.json` 的 hosting 設定僅供本機 preview。
+
+### GitHub 設定（Settings → Secrets and variables → Actions）
+
+| 名稱 | 類型 | 用途 |
+|---|---|---|
+| `FIREBASE_SERVICE_ACCOUNT` | Secret | SA 金鑰 JSON（`google-github-actions/auth` 的 `credentials_json`）。WIF 不支援 `firebase deploy`，故用金鑰 |
+| `POKER_TASKS_SECRET` | Secret | Cloud Tasks HMAC 簽章；未設定時 task endpoint 不驗證 |
+| `LINE_CHANNEL_ID` / `LINE_CHANNEL_SECRET` | Secret | LINE 登入驗證 channel、登入交接換 token |
+| `ERRORS_GITHUB_TOKEN` | Secret | 錯誤回報開 issue 用 |
+| `VITE_LIFF_ID` | Variable | 前端 build 注入 |
+| `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY` | Variable | App Check |
+| `VITE_GEMINI_MODEL`、`ERRORS_GITHUB_REPO` | Variable | 選填 |
+
+> 不要設定 `FIREBASE_TOKEN` 為 SA JSON——它會覆蓋 `credentials_json` 導致認證失敗。
 
 ### 手動部署
 
 ```bash
-# Functions
 cd functions && npm ci && cd ..
-firebase deploy --only functions --project poker-ledger-a0e06
-
-# Rules + Indexes（見上方警告）
-firebase deploy --only firestore:rules,firestore:indexes --project poker-ledger-a0e06
+firebase deploy --only functions,firestore --project poker-ledger-a0e06
 ```
 
-前端不需手動部署（GitHub Pages 自動化）；`firebase.json` 的 hosting 設定僅供本機 emulator/preview 使用。
+注意資料在 **`poker-tw`** 資料庫，Firebase Console 預設開的是空的 `(default)`。
 
-## 📱 PWA Installation
+### 🤖 AI 牌面辨識設定
 
-1. Visit the app in a supported browser (Chrome, Edge, Safari)
-2. Click the install prompt or use the browser menu
-3. The app will be added to your home screen
-4. Launch like any other app
+拍照辨識在前端直接透過 Firebase AI Logic 呼叫 Gemini，不經 Cloud Functions。AI Logic **強制 App Check**（未設定會 403 `PERMISSION_DENIED`），需一次性設定：
 
-## 🔒 Firebase Security Rules
+1. Firebase Console → AI Logic → Get started → **Gemini Developer API**。瀏覽器 API key 若有 API 限制，需放行 *Firebase AI Logic API*。
+2. Google Cloud Console → reCAPTCHA Enterprise → 建立 **Website** key，網域加入 `jayykk.github.io` 與 `localhost`。
+3. Firebase Console → App Check → 對 web app 註冊 reCAPTCHA Enterprise site key；APIs → Firebase AI Logic → **Enforce**。
+4. 本機 `.env.local` 設 `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY` 與 `VITE_APPCHECK_DEBUG_TOKEN=true`，首次辨識時 console 印出的 debug token 加到 App Check → Manage debug tokens。
+5. 預設模型 `gemini-3.7-flash`，不可用時以 `VITE_GEMINI_MODEL` 覆寫。
 
-The authoritative Firestore security rules live in [`firestore.rules`](firestore.rules). CI runs the emulator rules tests on every PR (`tests/rules/`), but **does not deploy rules** — deploy manually via `firebase deploy --only firestore:rules,firestore:indexes` (see Deployment above). Key principles:
-
-- **Hole cards** (`pokerGames/{gameId}/private/{userId}`) are readable only by the owner and writable only by Cloud Functions
-- **Game meta/config** cannot be modified by players (only by Cloud Functions or admins)
-- All collections require authentication; deploy rule changes together with `firestore.indexes.json`
-
-## 🧪 Testing
-
-```bash
-npm test            # run all unit/integration tests (Vitest)
-npm run test:watch
-npm run test:rules  # Firestore security-rules tests (needs the Firestore emulator + Java)
-```
-
-Suites under `tests/` cover the Cloud Functions game engines (pot calculator, action validator, game state machine, deck, hand evaluator), frontend utilities (formatters, export report, tournament stats), tournament clock math, tournament templates, i18n key completeness across all 4 locales, route/flow integration, and Firestore security rules (`tests/rules/`, run inside the emulator — CI executes these on every PR). Vue components and firebase-bound composables are not yet covered — see TODO.md.
-
-## 📖 User Guide
-
-### Creating a Game
-1. Navigate to Lobby
-2. Click "Create Game"
-3. Enter game name
-4. Share the game ID with other players
-
-### Joining a Game
-1. Navigate to Lobby
-2. Click "Join Game"
-3. Enter the game ID
-4. Choose an empty seat or create a new one with your buy-in
-
-### During a Game
-- Add players manually
-- Track buy-ins and rebuys
-- Update stack sizes in real-time
-- Use the blind timer for structured games
-- Chat with other players
-
-### Settlement
-1. Click "Settlement" button
-2. Set exchange rate (chips to cash)
-3. Review all player profits/losses
-4. Click "Finish & Save" to record the session
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🙏 Acknowledgments
-
-- Vue.js team for the amazing framework
-- Firebase for the backend infrastructure
-- Chart.js for beautiful charts
-- Tailwind CSS for the utility-first CSS framework
-- Font Awesome for the icon library
-
-## 📞 Support
-
-For issues, questions, or suggestions, please open an issue on GitHub.
+未設 site key 時 App Check 不初始化，只有拍照辨識會失敗。圖片先在瀏覽器縮到最長邊 1280px JPEG 再送出；免費層有每分鐘／每日上限。
 
 ---
 
-**Version**: 10.0.0  
-**Last Updated**: July 2026  
-**Author**: Jayykk
+## 🔒 安全模型
+
+- `firestore.rules` 是唯一權威來源，CI 以 emulator 測試（`tests/rules/`）後自動部署。
+- 已開啟匿名登入（荷官時鐘用），所以 rules 裡的 `isAuthenticated()` 等於「任何訪客」——新規則請以「主辦者／參與者／admin」判斷，不要只靠登入。
+- 結算、戰績投影、排行榜、稱號只由 Cloud Functions 寫入。
+- 德撲底牌只有本人可讀、只有 Cloud Functions 可寫。
+- 已知待修項目列於 `TODO.md` 的 P0。
+
+---
+
+**版本**：10.0.0　**最後更新**：2026-10　**作者**：Jayykk

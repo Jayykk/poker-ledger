@@ -231,6 +231,18 @@ describe('games (ledger)', () => {
     }));
   });
 
+  it('non-hosts cannot rewrite the roster of a settled game (it would re-project all stats)', async () => {
+    await assertFails(updateDoc(doc(bobDb(), 'games', 'settled-game'), {
+      players: [{ uid: BOB, name: 'Bob', buyIn: 0, stack: 99999 }],
+    }));
+  });
+
+  it('the host can still correct a settled game', async () => {
+    await assertSucceeds(updateDoc(doc(aliceDb(), 'games', 'settled-game'), {
+      players: [{ uid: ALICE, name: 'Alice', buyIn: 1000, stack: 1000 }],
+    }));
+  });
+
   it('tournament participants cannot bypass the callable with direct settlement writes', async () => {
     await assertFails(updateDoc(doc(bobDb(), 'games', 'active-tournament'), {
       status: 'completed',
@@ -339,10 +351,27 @@ describe('pokerGames (Texas Hold\'em rooms)', () => {
     ));
   });
 
-  it('players can update non-meta state (settling flag)', async () => {
+  it('players can flip the settling flag (client auto-settle)', async () => {
     await assertSucceeds(updateDoc(doc(bobDb(), 'pokerGames', 'waiting-room'), {
       settling: true,
     }));
+  });
+
+  it('non-creators cannot touch seats, chips, pot or status (Cloud Functions-only)', async () => {
+    await assertFails(updateDoc(doc(bobDb(), 'pokerGames', 'waiting-room'), {
+      'seats.0': { odId: BOB, chips: 1e9 },
+    }));
+    await assertFails(updateDoc(doc(bobDb(), 'pokerGames', 'waiting-room'), {
+      'table.pot': 0,
+    }));
+    await assertFails(updateDoc(doc(bobDb(), 'pokerGames', 'waiting-room'), {
+      status: 'ended',
+    }));
+  });
+
+  it('the server-held deck is not readable by anyone', async () => {
+    await assertFails(getDoc(doc(aliceDb(), 'pokerGames', 'waiting-room', 'server', 'deck')));
+    await assertFails(getDoc(doc(bobDb(), 'pokerGames', 'waiting-room', 'server', 'deck')));
   });
 
   it('non-creators cannot tamper with meta config', async () => {
@@ -460,12 +489,24 @@ describe('tournamentSessions', () => {
     ));
   });
 
-  it('strangers can update a session only when dealer mode is enabled', async () => {
+  it('strangers can drive the clock only when dealer mode is enabled', async () => {
     await assertSucceeds(updateDoc(doc(bobDb(), 'tournamentSessions', 'dealer-on'), {
-      status: 'paused',
+      'state.status': 'paused', updatedAt: new Date(),
     }));
     await assertFails(updateDoc(doc(bobDb(), 'tournamentSessions', 'dealer-off'), {
-      status: 'paused',
+      'state.status': 'paused',
+    }));
+  });
+
+  it('dealer mode never hands over ownership, config or the dealer switch', async () => {
+    await assertFails(updateDoc(doc(bobDb(), 'tournamentSessions', 'dealer-on'), {
+      hostUid: BOB,
+    }));
+    await assertFails(updateDoc(doc(bobDb(), 'tournamentSessions', 'dealer-on'), {
+      dealerModeEnabled: false,
+    }));
+    await assertFails(updateDoc(doc(bobDb(), 'tournamentSessions', 'dealer-on'), {
+      config: { levels: [] },
     }));
   });
 });

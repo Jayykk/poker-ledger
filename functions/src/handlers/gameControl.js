@@ -23,20 +23,43 @@ import {
 const DEFAULT_BUY_IN = 1000;
 
 /**
+ * Whether a user may drive a poker room's lifecycle (start a hand, end after
+ * the hand, settle): its creator or anyone seated. Spectators may not.
+ * @param {Object} game - pokerGames doc data
+ * @param {string} uid - Caller uid
+ * @return {boolean}
+ */
+export function isPokerRoomMember(game, uid) {
+  if (!uid || !game) return false;
+  if (game.meta?.createdBy === uid) return true;
+  return Object.values(game.seats || {}).some((seat) => seat && seat.odId === uid);
+}
+
+/**
  * Set game to end after current hand
  * @param {string} gameId - Game ID
+ * @param {string} userId - Caller (creator or seated player)
  * @return {Promise<void>}
  */
-export async function setEndAfterHand(gameId) {
+export async function setEndAfterHand(gameId, userId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
   const autoCloseToken = uuidv4();
 
-  await gameRef.update({
-    'meta.pauseAfterHand': true,
-    'meta.lastActivityAt': FieldValue.serverTimestamp(),
-    'meta.autoCloseToken': autoCloseToken,
+  await db.runTransaction(async (transaction) => {
+    const gameDoc = await transaction.get(gameRef);
+    if (!gameDoc.exists) {
+      throw createGameError(GameErrorCodes.GAME_NOT_FOUND);
+    }
+    if (!isPokerRoomMember(gameDoc.data(), userId)) {
+      throw createGameError(GameErrorCodes.NOT_AUTHORIZED);
+    }
+    transaction.update(gameRef, {
+      'meta.pauseAfterHand': true,
+      'meta.lastActivityAt': FieldValue.serverTimestamp(),
+      'meta.autoCloseToken': autoCloseToken,
+    });
   });
 
   createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
@@ -47,10 +70,15 @@ export async function setEndAfterHand(gameId) {
  * Settle and complete poker game
  * Saves chip changes to user history
  * Uses proper transaction ordering: READ → COMPUTE → WRITE
+ *
+ * Every client in the room races to call this once the game ends, so it is
+ * idempotent: only an 'ended' game settles, and an already-completed one
+ * returns without writing a second history record.
  * @param {string} gameId - Game ID
- * @return {Promise<void>}
+ * @param {string} userId - Caller (creator or seated player)
+ * @return {Promise<{ alreadySettled: boolean }>}
  */
-export async function settlePokerGame(gameId) {
+export async function settlePokerGame(gameId, userId) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
@@ -65,6 +93,17 @@ export async function settlePokerGame(gameId) {
     }
 
     const game = gameDoc.data();
+    if (game.status === 'completed') {
+      return { alreadySettled: true };
+    }
+    if (!isPokerRoomMember(game, userId)) {
+      throw createGameError(GameErrorCodes.NOT_AUTHORIZED);
+    }
+    if (game.status !== 'ended') {
+      throw createGameError(GameErrorCodes.INVALID_GAME_STATE, {
+        message: 'Only an ended game can be settled',
+      });
+    }
     const seats = game.seats || {};
 
     // Get all seated players
@@ -125,10 +164,13 @@ export async function settlePokerGame(gameId) {
       'meta.lastActivityAt': FieldValue.serverTimestamp(),
       'meta.autoCloseToken': autoCloseToken,
     });
+    return { alreadySettled: false };
   });
 
-  createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
-    .catch((err) => console.error('Auto-close task creation failed:', err));
+  if (!result.alreadySettled) {
+    createRoomAutoCloseTask(gameId, autoCloseToken, ROOM_IDLE_TIMEOUT_SECONDS)
+      .catch((err) => console.error('Auto-close task creation failed:', err));
+  }
   return result;
 }
 

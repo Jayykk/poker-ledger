@@ -40,6 +40,16 @@ export async function recordBuyIn({ gameId, targetId, targetUid, targetName, amo
 
   const totalBuyIn = await db.runTransaction(async (transaction) => {
     const gameSnap = await transaction.get(gameRef);
+    // Same bar as the roster rules: only the host or someone already on the
+    // roster, and never on a settled game (a roster change there re-projects
+    // everyone's history and leaderboard).
+    if (!gameSnap.exists) throw new Error('Game not found');
+    const game = gameSnap.data();
+    if (game.status === 'completed') throw new Error('Game is already settled');
+    const isMember = game.hostUid === actionUid ||
+      (game.players || []).some((p) => p.uid && p.uid === actionUid);
+    if (!isMember) throw new Error('Only players in this game can record buy-ins');
+
     const txData = {
       gameId,
       targetId: targetId || null,
@@ -58,21 +68,19 @@ export async function recordBuyIn({ gameId, targetId, targetUid, targetName, amo
 
     let computedTotal = safeAmount;
 
-    if (gameSnap.exists) {
-      const players = gameSnap.data().players || [];
-      const updatedPlayers = players.map((p) => {
-        const isTarget = targetId ?
-          p.id === targetId :
-          (targetUid ? p.uid === targetUid : p.name === targetName);
-        if (isTarget) {
-          const newBuyIn = (p.buyIn || 0) + safeAmount;
-          computedTotal = newBuyIn;
-          return { ...p, buyIn: newBuyIn };
-        }
-        return p;
-      });
-      transaction.update(gameRef, { players: updatedPlayers });
-    }
+    const players = game.players || [];
+    const updatedPlayers = players.map((p) => {
+      const isTarget = targetId ?
+        p.id === targetId :
+        (targetUid ? p.uid === targetUid : p.name === targetName);
+      if (isTarget) {
+        const newBuyIn = (p.buyIn || 0) + safeAmount;
+        computedTotal = newBuyIn;
+        return { ...p, buyIn: newBuyIn };
+      }
+      return p;
+    });
+    transaction.update(gameRef, { players: updatedPlayers });
 
     return computedTotal;
   });
@@ -112,6 +120,9 @@ export async function undoBuyIn(txId, callerUid, callerName) {
     const gameSnap = await transaction.get(gameRef);
     const isHost = gameSnap.exists && gameSnap.data().hostUid === callerUid;
     if (tx.actionUid !== callerUid && !isHost) throw new Error('Only the original operator or game host can undo');
+    if (gameSnap.exists && gameSnap.data().status === 'completed') {
+      throw new Error('Game is already settled');
+    }
 
     transaction.update(txRef, { status: 'undone', undoneBy: undoRef.id });
     transaction.set(undoRef, {

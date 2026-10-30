@@ -150,12 +150,15 @@ service cloud.firestore {
       // Non-hosts are limited to the roster (players/updatedAt, plus the
       // roster revision counter `rev` every roster write bumps): settlement,
       // lifecycle, and ownership fields (settlementSnapshot, status, rate,
-      // hostUid, …) are host/admin-only.
+      // hostUid, …) are host/admin-only. A settled game's roster is frozen for
+      // non-hosts: a players change there re-runs the history projection, so
+      // it would rewrite everyone's stats and the leaderboard.
       allow update: if isAuthenticated() &&
         (resource.data.hostUid == request.auth.uid ||
          isAdmin() ||
-         request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['players', 'updatedAt', 'rev']));
+         (resource.data.status != 'completed' &&
+          request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['players', 'updatedAt', 'rev'])));
       allow delete: if isAuthenticated() &&
         (resource.data.hostUid == request.auth.uid || isAdmin());
 
@@ -281,14 +284,14 @@ service cloud.firestore {
       // Update rules:
       //  - The room creator (meta.createdBy) or an admin can update any fields,
       //    including the managed config fields inside `meta`.
-      //  - Any authenticated user (e.g. players) can update the document only if
-      //    they do NOT change the `meta` object — this covers in-game state
-      //    updates such as the `settling` flag, without opening the door to
-      //    config tampering.
+      //  - Everyone else may only flip the `settling` flag (client auto-settle
+      //    in store/modules/poker.js). Seats, chips, pot and turn state are
+      //    Cloud Functions-only.
       allow update: if isAuthenticated() &&
         (resource.data.meta.createdBy == request.auth.uid ||
          isAdmin() ||
-         request.resource.data.meta == resource.data.meta);
+         request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['settling']));
 
       allow delete: if isAuthenticated() &&
         (resource.data.meta.createdBy == request.auth.uid || isAdmin());
@@ -367,12 +370,16 @@ service cloud.firestore {
         (resource.data.hostUid == request.auth.uid || isAdmin());
       allow create: if isAuthenticated()
         && request.resource.data.hostUid == request.auth.uid;
-      // Host can always update; any authenticated user can update if dealer
-      // mode is on; admins can update any session.
+      // Host can always update; admins can update any session. With dealer
+      // mode on, anyone (dealer clocks are often anonymous) may drive the
+      // clock — `state` and the face style — but never config, ownership or
+      // the dealer-mode switch itself.
       allow update: if isAuthenticated()
         && (resource.data.hostUid == request.auth.uid
-            || resource.data.dealerModeEnabled == true
-            || isAdmin());
+            || isAdmin()
+            || (resource.data.dealerModeEnabled == true
+                && request.resource.data.diff(resource.data).affectedKeys()
+                    .hasOnly(['state', 'updatedAt', 'clockStyle'])));
       allow delete: if isAuthenticated()
         && (resource.data.hostUid == request.auth.uid || isAdmin());
 

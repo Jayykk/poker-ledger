@@ -26,6 +26,8 @@ import { createPokerTask } from '../utils/cloudTasks.js';
 import { createRoomAutoCloseTask } from '../utils/cloudTasks.js';
 import { getHandIdFromGame, writeHandHistoryEntry } from '../utils/handHistories.js';
 import { purgeAfkOutSeats } from './roomLifecycle.js';
+import { guardDeck, loadDeck } from '../utils/pokerDeck.js';
+import { isPokerRoomMember } from './gameControl.js';
 
 import {
   DEFAULT_TURN_TIMEOUT,
@@ -154,22 +156,31 @@ async function resolveShowdownImmediately(game, transaction, gameRef, options = 
 /**
  * Start a new hand
  * @param {string} gameId - Game ID
+ * @param {Object} [options]
+ * @param {string} [options.callerUid] - Set for client calls: must be the
+ *   creator or seated. Omitted for server-internal starts (Cloud Tasks).
  * @return {Promise<Object>} Updated game state
  */
-export async function startHand(gameId) {
+export async function startHand(gameId, { callerUid } = {}) {
   const db = getFirestore();
   const gameRef = db.collection('pokerGames').doc(gameId);
 
   const autoCloseToken = uuidv4();
 
-  const result = await db.runTransaction(async (transaction) => {
+  const result = await db.runTransaction(async (rawTransaction) => {
+    // The deck stays in a server-only doc (see utils/pokerDeck.js).
+    const transaction = guardDeck(rawTransaction, gameRef);
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
       throw createGameError(GameErrorCodes.GAME_NOT_FOUND);
     }
 
-    let game = gameDoc.data();
+    let game = await loadDeck(transaction, gameRef, gameDoc.data());
+
+    if (callerUid !== undefined && !isPokerRoomMember(game, callerUid)) {
+      throw createGameError(GameErrorCodes.NOT_AUTHORIZED);
+    }
 
     // Cash out + free any seats flagged for AFK removal before dealing. Safe
     // here: the previous hand is fully resolved, so no live pot depends on

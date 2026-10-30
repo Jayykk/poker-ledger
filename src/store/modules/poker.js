@@ -455,9 +455,13 @@ export const usePokerStore = defineStore('poker', {
           // If auth becomes available after initial mount, attach private listener lazily.
           maybeStartPrivateListener();
           
-          // If game just ended, settle it automatically
-          // Only settle once - check if not already completed
-          if (gameData.status === 'ended' && !gameData.completedAt && !gameData.settling) {
+          // If game just ended, settle it automatically. Only the creator or a
+          // seated player may settle (the CF rejects spectators); the CF is
+          // idempotent, so racing members can't double-settle.
+          const myUid = userId || useAuthStore().user?.uid;
+          const isMember = !!myUid && (gameData.meta?.createdBy === myUid ||
+            Object.values(gameData.seats || {}).some((seat) => seat?.odId === myUid));
+          if (isMember && gameData.status === 'ended' && !gameData.completedAt && !gameData.settling) {
             try {
               // Mark as settling to prevent race conditions
               await updateDoc(doc(db, 'pokerGames', gameId), { settling: true });

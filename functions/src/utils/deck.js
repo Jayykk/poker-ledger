@@ -3,6 +3,8 @@
  * Handles card deck creation, shuffling, and dealing
  */
 
+import { randomInt } from 'node:crypto';
+
 // Card suits
 export const SUITS = ['♠', '♥', '♦', '♣'];
 export const SUIT_CODES = ['s', 'h', 'd', 'c'];
@@ -25,14 +27,15 @@ export function createDeck() {
 }
 
 /**
- * Shuffle a deck using Fisher-Yates algorithm
+ * Shuffle a deck using Fisher-Yates with a CSPRNG (Math.random's state can be
+ * reconstructed from enough outputs, which would make deals predictable)
  * @param {string[]} deck - Array of cards to shuffle
  * @return {string[]} Shuffled deck
  */
 export function shuffleDeck(deck) {
   const shuffled = [...deck];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = randomInt(i + 1);
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;

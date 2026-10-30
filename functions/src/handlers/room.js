@@ -21,6 +21,7 @@ import { writeHandHistoryEntry } from '../utils/handHistories.js';
 import { ROOM_IDLE_TIMEOUT_SECONDS } from '../utils/config.js';
 import { buildSeatData, resolveBuyIn } from '../utils/seatFactory.js';
 import { recordPlayerCashOut } from './roomLifecycle.js';
+import { guardDeck, loadDeck, withoutDeck } from '../utils/pokerDeck.js';
 
 /**
  * Create a new poker game room
@@ -194,14 +195,17 @@ export async function leaveSeat(gameId, userId) {
   // (Re-set on each transaction retry; only the committed value is used.)
   let leavingSnapshot = null;
 
-  const result = await db.runTransaction(async (transaction) => {
+  const result = await db.runTransaction(async (rawTransaction) => {
+    // Leaving on your turn can complete the round and deal the next street;
+    // the deck stays in a server-only doc (see utils/pokerDeck.js).
+    const transaction = guardDeck(rawTransaction, gameRef);
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
       throw new Error('Game not found');
     }
 
-    const game = gameDoc.data();
+    const game = await loadDeck(transaction, gameRef, gameDoc.data());
 
     // Find player's seat
     const seatEntry = Object.entries(game.seats)
@@ -414,7 +418,7 @@ export async function getRoom(gameId) {
 
   return {
     id: gameDoc.id,
-    ...gameDoc.data(),
+    ...withoutDeck(gameDoc.data()),
   };
 }
 
