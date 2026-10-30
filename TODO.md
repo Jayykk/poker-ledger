@@ -20,10 +20,22 @@
       缺 7 月收緊 + leaderboardStats）已用 Rules REST API 部署至 poker-tw
       （ruleset 4d588a81），並把 firebase-deploy.yml 改為
       `--only functions,firestore` 自動部署 rules/indexes
-- [ ] **（德撲）客戶端自動結算 double-settle 競態**（`src/store/modules/poker.js:446-472`）：
-      每個連線客戶端的 onSnapshot 都跑非原子 check-then-act，多客戶端可同時觸發結算；
-      失敗時重置 `settling:false` 會再觸發。**金流相關，建議近期修復**：
-      結算觸發移到 Cloud Functions（status 轉 ended 的 server-side trigger）或改 transaction 搶鎖
+- [x] ~~**（德撲）客戶端自動結算 double-settle 競態**~~：2026-10-30 `settlePokerGame` 改為
+      transaction 內冪等（已 completed 直接返回、只結算 status ended）、限房主／在座者呼叫；
+      前端只有房主／在座者才觸發。觸發仍在前端，日後可再搬到 server-side trigger
+- [x] ~~**（德撲）牌堆公開可讀**~~：2026-10-30 剩餘牌堆移到 `pokerGames/{id}/server/deck`
+      （rules 預設拒絕），公開文件寫入一律剝除（`functions/src/utils/pokerDeck.js`）；
+      洗牌改用 `crypto.randomInt`；pokerGames 非房主只能改 `settling`；
+      `startPokerHand` / `setEndAfterHand` 限房主／在座者
+- [x] ~~**rules 收緊（2026-10-30）**~~：已結算的 games 非主辦者不能再改 players
+      （會重跑投影改到排行榜）；錦標賽時鐘荷官模式只能改 `state`／`updatedAt`／`clockStyle`，
+      不能改 hostUid／config／荷官開關；舊版 `recordBuyInTx`／`undoBuyInTx` 限成員且拒絕已結算局
+- [ ] **資安後續（2026-10-30 稽核，中低風險）**：
+      `reportClientError` 限非匿名 + 每 uid 限流（目前匿名可灌爆每日 20 個 issue 額度）；
+      `transactions` create 驗證 gameId 成員資格；`games/*/chat` 驗 uid＝本人與長度；
+      刪除已無用的 friends／invitations／friendRequests rules；
+      `taskAuth`／`lineAuth` 未設 env 時改 fail-closed（正式環境目前已設定，屬防呆）；
+      GitHub 刪除未使用的 `FIREBASE_TOKEN` secret
 
 ## 🟠 P1 — 效能（建議下一輪主力）
 

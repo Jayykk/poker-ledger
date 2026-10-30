@@ -18,6 +18,7 @@ import { createPokerHttpTask } from '../utils/cloudTasks.js';
 import { handleLastManStanding, advanceRound } from './game.js';
 import { getHandIdFromGame } from '../utils/handHistories.js';
 import { DEFAULT_TURN_TIMEOUT } from '../utils/config.js';
+import { guardDeck, loadDeck } from '../utils/pokerDeck.js';
 
 // Constants
 const SHOWDOWN_ADMIRE_DELAY_SECONDS = 5;
@@ -38,14 +39,17 @@ export async function handleTurnTimeoutHttp(req, res) {
   const gameRef = db.collection('pokerGames').doc(gameId);
 
   try {
-    const result = await db.runTransaction(async (transaction) => {
+    const result = await db.runTransaction(async (rawTransaction) => {
+      // A timeout can complete the round and deal the next street; the deck
+      // stays in a server-only doc (see utils/pokerDeck.js).
+      const transaction = guardDeck(rawTransaction, gameRef);
       const gameDoc = await transaction.get(gameRef);
 
       if (!gameDoc.exists) {
         return { success: false, reason: 'game_not_found' };
       }
 
-      let game = gameDoc.data();
+      let game = await loadDeck(transaction, gameRef, gameDoc.data());
 
       // 🔑 ZOMBIE CHECK: Ignore if turnId doesn't match
       if (turnId !== game.table.currentTurnId) {

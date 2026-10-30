@@ -22,6 +22,7 @@ import { createPokerTask } from '../utils/cloudTasks.js';
 import { createPokerHttpTask } from '../utils/cloudTasks.js';
 import { createRoomAutoCloseTask } from '../utils/cloudTasks.js';
 import { getHandIdFromGame } from '../utils/handHistories.js';
+import { guardDeck, loadDeck } from '../utils/pokerDeck.js';
 import {
   handleLastManStanding,
   advanceRound,
@@ -53,14 +54,16 @@ export async function handlePlayerAction(gameId, userId, action, amount = 0, tur
   const autoCloseToken = uuidv4();
 
   // Transaction result will contain info needed for post-transaction task creation
-  const result = await db.runTransaction(async (transaction) => {
+  const result = await db.runTransaction(async (rawTransaction) => {
+    // The deck stays in a server-only doc (see utils/pokerDeck.js).
+    const transaction = guardDeck(rawTransaction, gameRef);
     const gameDoc = await transaction.get(gameRef);
 
     if (!gameDoc.exists) {
       throw createGameError(GameErrorCodes.GAME_NOT_FOUND);
     }
 
-    let game = gameDoc.data();
+    let game = await loadDeck(transaction, gameRef, gameDoc.data());
 
     // Check if game is paused
     if (game.status === 'paused') {

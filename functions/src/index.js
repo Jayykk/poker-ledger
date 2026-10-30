@@ -227,7 +227,7 @@ export const startPokerHand = onCall(HOT_CALLABLE_OPTS, async (request) => {
 
   try {
     const { gameId } = request.data;
-    const result = await startHand(gameId);
+    const result = await startHand(gameId, { callerUid: request.auth.uid });
     return { success: true, result };
   } catch (error) {
     console.error('Error starting hand:', error);
@@ -279,7 +279,7 @@ export const setEndAfterHand = onCall(async (request) => {
 
   try {
     const { gameId } = request.data;
-    await setEndAfterHandHandler(gameId);
+    await setEndAfterHandHandler(gameId, request.auth.uid);
     return { success: true };
   } catch (error) {
     console.error('Error setting end after hand:', error);
@@ -297,8 +297,8 @@ export const settlePokerGame = onCall(async (request) => {
 
   try {
     const { gameId } = request.data;
-    await settlePokerGameHandler(gameId);
-    return { success: true };
+    const result = await settlePokerGameHandler(gameId, request.auth.uid);
+    return { success: true, ...result };
   } catch (error) {
     console.error('Error settling game:', error);
     throw new HttpsError('internal', error.message);
