@@ -231,7 +231,7 @@ describe('games (ledger)', () => {
     }));
   });
 
-  it('non-hosts cannot rewrite the roster of a settled game (it would re-project everyone's stats)', async () => {
+  it('non-hosts cannot rewrite the roster of a settled game (it would re-project all stats)', async () => {
     await assertFails(updateDoc(doc(bobDb(), 'games', 'settled-game'), {
       players: [{ uid: BOB, name: 'Bob', buyIn: 0, stack: 99999 }],
     }));
