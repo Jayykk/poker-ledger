@@ -70,7 +70,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    // Rules tests need the Firestore emulator — run via `npm run test:rules`
-    exclude: ['**/node_modules/**', 'tests/rules/**'],
+    // Rules tests need the Firestore emulator — run via `npm run test:rules`.
+    // .claude/ holds local agent worktrees (full repo copies without
+    // functions/node_modules) — their suites must not be collected here.
+    exclude: ['**/node_modules/**', 'tests/rules/**', '.claude/**'],
   }
 });
