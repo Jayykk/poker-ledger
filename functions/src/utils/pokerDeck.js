@@ -16,6 +16,12 @@
  * in the server doc instead.
  */
 
+import { FieldValue } from 'firebase-admin/firestore';
+
+// Per guarded transaction: a deck loaded from the public doc (hands dealt
+// before the move) that still has to be scrubbed from it.
+const legacyDecks = new WeakMap();
+
 /**
  * @param {Object} gameRef pokerGames/{id} reference
  * @return {Object} Reference of the server-only deck doc
@@ -36,7 +42,12 @@ export function deckRef(gameRef) {
  */
 export async function loadDeck(transaction, gameRef, game) {
   const snap = await transaction.get(deckRef(gameRef));
-  const cards = snap.exists ? snap.data()?.cards : game.table?.deck;
+  const publicDeck = game.table?.deck;
+  const cards = snap.exists ? snap.data()?.cards : publicDeck;
+  if (publicDeck !== undefined && legacyDecks.has(transaction)) {
+    legacyDecks.get(transaction).pending = true;
+    legacyDecks.get(transaction).cards = Array.isArray(cards) ? cards : [];
+  }
   if (game.table) {
     game.table.deck = Array.isArray(cards) ? cards : [];
   }
@@ -74,6 +85,7 @@ export function splitDeck(data) {
  * @return {Object} Proxy usable anywhere the transaction is
  */
 export function guardDeck(transaction, gameRef) {
+  const legacy = { pending: false, cards: [] };
   const proxy = new Proxy(transaction, {
     get(target, prop) {
       if (prop === 'update' || prop === 'set') {
@@ -83,7 +95,20 @@ export function guardDeck(transaction, gameRef) {
             return proxy;
           }
           const split = splitDeck(data);
-          target[prop](ref, split.data, ...rest);
+          let payload = split.data;
+          if (legacy.pending) {
+            // A full `table` map (or a non-merge set) already drops the old
+            // public deck; a dotted-field update needs an explicit delete.
+            const replacesTable = payload.table && typeof payload.table === 'object';
+            if (prop === 'update' && !replacesTable) {
+              payload = { ...payload, 'table.deck': FieldValue.delete() };
+            }
+            if (split.deck === undefined) {
+              target.set(deckRef(gameRef), { cards: legacy.cards });
+            }
+            legacy.pending = false;
+          }
+          target[prop](ref, payload, ...rest);
           if (split.deck !== undefined) {
             target.set(deckRef(gameRef), {
               cards: Array.isArray(split.deck) ? split.deck : [],
@@ -96,6 +121,7 @@ export function guardDeck(transaction, gameRef) {
       return typeof value === 'function' ? value.bind(target) : value;
     },
   });
+  legacyDecks.set(proxy, legacy);
   return proxy;
 }
 

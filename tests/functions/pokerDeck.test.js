@@ -127,6 +127,41 @@ describe('pokerDeck storage', () => {
     expect(game.table.deck).toEqual(['As', 'Kd', 'Qh']);
   });
 
+  it('a dotted-only update scrubs a legacy public deck and moves it server-side', async () => {
+    const raw = fakeTransaction();
+    const tx = guardDeck(raw, gameRef);
+    await loadDeck(tx, gameRef, { table: { deck: ['As', 'Kd'] } });
+
+    tx.update(gameRef, { 'meta.lastActivityAt': 1 });
+    tx.update(gameRef, { 'meta.autoCloseToken': 'x' });
+
+    const [first, second] = raw.writes.filter((w) => w.path === 'pokerGames/g1');
+    expect(Object.keys(first.data)).toContain('table.deck');
+    expect(first.data['meta.lastActivityAt']).toBe(1);
+    const deckWrites = raw.writes.filter((w) => w.path === DECK_PATH);
+    expect(deckWrites).toEqual([{ op: 'set', path: DECK_PATH, data: { cards: ['As', 'Kd'] } }]);
+    // only the first write needs the scrub
+    expect(second.data).toEqual({ 'meta.autoCloseToken': 'x' });
+  });
+
+  it('a full table write needs no extra scrub for a legacy deck', async () => {
+    const raw = fakeTransaction();
+    const tx = guardDeck(raw, gameRef);
+    const game = await loadDeck(tx, gameRef, { table: { pot: 0, deck: ['As', 'Kd'] } });
+    tx.update(gameRef, { table: { ...game.table, pot: 5 } });
+    const publicWrite = raw.writes.find((w) => w.path === 'pokerGames/g1');
+    expect(publicWrite.data).toEqual({ table: { pot: 5 } });
+    expect(raw.writes.filter((w) => w.path === DECK_PATH).at(-1).data.cards).toEqual(['As', 'Kd']);
+  });
+
+  it('no scrub once the deck already lives server-side', async () => {
+    const raw = fakeTransaction({ [DECK_PATH]: { cards: ['2c'] } });
+    const tx = guardDeck(raw, gameRef);
+    await loadDeck(tx, gameRef, { table: { pot: 0 } });
+    tx.update(gameRef, { 'meta.x': 1 });
+    expect(raw.writes).toEqual([{ op: 'update', path: 'pokerGames/g1', data: { 'meta.x': 1 } }]);
+  });
+
   it('withoutDeck drops the deck from data returned to clients', () => {
     expect(withoutDeck({ status: 'x', table: { pot: 1, deck: ['As'] } }))
       .toEqual({ status: 'x', table: { pot: 1 } });
