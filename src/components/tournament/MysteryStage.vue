@@ -12,6 +12,12 @@
         <div class="ms-k">{{ $t('mystery.pool') }}</div>
         <div class="ms-pool-v">${{ fmt(pool) }}</div>
       </div>
+      <label v-if="canControl" class="ms-effect">
+        <span>{{ $t('mystery.effect') }}</span>
+        <select v-model="effectPref" :disabled="!!reveal">
+          <option v-for="e in EFFECTS" :key="e" :value="e">{{ $t(`mystery.effects.${e}`) }}</option>
+        </select>
+      </label>
       <button v-if="canControl" type="button" class="ms-close" @click="$emit('close')">
         ⏱ {{ $t('mystery.backToClock') }}
       </button>
@@ -93,6 +99,39 @@
         <span v-else class="ms-q-mark ms-card-hidden">?</span>
       </div>
     </div>
+    <!-- 🎰 拉霸機: a reel of the envelopes still in play, spinning down onto the draw -->
+    <div v-if="reveal?.effect === 'slot'" ref="slotBox" class="ms-slot">
+      <div class="ms-slot-window">
+        <div ref="reel" class="ms-reel">
+          <div v-for="(item, i) in reelItems" :key="i" class="ms-reel-item" :class="{ top: item.top, hit: revealed && i === reelTarget }">
+            ${{ fmt(item.amount) }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🎡 轉盤: one slice per envelope still in play; stops on the draw -->
+    <div v-if="reveal?.effect === 'wheel'" ref="wheelBox" class="ms-wheel">
+      <div class="ms-wheel-pointer"></div>
+      <svg viewBox="-100 -100 200 200" class="ms-wheel-svg">
+        <g ref="wheelRot">
+          <g v-for="(seg, i) in wheelSegs" :key="seg.slot">
+            <path :d="seg.path" class="ms-seg" :class="[seg.top ? 'top' : (i % 2 ? 'b' : 'a'), { hit: revealed && seg.slot === reveal.slot }]" />
+            <text :transform="seg.label" class="ms-seg-t" :font-size="segFont">${{ fmt(seg.amount) }}</text>
+          </g>
+        </g>
+        <circle r="15" class="ms-hub" />
+        <text class="ms-hub-t" text-anchor="middle" dy="0.35em">?</text>
+      </svg>
+    </div>
+
+    <!-- 拉霸機 / 轉盤: the amount and who drew it -->
+    <div v-if="reveal && reveal.effect !== 'envelope'" class="ms-result" :class="{ on: revealed }">
+      <div class="ms-result-amt">${{ fmt(shownAmount) }}</div>
+      <div class="ms-card-name" :class="{ on: nameShown }">{{ reveal.names }} {{ $t('mystery.youDrew') }}！</div>
+      <div v-if="reveal.split" class="ms-card-split" :class="{ on: nameShown }">{{ reveal.split }}</div>
+    </div>
+
     <div ref="flash" class="ms-flash"></div>
   </div>
 </template>
@@ -208,7 +247,31 @@ const card = ref(null);
 const rays = ref(null);
 const flash = ref(null);
 const qmark = ref(null);
-const reveal = ref(null); // { id, slot, amount, names, split }
+const reveal = ref(null); // { id, slot, amount, names, split, effect }
+
+// The reveal effect: 信封 (the card), 拉霸機, 轉盤, or a random one each draw.
+// Remembered on this screen (the iPad on the TV is the one that plays it).
+const EFFECTS = ['envelope', 'slot', 'wheel', 'random'];
+const EFFECT_KEY = 'mysteryRevealEffect';
+const effectPref = ref((() => {
+  try { return EFFECTS.includes(localStorage.getItem(EFFECT_KEY)) ? localStorage.getItem(EFFECT_KEY) : 'envelope'; } catch { return 'envelope'; }
+})());
+watch(effectPref, (v) => { try { localStorage.setItem(EFFECT_KEY, v); } catch { /* private mode */ } });
+const pickEffect = () => (effectPref.value === 'random'
+  ? ['envelope', 'slot', 'wheel'][Math.floor(Math.random() * 3)]
+  : effectPref.value);
+
+// Envelopes still in play as the wall shows them (the one being revealed and
+// any queued are still on it) — what the reel and the wheel are made of
+const inPlay = computed(() => slots.value.filter((sl) => !isGone(sl.slot)));
+const slotBox = ref(null);
+const reel = ref(null);
+const reelItems = ref([]);
+const reelTarget = ref(0);
+const wheelBox = ref(null);
+const wheelRot = ref(null);
+const wheelSegs = ref([]);
+const segFont = ref(10);
 const landed = ref(false); // the result is in the history
 const shownAmount = ref(0);
 const nameShown = ref(false);
@@ -271,18 +334,25 @@ async function play(tk) {
 
 async function sequence(tk) {
   const slot = tk.envelope;
+  const effect = pickEffect();
+  // Build the reel / the wheel from the wall as it stands before this reveal
+  if (effect === 'slot') buildReel(slot);
+  if (effect === 'wheel') buildWheel(slot);
   reveal.value = {
     id: tk.id,
     slot,
     amount: amounts.value[slot] || 0,
     names: namesOf(tk.by),
     split: tk.by.length > 1 ? t('mystery.split', { names: namesOf(tk.by) }) : '',
+    effect,
   };
   landed.value = false;
   nameShown.value = false;
   revealed.value = false;
   shownAmount.value = 0;
   await nextTick();
+  if (effect === 'slot') return slotSequence();
+  if (effect === 'wheel') return wheelSequence();
 
   const stageEl = stage.value;
   const cardEl = card.value;
@@ -359,6 +429,118 @@ async function sequence(tk) {
   await wait(1800);
   cardEl.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 400, fill: 'forwards' });
   rays.value?.animate([{ opacity: 0.6 }, { opacity: 0 }], { duration: 400, fill: 'forwards' });
+  await wait(400);
+}
+
+// ── 拉霸機 ──
+function buildReel(slot) {
+  const base = inPlay.value.map((sl) => ({ amount: amounts.value[sl.slot] || 0, top: sl.tier === 0 }));
+  if (!base.length) base.push({ amount: amounts.value[slot] || 0, top: false });
+  const items = [];
+  while (items.length < 34) {
+    const round = [...base].sort(() => Math.random() - 0.5);
+    items.push(...round);
+  }
+  const target = items.length - 3;
+  const drawn = slots.value.find((sl) => sl.slot === slot);
+  items[target] = { amount: amounts.value[slot] || 0, top: drawn?.tier === 0 };
+  reelItems.value = items;
+  reelTarget.value = target;
+}
+
+async function slotSequence() {
+  const box = slotBox.value;
+  const strip = reel.value;
+  if (!box || !strip) return;
+  const h = strip.firstElementChild?.getBoundingClientRect().height || 1;
+  // the window shows three rows; the draw stops in the middle one
+  const end = -(reelTarget.value - 1) * h;
+  await step(box.animate([{ opacity: 0, transform: 'translate(-50%, -50%) scale(0.85)' }, { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' }],
+    { duration: 500, easing: 'ease-out', fill: 'forwards' }), 500);
+  rays.value?.animate([
+    { opacity: 0, transform: 'translate(-50%, -50%) scale(0.6) rotate(0)' },
+    { opacity: 0.9, transform: 'translate(-50%, -50%) scale(1.3) rotate(200deg)' },
+  ], { duration: 4600, easing: 'ease-in', fill: 'forwards' });
+  // fast, then slowing right down, a little past it…
+  await step(strip.animate([
+    { transform: 'translateY(0px)' },
+    { transform: `translateY(${end - h * 0.22}px)` },
+  ], { duration: 4300, easing: 'cubic-bezier(.12,.55,.08,1)', fill: 'forwards' }), 4300);
+  // …and back onto it
+  await step(strip.animate([
+    { transform: `translateY(${end - h * 0.22}px)` },
+    { transform: `translateY(${end}px)` },
+  ], { duration: 320, easing: 'ease-out', fill: 'forwards' }), 320);
+  await finale([box]);
+}
+
+// ── 轉盤 ──
+const point = (deg, r) => {
+  const a = (deg * Math.PI) / 180;
+  return `${(Math.sin(a) * r).toFixed(2)} ${(-Math.cos(a) * r).toFixed(2)}`;
+};
+function buildWheel(slot) {
+  // the draw itself always has a slice, even when it isn't held back
+  const list = inPlay.value.some((sl) => sl.slot === slot)
+    ? inPlay.value
+    : [...inPlay.value, ...slots.value.filter((sl) => sl.slot === slot)].sort((x, y) => x.slot - y.slot);
+  const n = list.length;
+  const seg = 360 / n;
+  segFont.value = Math.max(5, Math.min(11, 150 / n));
+  wheelSegs.value = list.map((sl, i) => {
+    const mid = i * seg; // 0 = under the pointer at the top, clockwise
+    const a0 = mid - seg / 2;
+    const a1 = mid + seg / 2;
+    const path = n === 1
+      ? 'M 0 -95 A 95 95 0 1 1 -0.01 -95 Z'
+      : `M 0 0 L ${point(a0, 95)} A 95 95 0 ${seg > 180 ? 1 : 0} 1 ${point(a1, 95)} Z`;
+    return {
+      slot: sl.slot,
+      amount: amounts.value[sl.slot] || 0,
+      top: sl.tier === 0,
+      mid,
+      path,
+      label: `rotate(${mid}) translate(0 -62)`,
+    };
+  });
+}
+
+async function wheelSequence() {
+  const box = wheelBox.value;
+  const rot = wheelRot.value;
+  if (!box || !rot) return;
+  const segs = wheelSegs.value;
+  const target = segs.find((sg) => sg.slot === reveal.value.slot) || segs[0];
+  const width = 360 / segs.length;
+  // six turns, landing a little off the slice's middle so it looks unforced
+  const jitter = (Math.random() - 0.5) * width * 0.5;
+  const end = 360 * 6 - target.mid + jitter;
+  await step(box.animate([{ opacity: 0, transform: 'translate(-50%, -50%) scale(0.85)' }, { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' }],
+    { duration: 500, easing: 'ease-out', fill: 'forwards' }), 500);
+  rays.value?.animate([
+    { opacity: 0, transform: 'translate(-50%, -50%) scale(0.6) rotate(0)' },
+    { opacity: 0.9, transform: 'translate(-50%, -50%) scale(1.3) rotate(-200deg)' },
+  ], { duration: 4800, easing: 'ease-in', fill: 'forwards' });
+  await step(rot.animate([
+    { transform: 'rotate(0deg)' },
+    { transform: `rotate(${end}deg)` },
+  ], { duration: 4600, easing: 'cubic-bezier(.15,.6,.1,1)', fill: 'forwards' }), 4600);
+  await finale([box]);
+}
+
+// 拉霸機 / 轉盤: flash, the amount counts up under it, the name, then away
+async function finale(boxes) {
+  flash.value?.animate([{ opacity: 0 }, { opacity: 0.9, offset: 0.25 }, { opacity: 0 }], { duration: 700, easing: 'ease-out' });
+  revealed.value = true;
+  confetti(140);
+  countUp(reveal.value.amount, 1100);
+  await wait(900);
+  nameShown.value = true;
+  await wait(250);
+  confetti(60);
+  await wait(1800);
+  [...boxes, stage.value?.querySelector('.ms-result')].forEach((el) => el?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 400, fill: 'forwards' }));
+  rays.value?.animate([{ opacity: 0.9 }, { opacity: 0 }], { duration: 400, fill: 'forwards' });
   await wait(400);
 }
 
@@ -571,5 +753,47 @@ onUnmounted(() => {
   .ms-title { font-size: max(18px, 5cqw); }
   .ms-pool-v { font-size: max(22px, 6.5cqw); }
   .ms-q-name { font-size: max(14px, 3.2cqw); }
+}
+
+/* effect picker */
+.ms-effect { align-self: center; display: flex; align-items: center; gap: 0.6cqw; font-size: max(11px, 1.2cqw); color: #8f9bb3; }
+.ms-effect select { padding: 0.6cqh 0.8cqw; border-radius: 0.6cqw; font-size: max(11px, 1.2cqw); color: #e6ebf5; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); }
+
+/* 🎰 拉霸機 */
+.ms-slot { position: absolute; left: 50%; top: 42%; z-index: 6; width: min(46cqw, 80cqh); padding: 1.6cqh; border-radius: 2cqh; opacity: 0; transform: translate(-50%, -50%);
+  background: linear-gradient(180deg, #3a2b0c, #1b1406); border: 0.5cqh solid #f5c451; box-shadow: 0 0 6cqh rgba(245, 196, 81, 0.45), inset 0 0 3cqh rgba(0, 0, 0, 0.6); }
+.ms-slot-window { position: relative; height: calc(var(--ri, 14cqh) * 3); overflow: hidden; border-radius: 1.2cqh; background: #fffaf0;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent); }
+.ms-slot-window::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--ri, 14cqh); transform: translateY(-50%); border-top: 0.4cqh solid #e0564a; border-bottom: 0.4cqh solid #e0564a; pointer-events: none; }
+.ms-reel { will-change: transform; }
+.ms-reel-item { height: var(--ri, 14cqh); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-weight: 900;
+  font-size: calc(var(--ri, 14cqh) * 0.62); color: #6b4f12; font-variant-numeric: tabular-nums; }
+.ms-reel-item.top { color: #b07d10; }
+.ms-reel-item.hit { color: #e0564a; animation: ms-pulse 0.6s ease-in-out 2; }
+
+/* 🎡 轉盤 */
+.ms-wheel { position: absolute; left: 50%; top: 42%; z-index: 6; width: min(56cqh, 46cqw); aspect-ratio: 1; opacity: 0; transform: translate(-50%, -50%); }
+.ms-wheel-svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 2cqh 3cqh rgba(0, 0, 0, 0.55)); }
+.ms-wheel-pointer { position: absolute; left: 50%; top: -1.5cqh; z-index: 1; width: 0; height: 0; transform: translateX(-50%);
+  border-left: 2cqh solid transparent; border-right: 2cqh solid transparent; border-top: 4cqh solid #e0564a; filter: drop-shadow(0 0.5cqh 0.6cqh rgba(0, 0, 0, 0.5)); }
+.ms-seg { stroke: #1b1406; stroke-width: 0.8; }
+.ms-seg.a { fill: #f4e6c4; }
+.ms-seg.b { fill: #e9d29a; }
+.ms-seg.top { fill: #f5c451; }
+.ms-seg.hit { fill: #e0564a; }
+.ms-seg-t { fill: #3a2a08; font-family: 'JetBrains Mono', monospace; font-weight: 800; text-anchor: middle; dominant-baseline: middle; }
+.ms-hub { fill: #1b1406; stroke: #f5c451; stroke-width: 2; }
+.ms-hub-t { fill: #f5c451; font-size: 16px; font-weight: 900; }
+
+/* 拉霸機 / 轉盤 result */
+.ms-result { --cw: 46cqw; position: absolute; left: 50%; bottom: 7cqh; z-index: 6; transform: translateX(-50%); display: grid; justify-items: center; opacity: 0; transition: opacity 0.3s; text-align: center; }
+.ms-result.on { opacity: 1; }
+.ms-result-amt { font-family: 'JetBrains Mono', monospace; font-weight: 900; font-size: max(28px, 7cqh); color: #f5c451; text-shadow: 0 0 3cqh rgba(245, 196, 81, 0.6); font-variant-numeric: tabular-nums; }
+.ms-result .ms-card-name, .ms-result .ms-card-split { color: #fff7dc; }
+@keyframes ms-pulse { 50% { transform: scale(1.12); } }
+@container (orientation: portrait) {
+  .ms-slot { width: 84cqw; }
+  .ms-wheel { width: 80cqw; }
+  .ms-result { --cw: 84cqw; bottom: 9cqh; }
 }
 </style>

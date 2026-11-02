@@ -1194,7 +1194,14 @@
     "waitForTv": "Once the host has the tournament clock on the TV and it's paused or on a break, you can draw here",
     "waitForPause": "The clock is on the TV — you can draw once it's paused or on a break",
     "manualByHost": "Physical envelopes this time — the host records what you draw",
-    "drawFailed": "The draw didn't go through — tap again"
+    "drawFailed": "The draw didn't go through — tap again",
+    "effect": "Reveal",
+    "effects": {
+      "envelope": "Envelope",
+      "slot": "Slot machine",
+      "wheel": "Wheel",
+      "random": "Random"
+    }
   },
   "share": {
     "invite": "Share invite link",
