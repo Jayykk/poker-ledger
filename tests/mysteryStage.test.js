@@ -125,3 +125,21 @@ describe('TV stage: no spoilers behind the card', () => {
     });
   }
 });
+
+describe('TV stage: switchable reveal effects', () => {
+  const stage = fs.readFileSync('src/components/tournament/MysteryStage.vue', 'utf8');
+  it('envelope (default), slot machine, wheel, or random — picked by the host, remembered on the screen', () => {
+    expect(stage).toContain("const EFFECTS = ['envelope', 'slot', 'wheel', 'random'];");
+    expect(stage).toMatch(/<label v-if="canControl" class="ms-effect">/);
+    expect(stage).toContain("localStorage.setItem(EFFECT_KEY, v)");
+    expect(stage).toContain("if (effect === 'slot') return slotSequence();");
+    expect(stage).toContain("if (effect === 'wheel') return wheelSequence();");
+  });
+  it('the reel and the wheel are built from envelopes still in play (no spoilers), the draw always on them', () => {
+    expect(stage).toMatch(/const inPlay = computed\(\(\) => slots\.value\.filter\(\(sl\) => !isGone\(sl\.slot\)\)\)/);
+    expect(stage).toContain('items[target] = { amount: amounts.value[slot] || 0');
+    expect(stage).toMatch(/the draw itself always has a slice/);
+    // the wheel lands the drawn slice under the pointer
+    expect(stage).toContain('const end = 360 * 6 - target.mid + jitter;');
+  });
+});
