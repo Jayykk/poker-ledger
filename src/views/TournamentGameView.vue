@@ -65,7 +65,7 @@
       :cutoff-level="reentryUntilLevel"
       :closed="reentryUntilLevel > 0 && !reentriesOpen"
       :closed-label="$t('room.closed')"
-      :detail="$t('room.playersLeft', { left: activePlayers.length, total: (game.players || []).length })"
+      :detail="clockDetail"
       :ended-label="$t('room.ended')"
       :can-control="clockIsHost"
       @open="$router.push(`/tournament-clock/${game.tournamentSessionId}`)"
@@ -339,6 +339,7 @@ import { useHand } from '../composables/useHand.js';
 import { useTransactions } from '../composables/useTransactions.js';
 import { useLiff } from '../composables/useLiff.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
+import { computeAverageStackBB } from '../utils/tournamentStats.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import { useShare, appLink } from '../composables/useShare.js';
@@ -672,6 +673,15 @@ const expectedChips = computed(() => {
   const totalBuyIns = (game.value?.players || []).reduce((sum, p) => sum + (p.buyIn || 0), 0);
   const totalEntries = Math.round(totalBuyIns / baseBuyIn);
   return totalEntries * startingChips;
+});
+
+// Clock card line under the timer: "在場 6 / 8 · 均碼 25 BB". On a break the
+// average is in the next level's big blind (what stacks are about to face).
+const clockDetail = computed(() => {
+  const left = t('room.playersLeft', { left: activePlayers.value.length, total: (game.value?.players || []).length });
+  const bigBlind = clockBlinds.value?.big || clockNextBlinds.value?.big || 0;
+  const bb = computeAverageStackBB(expectedChips.value, activePlayers.value.length, bigBlind);
+  return bb > 0 ? `${left} · ${t('room.avgBB', { bb: formatNumber(bb) })}` : left;
 });
 
 const openDeal = () => {

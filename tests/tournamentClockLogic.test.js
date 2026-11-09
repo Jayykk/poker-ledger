@@ -18,6 +18,7 @@ import {
   computeAverageStack,
   computeAverageStackBB,
   buildTournamentStats,
+  rosterClockStats,
 } from '../src/utils/tournamentStats.js';
 
 /**
@@ -726,5 +727,46 @@ describe('startGameSync deduplication — unique player count', () => {
     ];
     const { playerCount } = countUniquePlayers(players);
     expect(playerCount).toBe(1);
+  });
+});
+
+describe('rosterClockStats (clock reads the linked game roster itself)', () => {
+  it('counts seats, survivors and re-entries from buy-ins', () => {
+    const players = [
+      { id: 'a', buyIn: 1000 },
+      { id: 'b', buyIn: 3000, eliminated: true },
+      { id: 'c', buyIn: 2000 },
+    ];
+    const s = rosterClockStats(players, 1000);
+    expect(s.registered).toBe(3);
+    expect(s.remaining).toBe(2);
+    expect(s.reentries).toBe(3);
+    expect(computeEntries(s.registered, s.reentries)).toBe(6);
+    expect(s.buyIns).toBe(6);
+    expect(s.chipsInPlay).toBe(6000);
+  });
+
+  it('dedupes double joins by uid, then id, and skips keyless rows', () => {
+    const players = [
+      { id: 'a', uid: 'u1', buyIn: 1000 },
+      { id: 'a2', uid: 'u1', buyIn: 1000 },
+      { id: 'b', buyIn: 1000 },
+      { id: 'b', buyIn: 1000 },
+      { buyIn: 1000 },
+    ];
+    const s = rosterClockStats(players, 1000);
+    expect(s.registered).toBe(2);
+    expect(s.buyIns).toBe(2);
+  });
+
+  it('leaves re-entries unknown without a base buy-in', () => {
+    const s = rosterClockStats([{ id: 'a', buyIn: 500 }], 0);
+    expect(s.reentries).toBeNull();
+    expect(s.buyIns).toBe(0);
+  });
+
+  it('sums heads that went to the pool', () => {
+    const s = rosterClockStats([{ id: 'a', bountyToPool: 200 }, { id: 'b', bountyToPool: 300 }], 1000);
+    expect(s.bountyToPool).toBe(500);
   });
 });

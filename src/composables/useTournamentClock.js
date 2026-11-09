@@ -21,6 +21,7 @@ import {
   computeChipsInPlay,
   computeAverageStack,
   computeAverageStackBB,
+  rosterClockStats,
 } from '../utils/tournamentStats.js';
 import {
   CLOCK_MODE_TIMED,
@@ -29,7 +30,6 @@ import {
   effectiveLevelAt,
   secondsToEnd,
   formatDuration,
-  timedBuyInStats,
   levelDurationSeconds,
 } from '../utils/timedStructure.js';
 
@@ -116,23 +116,34 @@ export function useTournamentClock(options = {}) {
     return stored;
   });
 
-  const playersRegistered = computed(() => state.value.playersRegistered ?? 0);
-  const playersRemaining = computed(() => state.value.playersRemaining ?? 0);
-  const reentries = computed(() => state.value.reentries ?? 0);
+  // Stats of the linked game's roster, read live by every screen (see
+  // startGameSync). The session doc's copies are only written by the host's
+  // device, so on their own they lag whenever that device isn't watching
+  // (phone locked, room closed) — the clock showed old 參賽 / 買入 counts
+  // until the host came back. They stay as the fallback for unlinked clocks.
+  const liveRoster = ref(null);
+  const playersRegistered = computed(() => liveRoster.value?.registered ?? state.value.playersRegistered ?? 0);
+  const playersRemaining = computed(() => liveRoster.value?.remaining ?? state.value.playersRemaining ?? 0);
+  const reentries = computed(() => liveRoster.value?.reentries ?? state.value.reentries ?? 0);
   // Timed games: buy-in groups and chips on the table come from the linked
-  // cash-ledger roster (synced by the host, see startGameSync) — buy-ins there
-  // aren't a fixed starting stack per entry.
+  // cash-ledger roster — buy-ins there aren't a fixed starting stack per entry.
   const entries = computed(() => (isTimed.value
-    ? (state.value.buyIns ?? 0)
+    ? (liveRoster.value?.buyIns ?? state.value.buyIns ?? 0)
     : computeEntries(playersRegistered.value, reentries.value)));
   const chipsInPlay = computed(() => (isTimed.value
-    ? (state.value.chipsInPlay ?? 0)
+    ? (liveRoster.value?.chipsInPlay ?? state.value.chipsInPlay ?? 0)
     : computeChipsInPlay(entries.value, config.value.startingChips || 0)));
+  // KO games: heads with no eliminator (only KO-type bounties feed the pool)
+  const bountyToPool = computed(() => (liveRoster.value && isKnockoutBounty(config.value.bounty)
+    ? liveRoster.value.bountyToPool
+    : (state.value.bountyToPool ?? 0)));
   const averageStack = computed(() => {
     return computeAverageStack(chipsInPlay.value, playersRemaining.value);
   });
   const averageStackBB = computed(() => {
-    return computeAverageStackBB(chipsInPlay.value, playersRemaining.value, currentBlinds.value.big);
+    // On a break: in the next level's big blind (a break has none of its own)
+    const bigBlind = currentBlinds.value.big || nextPlayLevelEntry.value?.big || 0;
+    return computeAverageStackBB(chipsInPlay.value, playersRemaining.value, bigBlind);
   });
 
   const isRegistrationClosed = computed(() => {
@@ -187,7 +198,7 @@ export function useTournamentClock(options = {}) {
     : 0));
   const prizePool = computed(() => {
     return entries.value * ((config.value.buyIn || 0) - bountyPerHead.value)
-      + (bountyPerHead.value ? (state.value.bountyToPool ?? 0) : 0);
+      + (bountyPerHead.value ? bountyToPool.value : 0);
   });
 
   const payouts = computed(() => {
@@ -395,22 +406,20 @@ export function useTournamentClock(options = {}) {
     stopGameSync();
     const gameRef = doc(db, 'games', gameId);
     unsubscribeGame = onSnapshot(gameRef, (snap) => {
-      if (!snap.exists() || !isHost.value || !sessionId.value) return;
+      if (!snap.exists()) {
+        liveRoster.value = null;
+        return;
+      }
       const gameData = snap.data();
-      const players = gameData.players || [];
+      // Every screen shows the roster as it is now (deduplicated by uid, then id)
+      const roster = rosterClockStats(gameData.players || [], gameData.baseBuyIn);
+      liveRoster.value = roster;
+      // Only the host's device mirrors it onto the session doc
+      if (!isHost.value || !sessionId.value) return;
+      const uniquePlayers = roster.players;
 
-      // Deduplicate by uid (if present) then by id to guard against double-join edge cases
-      const seen = new Set();
-      const uniquePlayers = players.filter(p => {
-        const key = p.uid || p.id;
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-
-      const playerCount = uniquePlayers.length;
-      const eliminatedCount = uniquePlayers.filter(p => p.eliminated).length;
-      const aliveCount = playerCount - eliminatedCount;
+      const playerCount = roster.registered;
+      const aliveCount = roster.remaining;
 
       const currentRegistered = session.value?.state?.playersRegistered ?? 0;
       const currentRemaining = session.value?.state?.playersRemaining ?? 0;
@@ -419,7 +428,7 @@ export function useTournamentClock(options = {}) {
       // clock's stats panel.
       let timedStats = null;
       if (isTimed.value) {
-        const stats = timedBuyInStats(uniquePlayers, gameData.baseBuyIn);
+        const stats = { chipsInPlay: roster.chipsInPlay, buyIns: roster.buyIns };
         const st = session.value?.state || {};
         if (stats.chipsInPlay !== (st.chipsInPlay ?? null) || stats.buyIns !== (st.buyIns ?? null)) {
           timedStats = stats;
@@ -429,7 +438,7 @@ export function useTournamentClock(options = {}) {
       // KO games: heads with no eliminator went to the prize pool
       let toPool = null;
       if (isKnockoutBounty(config.value.bounty)) {
-        const sum = uniquePlayers.reduce((acc, p) => acc + (Number(p.bountyToPool) || 0), 0);
+        const sum = roster.bountyToPool;
         if (sum !== (session.value?.state?.bountyToPool ?? 0)) toPool = sum;
       }
 
@@ -437,11 +446,8 @@ export function useTournamentClock(options = {}) {
       // can't write the clock) — mirror the re-entry count and the end
       const extra = {};
       if (!isTimed.value) {
-        const base = Number(gameData.baseBuyIn) || 0;
-        if (base > 0) {
-          const reentriesNow = uniquePlayers.reduce(
-            (sum, p) => sum + Math.max(0, Math.round((Number(p.buyIn) || 0) / base) - 1), 0,
-          );
+        const reentriesNow = roster.reentries;
+        if (reentriesNow !== null) {
           if (reentriesNow !== (session.value?.state?.reentries ?? 0)) extra['state.reentries'] = reentriesNow;
         }
         const st = session.value?.state || {};
@@ -461,6 +467,10 @@ export function useTournamentClock(options = {}) {
         || Object.keys(extra).length) {
         updatePlayers(playerCount, aliveCount, timedStats, toPool, extra);
       }
+    }, (err) => {
+      // Can't read the game: fall back to the session doc's copies
+      console.warn('[TournamentClock] game roster listener failed:', err);
+      liveRoster.value = null;
     });
   }
 
@@ -469,6 +479,7 @@ export function useTournamentClock(options = {}) {
       unsubscribeGame();
       unsubscribeGame = null;
     }
+    liveRoster.value = null;
   }
 
   // ── Host actions ───────────────────────────────────
