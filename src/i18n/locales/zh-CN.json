@@ -1085,6 +1085,7 @@
     "closed": "已截买",
     "ended": "比赛结束",
     "playersLeft": "在场 {left} / {total}",
+    "avgBB": "均码 {bb} BB",
     "endsIn": "距离结束 {time}",
     "share": "分享",
     "copyId": "复制房号",

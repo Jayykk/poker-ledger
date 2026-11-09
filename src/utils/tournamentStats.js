@@ -36,3 +36,41 @@ export function buildTournamentStats({
     averageStackBB: computeAverageStackBB(chipsInPlay, playersRemaining, bigBlind),
   };
 }
+/**
+ * Clock stats straight from the linked game's roster (games/{id}.players).
+ * Every clock screen derives these itself so it never shows numbers that are
+ * waiting for the host's device to mirror them onto the session doc.
+ *
+ * - registered / remaining: unique seats (by uid, else id), and how many
+ *   aren't eliminated
+ * - reentries (tournaments): extra base buy-ins beyond each seat's first
+ * - buyIns / chipsInPlay (timed games): base buy-ins and chips on the table
+ * - bountyToPool (KO): heads that went to the pool with no eliminator
+ *
+ * @param {Array} players - game roster
+ * @param {number} baseBuyIn - game's base buy-in (0 = unknown)
+ */
+export function rosterClockStats(players = [], baseBuyIn = 0) {
+  const seen = new Set();
+  const unique = (players || []).filter((p) => {
+    const key = p?.uid || p?.id;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const base = Number(baseBuyIn) || 0;
+  const totalBuyIn = unique.reduce((sum, p) => sum + (Number(p.buyIn) || 0), 0);
+  const registered = unique.length;
+  const remaining = unique.filter((p) => !p.eliminated).length;
+  return {
+    players: unique,
+    registered,
+    remaining,
+    reentries: base > 0
+      ? unique.reduce((sum, p) => sum + Math.max(0, Math.round((Number(p.buyIn) || 0) / base) - 1), 0)
+      : null,
+    buyIns: base > 0 ? Math.round(totalBuyIn / base) : 0,
+    chipsInPlay: totalBuyIn,
+    bountyToPool: unique.reduce((sum, p) => sum + (Number(p.bountyToPool) || 0), 0),
+  };
+}

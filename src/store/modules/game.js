@@ -27,6 +27,7 @@ import { drawSeats, seatForNewPlayer, reseatOnReentry, TABLE_FULL } from '../../
 import { normalizeCashDecimals } from '../../utils/cashRounding.js';
 import { BUY_IN_CLOSED, isTimedClock, isTimedBuyInClosed } from '../../utils/timedStructure.js';
 import { tournamentSettlementErrorKey } from '../../utils/tournamentSettlementErrors.js';
+import { rosterClockStats } from '../../utils/tournamentStats.js';
 import { cashSettlementErrorKey } from '../../utils/cashSettlementErrors.js';
 import {
   gameBountyPerEntry, planKnockout, applyKnockout, resetHeadForReentry, restoreHeadAfterReentryUndo,
@@ -1088,6 +1089,7 @@ export const useGameStore = defineStore('game', () => {
       // Track the exact alive count from inside the transaction so we can write
       // an absolute value to the session (avoids increment() race vs startGameSync).
       let aliveAfterReentry = 0;
+      let reentriesAfter = null;
 
       // Use a Firestore transaction to atomically read the latest data,
       // validate reentry count, update elimination state + buyIn, and log the
@@ -1118,6 +1120,8 @@ export const useGameStore = defineStore('game', () => {
         if (head.previousHead !== null) restore.bountyHead = head.previousHead;
 
         aliveAfterReentry = aliveAfter;
+        // Same count the host's clock sync mirrors (extra base buy-ins per seat)
+        reentriesAfter = rosterClockStats(updatedPlayers, gameData.baseBuyIn || baseBuyIn).reentries;
         transaction.set(txRef, buildTxRecord({
           target: player,
           type: TX_TYPE_REENTRY,
@@ -1133,10 +1137,14 @@ export const useGameStore = defineStore('game', () => {
       // and sets playersRemaining to the new count, then increment(1) overshoots by 1.
       // NOTE: playersRegistered is NOT incremented — re-entry revives an existing player,
       // it does not add a new unique participant.
+      // Re-entries are absolute too: increment(1) raced the host clock's sync
+      // the same way — the clock (e.g. an iPad on the TV) mirrored the new
+      // count first, then +1 landed on top, so 6 players + 2 re-entries showed
+      // 9 entries (and a bigger prize pool) until the next roster change.
       if (sessionRef && mayWriteSession) {
         await updateDoc(sessionRef, {
           'state.playersRemaining': aliveAfterReentry,
-          'state.reentries': increment(1),
+          ...(reentriesAfter !== null ? { 'state.reentries': reentriesAfter } : {}),
           updatedAt: serverTimestamp(),
         });
       }

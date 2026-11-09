@@ -1085,6 +1085,7 @@
     "closed": "Closed",
     "ended": "Finished",
     "playersLeft": "{left} / {total} left",
+    "avgBB": "Avg {bb} BB",
     "endsIn": "Ends in {time}",
     "share": "Share",
     "copyId": "Copy room ID",
