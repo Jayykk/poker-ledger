@@ -16,11 +16,6 @@ export const MIN_BUY_IN = 100;
 // Default exchange rate (chips to cash)
 export const DEFAULT_EXCHANGE_RATE = 10;
 
-// Blind timer presets (in minutes)
-export const BLIND_TIMER_PRESETS = [15, 20, 30, 45, 60];
-export const DEFAULT_BLIND_DURATION = 20;
-export const DEFAULT_BREAK_DURATION = 5;
-
 // Tournament defaults
 export const DEFAULT_TOURNAMENT_LEVEL_DURATION = 15; // minutes
 export const DEFAULT_STARTING_CHIPS = 25000;

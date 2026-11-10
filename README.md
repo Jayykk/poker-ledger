@@ -47,10 +47,6 @@
 - `?__path=` 深層連結，LINE 卡片兩次載入內進房
 - ❌ 不做 LINE Bot／付費推播（Messaging API push）
 
-### 🃏 線上德撲（實驗性）
-- Cloud Functions 發牌與狀態機、Cloud Tasks 處理逾時／攤牌／下一手、15 分鐘閒置清掃
-- 底牌存放於 `pokerGames/{id}/private/{uid}`
-
 ### 平台
 - PWA：Service Worker 快取、有新版時提示更新
 - 四語系：繁中、簡中、English、日本語；深色／淺色主題
@@ -66,7 +62,7 @@
 | 前端 | Vue 3.5（Composition API）、Vue Router 4（hash history）、Pinia 2、vue-i18n 9、Tailwind CSS 3、Chart.js 4、Font Awesome 6 |
 | 建置／測試 | Vite 5、Vitest 4（jsdom）、@firebase/rules-unit-testing |
 | Firebase（前端） | Firebase JS SDK 12：Auth（Email／匿名／LINE custom token）、Firestore（persistent cache）、AI Logic（Gemini）、App Check（reCAPTCHA Enterprise） |
-| 後端 | Cloud Functions v2（Node.js 22、firebase-functions 7、firebase-admin 12）、Cloud Tasks、pokersolver |
+| 後端 | Cloud Functions v2（Node.js 22、firebase-functions 7、firebase-admin 12）、pokersolver（手牌牌型） |
 | LINE | LIFF SDK v2 |
 | CI/CD | GitHub Actions → GitHub Pages（前端）、Firebase（Functions + rules/indexes） |
 
@@ -75,20 +71,19 @@
 ```
 瀏覽器 / LINE LIFF (Vue PWA, GitHub Pages)
    │  直接讀寫 Firestore（受 firestore.rules 限制）
-   │  呼叫 onCall Cloud Functions（結算、德撲、LINE 登入…）
+   │  呼叫 onCall Cloud Functions（結算、稱號設定、LINE 登入…）
    │  直接呼叫 Gemini（Firebase AI Logic + App Check）
    ▼
 Firestore `poker-tw` ──trigger──▶ Cloud Functions (asia-east1)
                                    ├─ 結算後投影：history_sub → leaderboardStats → 稱號 / 本月王座
-                                   ├─ 手牌事件、公開個人資料同步
-                                   └─ Cloud Tasks / 排程：德撲逾時、房間自動關閉
+                                   └─ 手牌事件、公開個人資料同步
 ```
 
 **寫入分工**
 
 - **用戶端直接寫**：記帳房名單（`games`，transaction + `rev`）、`transactions`、活動報名與代墊、錦標賽時鐘狀態、手牌、開桌設定與盲注結構。非主辦者只能動名單相關欄位（rules 把關）。
-- **只有 Cloud Functions 寫**：結算結果（`settlementSnapshot`、`status: completed`）、`users/{uid}/history_sub`、`leaderboardStats`、`userTitles`、德撲牌局狀態與底牌、`clientErrors`、`lineLoginHandoffs`。
-- **共用計算**：`src/utils/` 的賞金／稱號／結算數學直接 re-export `functions/src/utils`，前後端同一份；`@engine` alias 指向德撲引擎。
+- **只有 Cloud Functions 寫**：結算結果（`settlementSnapshot`、`status: completed`）、`users/{uid}/history_sub`、`leaderboardStats`、`userTitles`、`clientErrors`、`lineLoginHandoffs`。
+- **共用計算**：`src/utils/` 的賞金／稱號／結算數學直接 re-export `functions/src/utils`，前後端同一份。
 
 ### 主要 Firestore 集合
 
@@ -101,8 +96,7 @@ Firestore `poker-tw` ──trigger──▶ Cloud Functions (asia-east1)
 | `transactions` | 買入稽核紀錄 |
 | `leaderboardStats/{uid}_{period}` | 排行榜彙總（CF 寫） |
 | `userTitles/{uid}` | 稱號與王座（CF 寫） |
-| `pokerGames/{id}` | 線上德撲房；`private/{uid}` 底牌 |
-| `admins`、`clientErrors`、`lineLoginHandoffs`、`taskFailures` | 後端／管理用 |
+| `admins`、`clientErrors`、`lineLoginHandoffs` | 後端／管理用 |
 
 ### 目錄
 
@@ -113,16 +107,14 @@ poker-ledger/
 │   ├── views/             # 頁面（admin/ 為管理頁）
 │   ├── components/        # game / tournament / session / social / common …
 │   ├── composables/       # useSessions、useTournamentClock、useLiff …
-│   ├── store/modules/     # Pinia：auth、game、user、hand、poker …
+│   ├── store/modules/     # Pinia：auth、game、user、hand …
 │   ├── utils/             # 純函式（多數有單元測試）
 │   └── i18n/locales/      # zh-TW、zh-CN、en、ja
 ├── functions/src/
 │   ├── index.js           # 所有 Cloud Functions 匯出點
-│   ├── handlers/          # 結算、投影、稱號、LINE、德撲流程…
-│   ├── engines/           # 德撲狀態機、底池、動作驗證
-│   └── utils/             # 前後端共用數學、Cloud Tasks、驗簽
+│   ├── handlers/          # 結算、投影、稱號、LINE…
+│   └── utils/             # 前後端共用數學
 ├── functions/scripts/     # 回填／遷移腳本（需 production 憑證，手動執行）
-├── scripts/               # 其他維運腳本
 ├── tests/                 # Vitest（tests/functions 為 CF 單元測試、tests/rules 為 rules 測試）
 ├── public/                # manifest、sw.js、圖示
 ├── firestore.rules        # 安全規則（唯一來源）
@@ -151,7 +143,7 @@ npm run dev
 | `VITE_APPCHECK_DEBUG_TOKEN` | 本機 App Check debug token |
 | `VITE_GEMINI_MODEL` | 選填，覆寫 Gemini 模型 |
 
-Functions 環境變數（`functions/.env`，範本見 `functions/.env.example`）：`LINE_CHANNEL_ID`、`LINE_CHANNEL_SECRET`、`POKER_TASKS_SECRET`、`ERRORS_GITHUB_TOKEN`、`ERRORS_GITHUB_REPO`。
+Functions 環境變數（`functions/.env`，範本見 `functions/.env.example`）：`LINE_CHANNEL_ID`、`LINE_CHANNEL_SECRET`、`ERRORS_GITHUB_TOKEN`、`ERRORS_GITHUB_REPO`。
 
 Firebase web config 預設寫在 `src/firebase-init.js`（公開資訊），可用 `VITE_FIREBASE_*` 覆寫成其他專案。Functions 另有逾時／冷啟動等選填參數，見 `functions/.env.example`。
 
@@ -185,7 +177,6 @@ push 到 `main` 自動觸發：
 | 名稱 | 類型 | 用途 |
 |---|---|---|
 | `FIREBASE_SERVICE_ACCOUNT` | Secret | SA 金鑰 JSON（`google-github-actions/auth` 的 `credentials_json`）。WIF 不支援 `firebase deploy`，故用金鑰 |
-| `POKER_TASKS_SECRET` | Secret | Cloud Tasks HMAC 簽章；未設定時 task endpoint 不驗證 |
 | `LINE_CHANNEL_ID` / `LINE_CHANNEL_SECRET` | Secret | LINE 登入驗證 channel、登入交接換 token |
 | `ERRORS_GITHUB_TOKEN` | Secret | 錯誤回報開 issue 用 |
 | `VITE_LIFF_ID` | Variable | 前端 build 注入 |
@@ -222,7 +213,6 @@ firebase deploy --only functions,firestore --project poker-ledger-a0e06
 - `firestore.rules` 是唯一權威來源，CI 以 emulator 測試（`tests/rules/`）後自動部署。
 - 已開啟匿名登入（荷官時鐘用），所以 rules 裡的 `isAuthenticated()` 等於「任何訪客」——新規則請以「主辦者／參與者／admin」判斷，不要只靠登入。
 - 結算、戰績投影、排行榜、稱號只由 Cloud Functions 寫入。
-- 德撲底牌只有本人可讀、只有 Cloud Functions 可寫。
 - 已知待修項目列於 `TODO.md` 的 P0。
 
 ---

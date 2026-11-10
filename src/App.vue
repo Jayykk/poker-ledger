@@ -2,7 +2,7 @@
   <div
     id="app"
     class="relative min-h-screen flex flex-col"
-    :class="{ 'immersive-mode': isPokerTableRoute, 'liff-mode': isLiffMode }"
+    :class="{ 'liff-mode': isLiffMode }"
   >
     <!-- Global loading overlay -->
     <LoadingSpinner v-if="globalLoading" fullScreen :text="loadingText" />
@@ -26,26 +26,6 @@
       </div>
     </div>
     
-    <!-- Floating HUD (Immersive Mode) -->
-    <div v-if="isPokerTableRoute" class="game-hud" aria-hidden="false">
-      <button
-        type="button"
-        class="hud-btn left"
-        aria-label="Back"
-        @click="handleHudBack"
-      >
-        ←
-      </button>
-      <button
-        type="button"
-        class="hud-btn right"
-        aria-label="Menu"
-        @click="handleHudMenu"
-      >
-        ☰
-      </button>
-    </div>
-
     <!-- Main content -->
     <router-view v-slot="{ Component }">
       <transition name="fade" mode="out-in">
@@ -53,7 +33,7 @@
       </transition>
     </router-view>
 
-    <!-- Bottom navigation (hidden in LIFF mode and poker game) -->
+    <!-- Bottom navigation (hidden on login and full-screen pages) -->
     <nav v-if="!hideBottomNav" class="fixed-bottom-nav glass">
       <div class="flex justify-around items-center h-16 max-w-md md:max-w-3xl lg:max-w-5xl mx-auto relative">
         <!-- Lobby -->
@@ -145,7 +125,7 @@ const userStore = useUserStore();
 const notificationStore = useNotificationStore();
 const loadingStore = useLoadingStore();
 const { confirm } = useConfirm();
-const { isInLineClient, isLoggedIn: liffLoggedIn, initLiff, getAccessToken, closeLiff } = useLiff();
+const { isInLineClient, isLoggedIn: liffLoggedIn, initLiff, getAccessToken } = useLiff();
 
 const loading = ref(true);
 // LIFF debug overlay — dev builds only; in production the logs aren't
@@ -165,17 +145,9 @@ const loadingText = computed(() => loadingStore.loadingText);
 // Whether the app is running inside LINE client (LIFF)
 const isLiffMode = computed(() => isInLineClient.value);
 
-// Immersive mode: PokerTable / PokerGame route.
-// Use both name + path for robustness.
-const isPokerTableRoute = computed(() => {
-  const path = String(route?.path || '');
-  return route?.name === 'PokerGame' || path.startsWith('/poker-game');
-});
-
 // In LIFF mode, also hide bottom nav on game detail pages
 const hideBottomNav = computed(() => {
   if (!isAuthenticated.value || route.path === '/login') return true;
-  if (route.path.startsWith('/poker-game')) return true;
   if (route.path.startsWith('/tournament-clock')) return true;
   if (route.path.startsWith('/dealer-clock')) return true;
   if (route.path.startsWith('/time-bank')) return true;
@@ -185,20 +157,6 @@ const hideBottomNav = computed(() => {
   if (/^\/(game|tournament-game)(\/|$)/.test(route.path)) return true;
   return false;
 });
-
-const handleHudBack = () => {  // In LINE client, close the LIFF window instead of navigating
-  if (isLiffMode.value) {
-    closeLiff();
-    return;
-  }  // Match PokerGame's “Back to Lobby” intent.
-  router.push({ name: 'GameLobby' });
-};
-
-const handleHudMenu = () => {
-  // PokerGame keeps menu state internally; trigger its hamburger click.
-  const hamburger = document.querySelector('.poker-game-view .btn-hamburger');
-  if (hamburger && typeof hamburger.click === 'function') hamburger.click();
-};
 
 const handleConfirm = (result) => {
   notificationStore.resolveConfirm(result);
@@ -398,68 +356,6 @@ watch(() => authStore.user, async (newUser, oldUser) => {
 </script>
 
 <style>
-/* Ensure the container for floating buttons doesn't block clicks */
-#app.immersive-mode .game-hud {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 0;
-  z-index: 100;
-}
-
-/* Style and position the floating buttons tightly to the top */
-#app.immersive-mode .hud-btn {
-  position: absolute;
-  top: 8px;
-  top: calc(8px + env(safe-area-inset-top));
-  width: 40px;
-  height: 40px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgb(var(--tw-white) / 0.2);
-  border-radius: 50%;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  cursor: pointer;
-  backdrop-filter: blur(4px);
-}
-
-#app.immersive-mode .hud-btn.left {
-  left: 15px;
-}
-
-#app.immersive-mode .hud-btn.right {
-  right: 15px;
-}
-
-/* Collapse PokerGame's built-in top bar without breaking its dropdown menu */
-#app.immersive-mode .poker-game-view .top-bar {
-  height: 0 !important;
-  min-height: 0 !important;
-  padding: 0 !important;
-  border-bottom: 0 !important;
-  background: transparent !important;
-  overflow: visible !important;
-}
-
-#app.immersive-mode .poker-game-view .top-bar .game-info {
-  display: none !important;
-}
-
-#app.immersive-mode .poker-game-view .top-bar .btn-back,
-#app.immersive-mode .poker-game-view .top-bar .btn-hamburger {
-  display: none !important;
-}
-
-/* Let the table section expand now that the top bar is collapsed */
-#app.immersive-mode .poker-game-view .middle-section {
-  height: 100vh !important;
-  flex: 1 1 auto;
-}
-
 /* LIFF safe area padding for iPhone notch and gesture bar */
 #app.liff-mode {
   padding-top: env(safe-area-inset-top);

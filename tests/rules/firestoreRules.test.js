@@ -88,17 +88,12 @@ beforeEach(async () => {
       players: [], createdAt: Date.now(), recordedBy: BOB, recordedAfter: true, recorderIndex: 1,
     });
 
-    await setDoc(doc(db, 'pokerGames', 'waiting-room'), {
-      status: 'waiting', meta: { createdBy: ALICE, blinds: { small: 10, big: 20 } },
+    // A room left behind by the retired online tables
+    await setDoc(doc(db, 'pokerGames', 'old-room'), {
+      status: 'waiting', meta: { createdBy: ALICE },
     });
-    await setDoc(doc(db, 'pokerGames', 'finished-room'), {
-      status: 'finished', meta: { createdBy: ALICE, blinds: { small: 10, big: 20 } },
-    });
-    await setDoc(doc(db, 'pokerGames', 'waiting-room', 'private', ALICE), {
+    await setDoc(doc(db, 'pokerGames', 'old-room', 'private', ALICE), {
       holeCards: ['Ah', 'Kd'],
-    });
-    await setDoc(doc(db, 'pokerGames', 'waiting-room', 'hands', 'hand-1'), {
-      handNumber: 1,
     });
 
     await setDoc(doc(db, 'transactions', 'tx-1'), {
@@ -330,76 +325,15 @@ describe('補記手牌 (hands of a finished game)', () => {
   });
 });
 
-describe('pokerGames (Texas Hold\'em rooms)', () => {
-  it('any signed-in user can GET a room by ID', async () => {
-    await assertSucceeds(getDoc(doc(bobDb(), 'pokerGames', 'finished-room')));
-  });
-
-  it('lobby can LIST joinable rooms (status in waiting/playing)', async () => {
-    await assertSucceeds(getDocs(
-      query(collection(bobDb(), 'pokerGames'), where('status', 'in', ['waiting', 'playing']))
-    ));
-  });
-
-  it('non-admins cannot enumerate all rooms', async () => {
-    await assertFails(getDocs(collection(bobDb(), 'pokerGames')));
-  });
-
-  it('creators can LIST their own rooms', async () => {
-    await assertSucceeds(getDocs(
-      query(collection(aliceDb(), 'pokerGames'), where('meta.createdBy', '==', ALICE))
-    ));
-  });
-
-  it('players can flip the settling flag (client auto-settle)', async () => {
-    await assertSucceeds(updateDoc(doc(bobDb(), 'pokerGames', 'waiting-room'), {
-      settling: true,
+describe('pokerGames (retired online tables)', () => {
+  it('rooms are closed to everyone, their creator included', async () => {
+    await assertFails(getDoc(doc(aliceDb(), 'pokerGames', 'old-room')));
+    await assertFails(getDocs(collection(aliceDb(), 'pokerGames')));
+    await assertFails(getDoc(doc(aliceDb(), 'pokerGames', 'old-room', 'private', ALICE)));
+    await assertFails(setDoc(doc(aliceDb(), 'pokerGames', 'new-room'), {
+      status: 'waiting', meta: { createdBy: ALICE },
     }));
-  });
-
-  it('non-creators cannot touch seats, chips, pot or status (Cloud Functions-only)', async () => {
-    await assertFails(updateDoc(doc(bobDb(), 'pokerGames', 'waiting-room'), {
-      'seats.0': { odId: BOB, chips: 1e9 },
-    }));
-    await assertFails(updateDoc(doc(bobDb(), 'pokerGames', 'waiting-room'), {
-      'table.pot': 0,
-    }));
-    await assertFails(updateDoc(doc(bobDb(), 'pokerGames', 'waiting-room'), {
-      status: 'ended',
-    }));
-  });
-
-  it('the server-held deck is not readable by anyone', async () => {
-    await assertFails(getDoc(doc(aliceDb(), 'pokerGames', 'waiting-room', 'server', 'deck')));
-    await assertFails(getDoc(doc(bobDb(), 'pokerGames', 'waiting-room', 'server', 'deck')));
-  });
-
-  it('non-creators cannot tamper with meta config', async () => {
-    await assertFails(updateDoc(doc(bobDb(), 'pokerGames', 'waiting-room'), {
-      'meta.blinds': { small: 1000, big: 2000 },
-    }));
-  });
-
-  it('the creator can update meta config', async () => {
-    await assertSucceeds(updateDoc(doc(aliceDb(), 'pokerGames', 'waiting-room'), {
-      'meta.blinds': { small: 25, big: 50 },
-    }));
-  });
-
-  it('hole cards are readable only by their owner', async () => {
-    await assertSucceeds(getDoc(doc(aliceDb(), 'pokerGames', 'waiting-room', 'private', ALICE)));
-    await assertFails(getDoc(doc(bobDb(), 'pokerGames', 'waiting-room', 'private', ALICE)));
-  });
-
-  it('clients can never write hole cards or hand history', async () => {
-    await assertFails(setDoc(
-      doc(aliceDb(), 'pokerGames', 'waiting-room', 'private', ALICE),
-      { holeCards: ['As', 'Ad'] }
-    ));
-    await assertFails(setDoc(
-      doc(aliceDb(), 'pokerGames', 'waiting-room', 'hands', 'hand-2'),
-      { handNumber: 2 }
-    ));
+    await assertFails(updateDoc(doc(aliceDb(), 'pokerGames', 'old-room'), { status: 'playing' }));
   });
 });
 

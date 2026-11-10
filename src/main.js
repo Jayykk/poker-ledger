@@ -132,8 +132,6 @@ import ReportView from './views/ReportView.vue';
 import ProfileView from './views/ProfileView.vue';
 import TitlesView from './views/TitlesView.vue';
 import FriendsView from './views/FriendsView.vue';
-import GameLobby from './views/GameLobby.vue';
-import PokerGame from './views/PokerGame.vue';
 import DailyReportView from './views/DailyReportView.vue';
 import TournamentClockView from './views/TournamentClockView.vue';
 import BlindStructuresView from './views/BlindStructuresView.vue';
@@ -208,8 +206,9 @@ import { logger } from "./utils/logger.js";
       // 稱號圖鑑
       { path: '/titles', name: 'Titles', component: TitlesView, meta: { requiresAuth: true } },
       { path: '/friends', name: 'Friends', component: FriendsView, meta: { requiresAuth: true } },
-      { path: '/poker-lobby', name: 'GameLobby', component: GameLobby, meta: { requiresAuth: true } },
-      { path: '/poker-game/:gameId', name: 'PokerGame', component: PokerGame, meta: { requiresAuth: true } },
+      // 線上德撲已下架：舊的邀請連結／書籤回到大廳
+      { path: '/poker-lobby', redirect: '/lobby' },
+      { path: '/poker-game/:gameId', redirect: '/lobby' },
       // 賽制設定 = blind-structure library; 開桌範本 = table templates
       { path: '/structures', name: 'BlindStructures', component: BlindStructuresView, meta: { requiresAuth: true } },
       { path: '/structure-setup', name: 'StructureSetup', component: BlindStructureSetupView, meta: { requiresAuth: true } },

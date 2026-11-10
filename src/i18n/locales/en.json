@@ -71,17 +71,12 @@
     "social": "Social",
     "report": "Report",
     "profile": "Profile",
-    "friends": "Friends",
-    "poker": "Poker"
+    "friends": "Friends"
   },
   "action": {
     "title": "Choose Action",
     "liveTrack": "Live Track",
     "liveTrackDesc": "Track your own game and profits",
-    "createOnline": "Create Room",
-    "createOnlineDesc": "Create an online room and invite friends",
-    "joinOnline": "Join Room",
-    "joinOnlineDesc": "Enter room ID to join a friend's game",
     "tournament": "Blind Clock",
     "tournamentDesc": "Set up tournament structure with fullscreen clock",
     "tournamentSetup": "Blind structures",
@@ -107,8 +102,6 @@
     "cashGameDesc": "Standard cash game tracking",
     "tournamentGame": "Tournament",
     "tournamentGameDesc": "Tournament mode with blind structure",
-    "onlineGame": "Online Poker",
-    "onlineGameDesc": "Live Texas Hold'em — auto-dealt, share a link to seat players",
     "chooseTemplate": "Choose a table preset",
     "gameCreated": "Room created",
     "tools": "Tools",
@@ -332,22 +325,6 @@
     "palsHint": "Your circle: players you shared 2+ games with in the last 6 months",
     "palsCount": "Me and {n} pals",
     "noPals": "No pals yet (2+ shared games in 6 months)"
-  },
-  "chat": {
-    "title": "Chat",
-    "typeMessage": "Type a message...",
-    "send": "Send"
-  },
-  "blindTimer": {
-    "title": "Blind Timer",
-    "level": "Level",
-    "smallBlind": "Small Blind",
-    "bigBlind": "Big Blind",
-    "timeRemaining": "Time Remaining",
-    "start": "Start",
-    "pause": "Pause",
-    "reset": "Reset",
-    "breakTime": "Break Time"
   },
   "invitations": {
     "title": "Invitations",
@@ -709,8 +686,6 @@
       "baseBuyInHint": "Chips represented by one buy-in unit",
       "notes": "Notes",
       "notesPlaceholder": "Add notes (optional)",
-      "minBuyIn": "Min Buy-in",
-      "maxBuyIn": "Max Buy-in",
       "settlementCorrectionTitle": "Settlement Correction",
       "settlementCorrectionHint": "Correct exchange rate and player chip values for completed tables, then sync every affected player history record.",
       "exchangeRate": "Exchange Rate",
@@ -767,7 +742,6 @@
       "blindsNegative": "Blinds cannot be negative",
       "bigBlindLessThanSmall": "Big blind must be greater than or equal to small blind",
       "startingChipsMin": "Starting chips must be at least 100",
-      "minBuyInExceedsMax": "Min buy-in cannot be greater than max buy-in",
       "maxPlayersRange": "Max players must be between 2 and 20",
       "exchangeRatePositive": "Exchange rate must be greater than 0",
       "baseBuyInPositive": "Base buy-in must be greater than 0 for unit-based correction",

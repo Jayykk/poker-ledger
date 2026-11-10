@@ -315,9 +315,9 @@ describe('Lobby layout', () => {
       expect(lobbyContent).toContain("$t('session.noActiveEvents')");
     });
 
-    it('join takes an online table invite link', () => {
-      expect(lobbyContent).toContain("if (/poker-game(\\/|%2F)/i.test(gameCode.value)) {");
-      expect(lobbyContent).toMatch(/poker-game\(\\\/\|%2F\)\/i\.test\(gameCode\.value\)[\s\S]*?parsePokerGameId/);
+    it('join no longer special-cases online table invite links', () => {
+      expect(lobbyContent).not.toContain('poker-game');
+      expect(lobbyContent).not.toContain('parsePokerGameId');
     });
 
     it('the nav has no centre action button or action modal', () => {
@@ -349,27 +349,6 @@ describe('Lobby layout', () => {
 // 4. App.vue Route Guards
 // ═══════════════════════════════════════════════════════════════════════
 describe('App.vue route guards', () => {
-  describe('isPokerTableRoute (HUD visibility)', () => {
-    it('should include poker-game routes', () => {
-      expect(appContent).toMatch(/isPokerTableRoute[\s\S]*?poker-game/);
-    });
-
-    it('should NOT include tournament-clock in isPokerTableRoute', () => {
-      // Extract the isPokerTableRoute computed function body
-      const match = appContent.match(/isPokerTableRoute\s*=\s*computed\(\(\)\s*=>\s*\{([^}]*)\}/);
-      expect(match).not.toBeNull();
-      const body = match[1];
-      expect(body).not.toContain('tournament-clock');
-    });
-
-    it('should NOT include time-bank in isPokerTableRoute', () => {
-      const match = appContent.match(/isPokerTableRoute\s*=\s*computed\(\(\)\s*=>\s*\{([^}]*)\}/);
-      expect(match).not.toBeNull();
-      const body = match[1];
-      expect(body).not.toContain('time-bank');
-    });
-  });
-
   describe('hideBottomNav', () => {
     it('should hide bottom nav on tournament-clock routes', () => {
       expect(appContent).toMatch(/hideBottomNav[\s\S]*?tournament-clock/);
@@ -377,10 +356,6 @@ describe('App.vue route guards', () => {
 
     it('should hide bottom nav on time-bank routes', () => {
       expect(appContent).toMatch(/hideBottomNav[\s\S]*?time-bank/);
-    });
-
-    it('should hide bottom nav on poker-game routes', () => {
-      expect(appContent).toMatch(/hideBottomNav[\s\S]*?poker-game/);
     });
 
     it('should hide bottom nav when not authenticated', () => {

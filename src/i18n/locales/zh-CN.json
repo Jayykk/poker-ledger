@@ -71,17 +71,12 @@
     "social": "好友",
     "report": "报表",
     "profile": "我的",
-    "friends": "好友",
-    "poker": "德扑"
+    "friends": "好友"
   },
   "action": {
     "title": "选择开局方式",
     "liveTrack": "现场记账",
     "liveTrackDesc": "自己玩，自己记录损益",
-    "createOnline": "创建房间",
-    "createOnlineDesc": "开一个线上房间，邀请朋友加入",
-    "joinOnline": "加入房间",
-    "joinOnlineDesc": "输入房间 ID 加入朋友的局",
     "tournament": "赛制时钟",
     "tournamentDesc": "设置锦标赛结构并显示全屏时钟",
     "tournamentSetup": "盲注结构",
@@ -107,8 +102,6 @@
     "cashGameDesc": "一般现金游戏记帐",
     "tournamentGame": "锦标赛",
     "tournamentGameDesc": "带盲注结构的锦标赛模式",
-    "onlineGame": "线上德州扑克",
-    "onlineGameDesc": "线上自动发牌牌桌，分享链接即入座",
     "chooseTemplate": "选择开桌设定",
     "gameCreated": "房间已创建",
     "tools": "工具",
@@ -332,22 +325,6 @@
     "palsHint": "牌友圈：近 6 个月同桌 2 场以上的玩家",
     "palsCount": "我和 {n} 位牌友",
     "noPals": "还没有牌友（近 6 个月同桌 2 场以上）"
-  },
-  "chat": {
-    "title": "聊天室",
-    "typeMessage": "输入消息...",
-    "send": "传送"
-  },
-  "blindTimer": {
-    "title": "Blind 计时器",
-    "level": "等级",
-    "smallBlind": "小盲",
-    "bigBlind": "大盲",
-    "timeRemaining": "剩余时间",
-    "start": "开始",
-    "pause": "暂停",
-    "reset": "重设",
-    "breakTime": "休息时间"
   },
   "invitations": {
     "title": "邀请",
@@ -709,8 +686,6 @@
       "baseBuyInHint": "每 1 组对应的码量",
       "notes": "备注",
       "notesPlaceholder": "填写备注（选填）",
-      "minBuyIn": "最低买入",
-      "maxBuyIn": "最高买入",
       "settlementCorrectionTitle": "结算校正",
       "settlementCorrectionHint": "只针对已结算桌次修正汇率与玩家码量，并同步更新所有玩家的历史记录。",
       "exchangeRate": "汇率",
@@ -767,7 +742,6 @@
       "blindsNegative": "盲注不可为负数",
       "bigBlindLessThanSmall": "大盲必须大于等于小盲",
       "startingChipsMin": "起始筹码至少需要 100",
-      "minBuyInExceedsMax": "最低买入不可超过最高买入",
       "maxPlayersRange": "最大玩家数需介于 2 至 20",
       "exchangeRatePositive": "汇率必须大于 0",
       "baseBuyInPositive": "基本买入必须大于 0 才能用组数校正",

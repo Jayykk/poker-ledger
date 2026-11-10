@@ -20,13 +20,6 @@
       缺 7 月收緊 + leaderboardStats）已用 Rules REST API 部署至 poker-tw
       （ruleset 4d588a81），並把 firebase-deploy.yml 改為
       `--only functions,firestore` 自動部署 rules/indexes
-- [x] ~~**（德撲）客戶端自動結算 double-settle 競態**~~：2026-10-30 `settlePokerGame` 改為
-      transaction 內冪等（已 completed 直接返回、只結算 status ended）、限房主／在座者呼叫；
-      前端只有房主／在座者才觸發。觸發仍在前端，日後可再搬到 server-side trigger
-- [x] ~~**（德撲）牌堆公開可讀**~~：2026-10-30 剩餘牌堆移到 `pokerGames/{id}/server/deck`
-      （rules 預設拒絕），公開文件寫入一律剝除（`functions/src/utils/pokerDeck.js`）；
-      洗牌改用 `crypto.randomInt`；pokerGames 非房主只能改 `settling`；
-      `startPokerHand` / `setEndAfterHand` 限房主／在座者
 - [x] ~~**rules 收緊（2026-10-30）**~~：已結算的 games 非主辦者不能再改 players
       （會重跑投影改到排行榜）；錦標賽時鐘荷官模式只能改 `state`／`updatedAt`／`clockStyle`，
       不能改 hostUid／config／荷官開關；舊版 `recordBuyInTx`／`undoBuyInTx` 限成員且拒絕已結算局
@@ -34,7 +27,7 @@
       `reportClientError` 限非匿名 + 每 uid 限流（目前匿名可灌爆每日 20 個 issue 額度）；
       `transactions` create 驗證 gameId 成員資格；`games/*/chat` 驗 uid＝本人與長度；
       刪除已無用的 friends／invitations／friendRequests rules；
-      `taskAuth`／`lineAuth` 未設 env 時改 fail-closed（正式環境目前已設定，屬防呆）；
+      `lineAuth` 未設 env 時改 fail-closed（正式環境目前已設定，屬防呆）；
       GitHub 刪除未使用的 `FIREBASE_TOKEN` secret
 
 ## 🟠 P1 — 效能（建議下一輪主力）
@@ -53,16 +46,12 @@
 - [ ] **前端 ESLint**（導入 eslint-plugin-vue 並消化初次掃描結果；functions 已有）
 - [ ] **E2E 測試**（Playwright）：開局→買入→結算關鍵路徑（需 Auth emulator 或測試環境）
 - [ ] **`tests/events.test.js` placeholder 補實作**
-- [ ] **store 監聽器洩漏盤點**：`poker.js` `stopListeners()`（:481-490）與 `game.js`
-      `cleanup()`（:796）依賴 view 手動呼叫，漏呼叫即洩漏——盤點所有離開路徑，
-      或改在 router leave guard 統一處理
-- [ ] **統一後端錯誤處理（續）**：room.js / chat.js / transaction.js 與部分 game 流程的
-      `new Error()` 換成錯誤碼（`createGameError`）
-- [ ] **拆分其餘大檔案**（PokerGame.vue / PokerTable.vue / LobbyView.vue / useLiff.js /
-      game.js store）：機械式拆分純屬可讀性、無法在本機多人實測下驗證回歸，
+- [ ] **store 監聽器洩漏盤點**：`game.js` `cleanup()` 依賴 view 手動呼叫，
+      漏呼叫即洩漏——盤點所有離開路徑，或改在 router leave guard 統一處理
+- [ ] **拆分其餘大檔案**（LobbyView.vue / useLiff.js / game.js store）：機械式拆分純屬可讀性、無法在本機多人實測下驗證回歸，
       留待有真機測試窗口時再做，不盲拆
 - [ ] **雙軌狀態模式文件化**：Pinia store 與 composable 各自持有 Firestore 監聽與業務邏輯
-      （ledger/auth/poker 走 store；sessions/tournament clock 走 composable）——
+      （ledger/auth 走 store；sessions/tournament clock 走 composable）——
       訂約定寫進 copilot-instructions 即可，不強制重構
 - [ ] **移除 `recordBuyInTx` / `undoBuyInTx` Cloud Functions**：2026-09-29 起前端改用
       用戶端 transaction（`game.js` 的 `recordLedgerTx` / `undoLedgerTx`）；保留一個版本週期
@@ -70,28 +59,21 @@
 
 ## 🟢 P3 — 維運（人工步驟）
 
-- [ ] **執行 `scripts/migrate_entries_to_events.js`**（先 `--dry-run` 驗證，確認後
-      `--delete-old`；需 production service account 憑證，須由維護者手動執行）
 - [x] ~~**legacy history 遷移**~~：2026-07-20 全流程完成——正式遷移 133 筆、
       `--verify` 33/33 通過、backfill 重算 42 人 / 382 份、`--delete-legacy`
       逐人驗證後刪除 33 人的 `users.history`（備份於本機 scripts-output/，已 gitignore）。
       `user.js` 的 legacy merge 程式碼已移除，`history_sub` 為唯一歷史來源
 - [ ] **LINE Phase 1 人工驗證**：LINE App 內開 LIFF 自動登入進 Lobby、
       外部瀏覽器維持 email/guest 登入、頭像暱稱顯示為 LINE profile
-- [ ] **德撲真機驗收**（§4-5 殘留）：兩支手機點連結到打完一手 ≤ 90 秒、
-      中途重整 10 秒內回桌、找沒用過的朋友實測免解說入座——實作皆已到位，待實測計時
+## 🃏 線上德撲（已下架）
 
-## 🃏 線上德撲（本體範圍外，順帶發現備忘）
+> 2026-11-10 因效能問題放棄，前後端、rules、測試全數自主線移除；移除前的完整程式碼保存在
+> git tag `online-poker-final`。舊的 `/poker-lobby`、`/poker-game/:id` 連結會導回大廳。
 
-- [ ] **Run It Twice 未接線 + 同板 bug**（`functions/src/engines/texasHoldem.js:453-499`）：
-      引擎 `runItTwice()` 無任何 handler 呼叫、前端 `RunItTwiceModal.vue` 無任何引用（死碼）；
-      且 `deck1`/`deck2` 從同一副牌複製、發牌順序相同——兩次 runout **必然完全相同**。
-      要嘛修好牌堆邏輯並接上流程、要嘛整組刪除
-- [ ] **死碼清理**：`calculateSidePots`（texasHoldem.js:399-445，讀已不存在的
-      `seat.currentBet`；實際邏輯在 potCalculator.js）、`onTurnChange` no-op trigger
-      （functions/src/index.js:717-722，註解自承已不需要）
-- [ ] **Phase 5（未排程）**：錦標賽模式（線上發牌版）、Sit & Go、俱樂部系統、
-      線上德撲專屬排行榜、成就系統
+- [ ] **下架後的人工收尾**：Firestore 的 `pokerGames` 集合（含 `hands`／`events`／`private`／
+      `server`／`chat` 子集合）已被 rules 全面封鎖但資料仍在——確認不需要後從 Console 刪除
+      （注意排行榜「特殊牌型」會讀到其中的 `hands`，刪除後該統計只剩記帳房手牌）；
+      GitHub 刪除 `POKER_TASKS_SECRET` secret；GCP 刪除德撲用的 Cloud Tasks queue
 
 ## 📱 LINE（僅限免費 LIFF 範圍；Bot/付費推播不做）
 

@@ -71,17 +71,12 @@
     "social": "好友",
     "report": "報表",
     "profile": "我的",
-    "friends": "好友",
-    "poker": "德撲"
+    "friends": "好友"
   },
   "action": {
     "title": "選擇開局方式",
     "liveTrack": "現場記帳",
     "liveTrackDesc": "自己玩，自己記錄損益",
-    "createOnline": "建立房間",
-    "createOnlineDesc": "開一個線上房間，邀請朋友加入",
-    "joinOnline": "加入房間",
-    "joinOnlineDesc": "輸入房間 ID 加入朋友的局",
     "tournament": "賽制時鐘",
     "tournamentDesc": "設定錦標賽結構，大螢幕倒數計時",
     "tournamentSetup": "盲注結構",
@@ -107,8 +102,6 @@
     "cashGameDesc": "一般限時遊戲記帳",
     "tournamentGame": "錦標賽",
     "tournamentGameDesc": "帶盲注結構的錦標賽模式",
-    "onlineGame": "線上德州撲克",
-    "onlineGameDesc": "線上自動發牌牌桌，分享連結即入座",
     "chooseTemplate": "選擇開桌設定",
     "gameCreated": "房間已建立",
     "tools": "工具",
@@ -332,22 +325,6 @@
     "palsHint": "牌友圈：近 6 個月同桌 2 場以上的玩家",
     "palsCount": "我和 {n} 位牌友",
     "noPals": "還沒有牌友（近 6 個月同桌 2 場以上）"
-  },
-  "chat": {
-    "title": "聊天室",
-    "typeMessage": "輸入訊息...",
-    "send": "傳送"
-  },
-  "blindTimer": {
-    "title": "Blind 計時器",
-    "level": "等級",
-    "smallBlind": "小盲",
-    "bigBlind": "大盲",
-    "timeRemaining": "剩餘時間",
-    "start": "開始",
-    "pause": "暫停",
-    "reset": "重設",
-    "breakTime": "休息時間"
   },
   "invitations": {
     "title": "邀請",
@@ -709,8 +686,6 @@
       "baseBuyInHint": "每 1 組對應的碼量",
       "notes": "備註",
       "notesPlaceholder": "填寫備註（選填）",
-      "minBuyIn": "最低買入",
-      "maxBuyIn": "最高買入",
       "settlementCorrectionTitle": "結算校正",
       "settlementCorrectionHint": "只針對已結算桌次修正匯率與玩家碼量，並同步更新所有玩家的歷史紀錄。",
       "exchangeRate": "匯率",
@@ -767,7 +742,6 @@
       "blindsNegative": "盲注不可為負數",
       "bigBlindLessThanSmall": "大盲必須大於等於小盲",
       "startingChipsMin": "起始籌碼至少需要 100",
-      "minBuyInExceedsMax": "最低買入不可超過最高買入",
       "maxPlayersRange": "最大玩家數需介於 2 至 20",
       "exchangeRatePositive": "匯率必須大於 0",
       "baseBuyInPositive": "基本買入必須大於 0 才能用組數校正",
