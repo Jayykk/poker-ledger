@@ -52,7 +52,7 @@ const millis = (v) => (v?.toMillis ? v.toMillis() : Number(v) || 0);
 const snap = await db.collectionGroup('hands').get();
 let changed = 0;
 for (const docSnap of snap.docs) {
-  if (!docSnap.ref.path.startsWith('games/')) continue; // online poker hands live elsewhere
+  if (!docSnap.ref.path.startsWith('games/')) continue; // hands left by the retired online tables live elsewhere
   const hand = docSnap.data();
   const at = millis(hand.createdAt);
   if (!at || at >= before) continue;

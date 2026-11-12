@@ -2,65 +2,7 @@
   <section class="card">
     <h2 class="section-title">{{ $t('tournament.basicInfo') }}</h2>
     <div class="space-y-3">
-      <div v-if="isPokerGame" class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="field-label">{{ $t('tournament.smallBlind') }}</label>
-          <input
-            v-model.number="smallBlind"
-            type="number"
-            min="0"
-            class="field-input"
-            :disabled="locked"
-          />
-        </div>
-        <div>
-          <label class="field-label">{{ $t('tournament.bigBlind') }}</label>
-          <input
-            v-model.number="bigBlind"
-            type="number"
-            min="0"
-            class="field-input"
-            :disabled="locked"
-          />
-        </div>
-      </div>
-
-      <div v-if="isPokerGame" class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="field-label">{{ $t('admin.cashEdit.minBuyIn') }}</label>
-          <input
-            v-model.number="minBuyIn"
-            type="number"
-            min="0"
-            class="field-input"
-            :disabled="locked"
-          />
-        </div>
-        <div>
-          <label class="field-label">{{ $t('admin.cashEdit.maxBuyIn') }}</label>
-          <input
-            v-model.number="maxBuyIn"
-            type="number"
-            min="0"
-            class="field-input"
-            :disabled="locked"
-          />
-        </div>
-      </div>
-
-      <div v-if="isPokerGame">
-        <label class="field-label">{{ $t('lobby.maxPlayers') }}</label>
-        <input
-          v-model.number="maxPlayers"
-          type="number"
-          min="2"
-          max="20"
-          class="field-input"
-          disabled
-        />
-      </div>
-
-      <div v-if="!isPokerGame">
+      <div>
         <label class="field-label">{{ $t('game.title') }}</label>
         <input
           v-model="name"
@@ -71,7 +13,7 @@
         />
       </div>
 
-      <div v-if="!isPokerGame" class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="field-label">{{ $t('admin.cashEdit.baseBuyIn') }}</label>
           <input
@@ -95,7 +37,7 @@
         </div>
       </div>
 
-      <div v-if="!isPokerGame && gameType === 'online'" class="grid grid-cols-2 gap-3">
+      <div v-if="gameType === 'online'" class="grid grid-cols-2 gap-3">
         <div>
           <label class="field-label">{{ $t('tournament.smallBlind') }}</label>
           <input
@@ -136,12 +78,7 @@
 import { computed } from 'vue';
 
 const props = defineProps({
-  /** Whether the edited document comes from the pokerGames collection */
-  isPokerGame: {
-    type: Boolean,
-    default: false,
-  },
-  /** game.type for non-poker games ('online' enables maxPlayers/blinds editing) */
+  /** game.type (legacy 'online' rooms also edit maxPlayers/blinds) */
   gameType: {
     type: String,
     default: '',
@@ -156,14 +93,6 @@ const props = defineProps({
     default: '',
   },
   baseBuyIn: {
-    type: [Number, String],
-    default: 0,
-  },
-  minBuyIn: {
-    type: [Number, String],
-    default: 0,
-  },
-  maxBuyIn: {
     type: [Number, String],
     default: 0,
   },
@@ -188,8 +117,6 @@ const props = defineProps({
 const emit = defineEmits([
   'update:name',
   'update:baseBuyIn',
-  'update:minBuyIn',
-  'update:maxBuyIn',
   'update:maxPlayers',
   'update:smallBlind',
   'update:bigBlind',
@@ -205,8 +132,6 @@ function fieldModel(key) {
 
 const name = fieldModel('name');
 const baseBuyIn = fieldModel('baseBuyIn');
-const minBuyIn = fieldModel('minBuyIn');
-const maxBuyIn = fieldModel('maxBuyIn');
 const maxPlayers = fieldModel('maxPlayers');
 const smallBlind = fieldModel('smallBlind');
 const bigBlind = fieldModel('bigBlind');

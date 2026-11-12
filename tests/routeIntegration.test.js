@@ -52,6 +52,13 @@ describe('Route definitions', () => {
     });
   }
 
+  it('online poker is gone: its old links land on the lobby', () => {
+    expect(mainContent).toContain("{ path: '/poker-lobby', redirect: '/lobby' }");
+    expect(mainContent).toContain("{ path: '/poker-game/:gameId', redirect: '/lobby' }");
+    expect(mainContent).not.toContain('PokerGame');
+    expect(mainContent).not.toContain('GameLobby');
+  });
+
   it('should define route "/dealer-clock-demo" with name "DealerClockDemo"', () => {
     expect(mainContent).toContain('/dealer-clock-demo');
     expect(mainContent).toContain('DealerClockDemo');
@@ -214,7 +221,7 @@ describe('Firestore rules include tournament/timebank collections', () => {
   });
 });
 
-describe('App.vue immersive mode', () => {
+describe('App.vue full-screen pages', () => {
   const { readFileSync } = require('fs');
   const { resolve } = require('path');
   const content = readFileSync(resolve(__dirname, '../src/App.vue'), 'utf-8');
@@ -227,9 +234,9 @@ describe('App.vue immersive mode', () => {
     expect(content).toContain("'/time-bank'");
   });
 
-  it('should include tournament routes in isPokerTableRoute', () => {
-    // Check that the computed references tournament-clock
-    expect(content).toMatch(/isPokerTableRoute[\s\S]*?tournament-clock/);
+  it('has no poker-table HUD left', () => {
+    expect(content).not.toContain('isPokerTableRoute');
+    expect(content).not.toContain('immersive-mode');
   });
 });
 

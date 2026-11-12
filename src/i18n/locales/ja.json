@@ -71,17 +71,12 @@
     "social": "友達",
     "report": "レポート",
     "profile": "プロフィール",
-    "friends": "友達",
-    "poker": "ポーカー"
+    "friends": "友達"
   },
   "action": {
     "title": "アクション選択",
     "liveTrack": "ライブ記録",
     "liveTrackDesc": "自分でプレイして記録する",
-    "createOnline": "ルーム作成",
-    "createOnlineDesc": "オンラインルームを作成して友達を招待",
-    "joinOnline": "ルーム参加",
-    "joinOnlineDesc": "ルームIDを入力して友達のゲームに参加",
     "tournament": "ブラインドクロック",
     "tournamentDesc": "トーナメント構成を設定してフルスクリーンクロックを表示",
     "tournamentSetup": "ブラインドストラクチャー",
@@ -107,8 +102,6 @@
     "cashGameDesc": "通常のキャッシュゲーム記録",
     "tournamentGame": "トーナメント",
     "tournamentGameDesc": "ブラインド構成付きトーナメントモード",
-    "onlineGame": "オンラインポーカー",
-    "onlineGameDesc": "オンライン自動配牌テーブル、リンク共有で着席",
     "chooseTemplate": "テーブル設定を選択",
     "gameCreated": "ルームが作成されました",
     "tools": "ツール",
@@ -332,22 +325,6 @@
     "palsHint": "仲間：直近6か月で2戦以上同卓したプレイヤー",
     "palsCount": "自分と仲間 {n} 人",
     "noPals": "まだ仲間がいません（6か月で2戦以上同卓）"
-  },
-  "chat": {
-    "title": "チャット",
-    "typeMessage": "メッセージを入力...",
-    "send": "送信"
-  },
-  "blindTimer": {
-    "title": "ブラインドタイマー",
-    "level": "レベル",
-    "smallBlind": "スモールブラインド",
-    "bigBlind": "ビッグブラインド",
-    "timeRemaining": "残り時間",
-    "start": "スタート",
-    "pause": "一時停止",
-    "reset": "リセット",
-    "breakTime": "休憩時間"
   },
   "invitations": {
     "title": "招待",
@@ -709,8 +686,6 @@
       "baseBuyInHint": "1ユニットあたりのチップ量",
       "notes": "メモ",
       "notesPlaceholder": "メモを入力（任意）",
-      "minBuyIn": "最低バイイン",
-      "maxBuyIn": "最高バイイン",
       "settlementCorrectionTitle": "精算補正",
       "settlementCorrectionHint": "終了済みテーブルのレートと各プレイヤーのチップ数を補正し、影響する全員の履歴を同期します。",
       "exchangeRate": "換算レート",
@@ -767,7 +742,6 @@
       "blindsNegative": "ブラインドは負の値にできません",
       "bigBlindLessThanSmall": "ビッグブラインドはスモールブラインド以上でなければなりません",
       "startingChipsMin": "スターティングチップスは最低100必要です",
-      "minBuyInExceedsMax": "最低バイインは最高バイインを超えることはできません",
       "maxPlayersRange": "最大プレイヤー数は2〜20の間である必要があります",
       "exchangeRatePositive": "換算レートは 0 より大きい必要があります",
       "baseBuyInPositive": "口数補正には基本バイインが 0 より大きい必要があります",

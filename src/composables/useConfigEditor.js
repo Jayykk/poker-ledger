@@ -33,46 +33,6 @@ export function useConfigEditor() {
   const error = ref('');
   const isSyncing = ref(false);
 
-  function _getNestedValue(obj, dotPath) {
-    return dotPath.split('.').reduce((acc, key) => (acc != null ? acc[key] : undefined), obj);
-  }
-
-  function _normalizePokerGameRollback(target) {
-    if (!target || typeof target !== 'object') return {};
-
-    const normalized = {};
-    const candidate = target.meta && typeof target.meta === 'object' ? target.meta : target;
-
-    if (candidate.blinds && typeof candidate.blinds === 'object') {
-      if (Object.prototype.hasOwnProperty.call(candidate.blinds, 'small')) {
-        normalized['meta.blinds.small'] = candidate.blinds.small;
-      }
-      if (Object.prototype.hasOwnProperty.call(candidate.blinds, 'big')) {
-        normalized['meta.blinds.big'] = candidate.blinds.big;
-      }
-    }
-
-    const fieldMap = {
-      minBuyIn: 'meta.minBuyIn',
-      maxBuyIn: 'meta.maxBuyIn',
-      notes: 'meta.notes',
-    };
-
-    for (const [sourceKey, targetKey] of Object.entries(fieldMap)) {
-      if (Object.prototype.hasOwnProperty.call(candidate, sourceKey)) {
-        normalized[targetKey] = candidate[sourceKey];
-      }
-    }
-
-    for (const [key, value] of Object.entries(target)) {
-      if (key.startsWith('meta.') && key !== 'meta.maxPlayers') {
-        normalized[key] = value;
-      }
-    }
-
-    return normalized;
-  }
-
   async function _writeVersion(parentCollection, parentId, targetType, before, after, reason) {
     await addDoc(collection(db, parentCollection, parentId, 'configVersions'), {
       targetId: parentId,
@@ -105,16 +65,12 @@ export function useConfigEditor() {
   // ── Cash game config ────────────────────────────────────────────────
 
   /**
-   * Update editable fields of a cash/online game document.
+   * Update editable fields of a ledger game document; the change is also
+   * recorded in its `configVersions` sub-collection.
    *
-   * Supports both the `games` collection (flat schema) and the `pokerGames`
-   * collection (nested `meta` schema). Pass the correct `parentCollection`
-   * so the document and its `configVersions` sub-collection are written to
-   * the right place.
-   *
-   * @param {string} parentCollection - 'pokerGames' or 'games'
+   * @param {string} parentCollection - 'games'
    * @param {string} gameId
-   * @param {object} updates  - Fields to update (use dot-notation for nested paths, e.g. 'meta.blinds.small')
+   * @param {object} updates  - Fields to update
    * @param {object} before   - Snapshot of the same fields before edit (for version record)
    * @param {string} [reason]
    */
@@ -346,7 +302,7 @@ export function useConfigEditor() {
   /**
    * Restore a previously saved config version.
    *
-   * @param {string} parentCollection - 'pokerGames', 'games', or 'tournamentSessions'
+   * @param {string} parentCollection - 'games' or 'tournamentSessions'
    * @param {string} parentId
    * @param {string} versionId
    * @param {string} [reason]
@@ -382,26 +338,6 @@ export function useConfigEditor() {
           'tournament',
           currentConfig,
           rollbackTarget,
-          reason || `Rollback to version ${versionId}`
-        );
-      } else if (parentCollection === 'pokerGames') {
-        const normalizedRollback = _normalizePokerGameRollback(rollbackTarget);
-        const currentBefore = {};
-
-        for (const key of Object.keys(normalizedRollback)) {
-          currentBefore[key] = _getNestedValue(currentData, key);
-        }
-
-        await updateDoc(doc(db, parentCollection, parentId), {
-          ...normalizedRollback,
-          updatedAt: serverTimestamp(),
-        });
-        await _writeVersion(
-          parentCollection,
-          parentId,
-          'cash',
-          currentBefore,
-          normalizedRollback,
           reason || `Rollback to version ${versionId}`
         );
       } else {

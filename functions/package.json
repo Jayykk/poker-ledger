@@ -1,7 +1,7 @@
 {
   "name": "poker-ledger-functions",
   "version": "1.0.0",
-  "description": "Cloud Functions for Poker Ledger - Texas Hold'em Game",
+  "description": "Cloud Functions for Poker Ledger",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
@@ -16,12 +16,9 @@
     "node": "22"
   },
   "dependencies": {
-    "@google-cloud/tasks": "^5.0.0",
-    "cors": "^2.8.5",
     "firebase-admin": "^12.0.0",
     "firebase-functions": "^7.2.5",
-    "pokersolver": "^2.1.4",
-    "uuid": "^13.0.0"
+    "pokersolver": "^2.1.4"
   },
   "devDependencies": {
     "eslint": "^8.57.0",

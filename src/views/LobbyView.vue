@@ -384,7 +384,7 @@
           <span class="text-white text-sm">{{ $t('game.chips') }}</span>
         </div>
 
-        <!-- Cash game: buy-in amount → derived rate (only when custom; online poker has no rate) -->
+        <!-- Cash game: buy-in amount → derived rate (only when custom) -->
         <div v-if="selectedGameType === 'cash' && !selectedCashPresetId" class="mb-4">
           <div class="flex gap-2 items-center">
             <span class="text-gray-400 text-sm w-24">{{ $t('cashPreset.buyInAmount') }}</span>
@@ -500,7 +500,6 @@ import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
 import { formatNumber, formatShortDate } from '../utils/formatters.js';
-import { parsePokerGameId } from '../utils/pokerEntry.js';
 import { DEFAULT_BUY_IN, MIN_BUY_IN, CHIP_STEP, GAME_TYPE, STORAGE_KEYS } from '../utils/constants.js';
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
 import {
@@ -783,16 +782,6 @@ const handleCheckGame = async () => {
   if (!gameCode.value) {
     showError('Please enter game ID');
     return;
-  }
-  // An online table's invite link (…/poker-game/<id>, or ?__path=poker-game%2F<id>) goes straight to the table
-  if (/poker-game(\/|%2F)/i.test(gameCode.value)) {
-    const tableId = parsePokerGameId(gameCode.value);
-    if (tableId) {
-      showJoinModal.value = false;
-      gameCode.value = '';
-      router.push(`/poker-game/${tableId}`);
-      return;
-    }
   }
   
   await withLoading(async () => {

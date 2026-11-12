@@ -865,45 +865,6 @@ const shareGameInvite = async (gameName, gameId, hostName, isTournament = false)
   }
 };
 
-/**
- * Share an online poker table invite via the LINE share target picker (Flex
- * Message). The link opens straight into the table where the joiner is
- * auto-seated.
- */
-const sharePokerInvite = async (gameId, hostName) => {
-  if (!isInitialized.value) return false;
-  try {
-    const liffUrl = liffLink(LIFF_ID, `poker-game/${gameId}`);
-    const host = hostName || '朋友';
-    const altText = `🃏 ${host} 開了一桌線上德州撲克！`;
-    const tapAction = { type: 'uri', label: '入座', uri: liffUrl };
-
-    const bubble = {
-      type: 'bubble',
-      header: {
-        type: 'box', layout: 'vertical', backgroundColor: '#0F9D58',
-        contents: [{ type: 'text', text: '🃏 線上德州撲克', color: '#FFFFFF', weight: 'bold', size: 'md' }],
-        action: tapAction,
-      },
-      body: {
-        type: 'box', layout: 'vertical', spacing: 'sm',
-        contents: [
-          { type: 'text', text: `${host} 開了一桌！`, weight: 'bold', size: 'lg', color: '#333333', wrap: true },
-          { type: 'text', text: '點下方按鈕直接入座，與好友同桌對戰。', size: 'sm', color: '#777777', margin: 'sm', wrap: true },
-        ],
-        action: tapAction,
-      },
-      footer: ctaFooter(liffUrl, '🎮 點連結直接入座', '#0F9D58'),
-    };
-
-    const result = await liff.shareTargetPicker([{ type: 'flex', altText, contents: bubble }]);
-    return result !== undefined;
-  } catch (err) {
-    console.error('[LIFF] sharePokerInvite failed:', err);
-    return false;
-  }
-};
-
 /** Build the shared LIFF URL for a live-event session page. */
 const sessionLiffUrl = (sessionId) =>
   (sessionId && LIFF_ID ? liffLink(LIFF_ID, `session/${sessionId}`) : undefined);
@@ -1101,7 +1062,6 @@ export function useLiff() {
     sendDailySettlementMessage,
     sendDailyRankingMessage,
     shareGameInvite,
-    sharePokerInvite,
     shareSessionInvite,
     sendSessionRsvpMessage,
     sendSessionUpdateMessage,

@@ -41,7 +41,6 @@ describe('pages widen on tablets / desktops like the rooms', () => {
       expect(v).toContain('max-w-md md:max-w-3xl lg:max-w-5xl mx-auto');
     }
     expect(read('src/App.vue')).toContain('h-16 max-w-md md:max-w-3xl lg:max-w-5xl mx-auto');
-    expect(read('src/views/GameLobby.vue')).not.toContain('1200px');
     expect(read('src/views/SessionView.vue')).toContain('@media (min-width: 1024px) { .card { max-width: 64rem; } }');
     expect(read('src/views/SessionSetupView.vue')).toContain('@media (min-width: 1024px) { .setup-card { max-width: 64rem; } }');
   });
