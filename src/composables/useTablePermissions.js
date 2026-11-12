@@ -72,7 +72,6 @@ export function useTablePermissions() {
     permissionsLoaded,
     loadPermissions,
     canEdit,
-    resolveHostUid,
     isStatusLocked,
     isStatusWarning,
     getItemStatus,
