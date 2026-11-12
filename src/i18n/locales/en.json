@@ -1694,5 +1694,19 @@
       },
       "needPals": "Share 2 games with {n} more players to join this month's crowns"
     }
+  },
+  "chipSet": {
+    "title": "Chip denominations",
+    "hint": "Optional. At tables made from this setup, the final stack can also be entered as a count of each chip and is added up for you.",
+    "none": "Not set — final stacks are typed as a number.",
+    "addPlaceholder": "Value, e.g. 5000",
+    "add": "Add",
+    "remove": "Remove {value}",
+    "full": "Up to {n} denominations",
+    "summary": "{n} chip values",
+    "countTitle": "Count by chip",
+    "countOf": "Number of {value} chips",
+    "total": "Total",
+    "clear": "Clear counts"
   }
 }

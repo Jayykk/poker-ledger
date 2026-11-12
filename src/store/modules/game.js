@@ -23,6 +23,7 @@ import { useAuthStore } from './auth.js';
 import { GAME_STATUS, GAME_TYPE, DEFAULT_BUY_IN, STORAGE_KEYS } from '../../utils/constants.js';
 import { timestampToMillis } from '../../utils/formatters.js';
 import { applyPlayerChange, isSnapshotCurrent } from '../../utils/ledgerOps.js';
+import { normalizeDenominations } from '../../utils/chipDenominations.js';
 import { drawSeats, seatForNewPlayer, reseatOnReentry, TABLE_FULL } from '../../utils/seatDraw.js';
 import { normalizeCashDecimals } from '../../utils/cashRounding.js';
 import { BUY_IN_CLOSED, isTimedClock, isTimedBuyInClosed } from '../../utils/timedStructure.js';
@@ -172,6 +173,10 @@ export const useGameStore = defineStore('game', () => {
         // Settlement rounding (0 / 1 / 2 decimals) from the cash preset.
         const cashDecimals = normalizeCashDecimals(options.cashDecimals);
         if (cashDecimals !== null) gameData.cashDecimals = cashDecimals;
+        // Chip denominations from the template: the final-stack form then
+        // also takes a count per chip (utils/chipDenominations.js).
+        const denominations = normalizeDenominations(options.denominations);
+        if (denominations.length) gameData.denominations = denominations;
         // Timed game (限時賽 with a blind structure): linked clock session.
         if (options.tournamentSessionId) {
           gameData.tournamentSessionId = options.tournamentSessionId;
@@ -628,7 +633,8 @@ export const useGameStore = defineStore('game', () => {
   };
 
   /**
-   * Update a player's name and/or stack. buyIn is deliberately not writable
+   * Update a player's name and/or stack (with the chip counts it was worked
+   * out from, when the table has denominations). buyIn is deliberately not writable
    * here — it only moves through recordLedgerTx / undoLedgerTx (by delta, with
    * an audit record), so a stale edit form can't overwrite a concurrent buy-in.
    */
@@ -637,7 +643,7 @@ export const useGameStore = defineStore('game', () => {
 
     try {
       const fields = {};
-      for (const field of ['name', 'stack']) {
+      for (const field of ['name', 'stack', 'stackCounts']) {
         if (Object.prototype.hasOwnProperty.call(player, field)) {
           fields[field] = player[field];
         }

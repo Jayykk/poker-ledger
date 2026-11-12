@@ -7,7 +7,9 @@
 //   structure   blind clock (cash: optional → a timed game; tournament: required)
 //   entry       buy-in cutoff level (both); re-entry rules (tournament)
 //   cash        settlement rounding (cash)
-//   payout      placement ratios (tournament)
+//   chips       chip denominations (cash, optional): the final-stack form then
+//               also takes a count per chip — utils/chipDenominations.js
+//   payout     placement ratios (tournament)
 //   bounty      KO / PKO / mystery bounty (tournament) — reserved for phase 2,
 //               normalised and stored but not played yet
 //
@@ -31,6 +33,7 @@ import {
 import { rateFromBuyIn, resolveBuyInAmount } from './buyInRate.js';
 import { normalizeCashDecimals } from './cashRounding.js';
 import { CLOCK_MODE_TIMED } from './timedStructure.js';
+import { normalizeDenominations } from './chipDenominations.js';
 import { bountyPerEntry } from '../../functions/src/utils/bountyMath.js';
 
 export const TEMPLATE_FORMAT_VERSION = 1;
@@ -179,7 +182,7 @@ export const isBountyPlayable = (bounty) => PLAYABLE_BOUNTY_TYPES.includes(bount
  * The canonical template shape. Always returns every field for its kind.
  *
  * cash:       { kind, id, name, buyIn: {chips, amount}, structure, entry: {cutoffLevel},
- *               cash: {decimals} }
+ *               cash: {decimals}, denominations }
  * tournament: { kind, id, name, subtitle, buyIn: {amount, chips}, structure,
  *               entry: {cutoffLevel, reentry: {allowed, max}}, payout: {ratios}, bounty }
  *
@@ -205,6 +208,8 @@ export function normalizeTemplate(raw = {}) {
       buyIn: { chips, amount: positive(raw.buyIn?.amount, chips) },
       entry: { cutoffLevel: base.structure ? wholeOrNull(raw.entry?.cutoffLevel) : null },
       cash: { decimals: normalizeCashDecimals(raw.cash?.decimals) },
+      // [] = not set: stacks are typed as a number only
+      denominations: normalizeDenominations(raw.denominations),
     };
   }
 
@@ -407,6 +412,7 @@ export function gameCreationFromTemplate(template, { tournamentSessionId = null 
         rate: templateRate(t),
         buyInAmount: t.buyIn.amount,
         cashDecimals: t.cash.decimals,
+        ...(t.denominations.length ? { denominations: t.denominations } : {}),
         ...(tournamentSessionId ? { tournamentSessionId } : {}),
       },
     };
@@ -502,6 +508,7 @@ export function encodeTemplateShare(template) {
     return toBase64(JSON.stringify({
       k: 'c', n: t.name, b: t.buyIn.chips, a: t.buyIn.amount, d: t.cash.decimals,
       x: t.entry.cutoffLevel, sn: t.structure?.name || '', l: levels,
+      ...(t.denominations.length ? { dn: t.denominations } : {}),
     }));
   }
   const clock = clockConfigFromTemplate(t);
@@ -524,6 +531,7 @@ export function decodeTemplateShare(b64) {
         buyIn: { chips: c.b, amount: c.a },
         structure: levels.length ? { name: c.sn, levels } : null,
         entry: { cutoffLevel: c.x }, cash: { decimals: c.d },
+        denominations: c.dn,
       });
     }
     const tpl = templateFromTournamentPreset({

@@ -35,6 +35,7 @@ export function templateSummary(template, t) {
       `$${formatNumber(template.buyIn.amount)}`,
     ];
     if (template.structure) parts.push(`⏱ ${template.structure.name || t('cashPreset.structure')}`);
+    if (template.denominations?.length) parts.push(t('chipSet.summary', { n: template.denominations.length }));
     return parts.join(' · ');
   }
   const bountyType = template.bounty?.type;
