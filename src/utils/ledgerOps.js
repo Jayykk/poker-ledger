@@ -31,7 +31,7 @@ export function matchesPlayer(player, { targetId, targetUid, targetName } = {}) 
  *
  * @param {Array} players - Current roster (not mutated)
  * @param {{targetId?: string, targetUid?: string, targetName?: string}} target
- * @param {{buyInDelta?: number, fields?: {name?: string, stack?: number}}} change
+ * @param {{buyInDelta?: number, fields?: {name?: string, stack?: number, stackCounts?: object}}} change
  * @returns {{players: Array, player: object}} next roster + the updated player
  * @throws {Error} 'Player not found' when no seat matches
  */
@@ -45,6 +45,16 @@ export function applyPlayerChange(players = [], target = {}, { buyInDelta = 0, f
     for (const field of ['name', 'stack']) {
       if (Object.prototype.hasOwnProperty.call(fields, field)) {
         player[field] = fields[field];
+      }
+    }
+    // Chip counts (utils/chipDenominations.js) are how a stack was reached:
+    // they are saved with it, and a stack set without them drops the old ones.
+    if (Object.prototype.hasOwnProperty.call(fields, 'stack')) {
+      const counts = fields.stackCounts;
+      if (counts && typeof counts === 'object' && Object.keys(counts).length > 0) {
+        player.stackCounts = { ...counts };
+      } else {
+        delete player.stackCounts;
       }
     }
     if (delta !== 0) {

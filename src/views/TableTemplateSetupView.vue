@@ -170,6 +170,45 @@
         </template>
       </section>
 
+      <!-- Module: chip denominations (cash, optional) — the final-stack form
+           of a table made from this template then also takes chip counts -->
+      <section v-if="isCash" class="card space-y-2">
+        <h2 class="section-title"><i class="fas fa-circle mr-2 text-violet-400"></i>{{ $t('chipSet.title') }}</h2>
+        <p class="hint">{{ $t('chipSet.hint') }}</p>
+        <div v-if="form.denominations.length" class="flex flex-wrap gap-2">
+          <span v-for="d in form.denominations" :key="d" class="denom">
+            {{ formatNumber(d) }}
+            <button type="button" :aria-label="$t('chipSet.remove', { value: formatNumber(d) })" @click="removeDenomination(d)">
+              <i class="fas fa-times"></i>
+            </button>
+          </span>
+        </div>
+        <p v-else class="hint">{{ $t('chipSet.none') }}</p>
+        <template v-if="!denominationsFull">
+          <div class="flex gap-2 items-center">
+            <input
+              v-model="newDenomination"
+              type="number"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              class="field-input flex-1"
+              :placeholder="$t('chipSet.addPlaceholder')"
+              @keyup.enter="addDenomination(newDenomination)"
+            />
+            <button type="button" class="step-btn" @click="addDenomination(newDenomination)">
+              <i class="fas fa-plus mr-1"></i>{{ $t('chipSet.add') }}
+            </button>
+          </div>
+          <div v-if="denominationSuggestions.length" class="flex flex-wrap gap-1.5">
+            <button v-for="d in denominationSuggestions" :key="d" type="button" class="denom-quick" @click="addDenomination(d)">
+              +{{ formatNumber(d) }}
+            </button>
+          </div>
+        </template>
+        <p v-else class="hint">{{ $t('chipSet.full', { n: MAX_DENOMINATIONS }) }}</p>
+      </section>
+
       <!-- Module: bounty (tournament; phase 2) -->
       <section v-if="!isCash" class="card space-y-2">
         <h2 class="section-title"><i class="fas fa-crosshairs mr-2 text-red-400"></i>{{ $t('template.moduleBounty') }}</h2>
@@ -294,6 +333,7 @@ import { formatNumber } from '../utils/formatters.js';
 import EnvelopeEditor from '../components/templates/EnvelopeEditor.vue';
 import { suggestEnvelopes } from '../utils/bounty.js';
 import { structureSummary } from '../utils/templateDisplay.js';
+import { MAX_DENOMINATIONS, COMMON_DENOMINATIONS, normalizeDenominations } from '../utils/chipDenominations.js';
 
 const KINDS = TEMPLATE_KINDS;
 const CURRENT = '__current';
@@ -323,6 +363,7 @@ function formFrom(raw) {
     reentryAllowed: cash ? true : tpl.entry.reentry.allowed,
     reentryMax: cash ? '' : (tpl.entry.reentry.max ?? ''),
     decimals: cash ? tpl.cash.decimals : null,
+    denominations: cash ? [...tpl.denominations] : [],
     payout: cash ? [] : tpl.payout.ratios.map((r) => ({ ...r })),
     bountyType: cash ? 'none' : tpl.bounty.type,
     bounty: cash ? { type: 'none' } : tpl.bounty,
@@ -346,6 +387,7 @@ function templateFrom(f) {
     structure: f.structure,
     entry: { cutoffLevel: f.cutoffLevel, reentry: { allowed: f.reentryAllowed, max: f.reentryMax } },
     cash: { decimals: f.decimals },
+    denominations: f.denominations,
     payout: { ratios: f.payout },
     bounty: f.bountyType === 'none'
       ? { type: 'none' }
@@ -476,6 +518,21 @@ function removePayout(idx) {
   form.value.payout.forEach((p, i) => { p.place = i + 1; });
 }
 
+// ── chip denominations (cash) ─────────────────────────
+const newDenomination = ref('');
+const denominationsFull = computed(() => form.value.denominations.length >= MAX_DENOMINATIONS);
+const denominationSuggestions = computed(() =>
+  COMMON_DENOMINATIONS.filter((d) => !form.value.denominations.includes(d)));
+function addDenomination(value) {
+  newDenomination.value = '';
+  if (denominationsFull.value) return;
+  // not a chip value, or one already listed → the list comes back unchanged
+  form.value.denominations = normalizeDenominations([...form.value.denominations, value]);
+}
+function removeDenomination(value) {
+  form.value.denominations = form.value.denominations.filter((d) => d !== value);
+}
+
 // ── load ──────────────────────────────────────────────
 let unsubTemplates = null;
 let unsubStructures = null;
@@ -527,6 +584,8 @@ async function handleSave() {
   // Re-snapshot a structure that's still in the library (picks up its edits)
   const live = findLibrary(structureChoice.value);
   if (live) form.value.structure = structureSnapshot(live);
+  // A chip value typed but not yet added still counts
+  if (isCash.value && newDenomination.value !== '') addDenomination(newDenomination.value);
   const template = templateFrom(form.value);
   const errors = validateTemplate(template);
   if (isCash.value && !derivedRate.value) errors.unshift('buyInInvalid');
@@ -643,6 +702,37 @@ function importConfig(e) {
   font-weight: 600;
 }
 .step-btn:hover { background: rgb(var(--tw-slate-600)); }
+.denom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.4rem 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: rgb(var(--tw-amber-200));
+  background: rgb(var(--tw-amber-500) / 0.18);
+  border: 1px solid rgb(var(--tw-amber-500) / 0.6);
+}
+.denom button {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  color: rgb(var(--tw-white) / 0.7);
+  background: rgb(var(--tw-white) / 0.08);
+}
+.denom button:hover { color: rgb(var(--tw-white)); background: rgb(var(--tw-white) / 0.18); }
+.denom-quick {
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgb(var(--tw-slate-200));
+  background: rgb(var(--tw-slate-700));
+}
+.denom-quick:hover { background: rgb(var(--tw-slate-600)); }
 .bounty-opt {
   display: flex;
   flex-direction: column;

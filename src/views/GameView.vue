@@ -156,6 +156,15 @@
             type="number"
             :placeholder="$t('game.settlementPlaceholder')"
           />
+          <!-- Tables whose template lists chip denominations: count the chips
+               instead, the stack above is worked out -->
+          <ChipCountInput
+            v-if="denominations.length"
+            class="mt-2"
+            :denominations="denominations"
+            :model-value="editingCounts"
+            @update:model-value="setCounts"
+          />
         </div>
         <BaseButton @click="handleSavePlayer" variant="secondary" fullWidth>
           {{ $t('common.save') }}
@@ -283,6 +292,8 @@ import BaseInput from '../components/common/BaseInput.vue';
 import BaseModal from '../components/common/BaseModal.vue';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import PlayerCard from '../components/game/PlayerCard.vue';
+import ChipCountInput from '../components/game/ChipCountInput.vue';
+import { useChipCounts } from '../composables/useChipCounts.js';
 import TransactionLog from '../components/game/TransactionLog.vue';
 import HandRecordSheet from '../components/game/HandRecordSheet.vue';
 import HandHistoryList from '../components/game/HandHistoryList.vue';
@@ -572,8 +583,14 @@ const handleAddPlayer = async () => {
   }, t('loading.saving'));
 };
 
+// Chip counts for the final stack (tables whose template lists denominations)
+const {
+  denominations, counts: editingCounts, loadCounts, setCounts, stackFields,
+} = useChipCounts(game, editingPlayer);
+
 const handleEditPlayer = (player) => {
   editingPlayer.value = { ...player };
+  loadCounts(player);
   editBuyInDelta.value = 0;
   showEditPlayer.value = true;
 };
@@ -581,7 +598,7 @@ const handleEditPlayer = (player) => {
 const handleSavePlayer = async () => {
   await withLoading(async () => {
     const p = editingPlayer.value;
-    const fields = { stack: p.stack };
+    const fields = stackFields();
     // One write either way: a buy-in correction carries the stack with it
     // (roster + audit record in the same transaction).
     const ok = editBuyInDelta.value !== 0
