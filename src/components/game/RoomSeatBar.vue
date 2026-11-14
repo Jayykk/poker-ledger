@@ -12,6 +12,7 @@
       :avatar-of="avatarOf"
       :badge-of="badgeOf"
       :room-titles="roomTitles"
+      :title="title"
     />
   </div>
 </template>
@@ -32,6 +33,8 @@ const props = defineProps({
   avatarOf: { type: Function, default: () => '' },
   badgeOf: { type: Function, default: () => '' },
   roomTitles: { type: Object, default: () => ({}) },
+  // On the felt: the room's name
+  title: { type: String, default: '' },
 });
 const { t } = useI18n();
 

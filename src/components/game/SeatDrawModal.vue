@@ -37,6 +37,7 @@
         :avatar-of="avatarOf"
         :badge-of="badgeOf"
         :room-titles="roomTitles"
+        :title="tableTitle"
       />
       <div v-else class="sd-table">
         <div class="sd-row dealer" :class="{ me: chart.dealer && isMe(chart.dealer), empty: !chart.dealer }">
@@ -87,6 +88,8 @@ const props = defineProps({
   // Table view: (player) => avatar url, and (player) => short seat badge (bounty)
   avatarOf: { type: Function, default: () => '' },
   badgeOf: { type: Function, default: () => '' },
+  // On the felt: the room's name
+  tableTitle: { type: String, default: '' },
   // (dealerId | null) => Promise — the host's draw
   onDraw: { type: Function, default: null },
 });

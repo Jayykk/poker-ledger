@@ -80,6 +80,7 @@
       :avatar-of="(p) => avatarSrcOf(p, user)"
       :badge-of="seatBadge"
       :room-titles="roomTitles"
+      :title="game.name || ''"
     />
 
     <!-- Still in -->
@@ -292,6 +293,7 @@
       :room-titles="roomTitles"
       :avatar-of="(p) => avatarSrcOf(p, user)"
       :badge-of="seatBadge"
+      :table-title="game.name || ''"
       @draw="handleDrawSeats"
     />
 
