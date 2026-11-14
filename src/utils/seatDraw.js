@@ -146,3 +146,50 @@ export function seatingChart(players = []) {
 
 /** "3", or the dealer mark. */
 export const seatLabel = (seat, dealerMark = '荷') => (seat ? (seat.dealer ? dealerMark : `${seat.seat}`) : '');
+
+/**
+ * The table as it stands during play: like seatingChart, plus who used to
+ * sit in each free seat (`out`: the knocked-out player who held it and
+ * finished best, i.e. left it last), so the table can show them greyed out
+ * with their place. A seat someone else took since has no `out`.
+ */
+export function liveSeatingChart(players = []) {
+  const chart = seatingChart(players);
+  const lastOut = (match) => players
+    .filter((p) => p.seat && p.eliminated && match(p))
+    .sort((a, b) => (a.placement || 999) - (b.placement || 999))[0] || null;
+  const dealerOut = !!chart.dealer?.eliminated;
+  return {
+    dealer: dealerOut ? null : chart.dealer,
+    dealerOut: dealerOut ? chart.dealer : null,
+    seats: chart.seats.map((s) => ({
+      ...s,
+      out: s.player ? null : lastOut((p) => !p.seat.dealer && p.seat.seat === s.no),
+    })),
+  };
+}
+
+/**
+ * Who sits next to `me`, skipping empty seats and knocked-out players. Left /
+ * right as I see them from my seat, facing the table: the seats run clockwise
+ * seen from above (dealer, 1, 2 … 9), so the next number up is on my left.
+ * @return {{ left: ?object, right: ?object }} null when I have no seat or
+ *   nobody else is seated (heads-up, both are the same player)
+ */
+export function seatNeighbours(players = [], me = null) {
+  const indexOf = (p) => (p.seat.dealer ? DEALER_SEAT : p.seat.seat);
+  if (!me?.seat) return { left: null, right: null };
+  const total = SEAT_COUNT + 1;
+  const at = new Map(players
+    .filter((p) => p.seat && !p.eliminated && p.id !== me.id)
+    .map((p) => [indexOf(p), p]));
+  const mine = indexOf(me);
+  const find = (dir) => {
+    for (let k = 1; k < total; k++) {
+      const hit = at.get((mine + dir * k + total * k) % total);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  return { left: find(1), right: find(-1) };
+}

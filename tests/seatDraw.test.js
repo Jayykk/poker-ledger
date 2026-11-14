@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import {
-  drawSeats, seatForNewPlayer, reseatOnReentry, seatingChart, seatLabel, isSeated, currentDealer,
+  drawSeats, seatForNewPlayer, reseatOnReentry, seatingChart, liveSeatingChart, seatNeighbours, seatLabel, isSeated, currentDealer,
   freeSeats, tableCapacity, SEAT_COUNT, TABLE_FULL,
 } from '../src/utils/seatDraw.js';
 
@@ -98,8 +98,85 @@ describe('wiring', () => {
     for (const f of ['src/views/TournamentGameView.vue', 'src/views/GameView.vue']) {
       const v = read(f);
       expect(v).toContain('<SeatDrawModal');
-      expect(v).toContain('class="my-seat"');
+      expect(v).toContain('<RoomSeatBar');
       expect(v).toMatch(/:seat-label="seat(Of\(player\)|Label\(player\.seat)/);
     }
+  });
+});
+
+describe('liveSeatingChart (the table during play)', () => {
+  const roster = [
+    { id: 'd', seat: { seat: 0, dealer: true } },
+    { id: 'a', seat: { seat: 1 } },
+    { id: 'b', seat: { seat: 2 }, eliminated: true, placement: 6 },
+    { id: 'c', seat: { seat: 2 }, eliminated: true, placement: 4 },
+    { id: 'e', seat: { seat: 3 }, eliminated: true, placement: 5 },
+    { id: 'f', seat: { seat: 3 } },
+  ];
+
+  it('keeps a knocked-out player at the seat they left', () => {
+    const chart = liveSeatingChart(roster);
+    expect(chart.seats[0].player.id).toBe('a');
+    expect(chart.seats[0].out).toBeNull();
+    expect(chart.seats[1].player).toBeNull();
+    // two people went out from seat 2: the one who left last (finished best)
+    expect(chart.seats[1].out.id).toBe('c');
+  });
+
+  it('shows nobody out at a seat someone else took since', () => {
+    const chart = liveSeatingChart(roster);
+    expect(chart.seats[2].player.id).toBe('f');
+    expect(chart.seats[2].out).toBeNull();
+  });
+
+  it('leaves untouched seats empty', () => {
+    const chart = liveSeatingChart(roster);
+    expect(chart.seats[8]).toEqual({ no: 9, player: null, out: null });
+  });
+
+  it('moves a knocked-out dealer to dealerOut', () => {
+    expect(liveSeatingChart(roster).dealer.id).toBe('d');
+    const out = liveSeatingChart([{ id: 'd', seat: { seat: 0, dealer: true }, eliminated: true, placement: 3 }]);
+    expect(out.dealer).toBeNull();
+    expect(out.dealerOut.id).toBe('d');
+  });
+});
+
+describe('seatNeighbours (who sits next to me)', () => {
+  const p = (id, seat, extra = {}) => ({ id, name: id, seat: seat === 0 ? { seat: 0, dealer: true } : { seat }, ...extra });
+
+  it('the next seat up is on my left, the one below on my right', () => {
+    const roster = [p('a', 4), p('me', 5), p('b', 6)];
+    const { left, right } = seatNeighbours(roster, roster[1]);
+    expect(left.id).toBe('b');
+    expect(right.id).toBe('a');
+  });
+
+  it('skips empty seats and knocked-out players', () => {
+    const roster = [p('a', 2), p('gone', 4, { eliminated: true }), p('me', 5), p('b', 8)];
+    const { left, right } = seatNeighbours(roster, roster[2]);
+    expect(left.id).toBe('b');
+    expect(right.id).toBe('a');
+  });
+
+  it('wraps past the dealer between seats 9 and 1', () => {
+    const roster = [p('d', 0), p('me', 9), p('a', 1), p('b', 7)];
+    expect(seatNeighbours(roster, roster[1]).left.id).toBe('d');
+    expect(seatNeighbours(roster, roster[2]).right.id).toBe('d');
+    const fromDealer = seatNeighbours(roster, roster[0]);
+    expect(fromDealer.left.id).toBe('a');
+    expect(fromDealer.right.id).toBe('me');
+  });
+
+  it('heads-up: the same player on both sides', () => {
+    const roster = [p('me', 3), p('a', 7)];
+    const { left, right } = seatNeighbours(roster, roster[0]);
+    expect(left.id).toBe('a');
+    expect(right.id).toBe('a');
+  });
+
+  it('nobody else seated, or no seat of my own: no neighbours', () => {
+    expect(seatNeighbours([p('me', 3)], p('me', 3))).toEqual({ left: null, right: null });
+    expect(seatNeighbours([p('a', 3)], { id: 'me' })).toEqual({ left: null, right: null });
   });
 });

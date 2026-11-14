@@ -73,9 +73,14 @@
     />
 
     <!-- 抽座位: where I sit -->
-    <button v-if="mySeat?.seat" type="button" class="my-seat" @click="showSeats = true">
-      🎴 {{ mySeatText }}
-    </button>
+    <RoomSeatBar
+      v-if="mySeat?.seat"
+      :players="game.players || []"
+      :me="mySeat"
+      :avatar-of="(p) => avatarSrcOf(p, user)"
+      :badge-of="seatBadge"
+      :room-titles="roomTitles"
+    />
 
     <!-- Still in -->
     <div class="room-section mt-2">
@@ -285,6 +290,8 @@
       :can-draw="canDrawSeats"
       :my-uid="user?.uid || ''"
       :room-titles="roomTitles"
+      :avatar-of="(p) => avatarSrcOf(p, user)"
+      :badge-of="seatBadge"
       @draw="handleDrawSeats"
     />
 
@@ -354,6 +361,7 @@ import TournamentPlayerCard from '../components/game/TournamentPlayerCard.vue';
 import DealSettlementModal from '../components/tournament/DealSettlementModal.vue';
 import KnockoutModal from '../components/tournament/KnockoutModal.vue';
 import SeatDrawModal from '../components/game/SeatDrawModal.vue';
+import RoomSeatBar from '../components/game/RoomSeatBar.vue';
 import { isSeated, seatLabel } from '../utils/seatDraw.js';
 import { avatarSrcOf } from '../utils/avatar.js';
 import { useRoomTitles } from '../composables/useRoomTitles.js';
@@ -446,12 +454,6 @@ const activePlayers = computed(() => {
 const showSeats = ref(false);
 const seated = computed(() => isSeated(game.value?.players || []));
 const seatOf = (p) => seatLabel(p.seat, t('seats.dealerShort'));
-// "你坐 3 號位" / "你是荷官"
-const mySeatText = computed(() => {
-  const s = mySeat.value?.seat;
-  if (!s) return '';
-  return s.dealer ? t('seats.mineDealer') : t('seats.mine', { seat: s.seat });
-});
 const canDrawSeats = computed(() => !game.value?.tournamentSessionId || !clockStatus.value || clockStatus.value === 'waiting');
 const handleDrawSeats = async (dealerId) => {
   const result = await drawRoomSeats(dealerId);
@@ -683,6 +685,14 @@ const clockDetail = computed(() => {
   const bb = computeAverageStackBB(expectedChips.value, activePlayers.value.length, bigBlind);
   return bb > 0 ? `${left} · ${t('room.avgBB', { bb: formatNumber(bb) })}` : left;
 });
+
+// Seat table badge: the price on a PKO head, or (KO / mystery) the knockouts
+// a player has made so far
+const seatBadge = (p) => {
+  if (isPko.value) return `🎯 ${formatNumber(headOf(p))}`;
+  const n = bountyPerHead.value > 0 ? bountyView.value.knockoutsOf(p) : 0;
+  return n > 0 ? `🎯×${n}` : '';
+};
 
 const openDeal = () => {
   showSettlement.value = false;
@@ -1176,16 +1186,4 @@ const handleCloseGame = async () => {
 }
 .settle-grid.ko { grid-template-columns: 2rem minmax(0, 1fr) 4.4rem 3.8rem 4.8rem; }
 .settle-head { font-size: 0.7rem; color: rgb(var(--tw-slate-400)); }
-.my-seat {
-  display: block;
-  width: 100%;
-  margin-top: 0.5rem;
-  padding: 0.5rem 0.9rem;
-  border-radius: 0.8rem;
-  text-align: left;
-  font-weight: 700;
-  color: rgb(var(--tw-white));
-  background: rgb(var(--tw-slate-800) / 0.6);
-  border: 1px solid rgb(var(--tw-amber-500) / 0.4);
-}
 </style>

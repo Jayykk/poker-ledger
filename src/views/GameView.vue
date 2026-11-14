@@ -48,9 +48,13 @@
     />
 
     <!-- 抽座位: where I sit -->
-    <button v-if="myPlayer?.seat" type="button" class="my-seat" @click="showSeats = true">
-      🎴 {{ myPlayer.seat.dealer ? $t('seats.mineDealer') : $t('seats.mine', { seat: myPlayer.seat.seat }) }}
-    </button>
+    <RoomSeatBar
+      v-if="myPlayer?.seat"
+      :players="game.players || []"
+      :me="myPlayer"
+      :avatar-of="(p) => avatarSrcOf(p, user)"
+      :room-titles="roomTitles"
+    />
 
     <!-- Players, biggest winner first -->
     <div class="room-section mt-2">
@@ -253,6 +257,7 @@
       :can-draw="canDrawSeats"
       :my-uid="user?.uid || ''"
       :room-titles="roomTitles"
+      :avatar-of="(p) => avatarSrcOf(p, user)"
       @draw="handleDrawSeats"
     />
   </div>
@@ -279,6 +284,7 @@ import RoomClockCard from '../components/tournament/RoomClockCard.vue';
 import RoomHeader from '../components/game/RoomHeader.vue';
 import RoomActionBar from '../components/game/RoomActionBar.vue';
 import SeatDrawModal from '../components/game/SeatDrawModal.vue';
+import RoomSeatBar from '../components/game/RoomSeatBar.vue';
 import { isSeated, seatLabel } from '../utils/seatDraw.js';
 import { avatarSrcOf } from '../utils/avatar.js';
 import { useRoomTitles } from '../composables/useRoomTitles.js';
@@ -835,16 +841,4 @@ const handleSelectHand = (hand) => {
   border-bottom: 1px solid rgb(var(--tw-slate-700));
 }
 .cash-head { font-size: 0.7rem; color: rgb(var(--tw-slate-400)); }
-.my-seat {
-  display: block;
-  width: 100%;
-  margin-top: 0.5rem;
-  padding: 0.5rem 0.9rem;
-  border-radius: 0.8rem;
-  text-align: left;
-  font-weight: 700;
-  color: rgb(var(--tw-white));
-  background: rgb(var(--tw-slate-800) / 0.6);
-  border: 1px solid rgb(var(--tw-amber-500) / 0.4);
-}
 </style>
