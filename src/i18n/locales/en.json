@@ -1205,7 +1205,14 @@
     "empty": "Empty",
     "capacity": "{n} players · {cap} at most (dealer + seats 1–9)",
     "tooMany": "More than {n} — open another room for a second table",
-    "noDealerSeat": "(no dealer)"
+    "noDealerSeat": "(no dealer)",
+    "seatNo": "Seat {seat}",
+    "neighbours": "Left {left} · Right {right}",
+    "neighbourOne": "vs {name}",
+    "viewTable": "Table",
+    "viewList": "List",
+    "recenter": "Reset",
+    "dragHint": "Drag left / right to turn"
   },
   "titles": {
     "title": "Titles",

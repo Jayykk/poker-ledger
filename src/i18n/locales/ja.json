@@ -1205,7 +1205,14 @@
     "empty": "空席",
     "capacity": "{n} 人 · 最大 {cap} 人（ディーラー席＋1～9 番）",
     "tooMany": "{n} 人を超えています。2 卓目は別のルームを作成してください",
-    "noDealerSeat": "（ディーラーなし）"
+    "noDealerSeat": "（ディーラーなし）",
+    "seatNo": "{seat} 番席",
+    "neighbours": "左 {left} · 右 {right}",
+    "neighbourOne": "対面 {name}",
+    "viewTable": "テーブル",
+    "viewList": "リスト",
+    "recenter": "正面に戻す",
+    "dragHint": "左右にドラッグで回転"
   },
   "titles": {
     "title": "称号",

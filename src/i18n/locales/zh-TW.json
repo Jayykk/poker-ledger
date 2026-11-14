@@ -1205,7 +1205,14 @@
     "empty": "空位",
     "capacity": "{n} 人 · 這桌最多 {cap} 人（荷官位＋1～9 號）",
     "tooMany": "超過 {n} 人了，請另開一個房間當第二桌",
-    "noDealerSeat": "（沒有荷官）"
+    "noDealerSeat": "（沒有荷官）",
+    "seatNo": "{seat} 號位",
+    "neighbours": "左 {left} · 右 {right}",
+    "neighbourOne": "對面 {name}",
+    "viewTable": "桌面",
+    "viewList": "名單",
+    "recenter": "回正",
+    "dragHint": "左右拖曳可旋轉"
   },
   "titles": {
     "title": "稱號",

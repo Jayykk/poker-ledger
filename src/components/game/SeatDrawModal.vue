@@ -21,7 +21,24 @@
 
     <div v-if="!seated" class="text-center text-gray-400 py-6">{{ $t('seats.notYet') }}</div>
     <template v-else>
-      <div class="sd-table">
+      <!-- 桌面 (the table, turned by dragging) | 名單 (plain list, with titles) -->
+      <div class="sd-views">
+        <button type="button" :class="{ on: view === 'table' }" @click="view = 'table'">
+          <i class="fas fa-circle-dot"></i> {{ $t('seats.viewTable') }}
+        </button>
+        <button type="button" :class="{ on: view === 'list' }" @click="view = 'list'">
+          <i class="fas fa-list"></i> {{ $t('seats.viewList') }}
+        </button>
+      </div>
+      <SeatTable
+        v-if="view === 'table'"
+        :chart="liveChart"
+        :my-uid="myUid"
+        :avatar-of="avatarOf"
+        :badge-of="badgeOf"
+        :room-titles="roomTitles"
+      />
+      <div v-else class="sd-table">
         <div class="sd-row dealer" :class="{ me: chart.dealer && isMe(chart.dealer), empty: !chart.dealer }">
           <span class="sd-no">🃏</span>
           <span class="sd-name">{{ chart.dealer ? chart.dealer.name : $t('seats.noDealerSeat') }}<small>{{ $t('seats.dealer') }}</small></span>
@@ -55,7 +72,8 @@ import BaseModal from '../common/BaseModal.vue';
 import BaseButton from '../common/BaseButton.vue';
 import TitleBadge from '../common/TitleBadge.vue';
 import LiveTitleBadge from '../common/LiveTitleBadge.vue';
-import { isSeated, seatingChart, currentDealer, tableCapacity } from '../../utils/seatDraw.js';
+import SeatTable from './SeatTable.vue';
+import { isSeated, seatingChart, liveSeatingChart, currentDealer, tableCapacity } from '../../utils/seatDraw.js';
 
 const props = defineProps({
   // 房內即時稱號: playerId → title id (utils/roomTitles.js)
@@ -66,14 +84,20 @@ const props = defineProps({
   // Draws (and redraws) only while seats can still change (before the clock starts)
   canDraw: { type: Boolean, default: true },
   myUid: { type: String, default: '' },
+  // Table view: (player) => avatar url, and (player) => short seat badge (bounty)
+  avatarOf: { type: Function, default: () => '' },
+  badgeOf: { type: Function, default: () => '' },
   // (dealerId | null) => Promise — the host's draw
   onDraw: { type: Function, default: null },
 });
 defineEmits(['update:modelValue']);
 const NONE = '__none';
+const view = ref('table');
 
 const seated = computed(() => isSeated(props.players));
 const chart = computed(() => seatingChart(props.players));
+// The table view also keeps knocked-out players at the seat they left
+const liveChart = computed(() => liveSeatingChart(props.players));
 const unseated = computed(() => (seated.value ? props.players.filter((p) => !p.seat && !p.eliminated) : []));
 const isMe = (p) => !!p.uid && p.uid === props.myUid;
 
@@ -100,6 +124,9 @@ async function draw() {
 
 <style scoped>
 .sd-select { background: rgb(var(--tw-slate-700)); color: rgb(var(--tw-white)); border-radius: 0.4rem; padding: 0.25rem 0.5rem; border: 1px solid rgb(var(--tw-slate-600)); }
+.sd-views { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; }
+.sd-views button { flex: 1; padding: 0.3rem 0; border-radius: 999px; font-size: 0.8rem; font-weight: 700; color: rgb(var(--tw-white) / 0.6); background: rgb(var(--tw-slate-800) / 0.6); border: 1px solid rgb(var(--tw-slate-600) / 0.6); }
+.sd-views button.on { color: rgb(var(--tw-emerald-400)); border-color: rgb(var(--tw-emerald-400)); }
 .sd-table { border-radius: 0.8rem; border: 1px solid rgb(var(--tw-slate-600) / 0.5); background: rgb(var(--tw-slate-800) / 0.6); overflow: hidden; }
 .sd-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.8rem; border-top: 1px solid rgb(var(--tw-slate-700) / 0.6); }
 .sd-row:first-child { border-top: none; }
