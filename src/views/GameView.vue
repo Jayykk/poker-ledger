@@ -54,6 +54,7 @@
       :me="myPlayer"
       :avatar-of="(p) => avatarSrcOf(p, user)"
       :room-titles="roomTitles"
+      :title="game.name || ''"
     />
 
     <!-- Players, biggest winner first -->
@@ -258,6 +259,7 @@
       :my-uid="user?.uid || ''"
       :room-titles="roomTitles"
       :avatar-of="(p) => avatarSrcOf(p, user)"
+      :table-title="game.name || ''"
       @draw="handleDrawSeats"
     />
   </div>

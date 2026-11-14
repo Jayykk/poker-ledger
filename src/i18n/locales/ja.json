@@ -1212,6 +1212,7 @@
     "viewTable": "テーブル",
     "viewList": "リスト",
     "recenter": "正面に戻す",
+    "myView": "自分の視点",
     "dragHint": "左右にドラッグで回転"
   },
   "titles": {

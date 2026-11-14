@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import {
-  drawSeats, seatForNewPlayer, reseatOnReentry, seatingChart, liveSeatingChart, seatNeighbours, seatLabel, isSeated, currentDealer,
+  drawSeats, seatForNewPlayer, reseatOnReentry, seatingChart, liveSeatingChart, seatNeighbours, blindPositions, seatLabel, isSeated, currentDealer,
   freeSeats, tableCapacity, SEAT_COUNT, TABLE_FULL,
 } from '../src/utils/seatDraw.js';
 
@@ -178,5 +178,39 @@ describe('seatNeighbours (who sits next to me)', () => {
   it('nobody else seated, or no seat of my own: no neighbours', () => {
     expect(seatNeighbours([p('me', 3)], p('me', 3))).toEqual({ left: null, right: null });
     expect(seatNeighbours([p('a', 3)], { id: 'me' })).toEqual({ left: null, right: null });
+  });
+});
+
+describe('blindPositions (where the button and blinds start)', () => {
+  const p = (id, seat, extra = {}) => ({ id, seat: seat === 0 ? { seat: 0, dealer: true } : { seat }, ...extra });
+  const btn = (pl) => ({ ...pl, seat: { ...pl.seat, button: true } });
+
+  it('small blind is the next taken seat after the button, big blind the one after', () => {
+    expect(blindPositions([p('a', 2), btn(p('b', 3)), p('c', 5), p('d', 8)])).toEqual({ button: 3, sb: 5, bb: 8 });
+  });
+
+  it('wraps round past the dealer position', () => {
+    expect(blindPositions([p('d', 0), p('a', 1), btn(p('b', 9))])).toEqual({ button: 9, sb: 0, bb: 1 });
+    expect(blindPositions([btn(p('d', 0)), p('a', 4), p('b', 7)])).toEqual({ button: 0, sb: 4, bb: 7 });
+  });
+
+  it('skips knocked-out players', () => {
+    const roster = [btn(p('a', 1)), p('gone', 2, { eliminated: true }), p('b', 3), p('c', 4)];
+    expect(blindPositions(roster)).toEqual({ button: 1, sb: 3, bb: 4 });
+  });
+
+  it('three players: the big blind comes back round to the seat before the button', () => {
+    expect(blindPositions([p('a', 1), btn(p('b', 4)), p('c', 7)])).toEqual({ button: 4, sb: 7, bb: 1 });
+  });
+
+  it('heads-up: the button posts the small blind', () => {
+    expect(blindPositions([btn(p('a', 2)), p('b', 6)])).toEqual({ button: 2, sb: 2, bb: 6 });
+  });
+
+  it('no button drawn, or its holder is out: nothing to show', () => {
+    expect(blindPositions([p('a', 1), p('b', 2)])).toEqual({ button: null, sb: null, bb: null });
+    const out = [btn(p('a', 1, { eliminated: true })), p('b', 2), p('c', 3)];
+    expect(blindPositions(out)).toEqual({ button: null, sb: null, bb: null });
+    expect(blindPositions([btn(p('a', 1))])).toEqual({ button: 1, sb: null, bb: null });
   });
 });

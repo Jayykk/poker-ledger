@@ -1212,6 +1212,7 @@
     "viewTable": "Table",
     "viewList": "List",
     "recenter": "Reset",
+    "myView": "My seat",
     "dragHint": "Drag left / right to turn"
   },
   "titles": {

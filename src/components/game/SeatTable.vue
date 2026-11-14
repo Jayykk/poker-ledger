@@ -17,11 +17,14 @@
         <path :d="ovalPath(theta, 0)" class="st-felt" />
         <path :d="ovalPath(theta, -14)" class="st-line" />
 
-        <!-- Starting button, on the felt in front of its seat -->
-        <g v-if="buttonAt" :transform="`translate(${buttonAt.x},${buttonAt.y})`">
-          <ellipse rx="8" ry="6.4" cy="1.5" class="st-btn-edge" />
-          <ellipse rx="8" ry="6.4" class="st-btn" />
-          <text y="3.2" text-anchor="middle" class="st-btn-text">D</text>
+        <!-- On the felt: the room's name (stays upright as it turns) -->
+        <text v-if="feltTitle" :x="VIEW.cx" :y="VIEW.cy + 4" text-anchor="middle" class="st-title">{{ feltTitle }}</text>
+
+        <!-- Starting button and blinds, on the felt in front of their seats -->
+        <g v-for="m in markers" :key="m.kind" :transform="`translate(${m.x},${m.y})`" :class="`st-mark ${m.kind}`">
+          <ellipse :rx="m.kind === 'd' ? 8 : 9.5" ry="6.4" cy="1.5" class="edge" />
+          <ellipse :rx="m.kind === 'd' ? 8 : 9.5" ry="6.4" class="top" />
+          <text y="3" text-anchor="middle">{{ m.text }}</text>
         </g>
 
         <!-- Everyone's shadow on the floor -->
@@ -51,10 +54,22 @@
           <span v-if="s.out && s.player.placement" class="st-place">#{{ s.player.placement }}</span>
           <span v-else-if="s.badge" class="st-badge">{{ s.badge }}</span>
         </div>
-        <div class="st-name">{{ s.name }}</div>
       </div>
 
-      <button v-if="turned" type="button" class="st-home" @pointerdown.stop @click="goHome">
+      <!-- Names: under their seat, stepping aside so long ones stay whole -->
+      <div
+        v-for="s in seats"
+        :key="`n${s.key}`"
+        class="st-name"
+        :class="{ me: s.me, out: s.out, empty: !s.player, sel: selected === s.key }"
+        :data-seat="s.key"
+        :style="{ left: `${s.nameLeft}%`, top: `${s.nameTop}%`, zIndex: s.z + 300 }"
+      >{{ s.name }}</div>
+
+      <button v-if="canMyView" type="button" class="st-home mine" @pointerdown.stop @click="easeTo(myTheta)">
+        <i class="fas fa-user"></i> {{ $t('seats.myView') }}
+      </button>
+      <button v-if="turned" type="button" class="st-home" @pointerdown.stop @click="easeTo(0)">
         <i class="fas fa-rotate-left"></i> {{ $t('seats.recenter') }}
       </button>
       <div class="st-hint">{{ $t('seats.dragHint') }}</div>
@@ -78,18 +93,25 @@
 <script setup>
 // The table for 抽座位: an oval table seen at an angle with everyone at their
 // seat (dealer position + 1..9), turned by dragging left / right.
-//   - it opens from your own seat: you're at the near side, so your
-//     neighbours are on your left and right (a spectator sees the dealer far)
-//   - seats show the players' own avatars and 頭像框
+//   - it opens with the dealer at the far side — seats are read off the
+//     dealer — and 我的視角 turns it to the view from your own seat (you at
+//     the near side, neighbours left and right); 回正 goes back
+//   - the felt carries the room's name; D / SB / BB discs mark where the
+//     first hand starts
+//   - seats show the players' own avatars and 頭像框; names sit under them
+//     and step aside rather than being cut short
 //   - it follows the game: knocked-out players stay greyed out with their
 //     place until someone takes the seat; `badgeOf` puts the bounty on a seat
 // Geometry lives in utils/seatTableLayout.js.
-import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PlayerAvatar from '../common/PlayerAvatar.vue';
 import TitleBadge from '../common/TitleBadge.vue';
 import LiveTitleBadge from '../common/LiveTitleBadge.vue';
-import { VIEW, TABLE, seatPoint, ovalPath, homeTheta, nearestHome } from '../../utils/seatTableLayout.js';
+import {
+  VIEW, TABLE, seatPoint, ovalPath, homeTheta, nearestHome, textWidth, fitText, spreadLabels,
+} from '../../utils/seatTableLayout.js';
+import { blindPositions } from '../../utils/seatDraw.js';
 
 const props = defineProps({
   // liveSeatingChart(players): { dealer, dealerOut, seats: [{ no, player, out }] }
@@ -101,8 +123,13 @@ const props = defineProps({
   badgeOf: { type: Function, default: () => '' },
   // 房內即時稱號: playerId → title id
   roomTitles: { type: Object, default: () => ({}) },
+  // On the felt: the room's name
+  title: { type: String, default: '' },
 });
 const { t } = useI18n();
+
+// The felt is at its narrowest when the table is turned sideways
+const feltTitle = computed(() => fitText(props.title, TABLE.b * 2 - 34, 6.2, 11));
 
 // Position 0 is the dealer, 1..9 the numbered seats; `out` = the knocked-out
 // player who last held a seat nobody took since
@@ -119,19 +146,76 @@ const positions = computed(() => [
 const RING = 40; // seats sit this far out from the table edge
 const isMe = (p) => !!p?.uid && p.uid === props.myUid;
 
-// Rotation about the vertical axis (radians). Home = the view from my seat.
-const home = computed(() => {
+// Rotation about the vertical axis (radians). 0 = the dealer at the far side,
+// which is how seats are told apart; myTheta = the view from my own seat.
+const theta = ref(0);
+const off = (target) => Math.abs(theta.value - nearestHome(theta.value, target)) > 0.02;
+const turned = computed(() => off(0));
+const myTheta = computed(() => {
   const mine = positions.value.find((p) => isMe(p.player));
-  return homeTheta(mine ? mine.index : null, RING);
+  return mine ? homeTheta(mine.index, RING) : null;
 });
-const theta = ref(home.value);
-const turned = computed(() => Math.abs(theta.value - nearestHome(theta.value, home.value)) > 0.02);
+const canMyView = computed(() => myTheta.value !== null && off(myTheta.value));
 
 const depthRange = TABLE.a + RING;
-const seats = computed(() => positions.value.map((p) => {
-  const at = seatPoint(p.index, theta.value, RING);
-  const name = p.player ? p.player.name : t(p.dealer ? 'seats.noDealerSeat' : 'seats.empty');
+// Avatars and name pills are CSS-pixel sized while the drawing scales with
+// the box, so they're laid out in drawing units at the box's real scale
+// (px per unit): on a narrow phone they take up more of the table.
+const NAME_H = 19; // px, rendered pill height
+const NAME_MAX = 150; // px, .st-name's max-width (9.4rem)
+const NAME_MIN = 50; // px, never cut a name shorter than this
+const NAME_PAD = 15; // px, its padding + border
+const pxPerUnit = ref(1);
+const points = computed(() => positions.value.map((p) => seatPoint(p.index, theta.value, RING)));
+const nameOf = (p) => (p.player ? p.player.name : t(p.dealer ? 'seats.noDealerSeat' : 'seats.empty'));
+const clashes = (a, b) => Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.y - b.y) < (a.h + b.h) / 2;
+// Name pills start under their avatar and make room for each other. Where
+// seats are too crowded for that (long names side by side on a narrow
+// phone), the longer of two pills still touching is cut a little and the
+// layout runs again — names are only cut when they can't fit whole.
+const nameLayout = computed(() => {
+  const u = (px) => px / pxPerUnit.value;
+  const names = positions.value.map(nameOf);
+  const caps = names.map(() => NAME_MAX);
+  // Avatars (and the badge hanging under them) stay clear
+  const blocks = points.value.map((at) => ({ x: at.x, y: at.y + u(2), w: u(40), h: u(46) }));
+  let labels = [];
+  let placed = [];
+  for (let round = 0; round < 6; round++) {
+    labels = names.map((name, i) => ({
+      x: points.value[i].x,
+      y: points.value[i].y + u(33),
+      w: u(Math.min(caps[i], textWidth(name) + NAME_PAD)),
+      h: u(NAME_H),
+    }));
+    placed = spreadLabels(labels, blocks).map((pt, i) => ({ ...labels[i], ...pt }));
+    let cut = false;
+    const shorten = (k) => {
+      const now = placed[k].w * pxPerUnit.value;
+      if (now <= NAME_MIN) return;
+      caps[k] = Math.max(NAME_MIN, now * 0.8);
+      cut = true;
+    };
+    // (a pill brushing a neighbour's avatar is fine: names draw on top)
+    for (let i = 0; i < placed.length; i++) {
+      for (let j = i + 1; j < placed.length; j++) {
+        if (clashes(placed[i], placed[j])) shorten(placed[i].w >= placed[j].w ? i : j);
+      }
+    }
+    if (!cut) break;
+  }
+  return placed.map((l, i) => ({
+    x: l.x,
+    y: l.y,
+    text: textWidth(names[i]) + NAME_PAD > caps[i] ? fitText(names[i], caps[i] - NAME_PAD) : names[i],
+  }));
+});
+const seats = computed(() => positions.value.map((p, i) => {
+  const at = points.value[i];
+  const label = nameLayout.value[i];
   return {
+    nameLeft: (label.x / VIEW.w) * 100,
+    nameTop: (label.y / VIEW.h) * 100,
     key: p.index,
     x: at.x,
     y: at.y,
@@ -144,17 +228,26 @@ const seats = computed(() => positions.value.map((p) => {
     dealer: p.dealer,
     player: p.player,
     out: p.out,
-    name,
+    name: label.text,
     me: isMe(p.player),
     badge: p.player && !p.out ? props.badgeOf(p.player) || '' : '',
   };
 }));
 
-const buttonAt = computed(() => {
-  const holder = positions.value.find((p) => !p.out && p.player?.seat?.button);
-  if (!holder) return null;
-  const at = seatPoint(holder.index, theta.value, -18);
-  return { x: at.x.toFixed(1), y: at.y.toFixed(1) };
+// D / SB / BB discs in front of their seats (where the first hand starts).
+// Heads-up the button is also the small blind: the second disc sits further in.
+const markers = computed(() => {
+  const live = positions.value.filter((p) => p.player && !p.out).map((p) => p.player);
+  const at = blindPositions(live);
+  const used = new Map();
+  return [['d', 'D', at.button], ['sb', 'SB', at.sb], ['bb', 'BB', at.bb]]
+    .filter(([, , index]) => index !== null)
+    .map(([kind, text, index]) => {
+      const n = used.get(index) || 0;
+      used.set(index, n + 1);
+      const pt = seatPoint(index, theta.value, -18 - n * 17);
+      return { kind, text, x: pt.x.toFixed(1), y: pt.y.toFixed(1) };
+    });
 });
 
 // Tap a seat for its details
@@ -163,6 +256,20 @@ const picked = computed(() => seats.value.find((s) => s.key === selected.value &
 
 // ── Drag to turn (a press that doesn't move is a tap on a seat) ──
 const root = ref(null);
+// The box's real scale, kept up to date as it resizes (window, rotation)
+let resizeObs = null;
+onMounted(() => {
+  const measure = () => {
+    const w = root.value?.clientWidth || 0;
+    if (w > 0) pxPerUnit.value = w / VIEW.w;
+  };
+  measure();
+  if (typeof ResizeObserver !== 'undefined' && root.value) {
+    resizeObs = new ResizeObserver(measure);
+    resizeObs.observe(root.value);
+  }
+});
+onBeforeUnmount(() => resizeObs?.disconnect());
 const dragging = ref(false);
 let lastX = 0;
 let travelled = 0;
@@ -197,11 +304,11 @@ function onCancel() {
   dragging.value = false;
 }
 
-// 回正: ease back to the view from my seat
-function goHome() {
+// 回正 (0: dealer at the far side) / 我的視角 (myTheta): ease round to it
+function easeTo(base) {
   stopEase();
   const step = () => {
-    const target = nearestHome(theta.value, home.value);
+    const target = nearestHome(theta.value, base);
     const diff = target - theta.value;
     if (Math.abs(diff) < 0.004) {
       theta.value = target;
@@ -213,11 +320,6 @@ function goHome() {
   };
   raf = requestAnimationFrame(step);
 }
-// My seat changed (a redraw, a re-entry elsewhere): look from the new one
-watch(home, (h) => {
-  stopEase();
-  theta.value = h;
-});
 onBeforeUnmount(stopEase);
 </script>
 
@@ -228,6 +330,9 @@ onBeforeUnmount(stopEase);
   background: radial-gradient(ellipse at 50% 45%, #3a4236 0%, #2b3029 70%, #262a25 100%);
   border: 1px solid rgb(var(--tw-slate-600) / 0.4);
   overflow: hidden;
+  /* its own stacking context: the seats' z-index (depth order) must not
+     climb over windows opened above the room */
+  isolation: isolate;
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
@@ -241,19 +346,19 @@ onBeforeUnmount(stopEase);
 .st-rail { fill: #4a5a3c; }
 .st-felt { fill: #4f9a63; }
 .st-line { fill: none; stroke: rgb(255 255 255 / 0.16); stroke-width: 1; }
-.st-btn { fill: #f8fafc; }
-.st-btn-edge { fill: #94a3b8; }
-.st-btn-text { font: 900 8px system-ui, sans-serif; fill: #1f2937; }
+.st-mark text { font: 900 7.5px system-ui, sans-serif; fill: #1f2937; }
+.st-mark.d .top { fill: #f8fafc; }
+.st-mark.d .edge { fill: #94a3b8; }
+.st-mark.sb .top { fill: #7dd3fc; }
+.st-mark.sb .edge { fill: #0369a1; }
+.st-mark.bb .top { fill: #fbbf24; }
+.st-mark.bb .edge { fill: #b45309; }
 .st-fig-shadow { fill: rgb(0 0 0 / 0.3); }
+.st-title { font: 800 11px system-ui, sans-serif; fill: rgb(255 255 255 / 0.5); letter-spacing: 0.04em; }
 
 .st-seat {
   position: absolute;
-  width: 4.4rem;
   transform: translate(-50%, -50%) scale(var(--s, 1));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.15rem;
   cursor: pointer;
 }
 .st-av { position: relative; display: inline-flex; border-radius: 999px; }
@@ -311,27 +416,32 @@ onBeforeUnmount(stopEase);
 .st-av:has(.st-badge), .st-av:has(.st-place) { margin-bottom: 5px; }
 
 .st-name {
-  max-width: 100%;
-  padding: 0 0.35rem;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  max-width: 9.4rem;
+  padding: 0 0.4rem;
   border-radius: 0.4rem;
   font-size: 0.7rem;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.45;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: #fff;
-  background: rgb(15 17 16 / 0.82);
+  background: rgb(15 17 16 / 0.85);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  cursor: pointer;
 }
-.st-seat.me .st-name { color: #fcd34d; }
-.st-seat.out .st-name { color: rgb(255 255 255 / 0.5); text-decoration: line-through; }
-.st-seat.empty .st-name { color: rgb(255 255 255 / 0.4); background: none; font-weight: 500; }
+.st-name.me { color: #fcd34d; border-color: rgb(251 191 36 / 0.6); }
+.st-name.sel { border-color: #6ee7b7; }
+.st-name.out { color: rgb(255 255 255 / 0.5); text-decoration: line-through; }
+.st-name.empty { color: rgb(255 255 255 / 0.4); background: none; border-color: transparent; font-weight: 500; }
 
 .st-home {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
-  z-index: 500;
+  z-index: 1000;
   padding: 0.2rem 0.65rem;
   border-radius: 999px;
   font-size: 0.75rem;
@@ -340,6 +450,7 @@ onBeforeUnmount(stopEase);
   background: rgb(15 17 16 / 0.8);
   border: 1px solid #34d399;
 }
+.st-home.mine { right: auto; left: 0.5rem; color: #fcd34d; border-color: #fbbf24; }
 .st-hint {
   position: absolute;
   right: 0.6rem;

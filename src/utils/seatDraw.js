@@ -193,3 +193,32 @@ export function seatNeighbours(players = [], me = null) {
   };
   return { left: find(1), right: find(-1) };
 }
+
+/**
+ * Where the button and the blinds start, as table positions (0 = dealer,
+ * 1..9). The deal runs clockwise seen from above — dealer, 1, 2 … 9 — so the
+ * small blind is the next taken seat after the button and the big blind the
+ * one after that. Heads-up the button posts the small blind. Knocked-out
+ * players and empty seats are skipped; no button drawn (or its holder is
+ * out) → all null.
+ * @return {{ button: ?number, sb: ?number, bb: ?number }}
+ */
+export function blindPositions(players = []) {
+  const indexOf = (p) => (p.seat.dealer ? DEALER_SEAT : p.seat.seat);
+  const live = players.filter((p) => p.seat && !p.eliminated);
+  const holder = live.find((p) => p.seat.button);
+  if (!holder || live.length < 2) return { button: holder ? indexOf(holder) : null, sb: null, bb: null };
+  const total = SEAT_COUNT + 1;
+  const taken = new Set(live.map(indexOf));
+  const next = (from) => {
+    for (let k = 1; k <= total; k++) {
+      const i = (from + k) % total;
+      if (taken.has(i)) return i;
+    }
+    return from;
+  };
+  const button = indexOf(holder);
+  if (live.length === 2) return { button, sb: button, bb: next(button) };
+  const sb = next(button);
+  return { button, sb, bb: next(sb) };
+}
