@@ -63,7 +63,7 @@
         class="st-name"
         :class="{ me: s.me, out: s.out, empty: !s.player, sel: selected === s.key }"
         :data-seat="s.key"
-        :style="{ left: `${s.nameLeft}%`, top: `${s.nameTop}%`, zIndex: s.z + 1 }"
+        :style="{ left: `${s.nameLeft}%`, top: `${s.nameTop}%`, zIndex: s.z + 300 }"
       >{{ s.name }}</div>
 
       <button v-if="canMyView" type="button" class="st-home mine" @pointerdown.stop @click="easeTo(myTheta)">
@@ -103,7 +103,7 @@
 //   - it follows the game: knocked-out players stay greyed out with their
 //     place until someone takes the seat; `badgeOf` puts the bounty on a seat
 // Geometry lives in utils/seatTableLayout.js.
-import { ref, computed, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PlayerAvatar from '../common/PlayerAvatar.vue';
 import TitleBadge from '../common/TitleBadge.vue';
@@ -158,25 +158,64 @@ const myTheta = computed(() => {
 const canMyView = computed(() => myTheta.value !== null && off(myTheta.value));
 
 const depthRange = TABLE.a + RING;
-const NAME_H = 17;
-const NAME_MAX = 150; // longest pill, in drawing units (≈ px on a phone)
+// Avatars and name pills are CSS-pixel sized while the drawing scales with
+// the box, so they're laid out in drawing units at the box's real scale
+// (px per unit): on a narrow phone they take up more of the table.
+const NAME_H = 19; // px, rendered pill height
+const NAME_MAX = 150; // px, .st-name's max-width (9.4rem)
+const NAME_MIN = 50; // px, never cut a name shorter than this
+const NAME_PAD = 15; // px, its padding + border
+const pxPerUnit = ref(1);
 const points = computed(() => positions.value.map((p) => seatPoint(p.index, theta.value, RING)));
-// Name pills start under their avatar, then make room for each other
-const namePoints = computed(() => {
-  const labels = positions.value.map((p, i) => {
-    const name = p.player ? p.player.name : t(p.dealer ? 'seats.noDealerSeat' : 'seats.empty');
-    return { x: points.value[i].x, y: points.value[i].y + 33, w: Math.min(NAME_MAX, textWidth(name) + 14), h: NAME_H };
-  });
+const nameOf = (p) => (p.player ? p.player.name : t(p.dealer ? 'seats.noDealerSeat' : 'seats.empty'));
+const clashes = (a, b) => Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.y - b.y) < (a.h + b.h) / 2;
+// Name pills start under their avatar and make room for each other. Where
+// seats are too crowded for that (long names side by side on a narrow
+// phone), the longer of two pills still touching is cut a little and the
+// layout runs again — names are only cut when they can't fit whole.
+const nameLayout = computed(() => {
+  const u = (px) => px / pxPerUnit.value;
+  const names = positions.value.map(nameOf);
+  const caps = names.map(() => NAME_MAX);
   // Avatars (and the badge hanging under them) stay clear
-  const blocks = points.value.map((at) => ({ x: at.x, y: at.y + 2, w: 40, h: 46 }));
-  return spreadLabels(labels, blocks);
+  const blocks = points.value.map((at) => ({ x: at.x, y: at.y + u(2), w: u(40), h: u(46) }));
+  let labels = [];
+  let placed = [];
+  for (let round = 0; round < 6; round++) {
+    labels = names.map((name, i) => ({
+      x: points.value[i].x,
+      y: points.value[i].y + u(33),
+      w: u(Math.min(caps[i], textWidth(name) + NAME_PAD)),
+      h: u(NAME_H),
+    }));
+    placed = spreadLabels(labels, blocks).map((pt, i) => ({ ...labels[i], ...pt }));
+    let cut = false;
+    const shorten = (k) => {
+      const now = placed[k].w * pxPerUnit.value;
+      if (now <= NAME_MIN) return;
+      caps[k] = Math.max(NAME_MIN, now * 0.8);
+      cut = true;
+    };
+    // (a pill brushing a neighbour's avatar is fine: names draw on top)
+    for (let i = 0; i < placed.length; i++) {
+      for (let j = i + 1; j < placed.length; j++) {
+        if (clashes(placed[i], placed[j])) shorten(placed[i].w >= placed[j].w ? i : j);
+      }
+    }
+    if (!cut) break;
+  }
+  return placed.map((l, i) => ({
+    x: l.x,
+    y: l.y,
+    text: textWidth(names[i]) + NAME_PAD > caps[i] ? fitText(names[i], caps[i] - NAME_PAD) : names[i],
+  }));
 });
 const seats = computed(() => positions.value.map((p, i) => {
   const at = points.value[i];
-  const name = p.player ? p.player.name : t(p.dealer ? 'seats.noDealerSeat' : 'seats.empty');
+  const label = nameLayout.value[i];
   return {
-    nameLeft: (namePoints.value[i].x / VIEW.w) * 100,
-    nameTop: (namePoints.value[i].y / VIEW.h) * 100,
+    nameLeft: (label.x / VIEW.w) * 100,
+    nameTop: (label.y / VIEW.h) * 100,
     key: p.index,
     x: at.x,
     y: at.y,
@@ -189,7 +228,7 @@ const seats = computed(() => positions.value.map((p, i) => {
     dealer: p.dealer,
     player: p.player,
     out: p.out,
-    name,
+    name: label.text,
     me: isMe(p.player),
     badge: p.player && !p.out ? props.badgeOf(p.player) || '' : '',
   };
@@ -217,6 +256,20 @@ const picked = computed(() => seats.value.find((s) => s.key === selected.value &
 
 // ── Drag to turn (a press that doesn't move is a tap on a seat) ──
 const root = ref(null);
+// The box's real scale, kept up to date as it resizes (window, rotation)
+let resizeObs = null;
+onMounted(() => {
+  const measure = () => {
+    const w = root.value?.clientWidth || 0;
+    if (w > 0) pxPerUnit.value = w / VIEW.w;
+  };
+  measure();
+  if (typeof ResizeObserver !== 'undefined' && root.value) {
+    resizeObs = new ResizeObserver(measure);
+    resizeObs.observe(root.value);
+  }
+});
+onBeforeUnmount(() => resizeObs?.disconnect());
 const dragging = ref(false);
 let lastX = 0;
 let travelled = 0;
@@ -388,7 +441,7 @@ onBeforeUnmount(stopEase);
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
-  z-index: 500;
+  z-index: 1000;
   padding: 0.2rem 0.65rem;
   border-radius: 999px;
   font-size: 0.75rem;
