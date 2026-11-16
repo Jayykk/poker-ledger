@@ -123,8 +123,35 @@ function dequeue(id) {
   writeQueue(readQueue().filter((p) => p.id !== id));
 }
 
-function deliver(payload) {
-  return httpsCallable(functions, 'reportClientError')(payload);
+// A report that keeps failing is dropped after this many tries
+const MAX_ATTEMPTS = 5;
+
+function bumpAttempts(id) {
+  writeQueue(readQueue()
+    .map((p) => (p.id === id ? { ...p, attempts: (p.attempts || 0) + 1 } : p))
+    .filter((p) => (p.attempts || 0) < MAX_ATTEMPTS));
+}
+
+/**
+ * Send one report; resolves only when the server confirms it. The callable
+ * answers { ok: false } instead of throwing when its handler fails
+ * (functions/src/index.js), so a plain resolve isn't proof it landed.
+ */
+async function deliver(payload) {
+  const { id, attempts, ...body } = payload;
+  const res = await httpsCallable(functions, 'reportClientError')(body);
+  if (res?.data?.ok !== true) throw new Error('report not accepted');
+  return res;
+}
+
+/** Send a queued report: drop it once confirmed, else count the try. */
+async function deliverQueued(payload) {
+  try {
+    await deliver(payload);
+    dequeue(payload.id);
+  } catch {
+    bumpAttempts(payload.id);
+  }
 }
 
 /**
@@ -137,14 +164,9 @@ export async function flushQueuedErrors() {
   if (!list.length) return;
   flushing = true;
   try {
-    for (const { id, ...payload } of list) {
-      if (sending.has(id)) continue;
-      try {
-        await deliver({ ...payload, signedIn: true });
-        dequeue(id);
-      } catch {
-        // stays queued for the next try
-      }
+    for (const payload of list) {
+      if (sending.has(payload.id)) continue;
+      await deliverQueued({ ...payload, signedIn: true });
     }
   } finally {
     flushing = false;
@@ -191,9 +213,7 @@ export function reportError(err, context = '') {
     enqueue({ ...payload, id, queuedAt: Date.now() });
     if (!online || !signedIn) return;
     sending.add(id);
-    deliver(payload)
-      .then(() => dequeue(id), () => {})
-      .finally(() => sending.delete(id));
+    deliverQueued({ ...payload, id }).finally(() => sending.delete(id));
   } catch {
     // reporting must never cause an error of its own
   }

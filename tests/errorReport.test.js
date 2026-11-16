@@ -93,6 +93,24 @@ describe('errorReport: handled errors', () => {
     expect(store.has(QUEUE_KEY)).toBe(false);
   });
 
+  it('keeps a report the server answered ok: false, drops it after 5 tries', async () => {
+    deliver.mockImplementation(() => Promise.resolve({ data: { ok: false } }));
+    try {
+      reportError(new Error('backend hiccup'), 'caught:w');
+      await new Promise((r) => setTimeout(r, 0));
+      expect(JSON.parse(store.get(QUEUE_KEY))[0].attempts).toBe(1);
+      for (let i = 0; i < 3; i += 1) await flushQueuedErrors();
+      expect(JSON.parse(store.get(QUEUE_KEY))[0].attempts).toBe(4);
+      await flushQueuedErrors();
+      expect(store.has(QUEUE_KEY)).toBe(false);
+      // the queue bookkeeping (id, attempts) never goes to the server
+      expect(deliver.mock.calls[0][0]).not.toHaveProperty('id');
+      expect(deliver.mock.calls[1][0]).not.toHaveProperty('attempts');
+    } finally {
+      deliver.mockImplementation(() => Promise.resolve({ data: { ok: true } }));
+    }
+  });
+
   it('keeps a report whose send fails', async () => {
     deliver.mockImplementationOnce(() => Promise.reject(new Error('network')));
     reportError(new Error('send fails'), 'caught:y');
