@@ -18,8 +18,10 @@
 // Stored per user in userTitles/{uid} (server-written only):
 //   unlocked  { [familyId]: { tier, at } }  only ever goes up; `at` = when the
 //             current tier was first reached (millis)
-//   prefs     { mode: 'off'|'auto'|'pick', titleId, showRoomTitles,
-//               frame: 'auto'|frameId }
+//   prefs     { mode: 'off'|'auto'|'pick', titleId, titleTier, showRoomTitles,
+//               frame: 'auto'|frameId }   titleTier: which reached step of
+//               the picked family to show (null = its highest; shown at most
+//               at the reached tier, so a rebuild that lowers it clamps)
 //   display   { familyId, tier, frame } | null   what other players see.
 //             familyId / tier are null when the title is off (or none is
 //             unlocked) but a frame is still shown; the whole display is
@@ -78,6 +80,8 @@ export const TITLE_MODES = Object.freeze(['off', 'auto', 'pick']);
 export const DEFAULT_TITLE_PREFS = Object.freeze({
   mode: 'off',
   titleId: null,
+  // The step of the picked family to show: 1..10, null = the highest reached
+  titleTier: null,
   showRoomTitles: false,
   frame: 'none',
 });
@@ -138,8 +142,9 @@ export const TITLE_LADDER_VERSION = 2;
 // leaderboard's unit (cash), 組 / σ as the stats store them.
 export const TITLE_LADDERS = Object.freeze({
   // ── 錢包
-  netWin: [500, 1000, 2000, 4000, 7000, 10000, 15000, 25000, 40000, 60000], // top +12.5K → 6
-  netLoss: [500, 1000, 2000, 4000, 7000, 12000, 25000, 40000, 60000, 90000], // top 20.6K → 6
+  // Σ of the games won / given (grossWon / grossGiven), not the net
+  netWin: [1000, 2000, 4000, 7000, 12000, 20000, 30000, 45000, 70000, 100000], // top 38K → 7
+  netLoss: [1000, 2000, 4000, 7000, 12000, 20000, 30000, 45000, 70000, 100000], // top 47K → 8
   bigWin: [2, 3, 4, 6, 8, 10, 14, 18, 22, 30], // 組, top 12.95 → 6
   bigLoss: [2, 3, 4, 5, 6, 8, 10, 13, 16, 20], // 組, top 9.1 → 6
   volatile: [1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7], // σ (組), top 3.76 → 5
@@ -173,7 +178,9 @@ export const TITLE_LADDERS = Object.freeze({
 });
 
 // The 1..4 ladders before ten steps: { oldTier: threshold } per family, only
-// to read docs written before TITLE_LADDER_VERSION (upgradeTitlesDoc)
+// to read docs written before TITLE_LADDER_VERSION (upgradeTitlesDoc). The
+// old netWin / netLoss steps were nets; read on today's gross ladders they
+// are still a floor (the games won add up to at least the net).
 const LEGACY_LADDERS = Object.freeze({
   netWin: { 1: 2000, 2: 5000, 3: 10000, 4: 30000 },
   netLoss: { 1: 2000, 2: 5000, 3: 15000, 4: 40000 },
@@ -209,6 +216,21 @@ const num = (value) => Number(value) || 0;
 const total = (stats) => stats?.total || {};
 const tour = (stats) => stats?.tournament || {};
 const round2 = (n) => Math.round(n * 100) / 100;
+
+/**
+ * Money of the games won (`grossWon`) or given (`grossGiven`) in the total
+ * bucket. A stats doc from before those fields (LEADERBOARD_STATS_VERSION < 6)
+ * falls back to the net it does have, until the backfill rewrites it.
+ *
+ * @param {?object} stats All-time stats.
+ * @param {string} field 'grossWon' | 'grossGiven'.
+ * @param {number} net The net-based value for an old doc.
+ * @return {number}
+ */
+function grossOr(stats, field, net) {
+  const value = total(stats)[field];
+  return Number.isFinite(value) ? value : net;
+}
 
 /**
  * σ of the per-game result in 組, or null below TITLE_MIN_GROUP_GAMES.
@@ -255,9 +277,11 @@ function family(id, group, metric, { hidden = false } = {}) {
 
 export const TITLE_FAMILIES = Object.freeze([
   // ── 錢包 ────────────────────────────────────────────────────────
-  // Money in the leaderboard's unit (cash: profitCash, or chips / rate)
-  family('netWin', 'wallet', (s) => Math.max(0, num(total(s).profit))),
-  family('netLoss', 'wallet', (s) => Math.max(0, -num(total(s).profit))),
+  // Money in the leaderboard's unit (cash: profitCash, or chips / rate). The
+  // games won and the games given add up apart, so one never cancels the
+  // other (本月印鈔機 / 大善人 crowns still judge the month's net)
+  family('netWin', 'wallet', (s) => grossOr(s, 'grossWon', Math.max(0, num(total(s).profit)))),
+  family('netLoss', 'wallet', (s) => grossOr(s, 'grossGiven', Math.max(0, -num(total(s).profit)))),
   family('bigWin', 'wallet', (s) => num(total(s).maxWinGroups)),
   family('bigLoss', 'wallet', (s) => num(total(s).maxLossGroups)),
   family('volatile', 'wallet', (s) => {
@@ -604,16 +628,41 @@ export function resolveFrame(unlocked, prefs) {
 }
 
 /**
+ * A valid prefs.titleTier (an integer 1..TITLE_TIER_COUNT)?
+ *
+ * @param {*} value Anything.
+ * @return {boolean}
+ */
+function isTitleTier(value) {
+  return Number.isInteger(value) && value >= 1 && value <= TITLE_TIER_COUNT;
+}
+
+/**
+ * The step of a picked family that shows: the picked one (prefs.titleTier),
+ * never above the tier reached (a rebuild can lower that), and the highest
+ * reached when none is picked. resolveTitle and the 指定 picker both use it.
+ *
+ * @param {number} reached Tier reached in the family.
+ * @param {?number} titleTier prefs.titleTier (null: the highest).
+ * @return {number}
+ */
+export function pickedTitleTier(reached, titleTier) {
+  return isTitleTier(titleTier) ? Math.min(titleTier, reached) : reached;
+}
+
+/**
  * Normalize stored prefs (missing / bad fields → defaults).
  *
  * @param {?object} prefs Stored prefs.
- * @return {{mode: string, titleId: ?string, showRoomTitles: boolean, frame: string}}
+ * @return {{mode: string, titleId: ?string, titleTier: ?number,
+ *   showRoomTitles: boolean, frame: string}}
  */
 export function normalizeTitlePrefs(prefs) {
   const p = prefs || {};
   return {
     mode: TITLE_MODES.includes(p.mode) ? p.mode : DEFAULT_TITLE_PREFS.mode,
     titleId: typeof p.titleId === 'string' && p.titleId ? p.titleId : null,
+    titleTier: isTitleTier(p.titleTier) ? p.titleTier : DEFAULT_TITLE_PREFS.titleTier,
     showRoomTitles: typeof p.showRoomTitles === 'boolean'
       ? p.showRoomTitles
       : DEFAULT_TITLE_PREFS.showRoomTitles,
@@ -628,13 +677,18 @@ export function normalizeTitlePrefs(prefs) {
  * A crown can be picked while it is held this month (`crownCtx`); once it is
  * gone the stored pick shows as auto, and other prefs stay changeable.
  *
- * @param {?object} input `{ mode?, titleId?, showRoomTitles?, frame? }`.
+ * `titleTier` picks a reached step of the picked family (null: its highest).
+ * A different `titleId` without one resets it to null; crowns have one step
+ * and ignore it.
+ *
+ * @param {?object} input `{ mode?, titleId?, titleTier?, showRoomTitles?, frame? }`.
  * @param {?object} current Stored prefs.
  * @param {?object} unlocked Stored unlocked map.
  * @param {?{crowns: ?object, month: ?string}} [crownCtx] Stored crowns and the
  *   current month key.
  * @return {object} { prefs } or { error }, error: 'bad-mode' | 'bad-title' |
- *   'not-unlocked' | 'bad-toggle' | 'bad-frame' | 'frame-locked'
+ *   'not-unlocked' | 'bad-tier' | 'tier-locked' | 'bad-toggle' | 'bad-frame' |
+ *   'frame-locked'
  */
 export function validateTitlePrefs(input, current, unlocked, crownCtx = null) {
   const base = normalizeTitlePrefs(current);
@@ -652,7 +706,20 @@ export function validateTitlePrefs(input, current, unlocked, crownCtx = null) {
       return { error: 'bad-title' };
     }
     if (data.titleId !== null && !pickable(data.titleId)) return { error: 'not-unlocked' };
+    // Another family: its highest step unless a step comes with it
+    if (data.titleId !== base.titleId) next.titleTier = null;
     next.titleId = data.titleId;
+  }
+  if (data.titleTier !== undefined) {
+    if (data.titleTier !== null && !isTitleTier(data.titleTier)) return { error: 'bad-tier' };
+    next.titleTier = data.titleTier;
+  }
+  if (isCrownId(next.titleId)) {
+    next.titleTier = null;
+  } else if (data.titleTier != null) {
+    // Only a step of the picked family it has reached
+    const reached = next.titleId ? num(unlocked?.[next.titleId]?.tier) : 0;
+    if (data.titleTier > reached) return { error: 'tier-locked' };
   }
   if (data.showRoomTitles !== undefined) {
     if (typeof data.showRoomTitles !== 'boolean') return { error: 'bad-toggle' };
@@ -676,8 +743,9 @@ export function validateTitlePrefs(input, current, unlocked, crownCtx = null) {
 }
 
 /**
- * The title shown. off → null; pick → the chosen title (falls back to auto if
- * it is no longer unlocked, or a crown no longer held); auto → an active crown
+ * The title shown. off → null; pick → the chosen title at the chosen step
+ * (pickedTitleTier: at most the tier reached; falls back to auto if it is no
+ * longer unlocked, or a crown no longer held); auto → an active crown
  * (CROWN_IDS order), else the highest tier, ties to the most recently
  * reached, then catalog order.
  *
@@ -696,7 +764,7 @@ export function resolveTitle(unlocked, prefs, crownCtx = null) {
   if (p.mode === 'pick' && p.titleId) {
     if (crowns.includes(p.titleId)) return crownTitle(p.titleId);
     if (!isCrownId(p.titleId) && map[p.titleId]?.tier > 0) {
-      return { familyId: p.titleId, tier: map[p.titleId].tier };
+      return { familyId: p.titleId, tier: pickedTitleTier(map[p.titleId].tier, p.titleTier) };
     }
   }
   if (crowns.length) return crownTitle(crowns[0]);

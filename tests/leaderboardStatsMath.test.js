@@ -204,12 +204,12 @@ describe('buildLeaderboardStatsDocs', () => {
       .toEqual([]);
   });
 
-  it('stamps sourceVersion 5 (hand events)', () => {
+  it('stamps sourceVersion 6 (grossWon / grossGiven)', () => {
     const docs = buildLeaderboardStatsDocs({
       uid: 'u1', name: 'A', hidden: false,
       records: [{ type: 'live', profit: 1, createdAt: twMillis('2026-07-22T20:00:00') }],
     });
-    expect(docs[0].data.sourceVersion).toBe(5);
+    expect(docs[0].data.sourceVersion).toBe(6);
   });
 });
 
@@ -237,6 +237,57 @@ describe('hand events', () => {
       rec(twMillis('2026-07-22T20:00:00'), { quads: 'x', coolers: -1, tragicHero: null }),
     ]).get('all').total;
     for (const key of HAND_EVENT_KEYS) expect(all[key]).toBe(0);
+  });
+});
+
+describe('grossWon / grossGiven', () => {
+  const at = (day) => twMillis(`2026-07-${String(day).padStart(2, '0')}T20:00:00`);
+
+  it('adds the games won and the games given apart, in every bucket and period', () => {
+    const periods = aggregateHistoryRecords('me', [
+      { type: 'live', profit: 3000, rate: 1, createdAt: at(1) },
+      { type: 'live', profit: -1200, rate: 1, createdAt: at(2) },
+      // A game that ended even: in neither
+      { type: 'live', profit: 0, rate: 1, createdAt: at(3) },
+      { type: 'tournament', profit: -500, rate: 1, createdAt: at(4) },
+      { type: 'tournament', profit: 2500, rate: 1, createdAt: twMillis('2026-08-04T20:00:00') },
+      // Unknown type: the total only
+      { type: 'other', profit: -100, rate: 1, createdAt: at(5) },
+    ]);
+    const all = periods.get('all');
+    expect(all.total).toMatchObject({ profit: 3700, grossWon: 5500, grossGiven: 1800 });
+    expect(all.cash).toMatchObject({ profit: 1800, grossWon: 3000, grossGiven: 1200 });
+    expect(all.tournament).toMatchObject({ profit: 2000, grossWon: 2500, grossGiven: 500 });
+    expect(periods.get('2026-07').total).toMatchObject({ grossWon: 3000, grossGiven: 1800 });
+    expect(periods.get('2026-08').total).toMatchObject({ grossWon: 2500, grossGiven: 0 });
+    expect(periods.get('2026').tournament).toMatchObject({ grossWon: 2500, grossGiven: 500 });
+    // Always won - given = the net
+    for (const entry of periods.values()) {
+      for (const bucket of [entry.total, entry.cash, entry.tournament]) {
+        expect(Math.round((bucket.grossWon - bucket.grossGiven) * 100) / 100).toBe(bucket.profit);
+      }
+    }
+  });
+
+  it('in the leaderboard money unit: profitCash when stored, else chips / rate', () => {
+    const t = aggregateHistoryRecords('me', [
+      // Rounded settlement: the cash result wins over chips / rate
+      { type: 'live', profit: 1234, rate: 10, profitCash: 120, createdAt: at(1) },
+      { type: 'live', profit: -555, rate: 10, createdAt: at(2) },
+      // No rate: 1
+      { type: 'live', profit: 200, createdAt: at(3) },
+      { type: 'live', profit: -1000, rate: 3, createdAt: at(4) },
+    ]).get('all').total;
+    expect(t.grossWon).toBe(320);
+    // 55.5 + 333.333… → rounded to cents
+    expect(t.grossGiven).toBe(388.83);
+  });
+
+  it('starts at 0 everywhere, also with only even games', () => {
+    const all = aggregateHistoryRecords('me', [{ type: 'live', profit: 0, rate: 1, createdAt: at(1) }]).get('all');
+    for (const bucket of [all.total, all.cash, all.tournament]) {
+      expect(bucket).toMatchObject({ grossWon: 0, grossGiven: 0 });
+    }
   });
 });
 

@@ -100,21 +100,15 @@
             <template v-else>{{ $t('titles.pick') }}</template>
           </p>
 
-        <div v-if="titlePrefs.mode === 'pick' && pickableTitles.length" class="title-pick-grid">
-          <button
-            v-for="item in pickableTitles"
-            :key="item.familyId"
-            type="button"
-            class="title-pick"
-            :class="{ active: titlePrefs.titleId === item.familyId, crown: isCrownId(item.familyId) }"
-            :disabled="titleSaving"
-            @click="pickTitle(item.familyId)"
-          >
-            <TitleBadge :family-id="item.familyId" :tier="item.tier" />
-            <span class="title-pick-sub">{{ $t(`titles.families.${item.familyId}.desc`) }}</span>
-            <i v-if="titlePrefs.titleId === item.familyId" class="fas fa-check title-pick-check" aria-hidden="true"></i>
-          </button>
-        </div>
+        <!-- 指定: a cell per family; one with several steps opens them to pick from -->
+        <TitlePickGrid
+          v-if="titlePrefs.mode === 'pick' && pickableTitles.length"
+          :items="pickableTitles"
+          :picked-id="titlePrefs.titleId"
+          :picked-tier="titlePrefs.titleTier"
+          :disabled="titleSaving"
+          @pick="pickTitle"
+        />
         <p v-if="!pickableTitles.length" class="text-xs text-gray-500 text-left mt-2">{{ $t('titles.noneUnlocked') }}</p>
         </div>
 
@@ -305,11 +299,12 @@ import BaseCard from '../components/common/BaseCard.vue';
 import BaseButton from '../components/common/BaseButton.vue';
 import BaseInput from '../components/common/BaseInput.vue';
 import TitleBadge from '../components/common/TitleBadge.vue';
+import TitlePickGrid from '../components/common/TitlePickGrid.vue';
 import PlayerAvatar from '../components/common/PlayerAvatar.vue';
 import { useUserTitles } from '../composables/useUserTitles.js';
 import {
   TITLE_FAMILIES, FRAME_TIERS, getTitleFamily, normalizeTitlePrefs, titleCount, earnedFrame, frameRank,
-  activeCrowns, isCrownId, CROWN_TIER,
+  activeCrowns, CROWN_TIER,
 } from '../utils/titles.js';
 import { STORAGE_KEYS } from '../utils/constants.js';
 import { THEMES as THEME_LIST, applyTheme, resolveThemeId } from '../utils/themes.js';
@@ -425,8 +420,11 @@ function setTitleMode(mode) {
   if (titleId) saveTitles({ mode, titleId });
 }
 
-function pickTitle(familyId) {
-  if (familyId !== titlePrefs.value.titleId) saveTitles({ mode: 'pick', titleId: familyId });
+// From TitlePickGrid: a family, and which of its steps (null = its highest)
+function pickTitle({ titleId, titleTier = null }) {
+  const { titleId: pickedId, titleTier: pickedTier } = titlePrefs.value;
+  if (titleId === pickedId && titleTier === pickedTier) return;
+  saveTitles({ mode: 'pick', titleId, titleTier });
 }
 
 function pickFrame(frame) {
@@ -559,42 +557,6 @@ const handleLogout = async () => {
 }
 .title-mode.active { color: rgb(var(--tw-white)); border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.12); font-weight: 600; }
 .title-mode:disabled:not(.active) { opacity: 0.4; }
-/* 指定: equal cells (badge + its series) so a long name or the legendary glow
-   stays inside its box */
-.title-pick-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-@media (min-width: 768px) { .title-pick-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.title-pick {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.3rem;
-  min-width: 0;
-  padding: 0.55rem 1.5rem 0.5rem 0.6rem;
-  border-radius: 0.6rem;
-  border: 1px solid rgb(var(--tw-slate-600));
-  background: rgb(var(--tw-slate-900) / 0.5);
-  text-align: left;
-  overflow: hidden;
-}
-.title-pick > .title-badge { max-width: 100%; }
-.title-pick-sub {
-  max-width: 100%;
-  font-size: 0.68rem;
-  color: rgb(var(--tw-slate-400));
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.title-pick-check { position: absolute; top: 0.55rem; right: 0.55rem; font-size: 0.7rem; color: rgb(var(--tw-amber-400)); }
-.title-pick.active { border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.1); }
-/* A crown held this month: gold edge until picked */
-.title-pick.crown:not(.active) { border-color: rgb(var(--tw-amber-500) / 0.45); }
 .frame-opt {
   display: flex;
   flex-direction: column;
