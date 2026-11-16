@@ -162,7 +162,7 @@
         <BaseButton v-if="step < 3" variant="primary" full-width :disabled="!canNext" @click="next">
           {{ step === 1 ? $t('hand.flow.toCards') : $t('hand.flow.toResult') }}
         </BaseButton>
-        <BaseButton v-else variant="primary" full-width :disabled="!canSave || saving" @click="handleSave">
+        <BaseButton v-else variant="primary" full-width :loading="saving" :disabled="!canSave" @click="handleSave">
           {{ $t('common.save') }}
         </BaseButton>
       </div>

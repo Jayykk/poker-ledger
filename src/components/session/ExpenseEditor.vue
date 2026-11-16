@@ -194,10 +194,10 @@
             {{ t('expense.editor.needAmount', { count: problems.badAmount.length }) }}
           </p>
           <div class="flex gap-2">
-            <BaseButton v-if="draft.id" variant="danger" :disabled="saving" @click="onDelete">
+            <BaseButton v-if="draft.id" variant="danger" :loading="saving" @click="onDelete">
               <i class="fas fa-trash"></i>
             </BaseButton>
-            <BaseButton variant="primary" fullWidth :disabled="!problems.ok || saving || recognizing" @click="onSave">
+            <BaseButton variant="primary" fullWidth :loading="saving" :disabled="!problems.ok || recognizing" @click="onSave">
               {{ t('expense.editor.save') }}
             </BaseButton>
           </div>

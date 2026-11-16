@@ -176,6 +176,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useTimeBank } from '../composables/useTimeBank.js';
 import { useNotification } from '../composables/useNotification.js';
+import { useLoading } from '../composables/useLoading.js';
 import { DEFAULT_TIME_BANK_SECONDS, DEFAULT_TIME_BANK_INTERVAL, DEFAULT_TIME_BANK_BUTTON_COUNT } from '../utils/constants.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 
@@ -183,6 +184,7 @@ const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
 const { error: showError } = useNotification();
+const { withLoading } = useLoading();
 
 const {
   session, loading, localTimeLeft,
@@ -262,19 +264,26 @@ function playSound(type) {
   }
 }
 
+// One at a time: a double tap would create two sessions
+let creating = false;
 async function handleCreate() {
+  if (creating) return;
+  creating = true;
   try {
-    const id = await createSession({
+    const id = await withLoading(() => createSession({
       minSeconds: setupMinSeconds.value || DEFAULT_TIME_BANK_SECONDS,
       intervalSeconds: setupInterval.value || DEFAULT_TIME_BANK_INTERVAL,
       buttonCount: setupButtonCount.value || DEFAULT_TIME_BANK_BUTTON_COUNT,
       label: setupLabel.value || '',
-    });
+    }), t('loading.saving'));
     // Replace URL so "new" becomes actual ID
     router.replace(`/time-bank/${id}`);
     joinSession(id);
   } catch (e) {
+    console.error('[TimeBank] create failed:', e);
     showError(e.message);
+  } finally {
+    creating = false;
   }
 }
 

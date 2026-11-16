@@ -13,7 +13,7 @@
       <div class="text-xs" :class="tooMany ? 'text-rose-300' : 'text-gray-400'">
         {{ tooMany ? $t('seats.tooMany', { n: capacity }) : $t('seats.capacity', { n: players.length, cap: capacity }) }}
       </div>
-      <BaseButton variant="primary" full-width :disabled="busy || players.length < 2 || !dealerPick || tooMany" @click="draw">
+      <BaseButton variant="primary" full-width :loading="busy" :disabled="players.length < 2 || !dealerPick || tooMany" @click="draw">
         🎴 {{ seated ? $t('seats.redraw') : $t('seats.draw') }}
       </BaseButton>
     </div>

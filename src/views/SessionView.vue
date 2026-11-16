@@ -196,6 +196,7 @@ import { useAuthStore } from '../store/modules/auth.js';
 import { useSessions } from '../composables/useSessions.js';
 import { useLiff } from '../composables/useLiff.js';
 import { useConfirm } from '../composables/useConfirm.js';
+import { useLoading } from '../composables/useLoading.js';
 import {
   resolveSessionView, canViewLocation, isParticipant,
   periodCount, periodFull, canJoinPeriod, isSignedUpForPeriod,
@@ -209,6 +210,7 @@ import EventExpenses from '../components/session/EventExpenses.vue';
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
+const { withLoading } = useLoading();
 const authStore = useAuthStore();
 const {
   session, loading, listenSession, getSession,
@@ -292,7 +294,21 @@ function formatDateTime(ms) {
 
 async function withNotice(fn) {
   notice.value = '';
-  try { await fn(); } catch (err) { notice.value = err?.message || t('session.actionFailed'); }
+  try { await fn(); } catch (err) {
+    console.error('[SessionView] action failed:', err);
+    notice.value = err?.message || t('session.actionFailed');
+  }
+}
+
+// Server-heavy actions (starting a table is several round trips, deleting
+// walks every expense): the global spinner, and one at a time so a double
+// tap can't open two tables
+const actionBusy = ref(false);
+async function withBusy(fn, text) {
+  if (actionBusy.value) return;
+  actionBusy.value = true;
+  try { await withNotice(() => withLoading(fn, text)); }
+  finally { actionBusy.value = false; }
 }
 
 // In-flight guard: while an RSVP write is processing, ignore further taps so
@@ -317,19 +333,21 @@ const onCancel = () => withRsvp(async () => {
   const res = await cancelRsvp(route.params.sessionId);
   if (res?.changed) sendSessionRsvpMessage(res, authStore.displayName, { cancelled: true });
 });
-const onStart = () => withNotice(() => activateFirstTable(route.params.sessionId));
-const onStartNext = () => withNotice(() => advanceToNextTable(route.params.sessionId));
-const onEnd = () => withNotice(async () => {
+const onStart = () => withBusy(() => activateFirstTable(route.params.sessionId), t('loading.saving'));
+const onStartNext = () => withBusy(() => advanceToNextTable(route.params.sessionId), t('loading.saving'));
+const onEnd = async () => {
   if (!await confirm({ message: t('session.confirmEnd'), type: 'warning' })) return;
-  await endSession(route.params.sessionId);
-});
-const onDelete = () => withNotice(async () => {
+  await withBusy(() => endSession(route.params.sessionId), t('loading.saving'));
+};
+const onDelete = async () => {
   if (!await confirm({ message: t('session.confirmDelete'), type: 'danger' })) return;
-  // Expenses first: their rules read the session doc
-  await deleteEventExpenses(route.params.sessionId);
-  await deleteSession(route.params.sessionId);
-  router.push('/lobby');
-});
+  await withBusy(async () => {
+    // Expenses first: their rules read the session doc
+    await deleteEventExpenses(route.params.sessionId);
+    await deleteSession(route.params.sessionId);
+    router.push('/lobby');
+  }, t('loading.removing'));
+};
 const onEdit = () => router.push(`/session-setup/${route.params.sessionId}`);
 const enterTable = () => {
   if (!view.value.route) return;

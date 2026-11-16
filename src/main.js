@@ -9,8 +9,12 @@ import './styles/main.css';
 import './styles/themes/dark.css';
 import './styles/themes/light.css';
 import { buildThemeCss, applyTheme } from './utils/themes.js';
-import { reportError } from './utils/errorReport.js';
+import { reportError, installHandledErrorReporting } from './utils/errorReport.js';
 import { STORAGE_KEYS as THEME_STORAGE_KEYS } from './utils/constants.js';
+
+// Errors the app catches and logs go to the error-report issues too (and ones
+// that couldn't be sent while offline are sent once back online)
+installHandledErrorReporting();
 
 // ── Color themes: every theme's variables, then the saved choice ─────
 {
@@ -270,8 +274,10 @@ import { logger } from "./utils/logger.js";
   // vanished into the console; surface them with a toast so users aren't
   // stuck on a silently-broken screen, and keep the full error in the log.
   const reportGlobalError = (err, context) => {
-    logger.error(`[global:${context}]`, err);
+    // Report first: the log line below goes through console.error, which
+    // reports too, and the first report wins (it keeps this context)
     reportError(err, context);
+    logger.error(`[global:${context}]`, err);
     try {
       useNotificationStore().error(
         i18n.global.t('common.unexpectedError'),

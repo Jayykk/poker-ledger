@@ -157,6 +157,7 @@ import { useGameStore } from '../store/modules/game.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { useNotification } from '../composables/useNotification.js';
 import { useConfirm } from '../composables/useConfirm.js';
+import { useLoading } from '../composables/useLoading.js';
 import EnvelopeEditor from '../components/templates/EnvelopeEditor.vue';
 import MysteryPhoneReveal from '../components/tournament/MysteryPhoneReveal.vue';
 import { useAuthStore } from '../store/modules/auth.js';
@@ -169,6 +170,9 @@ import {
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
+const { withLoading } = useLoading();
+// Draws are transactions (no instant local update): spinner if it takes a moment
+const slow = (fn) => withLoading(fn, t('loading.saving'), { delayMs: 300 });
 const { error: showError } = useNotification();
 const { confirm } = useConfirm();
 const gameStore = useGameStore();
@@ -303,7 +307,7 @@ async function doDraw(tk, slot) {
   if (slot === null || slot === undefined) return;
   busy.value = true;
   try {
-    const ok = await mysteryDraw(tk.id, slot);
+    const ok = await slow(() => mysteryDraw(tk.id, slot));
     if (!ok) { showError(gameError.value || t('common.unexpectedError')); return; }
     const amount = amounts.value[slot] || 0;
     reveal.value = {
@@ -326,7 +330,7 @@ const drawTier = (tk, tier) => doDraw(tk, slotOfTier(bounty.value, players.value
 async function undoDraw(tk) {
   busy.value = true;
   try {
-    if (!(await mysteryUndoDraw(tk.id))) showError(gameError.value || t('common.unexpectedError'));
+    if (!(await slow(() => mysteryUndoDraw(tk.id)))) showError(gameError.value || t('common.unexpectedError'));
   } finally {
     busy.value = false;
   }
@@ -340,7 +344,7 @@ async function dealDraws() {
 async function finalDraws() {
   busy.value = true;
   try {
-    if (!(await mysteryFinalDraws())) showError(gameError.value || t('common.unexpectedError'));
+    if (!(await slow(() => mysteryFinalDraws()))) showError(gameError.value || t('common.unexpectedError'));
   } finally {
     busy.value = false;
   }
@@ -358,7 +362,7 @@ async function saveEnvelopes() {
     const clean = draftEnvelopes.value
       .map((e) => ({ share: Number(e.share) || 0, count: Math.max(1, Math.floor(Number(e.count)) || 1) }))
       .filter((e) => e.share > 0);
-    if (await updateMysteryEnvelopes(clean)) editing.value = false;
+    if (await slow(() => updateMysteryEnvelopes(clean))) editing.value = false;
     else showError(gameError.value || t('common.unexpectedError'));
   } finally {
     busy.value = false;

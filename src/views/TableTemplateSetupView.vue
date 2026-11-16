@@ -319,6 +319,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useTableTemplates } from '../composables/useTableTemplates.js';
 import { useNotification } from '../composables/useNotification.js';
+import { useLoading } from '../composables/useLoading.js';
 import { TOURNAMENT_TEMPLATES } from '../utils/tournamentTemplates.js';
 import { MIN_BUY_IN, CHIP_STEP } from '../utils/constants.js';
 import { CASH_DECIMAL_OPTIONS } from '../utils/cashRounding.js';
@@ -341,6 +342,7 @@ const CURRENT = '__current';
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
+const { withLoading } = useLoading();
 const { success, error: showError } = useNotification();
 const { listenTemplates, listenStructures, saveTemplate } = useTableTemplates();
 
@@ -595,7 +597,7 @@ async function handleSave() {
   }
   saving.value = true;
   try {
-    await saveTemplate({ ...template, id: templateId.value }, isEditing.value ? source.value : 'template');
+    await withLoading(() => saveTemplate({ ...template, id: templateId.value }, isEditing.value ? source.value : 'template'), t('loading.saving'), { delayMs: 300 });
     success(t('common.save') + ' ✓');
     router.push({ path: '/templates', query: { kind: template.kind } });
   } catch (e) {

@@ -59,6 +59,8 @@ export function sanitizeReport(data = {}) {
     standalone: data.standalone === true,
     inLine: data.inLine === true,
     online: data.online !== false,
+    // Kept on the device while offline / signed out and sent later: when it happened
+    queuedAt: Number.isFinite(data.queuedAt) ? data.queuedAt : null,
   };
 }
 
@@ -124,6 +126,9 @@ export function reportMarkdown(r, { count, signature, uid } = {}) {
     `| 裝置 | ${device} |`,
     `| User agent | \`${r.userAgent || '-'}\` |`,
     `| 使用者 | ${uid ? `\`${uid.slice(0, 8)}…\`` : '未登入'} |`,
+    r.queuedAt
+      ? `| 補送 | 發生於 ${new Date(r.queuedAt + 8 * 3600 * 1000).toISOString().slice(0, 16).replace('T', ' ')}（台北），當時送不出去，之後才補送 |`
+      : null,
     count ? `| 累計次數 | ${count} |` : null,
     signature ? `| 簽章 | \`${signature}\` |` : null,
     '',

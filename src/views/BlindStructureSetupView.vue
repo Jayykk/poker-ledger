@@ -57,6 +57,7 @@ import { useI18n } from 'vue-i18n';
 import LevelsEditor from '../components/templates/LevelsEditor.vue';
 import { useTableTemplates } from '../composables/useTableTemplates.js';
 import { useNotification } from '../composables/useNotification.js';
+import { useLoading } from '../composables/useLoading.js';
 import { TOURNAMENT_TEMPLATES, createBlankTournamentConfig } from '../utils/tournamentTemplates.js';
 import {
   builtInStructures, maxLevelNumber, normalizeStructure, validateStructure,
@@ -66,6 +67,7 @@ import { structureSummary } from '../utils/templateDisplay.js';
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
+const { withLoading } = useLoading();
 const { success, error: showError } = useNotification();
 const { listenStructures, saveStructure } = useTableTemplates();
 
@@ -119,7 +121,7 @@ async function handleSave() {
   }
   saving.value = true;
   try {
-    await saveStructure({ ...form.value, id: structureId.value, migratedFrom: migratedFrom.value }, isEditing.value ? source.value : 'new');
+    await withLoading(() => saveStructure({ ...form.value, id: structureId.value, migratedFrom: migratedFrom.value }, isEditing.value ? source.value : 'new'), t('loading.saving'), { delayMs: 300 });
     success(t('common.save') + ' ✓');
     router.push('/structures');
   } catch (e) {
