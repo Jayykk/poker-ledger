@@ -17,12 +17,19 @@ export function useLoading() {
    * @param {string} text - Optional loading text
    * @returns {Promise} - Result of the async function
    */
-  const withLoading = async (fn, text = '') => {
-    startLoading(text);
+  const withLoading = async (fn, text = '', { delayMs = 0 } = {}) => {
+    // delayMs: show the overlay only if it's still running by then, so a
+    // write that's usually instant doesn't flash a spinner on every tap
+    let shown = false;
+    let timer = null;
+    const show = () => { shown = true; startLoading(text); };
+    if (delayMs > 0) timer = setTimeout(show, delayMs);
+    else show();
     try {
       return await fn();
     } finally {
-      stopLoading();
+      if (timer) clearTimeout(timer);
+      if (shown) stopLoading();
     }
   };
 

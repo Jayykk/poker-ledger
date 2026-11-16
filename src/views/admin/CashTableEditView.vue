@@ -125,6 +125,7 @@ import { db } from '../../firebase-init.js';
 import { useTablePermissions } from '../../composables/useTablePermissions.js';
 import { useConfigEditor } from '../../composables/useConfigEditor.js';
 import { useNotification } from '../../composables/useNotification.js';
+import { useLoading } from '../../composables/useLoading.js';
 import { useUserStore } from '../../store/modules/user.js';
 import CashTableBasicInfoForm from '../../components/admin/CashTableBasicInfoForm.vue';
 import SettlementCorrectionEditor from '../../components/admin/SettlementCorrectionEditor.vue';
@@ -135,6 +136,7 @@ import HandRecordSheet from '../../components/game/HandRecordSheet.vue';
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
+const { withLoading } = useLoading();
 const { success, warning, error: showError } = useNotification();
 const userStore = useUserStore();
 const { isAdmin, permissionsLoaded, loadPermissions, canEdit, isStatusLocked, isStatusWarning } = useTablePermissions();
@@ -376,7 +378,7 @@ async function handleConfirmSave(reason) {
   const after = formToAfter();
 
   try {
-    await saveGameConfig(GAMES_COLLECTION, gameId.value, firestoreUpdates, before, reason);
+    await withLoading(() => saveGameConfig(GAMES_COLLECTION, gameId.value, firestoreUpdates, before, reason), t('loading.saving'));
     Object.assign(game.value, after);
     success(t('common.save') + ' ✓');
     versionsLoaded.value = false;
@@ -390,14 +392,14 @@ async function handleSettlementCorrection(payload) {
   try {
     const before = buildSettlementBefore();
 
-    const result = showTournamentSettlementEditor.value
-      ? await saveTournamentSettlementCorrection(gameId.value, payload, before, correctionReason.value)
-      : await saveSettlementCorrection(
+    const result = await withLoading(() => (showTournamentSettlementEditor.value
+      ? saveTournamentSettlementCorrection(gameId.value, payload, before, correctionReason.value)
+      : saveSettlementCorrection(
         gameId.value,
         { ...payload, cashDecimals: game.value?.cashDecimals ?? null },
         before,
         correctionReason.value,
-      );
+      )), t('loading.saving'));
     game.value = {
       ...game.value,
       players: result.players,
@@ -422,7 +424,7 @@ async function handleSettlementCorrection(payload) {
 
 async function handleManualSync() {
   try {
-    const result = await syncCompletedGameHistory(gameId.value);
+    const result = await withLoading(() => syncCompletedGameHistory(gameId.value), t('loading.saving'));
     await waitForProjectionSync(result.syncToken);
     success(t('admin.cashEdit.manualSyncSuccess'));
   } catch (e) {
@@ -432,12 +434,12 @@ async function handleManualSync() {
 
 async function handleRollback(version) {
   try {
-    await rollbackToVersion(
+    await withLoading(() => rollbackToVersion(
       GAMES_COLLECTION,
       gameId.value,
       version.id,
       `Rollback to ${formatTimestamp(version.timestamp)}`
-    );
+    ), t('loading.saving'));
     success(t('admin.versionHistory.rollbackSuccess'));
     await loadGame();
     await loadVersions();

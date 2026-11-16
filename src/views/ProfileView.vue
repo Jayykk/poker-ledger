@@ -299,6 +299,7 @@ import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth.js';
 import { usePushNotification } from '../composables/usePushNotification.js';
 import { useNotification } from '../composables/useNotification.js';
+import { useLoading } from '../composables/useLoading.js';
 import { useLiff } from '../composables/useLiff.js';
 import BaseCard from '../components/common/BaseCard.vue';
 import BaseButton from '../components/common/BaseButton.vue';
@@ -319,6 +320,7 @@ const { displayName, isGuest, user, logout, linkEmailToGuest } = useAuth();
 const { notificationsEnabled, toggleNotifications } = usePushNotification();
 const { lineNotifyEnabled, toggleLineNotify, isInLineClient } = useLiff();
 const notification = useNotification();
+const { withLoading } = useLoading();
 
 const userAvatar = computed(() => user.value?.photoURL || null);
 const isLineUser = computed(() => user.value?.uid?.startsWith('line_') ?? false);
@@ -399,9 +401,10 @@ async function saveTitles(prefs) {
   if (!user.value?.uid || titleSaving.value) return;
   titleSaving.value = true;
   try {
-    await saveTitlePrefs(user.value.uid, prefs);
+    // A Cloud Function (setTitlePrefs): a cold start can take a few seconds
+    await withLoading(() => saveTitlePrefs(user.value.uid, prefs), t('loading.saving'));
   } catch (error) {
-    console.warn('[titles] save failed', error?.code || error);
+    console.error('[titles] save failed', error);
     notification.error(t('titles.saveFailed'));
   } finally {
     titleSaving.value = false;

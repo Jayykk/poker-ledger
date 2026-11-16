@@ -294,12 +294,14 @@ import { db } from '../../firebase-init.js';
 import { useTablePermissions } from '../../composables/useTablePermissions.js';
 import { useConfigEditor } from '../../composables/useConfigEditor.js';
 import { useNotification } from '../../composables/useNotification.js';
+import { useLoading } from '../../composables/useLoading.js';
 import { DEFAULT_STARTING_CHIPS, DEFAULT_REENTRY_LEVEL, DEFAULT_MAX_REENTRIES } from '../../utils/constants.js';
 import ConfigDiffPreview from '../../components/admin/ConfigDiffPreview.vue';
 
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
+const { withLoading } = useLoading();
 const { success, error: showError } = useNotification();
 const { isAdmin, permissionsLoaded, loadPermissions, canEdit, isStatusLocked, isStatusWarning } = useTablePermissions();
 const { saving, saveTournamentConfig, getConfigVersions, rollbackToVersion } = useConfigEditor();
@@ -459,7 +461,7 @@ async function handleConfirmSave(reason) {
   const before = session.value?.config || {};
   const after = getFormAsConfig();
   try {
-    await saveTournamentConfig(sessionId.value, after, before, reason);
+    await withLoading(() => saveTournamentConfig(sessionId.value, after, before, reason), t('loading.saving'));
     session.value.config = { ...after };
     success(t('common.save') + ' ✓');
     versionsLoaded.value = false;
@@ -471,7 +473,7 @@ async function handleConfirmSave(reason) {
 
 async function handleRollback(version) {
   try {
-    await rollbackToVersion('tournamentSessions', sessionId.value, version.id, `Rollback to ${formatTimestamp(version.timestamp)}`);
+    await withLoading(() => rollbackToVersion('tournamentSessions', sessionId.value, version.id, `Rollback to ${formatTimestamp(version.timestamp)}`), t('loading.saving'));
     success(t('admin.versionHistory.rollbackSuccess'));
     await loadSession();
     await loadVersions();

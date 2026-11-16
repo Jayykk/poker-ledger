@@ -538,7 +538,7 @@ async function drawMine() {
   const slot = free[buf[0] % free.length].slot;
   drawingMine.value = true;
   try {
-    const ok = await gameStore.mysteryDraw(tk.id, slot);
+    const ok = await withLoading(() => gameStore.mysteryDraw(tk.id, slot), t('loading.saving'), { delayMs: 300 });
     if (!ok) { showError(gameError.value || t('common.unexpectedError')); return; }
     const pool = bountyPool(game.value.players || [], game.value.baseBuyIn, bountyPerHead.value);
     const names = tk.by.map((id) => (game.value.players || []).find((p) => p.id === id)?.name || '?').join('、');

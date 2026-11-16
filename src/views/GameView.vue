@@ -689,7 +689,12 @@ const handleAddBuy = async (player) => {
   buyInProcessing.value.add(player.id);
   try {
     const buyInAmount = game.value?.baseBuyIn || DEFAULT_BUY_IN;
-    const result = await recordBuyIn(player.id, player.uid || null, player.name, buyInAmount, 'buy_in');
+    // A transaction: no instant local update, so a slow connection gets the
+    // spinner (only if it takes a moment — a quick one doesn't flash)
+    const result = await withLoading(
+      () => recordBuyIn(player.id, player.uid || null, player.name, buyInAmount, 'buy_in'),
+      t('loading.saving'), { delayMs: 300 },
+    );
     if (result) {
       success(t('transaction.buyInSuccess'));
       const gameType = game.value?.type || 'live';
@@ -713,7 +718,7 @@ const handleUndoBuyIn = async (tx) => {
     type: 'warning'
   });
   if (shouldUndo) {
-    const result = await undoBuyIn(tx.txId);
+    const result = await withLoading(() => undoBuyIn(tx.txId), t('loading.saving'), { delayMs: 300 });
     if (result) {
       success(t('transaction.undoSuccess'));
       sendUndoMessage(displayName.value, tx.targetName, Math.abs(tx.amount), game.value?.name, game.value?.id, {
