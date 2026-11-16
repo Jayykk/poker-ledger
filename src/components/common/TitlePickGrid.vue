@@ -92,9 +92,13 @@ function tapFamily(item) {
 
 function pickTier(item, tier) {
   openId.value = null;
-  if (item.picked && tier === item.shownTier) return;
   // The top step is stored as null: it keeps showing the highest as it grows
-  emit('pick', { titleId: item.familyId, titleTier: tier === item.tier ? null : tier });
+  const titleTier = tier === item.tier ? null : tier;
+  // Skip only when nothing would change. Comparing with the shown step isn't
+  // enough: a pick clamped by a lowered tier shows the top step while a higher
+  // number is still saved, and tapping it must reset that to null.
+  if (item.picked && titleTier === (props.pickedTier ?? null)) return;
+  emit('pick', { titleId: item.familyId, titleTier });
 }
 </script>
 

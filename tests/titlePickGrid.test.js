@@ -159,11 +159,30 @@ describe('TitlePickGrid', () => {
     await w.findAll('.title-pick')[2].trigger('click');
     await w.findAll('.title-tier')[0].trigger('click');
     expect(w.emitted('pick')[0]).toEqual([{ titleId: 'regular', titleTier: null }]);
-    // Re-picking the step already shown just closes
+    // The clamped pick shows the top step while 9 is still saved: tapping it
+    // resets to following the highest (Codex review on #273)
     await w.findAll('.title-pick')[1].trigger('click');
     await w.findAll('.title-tier')[0].trigger('click');
-    expect(w.emitted('pick')).toHaveLength(1);
+    expect(w.emitted('pick')[1]).toEqual([{ titleId: 'champion', titleTier: null }]);
     expect(w.find('.title-tier-strip').exists()).toBe(false);
+  });
+
+  it('a tap that changes nothing saves nothing, it just closes', async () => {
+    // Following the highest already: tapping the top step
+    const top = mountGrid({ pickedId: 'champion', pickedTier: null });
+    await top.findAll('.title-pick')[1].trigger('click');
+    await top.findAll('.title-tier')[0].trigger('click');
+    expect(top.emitted('pick')).toBeUndefined();
+    expect(top.find('.title-tier-strip').exists()).toBe(false);
+    // A lower step already saved: tapping that step again
+    const low = mountGrid({ pickedId: 'champion', pickedTier: 3 });
+    await low.findAll('.title-pick')[1].trigger('click');
+    await low.findAll('.title-tier')[3].trigger('click'); // 6,5,4,3 → 3
+    expect(low.emitted('pick')).toBeUndefined();
+    // …and a different step saves it
+    await low.findAll('.title-pick')[1].trigger('click');
+    await low.findAll('.title-tier')[1].trigger('click'); // 5
+    expect(low.emitted('pick')[0]).toEqual([{ titleId: 'champion', titleTier: 5 }]);
   });
 
   it('only the reached steps, and nothing while saving', async () => {
