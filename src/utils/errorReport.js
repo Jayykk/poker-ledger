@@ -24,6 +24,8 @@ const MAX_PER_SESSION = 10;
 const MAX_QUEUED = 10;
 const QUEUE_KEY = 'poker_pending_error_reports';
 const sent = new Set();
+// Queued reports being sent right now (flush skips them: no double send)
+const sending = new Set();
 // Error objects already reported, so a logged-and-rethrown error (or the
 // global handler logging what it reports) goes out once
 const seen = new WeakSet();
@@ -114,7 +116,11 @@ function writeQueue(list) {
 }
 
 function enqueue(payload) {
-  writeQueue([...readQueue(), { ...payload, queuedAt: Date.now() }]);
+  writeQueue([...readQueue(), payload]);
+}
+
+function dequeue(id) {
+  writeQueue(readQueue().filter((p) => p.id !== id));
 }
 
 function deliver(payload) {
@@ -130,18 +136,17 @@ export async function flushQueuedErrors() {
   const list = readQueue();
   if (!list.length) return;
   flushing = true;
-  writeQueue([]);
-  const failed = [];
   try {
-    for (const payload of list) {
+    for (const { id, ...payload } of list) {
+      if (sending.has(id)) continue;
       try {
         await deliver({ ...payload, signedIn: true });
+        dequeue(id);
       } catch {
-        failed.push(payload);
+        // stays queued for the next try
       }
     }
   } finally {
-    if (failed.length) writeQueue([...failed, ...readQueue()]);
     flushing = false;
   }
 }
@@ -178,13 +183,17 @@ export function reportError(err, context = '') {
       online,
       signedIn,
     };
-    // Offline, or not signed in yet (the server only files signed-in reports):
-    // keep it for later
-    if (!online || !signedIn) {
-      enqueue(payload);
-      return;
-    }
-    deliver(payload).catch(() => enqueue(payload));
+    // Kept on the device first and dropped only once the server has it: on a
+    // bad connection the call can hang for a minute, and the app may be
+    // closed before then. Offline or not signed in yet (the server only
+    // files signed-in reports): just keep it for later.
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    enqueue({ ...payload, id, queuedAt: Date.now() });
+    if (!online || !signedIn) return;
+    sending.add(id);
+    deliver(payload)
+      .then(() => dequeue(id), () => {})
+      .finally(() => sending.delete(id));
   } catch {
     // reporting must never cause an error of its own
   }

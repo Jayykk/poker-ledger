@@ -419,7 +419,10 @@ onMounted(async () => {
         router.push('/lobby');
       }
     } else {
-      // Game not found or ended
+      // Game not found or ended. Logged (and so reported) with the reason, so
+      // a link that bounced to the lobby says why: ended / not found here,
+      // vs. the store's own "Check game error" when it couldn't be read
+      console.error('[GameView] Link bounced to lobby:', new Error(`Auto-join: ${result.msg || 'cannot join'}`));
       router.push('/lobby');
     }
   } catch (err) {

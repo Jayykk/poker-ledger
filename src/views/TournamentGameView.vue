@@ -750,9 +750,12 @@ onMounted(async () => {
           const baseBuyIn = result.baseBuyIn || DEFAULT_BUY_IN;
           await joinAsNewPlayer(targetGameId, baseBuyIn);
         } else {
+          // Logged (and so reported) with why the link bounced
+          console.error('[TournamentGameView] Link bounced to lobby:', new Error(`Auto-join: ${result.msg || 'cannot join'}`));
           router.push('/lobby');
         }
-      } catch {
+      } catch (err) {
+        console.error('[TournamentGameView] Auto-join failed:', err);
         router.push('/lobby');
       } finally {
         autoJoinLoading.value = false;

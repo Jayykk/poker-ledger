@@ -79,6 +79,20 @@ describe('errorReport: handled errors', () => {
     expect(store.has(QUEUE_KEY)).toBe(false);
   });
 
+  it('keeps a report until the server has it', async () => {
+    let resolve;
+    deliver.mockImplementationOnce(() => new Promise((r) => { resolve = r; }));
+    reportError(new Error('slow network'), 'caught:z');
+    // still waiting (the app could be closed now): it's on the device
+    expect(JSON.parse(store.get(QUEUE_KEY))).toHaveLength(1);
+    // a flush meanwhile doesn't send it a second time
+    await flushQueuedErrors();
+    expect(deliver).toHaveBeenCalledTimes(1);
+    resolve({ data: { ok: true } });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(store.has(QUEUE_KEY)).toBe(false);
+  });
+
   it('keeps a report whose send fails', async () => {
     deliver.mockImplementationOnce(() => Promise.reject(new Error('network')));
     reportError(new Error('send fails'), 'caught:y');
