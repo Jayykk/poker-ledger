@@ -1259,7 +1259,7 @@
     "loadFailed": "Couldn't load titles",
     "families": {
       "netWin": {
-        "desc": "Lifetime luck at the table",
+        "desc": "Total of every winning game",
         "t1": "First Profit",
         "t2": "Small Fry Winner",
         "t3": "On the Rise",
@@ -1272,7 +1272,7 @@
         "t10": "God of Gamblers"
       },
       "netLoss": {
-        "desc": "Lifetime sponsorship",
+        "desc": "Total of every game sponsored",
         "t1": "Small Sponsor",
         "t2": "Kind Donor",
         "t3": "Good Samaritan",

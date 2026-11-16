@@ -181,29 +181,54 @@ describe('evaluateTitles', () => {
     expect(evaluateTitles(stats())).toEqual({});
   });
 
-  it('wallet: net win / loss and biggest single game in 組', () => {
-    expect(evaluateTitles(stats({ total: { profit: 499 } })).netWin).toBeUndefined();
-    expect(evaluateTitles(stats({ total: { profit: 500 } })).netWin).toBe(1);
-    expect(evaluateTitles(stats({ total: { profit: 60000 } })).netWin).toBe(10);
-    expect(evaluateTitles(stats({ total: { profit: -90000 } })).netLoss).toBe(10);
+  it('wallet: the games won and the games given add up apart; biggest single game in 組', () => {
+    const ladder = [1000, 2000, 4000, 7000, 12000, 20000, 30000, 45000, 70000, 100000];
+    expect(TITLE_LADDERS.netWin).toEqual(ladder);
+    expect(TITLE_LADDERS.netLoss).toEqual(ladder);
+    expect(evaluateTitles(stats({ total: { grossWon: 999 } })).netWin).toBeUndefined();
+    expect(evaluateTitles(stats({ total: { grossWon: 1000 } })).netWin).toBe(1);
+    expect(evaluateTitles(stats({ total: { grossWon: 100000 } })).netWin).toBe(10);
+    expect(evaluateTitles(stats({ total: { grossGiven: 999 } })).netLoss).toBeUndefined();
+    expect(evaluateTitles(stats({ total: { grossGiven: 100000 } })).netLoss).toBe(10);
+    // Up and down by the same: a net of 0 still reaches both
+    expect(evaluateTitles(stats({ total: { profit: 0, grossWon: 12000, grossGiven: 12000 } })))
+      .toMatchObject({ netWin: 5, netLoss: 5 });
+    // The metric is the gross, not the net
+    const s = stats({ total: { profit: 3000, grossWon: 38000, grossGiven: 35000 } });
+    expect(getTitleFamily('netWin').metric(s)).toBe(38000);
+    expect(getTitleFamily('netLoss').metric(s)).toBe(35000);
     const big = evaluateTitles(stats({ total: { maxWinGroups: 10, maxLossGroups: 3 } }));
     expect(big.bigWin).toBe(6);
     expect(big.bigLoss).toBe(2);
   });
 
+  it('wallet on a stats doc from before grossWon / grossGiven: the net, until the backfill', () => {
+    expect(getTitleFamily('netWin').metric(stats({ total: { profit: 1500 } }))).toBe(1500);
+    expect(getTitleFamily('netLoss').metric(stats({ total: { profit: 1500 } }))).toBe(0);
+    expect(getTitleFamily('netLoss').metric(stats({ total: { profit: -2500 } }))).toBe(2500);
+    expect(evaluateTitles(stats({ total: { profit: 999 } })).netWin).toBeUndefined();
+    expect(evaluateTitles(stats({ total: { profit: 1000 } })).netWin).toBe(1);
+    expect(evaluateTitles(stats({ total: { profit: -100000 } })).netLoss).toBe(10);
+    expect(evaluateTitles({ total: {} })).toEqual({});
+    expect(evaluateTitles({})).toEqual({});
+    // A stored 0 is a value, not a missing field
+    expect(getTitleFamily('netWin').metric(stats({ total: { profit: 5000, grossWon: 0 } }))).toBe(0);
+  });
+
   it('today\'s leaders sit around tier 5–7, tier 1 is an easy first taste', () => {
     const top = evaluateTitles(stats({
       total: {
-        games: 105, hostedGames: 72, profit: 12500, maxWinGroups: 12.95, maxLossGroups: 9.1,
-        winStreakBest: 8, lossStreakBest: 12,
+        games: 105, hostedGames: 72, profit: 12500, grossWon: 38000, grossGiven: 25500,
+        maxWinGroups: 12.95, maxLossGroups: 9.1, winStreakBest: 8, lossStreakBest: 12,
       },
       tournament: { champion: 7, itm: 12, rebuyCount: 14, runnerUp: 6, bubble: 5, firstOut: 5, knockouts: 5 },
     }));
     expect(top).toMatchObject({
-      regular: 6, host: 6, netWin: 6, bigWin: 6, bigLoss: 6, hotStreak: 6, coldStreak: 6,
+      regular: 6, host: 6, netWin: 7, bigWin: 6, bigLoss: 6, hotStreak: 6, coldStreak: 6,
       champion: 5, itm: 5, rebuyer: 5, runnerUp: 5, bubble: 5, firstOut: 5, hunter: 5,
     });
-    expect(evaluateTitles(stats({ total: { profit: -20600 } })).netLoss).toBe(6);
+    // Production highs (2026-11): Σ won 38K → 7, Σ given 47K → 8
+    expect(evaluateTitles(stats({ total: { grossGiven: 47000 } })).netLoss).toBe(8);
     const first = evaluateTitles(stats({ total: { games: 5, hostedGames: 3 }, tournament: { champion: 1, itm: 1 } }));
     expect(first).toMatchObject({ regular: 1, host: 1, champion: 1, itm: 1 });
   });
@@ -283,8 +308,9 @@ describe('evaluateTitles', () => {
     }));
     const all = aggregateHistoryRecords('me', records).get('all');
     expect(evaluateTitles(all)).toMatchObject({
-      regular: 2, host: 3, hotStreak: 7, netWin: 6, steady: 1,
+      regular: 2, host: 3, hotStreak: 7, netWin: 4, steady: 1,
     });
+    expect(all.total).toMatchObject({ grossWon: 10000, grossGiven: 0 });
   });
 });
 
@@ -299,7 +325,7 @@ describe('nextTierProgress', () => {
   it('starts above an already-unlocked tier even if the value dropped', () => {
     const p = nextTierProgress(getTitleFamily('netWin'), stats({ total: { profit: 8000 } }), 6);
     expect(p.tier).toBe(6);
-    expect(p.next.threshold).toBe(15000);
+    expect(p.next.threshold).toBe(30000);
     expect(p.ratio).toBe(0);
   });
 
@@ -566,8 +592,10 @@ describe('buildUserTitles', () => {
 
 describe('docs from before the ten-step ladders (old 1..4 tiers)', () => {
   it('legacyTier: where the old step\'s threshold lands on the new ladder (at least 1)', () => {
-    // netWin 1-2-3-4 were 2000 / 5000 / 10000 / 30000
-    expect([1, 2, 3, 4].map((t) => legacyTier('netWin', t))).toEqual([3, 4, 6, 8]);
+    // netWin 1-2-3-4 were 2000 / 5000 / 10000 / 30000 (net: a floor of the gross)
+    expect([1, 2, 3, 4].map((t) => legacyTier('netWin', t))).toEqual([2, 3, 4, 7]);
+    // netLoss 2000 / 5000 / 15000 / 40000
+    expect([1, 2, 3, 4].map((t) => legacyTier('netLoss', t))).toEqual([2, 3, 5, 7]);
     // regular 10 / 40 / 100 / 200 games
     expect([1, 2, 3, 4].map((t) => legacyTier('regular', t))).toEqual([2, 4, 6, 8]);
     // Single-step families: their old step was 1 (or 5 / 10) of something
@@ -595,7 +623,7 @@ describe('docs from before the ten-step ladders (old 1..4 tiers)', () => {
     };
     const up = upgradeTitlesDoc(old);
     expect(up).toEqual({
-      unlocked: { netWin: { tier: 8, at: 3 }, someNewFamily: { tier: 2, at: 4 }, broken: null },
+      unlocked: { netWin: { tier: 7, at: 3 }, someNewFamily: { tier: 2, at: 4 }, broken: null },
       prefs: old.prefs,
       crowns: old.crowns,
       display: null,
@@ -603,7 +631,7 @@ describe('docs from before the ten-step ladders (old 1..4 tiers)', () => {
       ladder: TITLE_LADDER_VERSION,
     });
     // Already on the ladders (or nothing at all): as is
-    const current = { ...up, display: { familyId: 'netWin', tier: 8, frame: null } };
+    const current = { ...up, display: { familyId: 'netWin', tier: 7, frame: null } };
     expect(upgradeTitlesDoc(current)).toBe(current);
     expect(upgradeTitlesDoc(null)).toBeNull();
   });
@@ -615,8 +643,8 @@ describe('docs from before the ten-step ladders (old 1..4 tiers)', () => {
       display: { familyId: 'netWin', tier: 4, frame: null },
     };
     const shown = effectiveDisplay(old, '2026-10');
-    // 賭神 (old legendary 4) → 富可敵國 (8, legendary); with regular 4 → 8: 16 titles
-    expect(shown).toEqual({ familyId: 'netWin', tier: 8, frame: earnedFrame({ netWin: { tier: 8 }, regular: { tier: 8 } }) });
+    // 賭神 (old legendary 4) → 點石成金 (7, legendary); with regular 4 → 8: 15 titles
+    expect(shown).toEqual({ familyId: 'netWin', tier: 7, frame: earnedFrame({ netWin: { tier: 7 }, regular: { tier: 8 } }) });
     expect(shown.frame).toBe('bronze');
     expect(frontend.titleRarity(shown.tier)).toBe('legendary');
   });

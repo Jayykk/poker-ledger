@@ -88,10 +88,16 @@ export function recordMillis(record) {
 //                                 in completedAt order (a 0 result breaks both)
 //   hostedGames                   games the user hosted (history_sub.hostUid)
 //   nightGames                    games finished 03:00–06:00 Asia/Taipei
+//   grossWon / grossGiven         Σ of the games that ended up / down, each
+//                                 in the same money unit as `profit` (the
+//                                 down ones as a positive number), so
+//                                 grossWon - grossGiven = profit
 const emptyBucket = () => ({
   games: 0,
   wins: 0,
   profit: 0,
+  grossWon: 0,
+  grossGiven: 0,
   maxWinGroups: 0,
   maxLossGroups: 0,
   groupGames: 0,
@@ -245,6 +251,8 @@ function bucketTypeOf(record) {
 function addGame(bucket, streaks, game) {
   bucket.games += 1;
   bucket.profit += game.profit;
+  if (game.profit > 0) bucket.grossWon += game.profit;
+  else if (game.profit < 0) bucket.grossGiven -= game.profit;
   if (game.isWin) bucket.wins += 1;
   if (game.groups != null) {
     bucket.groupGames += 1;
@@ -397,6 +405,8 @@ export function aggregateHistoryRecords(uid, records) {
   for (const entry of periods.values()) {
     for (const bucket of [entry.total, entry.cash, entry.tournament]) {
       bucket.profit = round2(bucket.profit);
+      bucket.grossWon = round2(bucket.grossWon);
+      bucket.grossGiven = round2(bucket.grossGiven);
       bucket.maxWinGroups = round2(bucket.maxWinGroups);
       bucket.maxLossGroups = round2(bucket.maxLossGroups);
       bucket.sumGroups = round4(bucket.sumGroups);
@@ -413,7 +423,8 @@ export function aggregateHistoryRecords(uid, records) {
 
 // 4: titles fields (groups / streaks / hosted / night / knockedOut / bubble …)
 // 5: hand events in the total bucket (quads / badBeatWins / revenge …)
-export const LEADERBOARD_STATS_VERSION = 5;
+// 6: grossWon / grossGiven in every bucket (印鈔機 / 大善人 titles)
+export const LEADERBOARD_STATS_VERSION = 6;
 
 /**
  * Build the full leaderboardStats doc set for a user (Firestore payloads).

@@ -138,8 +138,9 @@ export const TITLE_LADDER_VERSION = 2;
 // leaderboard's unit (cash), 組 / σ as the stats store them.
 export const TITLE_LADDERS = Object.freeze({
   // ── 錢包
-  netWin: [500, 1000, 2000, 4000, 7000, 10000, 15000, 25000, 40000, 60000], // top +12.5K → 6
-  netLoss: [500, 1000, 2000, 4000, 7000, 12000, 25000, 40000, 60000, 90000], // top 20.6K → 6
+  // Σ of the games won / given (grossWon / grossGiven), not the net
+  netWin: [1000, 2000, 4000, 7000, 12000, 20000, 30000, 45000, 70000, 100000], // top 38K → 7
+  netLoss: [1000, 2000, 4000, 7000, 12000, 20000, 30000, 45000, 70000, 100000], // top 47K → 8
   bigWin: [2, 3, 4, 6, 8, 10, 14, 18, 22, 30], // 組, top 12.95 → 6
   bigLoss: [2, 3, 4, 5, 6, 8, 10, 13, 16, 20], // 組, top 9.1 → 6
   volatile: [1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7], // σ (組), top 3.76 → 5
@@ -173,7 +174,9 @@ export const TITLE_LADDERS = Object.freeze({
 });
 
 // The 1..4 ladders before ten steps: { oldTier: threshold } per family, only
-// to read docs written before TITLE_LADDER_VERSION (upgradeTitlesDoc)
+// to read docs written before TITLE_LADDER_VERSION (upgradeTitlesDoc). The
+// old netWin / netLoss steps were nets; read on today's gross ladders they
+// are still a floor (the games won add up to at least the net).
 const LEGACY_LADDERS = Object.freeze({
   netWin: { 1: 2000, 2: 5000, 3: 10000, 4: 30000 },
   netLoss: { 1: 2000, 2: 5000, 3: 15000, 4: 40000 },
@@ -209,6 +212,21 @@ const num = (value) => Number(value) || 0;
 const total = (stats) => stats?.total || {};
 const tour = (stats) => stats?.tournament || {};
 const round2 = (n) => Math.round(n * 100) / 100;
+
+/**
+ * Money of the games won (`grossWon`) or given (`grossGiven`) in the total
+ * bucket. A stats doc from before those fields (LEADERBOARD_STATS_VERSION < 6)
+ * falls back to the net it does have, until the backfill rewrites it.
+ *
+ * @param {?object} stats All-time stats.
+ * @param {string} field 'grossWon' | 'grossGiven'.
+ * @param {number} net The net-based value for an old doc.
+ * @return {number}
+ */
+function grossOr(stats, field, net) {
+  const value = total(stats)[field];
+  return Number.isFinite(value) ? value : net;
+}
 
 /**
  * σ of the per-game result in 組, or null below TITLE_MIN_GROUP_GAMES.
@@ -255,9 +273,11 @@ function family(id, group, metric, { hidden = false } = {}) {
 
 export const TITLE_FAMILIES = Object.freeze([
   // ── 錢包 ────────────────────────────────────────────────────────
-  // Money in the leaderboard's unit (cash: profitCash, or chips / rate)
-  family('netWin', 'wallet', (s) => Math.max(0, num(total(s).profit))),
-  family('netLoss', 'wallet', (s) => Math.max(0, -num(total(s).profit))),
+  // Money in the leaderboard's unit (cash: profitCash, or chips / rate). The
+  // games won and the games given add up apart, so one never cancels the
+  // other (本月印鈔機 / 大善人 crowns still judge the month's net)
+  family('netWin', 'wallet', (s) => grossOr(s, 'grossWon', Math.max(0, num(total(s).profit)))),
+  family('netLoss', 'wallet', (s) => grossOr(s, 'grossGiven', Math.max(0, -num(total(s).profit)))),
   family('bigWin', 'wallet', (s) => num(total(s).maxWinGroups)),
   family('bigLoss', 'wallet', (s) => num(total(s).maxLossGroups)),
   family('volatile', 'wallet', (s) => {
