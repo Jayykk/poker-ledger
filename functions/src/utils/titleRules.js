@@ -18,8 +18,10 @@
 // Stored per user in userTitles/{uid} (server-written only):
 //   unlocked  { [familyId]: { tier, at } }  only ever goes up; `at` = when the
 //             current tier was first reached (millis)
-//   prefs     { mode: 'off'|'auto'|'pick', titleId, showRoomTitles,
-//               frame: 'auto'|frameId }
+//   prefs     { mode: 'off'|'auto'|'pick', titleId, titleTier, showRoomTitles,
+//               frame: 'auto'|frameId }   titleTier: which reached step of
+//               the picked family to show (null = its highest; shown at most
+//               at the reached tier, so a rebuild that lowers it clamps)
 //   display   { familyId, tier, frame } | null   what other players see.
 //             familyId / tier are null when the title is off (or none is
 //             unlocked) but a frame is still shown; the whole display is
@@ -78,6 +80,8 @@ export const TITLE_MODES = Object.freeze(['off', 'auto', 'pick']);
 export const DEFAULT_TITLE_PREFS = Object.freeze({
   mode: 'off',
   titleId: null,
+  // The step of the picked family to show: 1..10, null = the highest reached
+  titleTier: null,
   showRoomTitles: false,
   frame: 'none',
 });
@@ -624,16 +628,41 @@ export function resolveFrame(unlocked, prefs) {
 }
 
 /**
+ * A valid prefs.titleTier (an integer 1..TITLE_TIER_COUNT)?
+ *
+ * @param {*} value Anything.
+ * @return {boolean}
+ */
+function isTitleTier(value) {
+  return Number.isInteger(value) && value >= 1 && value <= TITLE_TIER_COUNT;
+}
+
+/**
+ * The step of a picked family that shows: the picked one (prefs.titleTier),
+ * never above the tier reached (a rebuild can lower that), and the highest
+ * reached when none is picked. resolveTitle and the 指定 picker both use it.
+ *
+ * @param {number} reached Tier reached in the family.
+ * @param {?number} titleTier prefs.titleTier (null: the highest).
+ * @return {number}
+ */
+export function pickedTitleTier(reached, titleTier) {
+  return isTitleTier(titleTier) ? Math.min(titleTier, reached) : reached;
+}
+
+/**
  * Normalize stored prefs (missing / bad fields → defaults).
  *
  * @param {?object} prefs Stored prefs.
- * @return {{mode: string, titleId: ?string, showRoomTitles: boolean, frame: string}}
+ * @return {{mode: string, titleId: ?string, titleTier: ?number,
+ *   showRoomTitles: boolean, frame: string}}
  */
 export function normalizeTitlePrefs(prefs) {
   const p = prefs || {};
   return {
     mode: TITLE_MODES.includes(p.mode) ? p.mode : DEFAULT_TITLE_PREFS.mode,
     titleId: typeof p.titleId === 'string' && p.titleId ? p.titleId : null,
+    titleTier: isTitleTier(p.titleTier) ? p.titleTier : DEFAULT_TITLE_PREFS.titleTier,
     showRoomTitles: typeof p.showRoomTitles === 'boolean'
       ? p.showRoomTitles
       : DEFAULT_TITLE_PREFS.showRoomTitles,
@@ -648,13 +677,18 @@ export function normalizeTitlePrefs(prefs) {
  * A crown can be picked while it is held this month (`crownCtx`); once it is
  * gone the stored pick shows as auto, and other prefs stay changeable.
  *
- * @param {?object} input `{ mode?, titleId?, showRoomTitles?, frame? }`.
+ * `titleTier` picks a reached step of the picked family (null: its highest).
+ * A different `titleId` without one resets it to null; crowns have one step
+ * and ignore it.
+ *
+ * @param {?object} input `{ mode?, titleId?, titleTier?, showRoomTitles?, frame? }`.
  * @param {?object} current Stored prefs.
  * @param {?object} unlocked Stored unlocked map.
  * @param {?{crowns: ?object, month: ?string}} [crownCtx] Stored crowns and the
  *   current month key.
  * @return {object} { prefs } or { error }, error: 'bad-mode' | 'bad-title' |
- *   'not-unlocked' | 'bad-toggle' | 'bad-frame' | 'frame-locked'
+ *   'not-unlocked' | 'bad-tier' | 'tier-locked' | 'bad-toggle' | 'bad-frame' |
+ *   'frame-locked'
  */
 export function validateTitlePrefs(input, current, unlocked, crownCtx = null) {
   const base = normalizeTitlePrefs(current);
@@ -672,7 +706,20 @@ export function validateTitlePrefs(input, current, unlocked, crownCtx = null) {
       return { error: 'bad-title' };
     }
     if (data.titleId !== null && !pickable(data.titleId)) return { error: 'not-unlocked' };
+    // Another family: its highest step unless a step comes with it
+    if (data.titleId !== base.titleId) next.titleTier = null;
     next.titleId = data.titleId;
+  }
+  if (data.titleTier !== undefined) {
+    if (data.titleTier !== null && !isTitleTier(data.titleTier)) return { error: 'bad-tier' };
+    next.titleTier = data.titleTier;
+  }
+  if (isCrownId(next.titleId)) {
+    next.titleTier = null;
+  } else if (data.titleTier != null) {
+    // Only a step of the picked family it has reached
+    const reached = next.titleId ? num(unlocked?.[next.titleId]?.tier) : 0;
+    if (data.titleTier > reached) return { error: 'tier-locked' };
   }
   if (data.showRoomTitles !== undefined) {
     if (typeof data.showRoomTitles !== 'boolean') return { error: 'bad-toggle' };
@@ -696,8 +743,9 @@ export function validateTitlePrefs(input, current, unlocked, crownCtx = null) {
 }
 
 /**
- * The title shown. off → null; pick → the chosen title (falls back to auto if
- * it is no longer unlocked, or a crown no longer held); auto → an active crown
+ * The title shown. off → null; pick → the chosen title at the chosen step
+ * (pickedTitleTier: at most the tier reached; falls back to auto if it is no
+ * longer unlocked, or a crown no longer held); auto → an active crown
  * (CROWN_IDS order), else the highest tier, ties to the most recently
  * reached, then catalog order.
  *
@@ -716,7 +764,7 @@ export function resolveTitle(unlocked, prefs, crownCtx = null) {
   if (p.mode === 'pick' && p.titleId) {
     if (crowns.includes(p.titleId)) return crownTitle(p.titleId);
     if (!isCrownId(p.titleId) && map[p.titleId]?.tier > 0) {
-      return { familyId: p.titleId, tier: map[p.titleId].tier };
+      return { familyId: p.titleId, tier: pickedTitleTier(map[p.titleId].tier, p.titleTier) };
     }
   }
   if (crowns.length) return crownTitle(crowns[0]);

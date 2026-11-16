@@ -168,7 +168,8 @@ export function watchMyTitles(uid) {
 
 /**
  * Save your display prefs through the setTitlePrefs callable (userTitles is
- * not client-writable). Any of { mode, titleId, showRoomTitles, frame }.
+ * not client-writable). Any of { mode, titleId, titleTier, showRoomTitles,
+ * frame }; titleTier is the step of the picked family (null = its highest).
  * @param {string} uid Your uid (to update the cache right away).
  * @param {object} prefs
  * @return {Promise<{prefs: object, display: ?object}>}

@@ -210,6 +210,6 @@ describe('profile 指定 picker', () => {
   it('crowns held this month come first', () => {
     const src = readFileSync(resolve(__dirname, '../src/views/ProfileView.vue'), 'utf-8');
     expect(src).toMatch(/pickableTitles = computed\(\(\) => \[\s*\.\.\.heldCrownIds\.value\.map/);
-    expect(src).toContain('v-for="item in pickableTitles"');
+    expect(src).toContain(':items="pickableTitles"');
   });
 });

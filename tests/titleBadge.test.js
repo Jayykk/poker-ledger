@@ -150,12 +150,23 @@ describe('badges next to names', () => {
 
 describe('profile 指定 picker', () => {
   const profile = readFileSync(resolve(__dirname, '..', 'src/views/ProfileView.vue'), 'utf-8');
+  const grid = readFileSync(resolve(__dirname, '..', 'src/components/common/TitlePickGrid.vue'), 'utf-8');
 
   it('equal cells that keep a long name inside (no pill row)', () => {
-    expect(profile).toContain(`<div v-if="titlePrefs.mode === 'pick' && pickableTitles.length" class="title-pick-grid">`);
-    expect(profile).toMatch(/\.title-pick-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
-    expect(profile).toMatch(/\.title-pick \{[^}]*overflow: hidden;/);
-    expect(profile).toContain('.title-pick > .title-badge { max-width: 100%; }');
+    expect(profile).toMatch(/<TitlePickGrid\s+v-if="titlePrefs\.mode === 'pick' && pickableTitles\.length"\s+:items="pickableTitles"/);
+    expect(grid).toContain('<div class="title-pick-grid">');
+    expect(grid).toMatch(/\.title-pick-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+    expect(grid).toMatch(/\.title-pick \{[^}]*overflow: hidden;/);
+    expect(grid).toContain('.title-pick > .title-badge { max-width: 100%; }');
+  });
+
+  it('the steps strip: full width under its row, badges wrap inside it', () => {
+    // dense: the cells after the strip fill the row it opened from
+    expect(grid).toMatch(/\.title-pick-grid \{[^}]*grid-auto-flow: row dense;/);
+    expect(grid).toMatch(/\.title-tier-strip \{[^}]*grid-column: 1 \/ -1;[^}]*flex-wrap: wrap;/);
+    expect(grid).toMatch(/\.title-tier-strip \{[^}]*min-width: 0;/);
+    expect(grid).toMatch(/\.title-tier \{[^}]*max-width: 100%;/);
+    expect(grid).toContain('.title-tier > .title-badge { max-width: 100%; }');
   });
 
   it('a stable order: same tier and time fall back to 圖鑑 order (the list jumped on every pick)', () => {

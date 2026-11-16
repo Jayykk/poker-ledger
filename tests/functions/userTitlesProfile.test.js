@@ -94,8 +94,8 @@ describe('public profile in userTitles (LINE photo + name)', () => {
     const doc = db.docs.get('u1');
     expect(doc.ladder).toBe(2);
     expect(doc.unlocked).toEqual({ regular: { tier: 6, at: 1 } });
-    // Prefs untouched; the pick still resolves
-    expect(doc.prefs).toEqual(prefs);
+    // Prefs untouched (no step picked: titleTier null); the pick still resolves
+    expect(doc.prefs).toEqual({ ...prefs, titleTier: null });
     expect(doc.display).toEqual({ familyId: 'regular', tier: 6, frame: null });
     // Rebuilding again changes nothing
     db.writes.length = 0;

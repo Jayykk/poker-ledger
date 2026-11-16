@@ -390,7 +390,7 @@ describe('prefs and display', () => {
   });
 
   it('defaults are all off (opt-in): no title, no frame, no room titles', () => {
-    expect(normalizeTitlePrefs(null)).toEqual({ mode: 'off', titleId: null, showRoomTitles: false, frame: 'none' });
+    expect(normalizeTitlePrefs(null)).toEqual({ mode: 'off', titleId: null, titleTier: null, showRoomTitles: false, frame: 'none' });
     expect(normalizeTitlePrefs({ frame: 'ruby' }).frame).toBe('none');
     expect(normalizeTitlePrefs({ frame: 'gold' }).frame).toBe('gold');
     expect(normalizeTitlePrefs({ frame: 'auto' }).frame).toBe('auto');
@@ -409,7 +409,7 @@ describe('prefs and display', () => {
 
   it('validates setTitlePrefs input', () => {
     expect(validateTitlePrefs({ mode: 'pick', titleId: 'host' }, null, unlocked).prefs)
-      .toEqual({ mode: 'pick', titleId: 'host', showRoomTitles: false, frame: 'none' });
+      .toEqual({ mode: 'pick', titleId: 'host', titleTier: null, showRoomTitles: false, frame: 'none' });
     expect(validateTitlePrefs({ mode: 'pick', titleId: 'nightOwl' }, null, unlocked).error).toBe('not-unlocked');
     expect(validateTitlePrefs({ mode: 'pick' }, null, unlocked).error).toBe('not-unlocked');
     expect(validateTitlePrefs({ mode: 'loud' }, null, unlocked).error).toBe('bad-mode');
@@ -417,7 +417,7 @@ describe('prefs and display', () => {
     expect(validateTitlePrefs({ showRoomTitles: 'yes' }, null, unlocked).error).toBe('bad-toggle');
     // Fields left out keep their stored value
     expect(validateTitlePrefs({ showRoomTitles: false }, { mode: 'off', titleId: 'host', frame: 'bronze' }, unlocked).prefs)
-      .toEqual({ mode: 'off', titleId: 'host', showRoomTitles: false, frame: 'bronze' });
+      .toEqual({ mode: 'off', titleId: 'host', titleTier: null, showRoomTitles: false, frame: 'bronze' });
   });
 
   it('validates the frame pick: auto or an earned frame', () => {
@@ -430,6 +430,80 @@ describe('prefs and display', () => {
     expect(validateTitlePrefs({ frame: 'ruby' }, null, unlocked).error).toBe('bad-frame');
     expect(validateTitlePrefs({ frame: null }, null, unlocked).error).toBe('bad-frame');
     expect(validateTitlePrefs({ frame: 3 }, null, unlocked).error).toBe('bad-frame');
+  });
+
+  it('titleTier: an integer 1..10 is kept, anything else is null (the highest)', () => {
+    expect(normalizeTitlePrefs({ titleTier: 3 }).titleTier).toBe(3);
+    expect(normalizeTitlePrefs({ titleTier: 10 }).titleTier).toBe(10);
+    for (const bad of [0, 11, 2.5, '3', -1, null, undefined, NaN, {}]) {
+      expect(normalizeTitlePrefs({ titleTier: bad }).titleTier, String(bad)).toBeNull();
+    }
+    expect(frontend.pickedTitleTier(6, 2)).toBe(2);
+    expect(frontend.pickedTitleTier(6, null)).toBe(6);
+    // Never above the tier reached
+    expect(frontend.pickedTitleTier(4, 7)).toBe(4);
+  });
+
+  it('validates titleTier: a reached step of the picked family', () => {
+    // regular is at 4: steps 1..4
+    const pick = (input, current = null) => validateTitlePrefs(input, current, unlocked);
+    expect(pick({ mode: 'pick', titleId: 'regular', titleTier: 2 }).prefs)
+      .toMatchObject({ mode: 'pick', titleId: 'regular', titleTier: 2 });
+    expect(pick({ mode: 'pick', titleId: 'regular', titleTier: 4 }).prefs.titleTier).toBe(4);
+    expect(pick({ mode: 'pick', titleId: 'regular', titleTier: null }).prefs.titleTier).toBeNull();
+    expect(pick({ mode: 'pick', titleId: 'regular', titleTier: 5 }).error).toBe('tier-locked');
+    expect(pick({ mode: 'pick', titleId: 'regular', titleTier: 0 }).error).toBe('bad-tier');
+    expect(pick({ mode: 'pick', titleId: 'regular', titleTier: '2' }).error).toBe('bad-tier');
+    expect(pick({ mode: 'pick', titleId: 'regular', titleTier: 1.5 }).error).toBe('bad-tier');
+    // A step with nothing picked
+    expect(pick({ titleTier: 1 }).error).toBe('tier-locked');
+    // A step alone changes the step of the stored pick
+    const stored = { mode: 'pick', titleId: 'regular', titleTier: 3 };
+    expect(pick({ titleTier: 1 }, stored).prefs).toMatchObject({ titleId: 'regular', titleTier: 1 });
+    // Another family without a step: back to its highest
+    expect(pick({ mode: 'pick', titleId: 'host' }, stored).prefs).toMatchObject({ titleId: 'host', titleTier: null });
+    // The same family again (re-entering 指定): the step stays
+    expect(pick({ mode: 'pick', titleId: 'regular' }, { ...stored, mode: 'auto' }).prefs.titleTier).toBe(3);
+    // Other prefs leave it alone
+    expect(pick({ frame: 'bronze' }, stored).prefs.titleTier).toBe(3);
+    expect(pick({ mode: 'off' }, stored).prefs).toMatchObject({ mode: 'off', titleId: 'regular', titleTier: 3 });
+  });
+
+  it('pick shows the picked step; auto still the highest', () => {
+    const prefs = { mode: 'pick', titleId: 'regular', titleTier: 2, frame: 'auto' };
+    expect(resolveTitle(unlocked, prefs)).toEqual({ familyId: 'regular', tier: 2 });
+    // Rarity follows the step shown (2: common, though regular is at 4: rare)
+    expect(frontend.titleRarity(resolveTitle(unlocked, prefs).tier)).toBe('common');
+    expect(resolveDisplay(unlocked, prefs)).toEqual({ familyId: 'regular', tier: 2, frame: 'bronze' });
+    expect(resolveTitle(unlocked, { ...prefs, titleTier: null })).toEqual({ familyId: 'regular', tier: 4 });
+    expect(resolveTitle(unlocked, { ...prefs, mode: 'auto' })).toEqual({ familyId: 'champion', tier: 4 });
+  });
+
+  it('a rebuild that lowers the family below the picked step clamps it', () => {
+    const prefs = { mode: 'pick', titleId: 'regular', titleTier: 4 };
+    expect(resolveTitle({ ...unlocked, regular: { tier: 2, at: 100 } }, prefs)).toEqual({ familyId: 'regular', tier: 2 });
+    const prev = {
+      ladder: TITLE_LADDER_VERSION,
+      unlocked: { regular: { tier: 6, at: 1 } },
+      prefs: { mode: 'pick', titleId: 'regular', titleTier: 5, frame: 'none' },
+      display: { familyId: 'regular', tier: 5, frame: null },
+    };
+    // 20 games: regular 3 now
+    const next = buildUserTitles(prev, stats({ total: { games: 20 } }), 9, { rebuild: true });
+    expect(next.prefs.titleTier).toBe(5);
+    expect(next.display).toEqual({ familyId: 'regular', tier: 3, frame: null });
+    // The client re-resolves a stale stored display with the same rules
+    expect(effectiveDisplay({ ...prev, unlocked: next.unlocked, display: { familyId: 'regular', tier: 5 } }, '2026-11'))
+      .toEqual({ familyId: 'regular', tier: 3, frame: null });
+  });
+
+  it('crowns ignore titleTier', () => {
+    const crownCtx = { crowns: { crownHunter: '2026-11' }, month: '2026-11' };
+    const v = validateTitlePrefs({ mode: 'pick', titleId: 'crownHunter', titleTier: 2 }, null, unlocked, crownCtx);
+    expect(v.prefs).toMatchObject({ titleId: 'crownHunter', titleTier: null });
+    // Even a stored step shows the crown's one step
+    const shown = resolveTitle(unlocked, { mode: 'pick', titleId: 'crownHunter', titleTier: 2 }, crownCtx);
+    expect(shown).toEqual({ familyId: 'crownHunter', tier: 4, month: '2026-11' });
   });
 });
 
@@ -510,7 +584,7 @@ describe('buildUserTitles', () => {
     expect(next.changed).toBe(true);
     expect(next.unlocked).toEqual({ regular: { tier: 2, at: 5 } });
     expect(next.ladder).toBe(L);
-    expect(next.prefs).toEqual({ mode: 'off', titleId: null, showRoomTitles: false, frame: 'none' });
+    expect(next.prefs).toEqual({ mode: 'off', titleId: null, titleTier: null, showRoomTitles: false, frame: 'none' });
     expect(next.display).toBeNull();
   });
 
@@ -523,7 +597,7 @@ describe('buildUserTitles', () => {
     };
     const next = buildUserTitles(prev, stats({ total: { games: 12 } }), 9);
     expect(next.changed).toBe(false);
-    expect(next.prefs).toEqual(prev.prefs);
+    expect(next.prefs).toEqual({ ...prev.prefs, titleTier: null });
     expect(next.display).toBeNull();
   });
 
@@ -676,8 +750,8 @@ describe('docs from before the ten-step ladders (old 1..4 tiers)', () => {
       crownHunter: { tier: 4, at: 9 },
     });
     expect(next.upgraded).toEqual([{ familyId: 'hunter', tier: 6 }]);
-    // Prefs untouched, the pick still resolves
-    expect(next.prefs).toEqual(old.prefs);
+    // Prefs untouched (titleTier: none picked), the pick still resolves
+    expect(next.prefs).toEqual({ ...old.prefs, titleTier: null });
     expect(next.display).toEqual({ familyId: 'champion', tier: 5, frame: null });
     // Opt-in stays: an old doc that never turned titles on still shows nothing
     const off = buildUserTitles({ ...old, prefs: undefined, display: null }, s, 99, { rebuild: true });

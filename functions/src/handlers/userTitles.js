@@ -144,8 +144,9 @@ export async function syncPublicProfile(db, uid, before, after) {
 }
 
 /**
- * setTitlePrefs callable: `{ mode, titleId, showRoomTitles, frame }` (each
- * optional). A picked title must be unlocked and a picked frame earned
+ * setTitlePrefs callable: `{ mode, titleId, titleTier, showRoomTitles, frame }`
+ * (each optional). A picked title must be unlocked, a picked step of it
+ * (titleTier, null = its highest) reached and a picked frame earned
  * (failed-precondition otherwise). Writes the prefs and the display they give
  * (title + frame).
  *
@@ -168,7 +169,9 @@ export async function setTitlePrefs(db, uid, data, now = Date.now()) {
     const result = validateTitlePrefs(data, stored.prefs, unlocked, crownCtx);
     if (result.error) {
       throw new HttpsError(
-        ['not-unlocked', 'frame-locked'].includes(result.error) ? 'failed-precondition' : 'invalid-argument',
+        ['not-unlocked', 'tier-locked', 'frame-locked'].includes(result.error)
+          ? 'failed-precondition'
+          : 'invalid-argument',
         `TITLE_PREFS_${result.error.toUpperCase().replace(/-/g, '_')}`,
       );
     }
