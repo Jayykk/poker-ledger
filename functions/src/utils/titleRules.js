@@ -19,13 +19,18 @@
 //   unlocked  { [familyId]: { tier, at } }  only ever goes up; `at` = when the
 //             current tier was first reached (millis)
 //   prefs     { mode: 'off'|'auto'|'pick', titleId, titleTier, showRoomTitles,
-//               frame: 'auto'|frameId }   titleTier: which reached step of
-//               the picked family to show (null = its highest; shown at most
-//               at the reached tier, so a rebuild that lowers it clamps)
-//   display   { familyId, tier, frame } | null   what other players see.
-//             familyId / tier are null when the title is off (or none is
+//               frame: 'auto'|frameId, nameSet: 'classic'|'chuuni' }
+//               titleTier: which reached step of the picked family to show
+//               (null = its highest; shown at most at the reached tier, so a
+//               rebuild that lowers it clamps). nameSet: which set of names
+//               the player's own title shows in (TITLE_NAME_SETS)
+//   display   { familyId, tier, frame, nameSet? } | null   what other players
+//             see. familyId / tier are null when the title is off (or none is
 //             unlocked) but a frame is still shown; the whole display is
-//             null only when there is neither a title nor a frame.
+//             null only when there is neither a title nor a frame. nameSet
+//             is there only for a title in another set than classic (none =
+//             classic, so docs from before name sets read the same); crowns
+//             and live room titles have one set of names and never carry it.
 //   ladder    TITLE_LADDER_VERSION: the tiers are on the ten-step ladders.
 //             Docs without it use the old 1..4 numbering; upgradeTitlesDoc
 //             reads them on the new ladders until the backfill rewrites them.
@@ -75,6 +80,13 @@ export const TITLE_SOURCES = Object.freeze({
 
 export const TITLE_MODES = Object.freeze(['off', 'auto', 'pick']);
 
+// Name sets: the same titles under other names (titles.families.* is classic,
+// titles.familiesChuuni.* the 中二 one). Each player picks the set their own
+// title shows in; the display carries it to everyone who sees the badge.
+export const NAME_SET_CLASSIC = 'classic';
+export const NAME_SET_CHUUNI = 'chuuni';
+export const TITLE_NAME_SETS = Object.freeze([NAME_SET_CLASSIC, NAME_SET_CHUUNI]);
+
 // Opt-in: nothing shows (title, frame, room titles) until the player turns
 // it on in 我的
 export const DEFAULT_TITLE_PREFS = Object.freeze({
@@ -84,6 +96,7 @@ export const DEFAULT_TITLE_PREFS = Object.freeze({
   titleTier: null,
   showRoomTitles: false,
   frame: 'none',
+  nameSet: NAME_SET_CLASSIC,
 });
 
 /**
@@ -655,7 +668,7 @@ export function pickedTitleTier(reached, titleTier) {
  *
  * @param {?object} prefs Stored prefs.
  * @return {{mode: string, titleId: ?string, titleTier: ?number,
- *   showRoomTitles: boolean, frame: string}}
+ *   showRoomTitles: boolean, frame: string, nameSet: string}}
  */
 export function normalizeTitlePrefs(prefs) {
   const p = prefs || {};
@@ -667,7 +680,21 @@ export function normalizeTitlePrefs(prefs) {
       ? p.showRoomTitles
       : DEFAULT_TITLE_PREFS.showRoomTitles,
     frame: FRAME_PREFS.includes(p.frame) ? p.frame : DEFAULT_TITLE_PREFS.frame,
+    nameSet: TITLE_NAME_SETS.includes(p.nameSet) ? p.nameSet : DEFAULT_TITLE_PREFS.nameSet,
   };
+}
+
+/**
+ * The name set a display's title shows in: classic unless the display says
+ * otherwise (docs from before name sets have none), and always classic for a
+ * crown, which has one set of names.
+ *
+ * @param {?object} display Display ({ familyId, nameSet }).
+ * @return {string} One of TITLE_NAME_SETS.
+ */
+export function displayNameSet(display) {
+  if (!display?.familyId || isCrownId(display.familyId)) return NAME_SET_CLASSIC;
+  return TITLE_NAME_SETS.includes(display.nameSet) ? display.nameSet : NAME_SET_CLASSIC;
 }
 
 /**
@@ -681,14 +708,15 @@ export function normalizeTitlePrefs(prefs) {
  * A different `titleId` without one resets it to null; crowns have one step
  * and ignore it.
  *
- * @param {?object} input `{ mode?, titleId?, titleTier?, showRoomTitles?, frame? }`.
+ * @param {?object} input `{ mode?, titleId?, titleTier?, showRoomTitles?, frame?,
+ *   nameSet? }`.
  * @param {?object} current Stored prefs.
  * @param {?object} unlocked Stored unlocked map.
  * @param {?{crowns: ?object, month: ?string}} [crownCtx] Stored crowns and the
  *   current month key.
  * @return {object} { prefs } or { error }, error: 'bad-mode' | 'bad-title' |
  *   'not-unlocked' | 'bad-tier' | 'tier-locked' | 'bad-toggle' | 'bad-frame' |
- *   'frame-locked'
+ *   'frame-locked' | 'bad-name-set'
  */
 export function validateTitlePrefs(input, current, unlocked, crownCtx = null) {
   const base = normalizeTitlePrefs(current);
@@ -732,6 +760,10 @@ export function validateTitlePrefs(input, current, unlocked, crownCtx = null) {
       return { error: 'frame-locked' };
     }
     next.frame = data.frame;
+  }
+  if (data.nameSet !== undefined) {
+    if (!TITLE_NAME_SETS.includes(data.nameSet)) return { error: 'bad-name-set' };
+    next.nameSet = data.nameSet;
   }
   // Only a request that sets the pick checks it: a picked crown that has since
   // gone must not block changing the frame or the room-title toggle
@@ -783,13 +815,16 @@ export function resolveTitle(unlocked, prefs, crownCtx = null) {
  * What other players see: the title (resolveTitle) and the frame
  * (resolveFrame). The title fields are null when the title is off or none is
  * unlocked; null overall when there is neither a title nor a frame. A crown
- * display also carries its `month`, so readers can spot it going stale.
+ * display also carries its `month`, so readers can spot it going stale. A
+ * title shown in another name set than classic carries `nameSet` (the
+ * owner's prefs.nameSet), so a viewer needs nothing but the display; crowns
+ * have one set of names and never do.
  *
  * @param {?object} unlocked Stored unlocked map.
  * @param {?object} prefs Stored prefs.
  * @param {?{crowns: ?object, month: ?string}} [crownCtx] See resolveTitle.
  * @return {?{familyId: ?string, tier: ?number, frame: ?string,
- *   month: (string|undefined)}}
+ *   month: (string|undefined), nameSet: (string|undefined)}}
  */
 export function resolveDisplay(unlocked, prefs, crownCtx = null) {
   const title = resolveTitle(unlocked, prefs, crownCtx);
@@ -797,6 +832,8 @@ export function resolveDisplay(unlocked, prefs, crownCtx = null) {
   if (!title && !frame) return null;
   const display = { familyId: title?.familyId || null, tier: title?.tier || null, frame };
   if (title?.month) display.month = title.month;
+  const nameSet = displayNameSet({ ...display, nameSet: normalizeTitlePrefs(prefs).nameSet });
+  if (nameSet !== NAME_SET_CLASSIC) display.nameSet = nameSet;
   return display;
 }
 
@@ -821,7 +858,8 @@ export function effectiveDisplay(doc, month) {
 }
 
 /**
- * Same display? (null-safe; a stored display without `frame` predates frames)
+ * Same display? (null-safe; a stored display without `frame` predates frames,
+ * one without `nameSet` is in the classic names)
  *
  * @param {?object} a Display.
  * @param {?object} b Display.
@@ -831,7 +869,8 @@ export function sameDisplay(a, b) {
   return (a?.familyId || null) === (b?.familyId || null)
     && (a?.tier || 0) === (b?.tier || 0)
     && (a?.frame || null) === (b?.frame || null)
-    && (a?.month || null) === (b?.month || null);
+    && (a?.month || null) === (b?.month || null)
+    && displayNameSet(a) === displayNameSet(b);
 }
 
 /**
@@ -855,9 +894,9 @@ export function buildUserTitles(previous, allTimeStats, now, { rebuild = false }
     current?.unlocked, evaluateTitles(allTimeStats), now,
   );
   const prefs = normalizeTitlePrefs(current?.prefs);
-  // Display = title + frame (+ an active crown), so a new frame, a crown that
-  // went stale at the month change, or a doc written before frames existed is
-  // a change too
+  // Display = title + frame (+ an active crown, + the name set), so a new
+  // frame, a crown that went stale at the month change, a doc written before
+  // frames existed, or a title now in another name set is a change too
   const crownCtx = { crowns: current?.crowns, month: crownMonthOf(now) };
   const display = resolveDisplay(unlocked, prefs, crownCtx);
   // No doc yet and nothing unlocked: nothing worth writing

@@ -69,3 +69,57 @@ describe('setTitlePrefs with a step (titleTier)', () => {
     expect(result.display).toEqual({ familyId: 'crownHunter', tier: 4, frame: null, month: '2026-11' });
   });
 });
+
+describe('setTitlePrefs with a name set (nameSet)', () => {
+  it('stores the set and puts it on the display, for viewers', async () => {
+    const db = fakeDb(doc());
+    const result = await setTitlePrefs(db, 'me', { nameSet: 'chuuni' }, NOW);
+    expect(result.prefs).toMatchObject({ mode: 'auto', nameSet: 'chuuni' });
+    expect(result.display).toEqual({ familyId: 'regular', tier: 6, frame: null, nameSet: 'chuuni' });
+    expect(db.docs.get('me')).toMatchObject({
+      prefs: { mode: 'auto', nameSet: 'chuuni' },
+      display: { familyId: 'regular', tier: 6, frame: null, nameSet: 'chuuni' },
+    });
+  });
+
+  it('other prefs leave it alone; classic takes it off the display again', async () => {
+    const db = fakeDb(doc({ prefs: { mode: 'auto', frame: 'none', nameSet: 'chuuni' } }));
+    let result = await setTitlePrefs(db, 'me', { mode: 'pick', titleId: 'host', titleTier: 2 }, NOW);
+    expect(result.prefs.nameSet).toBe('chuuni');
+    expect(result.display).toEqual({ familyId: 'host', tier: 2, frame: null, nameSet: 'chuuni' });
+    result = await setTitlePrefs(db, 'me', { nameSet: 'classic' }, NOW);
+    expect(result.prefs).toMatchObject({ mode: 'pick', titleId: 'host', titleTier: 2, nameSet: 'classic' });
+    expect(result.display).toEqual({ familyId: 'host', tier: 2, frame: null });
+    // mergeFields: the stored display is replaced whole, no nameSet left behind
+    expect(db.docs.get('me').display).toEqual({ familyId: 'host', tier: 2, frame: null });
+    expect(db.docs.get('me').prefs.nameSet).toBe('classic');
+  });
+
+  it('a doc from before name sets is classic; with titles off the set is stored and nothing shows', async () => {
+    const db = fakeDb(doc({ prefs: { mode: 'off', frame: 'none' } }));
+    let result = await setTitlePrefs(db, 'me', { showRoomTitles: true }, NOW);
+    expect(result.prefs.nameSet).toBe('classic');
+    result = await setTitlePrefs(db, 'me', { nameSet: 'chuuni' }, NOW);
+    expect(result.prefs).toMatchObject({ mode: 'off', nameSet: 'chuuni' });
+    expect(result.display).toBeNull();
+    // Turned on later: in the set picked earlier
+    result = await setTitlePrefs(db, 'me', { mode: 'auto' }, NOW);
+    expect(result.display).toEqual({ familyId: 'regular', tier: 6, frame: null, nameSet: 'chuuni' });
+  });
+
+  it('a crown shows in its one set of names', async () => {
+    const db = fakeDb(doc({ crowns: { crownHunter: '2026-11' } }));
+    const result = await setTitlePrefs(db, 'me', { nameSet: 'chuuni' }, NOW);
+    expect(result.prefs.nameSet).toBe('chuuni');
+    expect(result.display).toEqual({ familyId: 'crownHunter', tier: 4, frame: null, month: '2026-11' });
+  });
+
+  it('an unknown set is refused and nothing is written', async () => {
+    const db = fakeDb(doc());
+    for (const bad of ['emo', '', null, 1]) {
+      await expect(setTitlePrefs(db, 'me', { nameSet: bad }, NOW))
+        .rejects.toMatchObject({ code: 'invalid-argument', message: 'TITLE_PREFS_BAD_NAME_SET' });
+    }
+    expect(db.docs.get('me').prefs).toEqual({ mode: 'auto', frame: 'none' });
+  });
+});

@@ -26,6 +26,10 @@ import { isLegacyDefaultPrefs,
   earnedFrame,
   earnedFrames,
   FRAME_TIERS,
+  TITLE_NAME_SETS,
+  DEFAULT_TITLE_PREFS,
+  displayNameSet,
+  sameDisplay,
 } from '../functions/src/utils/titleRules.js';
 import { aggregateHistoryRecords } from '../functions/src/utils/leaderboardStatsMath.js';
 import { summarizeTitleTiers, formatTitleTierSummary, percentile } from '../functions/src/utils/titleTierStats.js';
@@ -390,7 +394,7 @@ describe('prefs and display', () => {
   });
 
   it('defaults are all off (opt-in): no title, no frame, no room titles', () => {
-    expect(normalizeTitlePrefs(null)).toEqual({ mode: 'off', titleId: null, titleTier: null, showRoomTitles: false, frame: 'none' });
+    expect(normalizeTitlePrefs(null)).toEqual({ mode: 'off', titleId: null, titleTier: null, showRoomTitles: false, frame: 'none', nameSet: 'classic' });
     expect(normalizeTitlePrefs({ frame: 'ruby' }).frame).toBe('none');
     expect(normalizeTitlePrefs({ frame: 'gold' }).frame).toBe('gold');
     expect(normalizeTitlePrefs({ frame: 'auto' }).frame).toBe('auto');
@@ -409,7 +413,7 @@ describe('prefs and display', () => {
 
   it('validates setTitlePrefs input', () => {
     expect(validateTitlePrefs({ mode: 'pick', titleId: 'host' }, null, unlocked).prefs)
-      .toEqual({ mode: 'pick', titleId: 'host', titleTier: null, showRoomTitles: false, frame: 'none' });
+      .toEqual({ mode: 'pick', titleId: 'host', titleTier: null, showRoomTitles: false, frame: 'none', nameSet: 'classic' });
     expect(validateTitlePrefs({ mode: 'pick', titleId: 'nightOwl' }, null, unlocked).error).toBe('not-unlocked');
     expect(validateTitlePrefs({ mode: 'pick' }, null, unlocked).error).toBe('not-unlocked');
     expect(validateTitlePrefs({ mode: 'loud' }, null, unlocked).error).toBe('bad-mode');
@@ -417,7 +421,7 @@ describe('prefs and display', () => {
     expect(validateTitlePrefs({ showRoomTitles: 'yes' }, null, unlocked).error).toBe('bad-toggle');
     // Fields left out keep their stored value
     expect(validateTitlePrefs({ showRoomTitles: false }, { mode: 'off', titleId: 'host', frame: 'bronze' }, unlocked).prefs)
-      .toEqual({ mode: 'off', titleId: 'host', titleTier: null, showRoomTitles: false, frame: 'bronze' });
+      .toEqual({ mode: 'off', titleId: 'host', titleTier: null, showRoomTitles: false, frame: 'bronze', nameSet: 'classic' });
   });
 
   it('validates the frame pick: auto or an earned frame', () => {
@@ -507,6 +511,197 @@ describe('prefs and display', () => {
   });
 });
 
+describe('名稱風格 (name sets)', () => {
+  const unlocked = { regular: { tier: 4, at: 100 }, champion: { tier: 6, at: 50 } };
+  const MONTH = '2026-11';
+  const crownCtx = { crowns: { crownHunter: MONTH }, month: MONTH };
+
+  it('prefs.nameSet: classic by default, anything unknown is classic', () => {
+    expect(TITLE_NAME_SETS).toEqual(['classic', 'chuuni']);
+    expect(DEFAULT_TITLE_PREFS.nameSet).toBe('classic');
+    expect(normalizeTitlePrefs({ nameSet: 'chuuni' }).nameSet).toBe('chuuni');
+    expect(normalizeTitlePrefs({ nameSet: 'classic' }).nameSet).toBe('classic');
+    for (const bad of ['Chuuni', 'emo', '', null, undefined, 1, true, {}, ['chuuni']]) {
+      expect(normalizeTitlePrefs({ nameSet: bad }).nameSet, String(bad)).toBe('classic');
+    }
+  });
+
+  it('validates nameSet; the other prefs stay, and it stays when they change', () => {
+    const stored = { mode: 'pick', titleId: 'regular', titleTier: 2, showRoomTitles: true, frame: 'none' };
+    expect(validateTitlePrefs({ nameSet: 'chuuni' }, stored, unlocked).prefs)
+      .toEqual({ ...stored, nameSet: 'chuuni' });
+    expect(validateTitlePrefs({ nameSet: 'classic' }, { ...stored, nameSet: 'chuuni' }, unlocked).prefs.nameSet).toBe('classic');
+    for (const bad of ['emo', '', null, 2, false, ['chuuni']]) {
+      expect(validateTitlePrefs({ nameSet: bad }, stored, unlocked).error, String(bad)).toBe('bad-name-set');
+    }
+    // Left out: kept
+    expect(validateTitlePrefs({ mode: 'auto' }, { ...stored, nameSet: 'chuuni' }, unlocked).prefs.nameSet).toBe('chuuni');
+    expect(validateTitlePrefs({ showRoomTitles: false }, null, unlocked).prefs.nameSet).toBe('classic');
+    // With titles off, or nothing unlocked: still a pref the player can set
+    expect(validateTitlePrefs({ nameSet: 'chuuni' }, null, {}).prefs).toMatchObject({ mode: 'off', nameSet: 'chuuni' });
+    // A picked crown that has since gone does not block it
+    expect(validateTitlePrefs({ nameSet: 'chuuni' }, { mode: 'pick', titleId: 'crownHunter' }, unlocked).prefs.nameSet).toBe('chuuni');
+  });
+
+  it('the display carries the set of a shown title; classic leaves it out (as before name sets)', () => {
+    expect(resolveDisplay(unlocked, { mode: 'auto', nameSet: 'chuuni' }))
+      .toEqual({ familyId: 'champion', tier: 6, frame: null, nameSet: 'chuuni' });
+    expect(resolveDisplay(unlocked, { mode: 'pick', titleId: 'regular', titleTier: 2, nameSet: 'chuuni' }))
+      .toEqual({ familyId: 'regular', tier: 2, frame: null, nameSet: 'chuuni' });
+    expect(resolveDisplay(unlocked, { mode: 'auto', nameSet: 'classic' }))
+      .toEqual({ familyId: 'champion', tier: 6, frame: null });
+    expect(resolveDisplay(unlocked, { mode: 'auto' })).toEqual({ familyId: 'champion', tier: 6, frame: null });
+    expect(resolveDisplay(unlocked, { mode: 'auto', nameSet: 'emo' })).toEqual({ familyId: 'champion', tier: 6, frame: null });
+  });
+
+  it('no title shown, no set: off, a frame alone, and crowns (one set of names)', () => {
+    expect(resolveDisplay(unlocked, { mode: 'off', nameSet: 'chuuni' })).toBeNull();
+    const many = Object.fromEntries(TITLE_FAMILIES.slice(0, 5).map((f) => [f.id, { tier: 2, at: 1 }]));
+    expect(resolveDisplay(many, { mode: 'off', frame: 'auto', nameSet: 'chuuni' }))
+      .toEqual({ familyId: null, tier: null, frame: 'bronze' });
+    // Auto and a picked crown: the crown, classic
+    expect(resolveDisplay(unlocked, { mode: 'auto', nameSet: 'chuuni' }, crownCtx))
+      .toEqual({ familyId: 'crownHunter', tier: 4, frame: null, month: MONTH });
+    expect(resolveDisplay(unlocked, { mode: 'pick', titleId: 'crownHunter', nameSet: 'chuuni' }, crownCtx))
+      .toEqual({ familyId: 'crownHunter', tier: 4, frame: null, month: MONTH });
+    // A picked normal title under a held crown: in the set again
+    expect(resolveDisplay(unlocked, { mode: 'pick', titleId: 'regular', nameSet: 'chuuni' }, crownCtx))
+      .toEqual({ familyId: 'regular', tier: 4, frame: null, nameSet: 'chuuni' });
+  });
+
+  it('displayNameSet: classic unless the display says otherwise, always classic for a crown', () => {
+    expect(displayNameSet({ familyId: 'regular', tier: 2, nameSet: 'chuuni' })).toBe('chuuni');
+    expect(displayNameSet({ familyId: 'regular', tier: 2 })).toBe('classic');
+    expect(displayNameSet({ familyId: 'regular', tier: 2, nameSet: 'emo' })).toBe('classic');
+    expect(displayNameSet({ familyId: 'crownHunter', tier: 4, nameSet: 'chuuni' })).toBe('classic');
+    expect(displayNameSet({ familyId: null, tier: null, frame: 'gold', nameSet: 'chuuni' })).toBe('classic');
+    expect(displayNameSet(null)).toBe('classic');
+  });
+
+  it('sameDisplay compares the set; none is classic', () => {
+    const d = { familyId: 'regular', tier: 2, frame: null };
+    expect(sameDisplay(d, { ...d, nameSet: 'classic' })).toBe(true);
+    expect(sameDisplay(d, { ...d })).toBe(true);
+    expect(sameDisplay(d, { ...d, nameSet: 'chuuni' })).toBe(false);
+    expect(sameDisplay({ ...d, nameSet: 'chuuni' }, { ...d, nameSet: 'chuuni' })).toBe(true);
+    expect(sameDisplay({ ...d, nameSet: 'chuuni' }, null)).toBe(false);
+    expect(sameDisplay(null, null)).toBe(true);
+  });
+
+  it('a stored display keeps its set for viewers; a re-resolved one takes it from the prefs', () => {
+    const stored = { familyId: 'regular', tier: 4, frame: null, nameSet: 'chuuni' };
+    const doc = { ladder: TITLE_LADDER_VERSION, unlocked, prefs: { mode: 'pick', titleId: 'regular', nameSet: 'chuuni' }, display: stored };
+    expect(effectiveDisplay(doc, MONTH)).toBe(stored);
+    // A crown from an older month went stale: back to the title, in the set
+    const stale = { ...doc, prefs: { mode: 'auto', nameSet: 'chuuni' }, crowns: { crownHunter: '2026-10' }, display: { familyId: 'crownHunter', tier: 4, frame: null, month: '2026-10' } };
+    expect(effectiveDisplay(stale, MONTH)).toEqual({ familyId: 'champion', tier: 6, frame: null, nameSet: 'chuuni' });
+  });
+
+  it('a crown verdict keeps the set of the title it falls back to', () => {
+    const stored = {
+      ladder: TITLE_LADDER_VERSION,
+      unlocked,
+      prefs: { mode: 'auto', frame: 'none', nameSet: 'chuuni' },
+      crowns: { crownHunter: '2026-10' },
+      display: { familyId: 'crownHunter', tier: 4, frame: null, month: '2026-10' },
+    };
+    const lost = buildCrownUpdate(stored, [[MONTH, []]], MONTH);
+    expect(lost.display).toEqual({ familyId: 'champion', tier: 6, frame: null, nameSet: 'chuuni' });
+    const held = buildCrownUpdate(stored, [[MONTH, ['crownHunter']]], MONTH);
+    expect(held.display).toEqual({ familyId: 'crownHunter', tier: 4, frame: null, month: MONTH });
+  });
+});
+
+describe('中二版 names (titles.familiesChuuni)', () => {
+  const chuuni = (locale) => messagesOf(locale).titles.familiesChuuni;
+
+  it('every family has ten distinct names in every locale, and nothing else is in there', () => {
+    const ids = TITLE_FAMILIES.map((f) => f.id).sort();
+    const steps = Array.from({ length: TITLE_TIER_COUNT }, (_, i) => `t${i + 1}`);
+    for (const locale of LOCALES) {
+      const set = chuuni(locale);
+      // Stats families only: crowns and room titles have one set of names
+      expect(Object.keys(set).sort(), locale).toEqual(ids);
+      for (const id of ids) {
+        expect(Object.keys(set[id]), `${locale}: ${id}`).toEqual(steps);
+        const names = Object.values(set[id]);
+        for (const name of names) {
+          expect(typeof name === 'string' && name.trim() === name && name.length > 0, `${locale}: ${id} ${name}`).toBe(true);
+        }
+        expect(new Set(names).size, `${locale}: ${id} names`).toBe(TITLE_TIER_COUNT);
+      }
+    }
+  });
+
+  it('Chinese names: at most 8 characters, never 輸', () => {
+    for (const locale of ['zh-TW', 'zh-CN']) {
+      for (const [id, fam] of Object.entries(chuuni(locale))) {
+        for (const [step, name] of Object.entries(fam)) {
+          expect([...name].length, `${locale}: ${id} ${step} ${name}`).toBeLessThanOrEqual(8);
+          expect(name, `${locale}: ${id} ${step}`).not.toMatch(/[輸输]/);
+        }
+      }
+    }
+  });
+
+  it('zh-TW is the approved table; zh-CN the same names in Simplified', () => {
+    const tw = chuuni('zh-TW');
+    const cn = chuuni('zh-CN');
+    const row = (set, id) => Object.values(set[id]).join(' ');
+    expect(tw.badBeat.t10).toBe('萬惡的卑鄙之王');
+    expect(tw.royalFlush.t10).toBe('天選之人');
+    expect(row(tw, 'netWin')).toBe('微光拾金者 黃金的學徒 聚財術士 黃金鍊成師 財富召喚師 金脈支配者 點金之魔手 黃金鄉領主 財貨的魔王 黃金律之主');
+    expect(row(tw, 'netLoss')).toBe('慷慨的旅人 施予之徒 散金的賢者 恩賜祭司 豐饒的供奉者 萬財施主 聖財的守護者 無盡寶庫之主 施予的聖王 豐饒之神格');
+    expect(row(tw, 'bigLoss')).toBe('豪邁的一擲 烈焰揮金 千金狂想曲 豪奢的宴主 萬金之雨 散華的貴公子 黃金雨的召喚者 財寶散華仙 萬金歸塵之王 散財的神格');
+    expect(row(tw, 'coldStreak')).toBe('蓄勢的潛龍 越挫越勇者 屢戰不退之人 永不言棄者 百折不撓 鋼鐵的意志 臥薪嚐膽者 堅忍的修行者 不滅的鬥魂 永劫不滅之魂');
+    expect(row(tw, 'nightOwl')).toBe('夜行的貓 夜歸的旅人 暗夜行者 午夜的牌客 不夜城之主 暗夜騎士 月下的賭俠 夜之帝王 永夜的君主 月神');
+    expect(tw.steady.t10).toBe('絕對零度的支配者');
+    expect(tw.hunter.t10).toBe('冥界之王');
+    expect(tw.champion.t10).toBe('萬王之王');
+    expect(tw.bubble.t10).toBe('泡沫宇宙的創造者');
+    expect(tw.quads.t1).toBe('四天王降臨');
+    expect(tw.host.t1).toBe('開局之人');
+    expect(tw.regular.t10).toBe('與牌桌同化者');
+    expect(tw.hotStreak.t10).toBe('不敗的絕對王權');
+    // Simplified: the same name, character for character
+    expect(cn.badBeat.t10).toBe('万恶的卑鄙之王');
+    expect(cn.royalFlush.t10).toBe('天选之人');
+    expect(cn.netWin.t10).toBe('黄金律之主');
+    expect(cn.steady.t10).toBe('绝对零度的支配者');
+    for (const [id, fam] of Object.entries(tw)) {
+      for (const [step, name] of Object.entries(fam)) {
+        expect([...cn[id][step]].length, `${id} ${step}`).toBe([...name].length);
+      }
+    }
+  });
+
+  it('the switch has its strings in every locale', () => {
+    for (const locale of LOCALES) {
+      const titles = messagesOf(locale).titles;
+      for (const key of ['nameSet', 'nameSetClassic', 'nameSetChuuni', 'nameSetHint']) {
+        expect(titles[key], `${locale} titles.${key}`).toBeTruthy();
+      }
+    }
+  });
+
+  it('nameSetKey / titleName: the set\'s name, the classic one when it has none', () => {
+    expect(frontend.nameSetKey('regular', 3, 'chuuni')).toBe('titles.familiesChuuni.regular.t3');
+    expect(frontend.nameSetKey('regular', 3, 'classic')).toBeNull();
+    expect(frontend.nameSetKey('regular', 3, undefined)).toBeNull();
+    expect(frontend.nameSetKey('crownHunter', 4, 'chuuni')).toBeNull();
+    const t = (key) => key;
+    const all = { t, te: () => true };
+    const none = { t, te: () => false };
+    expect(frontend.titleName(all, 'regular', 3, 'chuuni')).toBe('titles.familiesChuuni.regular.t3');
+    expect(frontend.titleName(all, 'regular', 3)).toBe('titles.families.regular.t3');
+    expect(frontend.titleName(all, 'regular', 3, 'classic')).toBe('titles.families.regular.t3');
+    // Missing in this language: the classic name
+    expect(frontend.titleName(none, 'regular', 3, 'chuuni')).toBe('titles.families.regular.t3');
+    expect(frontend.titleName(all, 'crownHunter', 4, 'chuuni')).toBe('titles.families.crownHunter.t4');
+    expect(frontend.titleName(all, 'nope', 1, 'chuuni')).toBe('');
+  });
+});
+
 describe('頭像框', () => {
   // Families at tier n hold n titles each, filled one family at a time
   const held = (n) => {
@@ -584,7 +779,7 @@ describe('buildUserTitles', () => {
     expect(next.changed).toBe(true);
     expect(next.unlocked).toEqual({ regular: { tier: 2, at: 5 } });
     expect(next.ladder).toBe(L);
-    expect(next.prefs).toEqual({ mode: 'off', titleId: null, titleTier: null, showRoomTitles: false, frame: 'none' });
+    expect(next.prefs).toEqual({ mode: 'off', titleId: null, titleTier: null, showRoomTitles: false, frame: 'none', nameSet: 'classic' });
     expect(next.display).toBeNull();
   });
 
@@ -597,8 +792,36 @@ describe('buildUserTitles', () => {
     };
     const next = buildUserTitles(prev, stats({ total: { games: 12 } }), 9);
     expect(next.changed).toBe(false);
-    expect(next.prefs).toEqual({ ...prev.prefs, titleTier: null });
+    expect(next.prefs).toEqual({ ...prev.prefs, titleTier: null, nameSet: 'classic' });
     expect(next.display).toBeNull();
+  });
+
+  it('a title now in another name set is a change; a doc from before name sets is not', () => {
+    const base = {
+      ladder: L,
+      unlocked: { regular: { tier: 2, at: 5 } },
+      prefs: { mode: 'auto', frame: 'none' },
+      display: { familyId: 'regular', tier: 2, frame: null },
+    };
+    const same = stats({ total: { games: 12 } });
+    // No nameSet anywhere (written before name sets): classic, nothing to write
+    const old = buildUserTitles(base, same, 9);
+    expect(old.changed).toBe(false);
+    expect(old.prefs.nameSet).toBe('classic');
+    expect(old.display).toEqual({ familyId: 'regular', tier: 2, frame: null });
+    // The pref says 中二 but the stored display is still classic: rewritten
+    const switched = buildUserTitles({ ...base, prefs: { ...base.prefs, nameSet: 'chuuni' } }, same, 9);
+    expect(switched.changed).toBe(true);
+    expect(switched.upgraded).toEqual([]);
+    expect(switched.prefs.nameSet).toBe('chuuni');
+    expect(switched.display).toEqual({ familyId: 'regular', tier: 2, frame: null, nameSet: 'chuuni' });
+    // …and once stored that way it is settled
+    const settled = buildUserTitles({ ...base, prefs: switched.prefs, display: switched.display }, same, 9);
+    expect(settled.changed).toBe(false);
+    // Back to classic: the display drops it again
+    const back = buildUserTitles({ ...base, prefs: { ...base.prefs, nameSet: 'classic' }, display: switched.display }, same, 9);
+    expect(back.changed).toBe(true);
+    expect(back.display).toEqual({ familyId: 'regular', tier: 2, frame: null });
   });
 
   it('recomputes the frame: a doc from before frames gets one written', () => {
@@ -751,7 +974,7 @@ describe('docs from before the ten-step ladders (old 1..4 tiers)', () => {
     });
     expect(next.upgraded).toEqual([{ familyId: 'hunter', tier: 6 }]);
     // Prefs untouched (titleTier: none picked), the pick still resolves
-    expect(next.prefs).toEqual({ ...old.prefs, titleTier: null });
+    expect(next.prefs).toEqual({ ...old.prefs, titleTier: null, nameSet: 'classic' });
     expect(next.display).toEqual({ familyId: 'champion', tier: 5, frame: null });
     // Opt-in stays: an old doc that never turned titles on still shows nothing
     const off = buildUserTitles({ ...old, prefs: undefined, display: null }, s, 99, { rebuild: true });
