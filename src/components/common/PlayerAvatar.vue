@@ -41,8 +41,8 @@
 // is absolute and ignores the pointer, so rows keep their height. No frame,
 // or an id this build can't draw (a newer catalog) → no canvas, a thin
 // neutral ring. `still` shows the frame as one static picture (a locked
-// frame in the picker); 簡化特效 and prefers-reduced-motion do the same for
-// every frame (handled in frameFx).
+// frame in the picker); 簡化特效 does the same for every frame (handled in
+// frameFx).
 // A small crown sits on the corner while the player wears a 本月王座 (given
 // as `crown`, or read through `uid` like the frame).
 import { computed, onBeforeUnmount, ref, watch } from 'vue';

@@ -296,15 +296,20 @@ describe('mountFrame and the shared loop', () => {
     expect(canvas.ctx.count('clearRect')).toBe(drawn + 1);
   });
 
-  it('prefers-reduced-motion is treated the same', () => {
-    window.matchMedia = (q) => ({ matches: /reduced-motion: reduce/.test(q), addEventListener() {} });
-    expect(fx.frameFxStill()).toBe(true);
+  it('the system reduced-motion setting does not still the frames (only the switch does)', () => {
+    const asked = [];
+    window.matchMedia = (q) => { asked.push(q); return { matches: true, addEventListener() {} }; };
+    expect(fx.frameFxStill()).toBe(false);
     const canvas = fakeCanvas();
     mountFx(canvas, 'king', 40);
-    expect(canvas.ctx.count('clearRect')).toBe(1);
-    expect(frames).toHaveLength(0);
-    window.matchMedia = () => { throw new Error('no matchMedia'); };
-    expect(fx.frameFxStill()).toBe(false);
+    expect(frames).toHaveLength(1);
+    step(1000);
+    step(1020);
+    expect(canvas.ctx.count('clearRect')).toBe(3);
+    // The renderer never even looks at it
+    expect(asked).toEqual([]);
+    const src = readFileSync(resolve(__dirname, '../src/utils/frameFx.js'), 'utf-8');
+    expect(src).not.toContain('matchMedia');
   });
 
   it('a still picture is redrawn when the theme changes (the light backing)', async () => {

@@ -1,7 +1,8 @@
 // 簡化特效: the viewer's own switch for the moving parts of 頭像框 (rays,
 // particles, orbiting lights, every animation). Stored on this device and put
-// on the document root as data-fx="lite", which PlayerAvatar.vue's styles read
-// (prefers-reduced-motion gets the same treatment there). Only what this
+// on the document root as data-fx="lite", which the frame renderer reads
+// (utils/frameFx.js). It is the only thing that stills the frames: the
+// system's reduced-motion setting is not followed there. Only what this
 // viewer sees changes; other players still see the frames move.
 
 const read = (storageKey) => {

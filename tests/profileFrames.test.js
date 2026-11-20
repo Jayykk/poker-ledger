@@ -189,10 +189,9 @@ describe('簡化特效', () => {
     expect(main).toContain('applyFxLite(isFxLite(THEME_STORAGE_KEYS.FX_LITE));');
   });
 
-  it('the frame renderer reads the flag itself (and reduced motion), watching the root for changes', () => {
+  it('the frame renderer reads the flag itself, watching the root for changes', () => {
     const src = readFileSync(resolve(__dirname, '../src/utils/frameFx.js'), 'utf-8');
     expect(src).toContain("root()?.getAttribute('data-fx') === 'lite'");
-    expect(src).toContain("window.matchMedia?.('(prefers-reduced-motion: reduce)').matches");
     expect(src).toContain("attributeFilter: ['data-fx', 'data-mode']");
   });
 });

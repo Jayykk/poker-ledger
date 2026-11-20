@@ -9,10 +9,13 @@
 // One requestAnimationFrame loop drives every avatar on the page (mountFrame
 // registers, its destroy() unregisters). The loop stops while the tab is
 // hidden and skips avatars that are off screen.
-// 簡化特效 (:root[data-fx="lite"], utils/fx.js), prefers-reduced-motion and a
-// frame mounted with { still } get ONE static picture instead: no particles,
-// nothing moving, and they stay out of the loop. Flipping the switch is seen
-// here (the root attribute is watched), no reload needed.
+// 簡化特效 (:root[data-fx="lite"], utils/fx.js) and a frame mounted with
+// { still } get ONE static picture instead: no particles, nothing moving, and
+// they stay out of the loop. Flipping the switch is seen here (the root
+// attribute is watched), no reload needed. The system's reduced-motion
+// setting is deliberately NOT followed: it is on by default on many PCs
+// (Windows "animation effects" off) and would hide the frames from people who
+// never asked for that — the switch is the way to turn them off.
 //
 // A new frame = a draw function in DRAWERS under its id (+ its catalog entry
 // in titleRules THEME_FRAMES and its name in titles.frames.*).
@@ -178,33 +181,54 @@ const DRAWERS = {
 
   fire(k, t) {
     const { ctx, c, u, R, S } = k;
-    // embers and flame tongues born on the ring, rising and cooling
+    S.sparks ||= [];
+    // flame tongues born on the ring, rising and cooling: most of them over
+    // the upper half, where they are bigger and climb faster
     if (!k.still) {
-      for (let i = 0; i < 6; i++) {
-        const a = rnd(TAU);
-        const top = Math.sin(a) < 0 ? 1.35 : 0.75;
+      for (let i = 0; i < 7; i++) {
+        const a = Math.random() < 0.62 ? rnd(-Math.PI, 0) : rnd(TAU);
+        const up = Math.max(0, -Math.sin(a)); // 1 right at the top, 0 at the sides and below
         S.parts.push({
           x: c + Math.cos(a) * R, y: c + Math.sin(a) * R, vx: Math.cos(a) * 0.25 * u + rnd(-0.4, 0.4) * u,
-          vy: -rnd(0.8, 2.1) * u * top, life: 1, d: rnd(0.02, 0.045), s: rnd(7, 15) * u,
+          vy: -rnd(0.8, 2.1) * u * (0.75 + up * 0.95), life: 1, d: rnd(0.02, 0.045),
+          // never smaller than a couple of px, so a 28px avatar still shows flames
+          s: Math.max(rnd(7, 15) * u * (1 + up * 0.5), 2.2 + up * 1.6), up,
         });
+      }
+      // bright sparks shooting up, past the top of the canvas
+      if (Math.random() < 0.3) {
+        const a = rnd(-Math.PI * 0.85, -Math.PI * 0.15);
+        S.sparks.push({ x: c + Math.cos(a) * R, y: c + Math.sin(a) * R, vx: rnd(-0.5, 0.5) * u, vy: -rnd(2.6, 4.6) * u - 0.25, life: 1, d: rnd(0.025, 0.05) });
       }
     }
     ctx.globalCompositeOperation = 'lighter';
-    k.glow(c, c - 6 * u, R * 1.8, '255,70,0', 0.16 + 0.05 * Math.sin(t * 9));
+    // the halo flickers like a fire, not a lamp
+    k.glow(c, c - 6 * u, R * 1.85, '255,70,0', 0.2 + 0.09 * Math.sin(t * 11) + 0.05 * Math.sin(t * 23 + 1));
     if (k.still) {
       // a still flame: tongues standing over the upper half
       for (let i = 0; i < 9; i++) {
         const a = -Math.PI / 2 + (i - 4) * 0.34;
         const lift = (i % 2 ? 5 : 11) * u;
-        k.glow(c + Math.cos(a) * (R + 3 * u), c + Math.sin(a) * (R + 3 * u) - lift, (i % 2 ? 10 : 13) * u, i % 2 ? '255,150,30' : '255,64,8', 0.34);
+        k.glow(c + Math.cos(a) * (R + 3 * u), c + Math.sin(a) * (R + 3 * u) - lift, Math.max((i % 2 ? 10 : 13) * u, 3.4), i % 2 ? '255,150,30' : '255,64,8', 0.36);
       }
     } else {
       S.parts = S.parts.filter((p) => p.life > 0);
       for (const p of S.parts) {
         p.x += p.vx; p.y += p.vy; p.vx += rnd(-0.14, 0.14) * u; p.vy *= 0.992; p.life -= p.d;
         const heat = p.life;
-        const rgb = heat > 0.85 ? '255,236,170' : heat > 0.55 ? '255,150,30' : heat > 0.25 ? '255,64,8' : '140,20,6';
-        k.glow(p.x, p.y, p.s * (0.4 + heat * 0.7), rgb, 0.3 * heat);
+        const rgb = heat > 0.8 ? '255,246,200' : heat > 0.5 ? '255,160,36' : heat > 0.22 ? '255,64,8' : '140,20,6';
+        const rad = p.s * (0.4 + heat * 0.7);
+        // fades out before the top of the canvas, so a tall flame has no flat cut
+        const edge = Math.max(0, Math.min(1, (p.y - rad) / (k.C * 0.07)));
+        k.glow(p.x, p.y, rad, rgb, (0.3 + p.up * 0.14) * heat * edge);
+      }
+      S.sparks = S.sparks.filter((p) => p.life > 0);
+      for (const p of S.sparks) {
+        const px = p.x;
+        const py = p.y;
+        p.x += p.vx; p.y += p.vy; p.vx += rnd(-0.1, 0.1) * u; p.life -= p.d;
+        ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1.6 * u, 0.9); ctx.strokeStyle = `rgba(255,240,170,${p.life})`; ctx.shadowColor = '#ffb300'; ctx.shadowBlur = 5 * u;
+        ctx.beginPath(); ctx.moveTo(px - p.vx, py - p.vy); ctx.lineTo(p.x, p.y); ctx.stroke(); ctx.restore();
       }
     }
     k.ring(R, 3.4 * u, k.conic(t * 5, ['#fff3c4', '#ffb300', '#ff3d00', '#7f0000', '#ff6d00', '#ffe082', '#fff3c4']), '#ff6d00', 16 * u);
@@ -354,9 +378,9 @@ const DRAWERS = {
     ctx.globalCompositeOperation = 'source-over';
     k.hole();
     // crescent moon
-    const mx = c + Math.cos(-0.85) * (R + 9 * u);
-    const my = c + Math.sin(-0.85) * (R + 9 * u);
-    const mr = 11 * u;
+    const mr = Math.max(11 * u, 4.6); // never a speck, even on a 28px avatar
+    const mx = c + Math.cos(-0.85) * (R + Math.max(9 * u, mr * 0.8));
+    const my = c + Math.sin(-0.85) * (R + Math.max(9 * u, mr * 0.8));
     ctx.save(); ctx.shadowColor = '#fde68a'; ctx.shadowBlur = 14 * u; ctx.fillStyle = '#fef9c3';
     ctx.beginPath(); ctx.arc(mx, my, mr, 0, TAU); ctx.arc(mx + mr * 0.5, my - mr * 0.22, mr * 0.84, 0, TAU, true); ctx.fill('evenodd');
     ctx.restore();
@@ -400,10 +424,14 @@ const DRAWERS = {
 
   abyss(k, t) {
     const { ctx, c, u, R, S } = k;
-    // dark smoke swirling around the ring
+    // smoke swirling off the ring: dark wisps, and more glowing ones (the
+    // dark ones vanish on a dark page)
     if (!k.still) {
-      for (let i = 0; i < 3; i++) {
-        S.parts.push({ a: rnd(TAU), r: R + rnd(-2, 4) * u, va: rnd(0.02, 0.05), vr: rnd(0.12, 0.42) * u, life: 1, d: rnd(0.012, 0.024), s: rnd(12, 24) * u, light: Math.random() < 0.35 });
+      for (let i = 0; i < 4; i++) {
+        S.parts.push({
+          a: rnd(TAU), r: R + rnd(-2, 4) * u, va: rnd(0.02, 0.05), vr: rnd(0.12, 0.42) * u, life: 1, d: rnd(0.012, 0.024),
+          s: Math.max(rnd(12, 24) * u, 4), light: Math.random() < 0.62, pink: Math.random() < 0.4,
+        });
       }
     }
     k.glow(c, c, R * 1.75, '46,16,101', 0.55);
@@ -414,20 +442,35 @@ const DRAWERS = {
         const x = c + Math.cos(p.a) * p.r;
         const y = c + Math.sin(p.a) * p.r;
         if (p.light) {
-          ctx.globalCompositeOperation = 'lighter'; k.glow(x, y, p.s * 0.55, '167,139,250', 0.5 * p.life); ctx.globalCompositeOperation = 'source-over';
+          ctx.globalCompositeOperation = 'lighter'; k.glow(x, y, p.s * 0.7, p.pink ? '232,121,249' : '167,139,250', 0.55 * p.life); ctx.globalCompositeOperation = 'source-over';
         } else k.glow(x, y, p.s, '20,6,48', 0.6 * p.life);
       }
     }
     ctx.globalCompositeOperation = 'lighter';
-    k.glow(c, c, R * 1.4, '124,58,237', 0.16 + 0.1 * Math.abs(Math.sin(t * 2.6)));
-    // runes lighting up one after another
+    const pulse = Math.abs(Math.sin(t * 2.6));
+    k.glow(c, c, R * 1.45, '147,51,234', 0.22 + 0.16 * pulse);
+    // runes lighting up one after another (never thinner than a good px)
     for (let i = 0; i < 10; i++) {
       const a = (i * TAU) / 10 - t * 0.3;
-      const al = Math.max(0.12, Math.sin(t * 4 - i * 0.63));
-      ctx.save(); ctx.lineWidth = 2.4 * u; ctx.lineCap = 'round'; ctx.strokeStyle = `rgba(196,181,253,${al})`; ctx.shadowColor = '#a78bfa'; ctx.shadowBlur = 8 * u;
-      ctx.beginPath(); ctx.arc(c, c, R + 9 * u, a, a + 0.32); ctx.stroke(); ctx.restore();
+      const al = Math.max(0.3, Math.sin(t * 4 - i * 0.63));
+      ctx.save(); ctx.lineWidth = Math.max(2.6 * u, 1.3); ctx.lineCap = 'round'; ctx.strokeStyle = `rgba(233,213,255,${al})`; ctx.shadowColor = '#c084fc'; ctx.shadowBlur = 8 * u;
+      ctx.beginPath(); ctx.arc(c, c, R + Math.max(9 * u, 3.4), a, a + 0.34); ctx.stroke(); ctx.restore();
     }
     k.ring(R, 3.6 * u, k.conic(-t * 4, ['#0f0a2e', '#a78bfa', '#1e1b4b', '#c4b5fd', '#0f0a2e', '#7c3aed', '#0f0a2e']), '#7c3aed', 16 * u);
+    // the inner edge, pulsing bright
+    k.ring(R - 1.3 * u, Math.max(1.1 * u, 0.7), `rgba(240,220,255,${0.5 + 0.45 * pulse})`, '#e879f9', 7 * u);
+    // souls: bright sparks spiralling outward, each with a short trail
+    if (!k.still) {
+      for (let n = 0; n < 3; n++) {
+        for (let j = 0; j < 9; j++) {
+          const q = (t * 0.5 + n / 3 - j * 0.014 + 1) % 1; // 0 on the ring → 1 far out
+          const a = t * 2.2 + (n * TAU) / 3 + q * 3.4;
+          const r = R + 2 * u + q * 30 * u;
+          const fade = Math.sin(q * Math.PI) * (1 - j / 9);
+          k.glow(c + Math.cos(a) * r, c + Math.sin(a) * r, Math.max((j ? 3.4 - j * 0.25 : 4.2) * u, j ? 1 : 1.5), j ? '232,121,249' : '255,255,255', (j ? 0.6 : 1) * fade);
+        }
+      }
+    }
     ctx.globalCompositeOperation = 'source-over';
     k.hole();
   },
@@ -597,16 +640,13 @@ const root = () => (typeof document !== 'undefined' ? document.documentElement :
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 /**
- * Should frames stand still for this viewer: 簡化特效 on, or the system asks
- * for reduced motion.
+ * Should frames stand still for this viewer: 簡化特效 is on. (Only the
+ * switch; not the system's reduced-motion setting, see the top of the file.)
  *
  * @return {boolean}
  */
 export function frameFxStill() {
-  if (root()?.getAttribute('data-fx') === 'lite') return true;
-  try {
-    return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  } catch { return false; }
+  return root()?.getAttribute('data-fx') === 'lite';
 }
 
 const lightMode = () => root()?.getAttribute('data-mode') === 'light';
@@ -644,8 +684,7 @@ function kick() {
   }
 }
 
-// The viewer's settings changed (簡化特效, theme, reduced motion) or the tab
-// came back: still pictures are redrawn, the loop starts again if needed
+// The viewer's settings changed (簡化特效, theme) or the tab came back: still pictures are redrawn, the loop starts again if needed
 function refresh() {
   const still = frameFxStill();
   for (const entry of entries) if (!animated(entry, still)) drawStill(entry);
@@ -660,9 +699,6 @@ function watch() {
   if (typeof MutationObserver === 'function') {
     new MutationObserver(refresh).observe(document.documentElement, { attributes: true, attributeFilter: ['data-fx', 'data-mode'] });
   }
-  try {
-    window.matchMedia?.('(prefers-reduced-motion: reduce)').addEventListener?.('change', refresh);
-  } catch { /* no matchMedia */ }
   if (typeof IntersectionObserver === 'function') {
     visibility = new IntersectionObserver((records) => {
       for (const record of records) {
