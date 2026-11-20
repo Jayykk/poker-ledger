@@ -85,7 +85,9 @@ export const STORAGE_KEYS = {
   PENDING_INVITE: 'pending_invite',
   HIDE_CAREER_PROFIT: 'poker_hide_career_profit',
   // Leaderboard 只看牌友 toggle ('true' / 'false')
-  LEADERBOARD_PALS_ONLY: 'poker_leaderboard_pals_only'
+  LEADERBOARD_PALS_ONLY: 'poker_leaderboard_pals_only',
+  // 簡化特效: 頭像框 without motion on this device ('true' / 'false')
+  FX_LITE: 'poker_fx_lite'
 };
 
 // Theme options
