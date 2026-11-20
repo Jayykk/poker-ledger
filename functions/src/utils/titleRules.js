@@ -112,7 +112,10 @@ export function isLegacyDefaultPrefs(prefs) {
   return (p.mode === undefined || p.mode === 'auto')
     && !p.titleId
     && (p.showRoomTitles === undefined || p.showRoomTitles === true)
-    && (p.frame === undefined || p.frame === 'auto');
+    && (p.frame === undefined || p.frame === 'auto')
+    // Fields that came after opt-in: a value here is the player's own choice
+    && (p.nameSet === undefined || p.nameSet === 'classic')
+    && (p.titleTier === undefined || p.titleTier === null);
 }
 
 // 頭像框: titles held (see titleCount; a family at tier n holds n) needed for

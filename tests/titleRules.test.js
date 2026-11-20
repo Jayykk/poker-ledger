@@ -409,6 +409,11 @@ describe('prefs and display', () => {
     expect(isLegacyDefaultPrefs({ mode: 'off', showRoomTitles: true, frame: 'auto' })).toBe(false);
     expect(isLegacyDefaultPrefs({ mode: 'auto', showRoomTitles: false, frame: 'auto' })).toBe(false);
     expect(isLegacyDefaultPrefs({ mode: 'auto', showRoomTitles: true, frame: 'gold' })).toBe(false);
+    // Only the name style (or a picked step) changed: still the player's choice
+    // (Codex review on #274: a rerun of the migration would have reset it)
+    expect(isLegacyDefaultPrefs({ mode: 'auto', showRoomTitles: true, frame: 'auto', nameSet: 'chuuni' })).toBe(false);
+    expect(isLegacyDefaultPrefs({ mode: 'auto', showRoomTitles: true, frame: 'auto', titleTier: 3 })).toBe(false);
+    expect(isLegacyDefaultPrefs({ mode: 'auto', showRoomTitles: true, frame: 'auto', nameSet: 'classic', titleTier: null })).toBe(true);
   });
 
   it('validates setTitlePrefs input', () => {
