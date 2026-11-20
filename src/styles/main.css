@@ -166,3 +166,16 @@ select:focus {
   transform: translateY(100%);
   opacity: 0;
 }
+
+/* A player's 稱號 on its own line under the name (leaderboard, settlement,
+   seat list): the name and the title each get the full width, so neither is
+   cut to "…". Nothing there (no title) = no line. */
+.title-line {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-top: 0.15rem;
+}
+.title-line:empty {
+  display: none;
+}

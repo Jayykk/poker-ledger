@@ -126,10 +126,11 @@
         <!-- User info -->
         <div class="flex-1 min-w-0">
           <div class="text-white font-bold flex items-center gap-1.5 min-w-0">
-            <span class="truncate shrink-[10]">{{ entry.name }}</span>
-            <TitleBadge :uid="entry.uid" />
+            <span class="truncate">{{ entry.name }}</span>
             <span v-if="entry.uid === user?.uid" class="text-xs text-amber-400 flex-shrink-0">{{ $t('friends.you') }}</span>
           </div>
+          <!-- Its own line under the name (as in a room), so neither is cut to "…" -->
+          <div class="title-line"><TitleBadge :uid="entry.uid" /></div>
           <div class="text-xs text-gray-400">
             {{ $t('friends.gamesCount', { n: entry.games }) }}
           </div>
@@ -197,10 +198,10 @@
           <PlayerAvatar size="sm" :src="avatarSrcOf(myRankInfo, user)" :name="myRankInfo.name" :uid="myRankInfo.uid" />
           <div class="flex-1 min-w-0">
             <div class="text-white font-bold flex items-center gap-1.5 min-w-0">
-              <span class="truncate shrink-[10]">{{ myRankInfo.name }}</span>
-              <TitleBadge :uid="myRankInfo.uid" />
+              <span class="truncate">{{ myRankInfo.name }}</span>
               <span class="text-xs text-amber-400 flex-shrink-0">{{ $t('friends.you') }}</span>
             </div>
+            <div class="title-line"><TitleBadge :uid="myRankInfo.uid" /></div>
             <div class="text-xs text-gray-400">
               {{ $t('friends.gamesCount', { n: myRankInfo.games }) }}
             </div>

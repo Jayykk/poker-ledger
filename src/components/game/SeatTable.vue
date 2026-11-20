@@ -78,9 +78,13 @@
     <!-- The seat you tapped -->
     <div v-if="picked" class="st-detail">
       <PlayerAvatar size="sm" :src="avatarOf(picked.player)" :name="picked.player.name" :uid="picked.player.uid || ''" />
-      <span class="who">{{ picked.player.name }}</span>
-      <LiveTitleBadge v-if="roomTitles[picked.player.id]" :title-id="roomTitles[picked.player.id]" />
-      <TitleBadge v-else-if="picked.player.uid" :uid="picked.player.uid" />
+      <div class="who-col">
+        <div class="who">{{ picked.player.name }}</div>
+        <div class="title-line">
+          <LiveTitleBadge v-if="roomTitles[picked.player.id]" :title-id="roomTitles[picked.player.id]" />
+          <TitleBadge v-else-if="picked.player.uid" :uid="picked.player.uid" />
+        </div>
+      </div>
       <span class="meta">
         {{ picked.dealer ? $t('seats.dealer') : $t('seats.seatNo', { seat: picked.no }) }}
         <template v-if="picked.out && picked.player.placement"> · #{{ picked.player.placement }}</template>
@@ -470,6 +474,7 @@ onBeforeUnmount(stopEase);
   background: rgb(var(--tw-slate-800) / 0.7);
   border: 1px solid rgb(var(--tw-slate-600) / 0.5);
 }
-.st-detail .who { font-weight: 700; color: rgb(var(--tw-white)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.st-detail .meta { margin-left: auto; font-size: 0.75rem; color: rgb(var(--tw-white) / 0.6); white-space: nowrap; }
+.st-detail .who-col { flex: 1; min-width: 0; }
+.st-detail .who { font-weight: 700; color: rgb(var(--tw-white)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-detail .meta { flex-shrink: 0; font-size: 0.75rem; color: rgb(var(--tw-white) / 0.6); white-space: nowrap; }
 </style>

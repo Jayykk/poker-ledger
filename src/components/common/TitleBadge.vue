@@ -66,7 +66,8 @@ const name = computed(() => (shown.value
   gap: 0.2rem;
   flex: 0 1 auto;
   min-width: 0;
-  max-width: 8.5rem;
+  /* The line it sits on is the limit (.title-line), not a fixed width */
+  max-width: 100%;
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
   border: 1px solid;

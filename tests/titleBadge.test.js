@@ -72,8 +72,8 @@ describe('TitleBadge', () => {
     expect(mythic).not.toMatch(/190, 18, 60|224, 160, 48/);
     expect(css).toMatch(/:root\[data-mode="light"\] \.title-badge\.mythic \{[^}]*color: #5b21b6;/);
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\.title-badge\.mythic \{ animation: none; \}/);
-    // Still a capped pill that truncates
-    expect(css).toMatch(/\.title-badge \{[^}]*max-width: 8\.5rem;/);
+    // Still a pill that truncates, at the width of its line
+    expect(css).toMatch(/\.title-badge \{[^}]*max-width: 100%;/);
     expect(css).toContain('.title-badge-text { overflow: hidden; text-overflow: ellipsis; }');
   });
 
@@ -176,14 +176,13 @@ describe('TitleBadge in the owner\'s name set (中二版)', () => {
     expect(kept.text()).toBe(chuuni.regular.t4);
   });
 
-  it('the longest names still sit in a capped pill that truncates (8 Chinese characters fit it)', () => {
+  it('the pill is as wide as its line allows and only then truncates (no fixed cap)', () => {
     const css = readFileSync(resolve(__dirname, '..', 'src/components/common/TitleBadge.vue'), 'utf-8');
-    expect(css).toMatch(/\.title-badge \{[^}]*min-width: 0;[^}]*max-width: 8\.5rem;[^}]*white-space: nowrap;/);
+    expect(css).toMatch(/\.title-badge \{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*white-space: nowrap;/);
+    expect(css).not.toMatch(/max-width: [\d.]+rem/);
     expect(css).toContain('.title-badge-text { overflow: hidden; text-overflow: ellipsis; }');
-    // 8 characters at 0.66rem + the crown icon + padding stay under 8.5rem
     const longest = Math.max(...Object.values(chuuni).flatMap((f) => Object.values(f)).map((n) => [...n].length));
     expect(longest).toBe(8);
-    expect(longest * 0.66 + 0.6 * 1.25 + 0.2 + 0.8).toBeLessThan(8.5);
   });
 });
 
@@ -193,14 +192,32 @@ describe('badges next to names', () => {
     ['src/components/game/PlayerCard.vue', '<TitleBadge v-else :uid="player.uid" />'],
     ['src/components/game/TournamentPlayerCard.vue', '<TitleBadge v-else :uid="player.uid" />'],
     ['src/components/game/SeatDrawModal.vue', '<TitleBadge v-else-if="s.player?.uid" :uid="s.player.uid" />'],
+    ['src/components/game/SeatTable.vue', '<TitleBadge v-else-if="picked.player.uid" :uid="picked.player.uid" />'],
     ['src/components/common/SettlementDetailModal.vue', '<TitleBadge v-if="player.odId" :uid="player.odId" />'],
     ['src/components/social/Leaderboard.vue', '<TitleBadge :uid="entry.uid" />'],
+    ['src/components/social/Leaderboard.vue', '<TitleBadge :uid="myRankInfo.uid" />'],
     ['src/views/ProfileView.vue', '<TitleBadge :family-id="myDisplay.familyId" :tier="myDisplay.tier" :name-set="titlePrefs.nameSet" />'],
   ])('%s', (file, tag) => {
     const src = read(file);
     expect(src).toContain(tag);
-    // The name gives way first on a narrow phone (room rows: the title has its own line)
-    if (/SettlementDetail|Leaderboard/.test(file)) expect(src).toContain('truncate shrink-[10]');
+    // Outside the rooms too the title has its own line under the name, never
+    // beside it where a narrow phone cut it to "…"
+    if (/SettlementDetail|Leaderboard|Seat/.test(file)) {
+      const at = src.indexOf(tag);
+      const line = src.lastIndexOf('<div class="title-line">', at);
+      expect(line).toBeGreaterThan(-1);
+      // nothing but badges between the line's opening tag and this badge
+      expect(src.slice(line, at)).not.toContain('</div>');
+      expect(src.slice(line, at)).not.toContain('{{');
+      expect(src).not.toContain('shrink-[10]');
+    }
+  });
+
+  it('the shared title line: full width, and no line at all without a title', () => {
+    const css = read('src/styles/main.css');
+    expect(css).toMatch(/\.title-line \{[^}]*display: flex;[^}]*min-width: 0;/);
+    expect(css).toMatch(/\.title-line:empty \{[^}]*display: none;/);
+    expect(read('src/components/common/LiveTitleBadge.vue')).toMatch(/\.live-badge \{[^}]*max-width: 100%;/);
   });
 
   it.each([
