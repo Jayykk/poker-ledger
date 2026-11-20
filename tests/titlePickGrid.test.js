@@ -148,7 +148,7 @@ describe('profile 名稱風格 switch', () => {
     const row = w.find('[data-testid="name-set"]');
     expect(row.exists()).toBe(true);
     expect(row.text()).toContain(zhTW.titles.nameSet);
-    expect(row.findAll('button').map((b) => b.text())).toEqual(['經典', '中二']);
+    expect(row.findAll('button').map((b) => b.text())).toEqual(['經典', '氣質']);
     expect(opt(w, 'classic').classes()).toContain('active');
     expect(opt(w, 'classic').attributes('aria-pressed')).toBe('true');
     expect(opt(w, 'chuuni').classes()).not.toContain('active');
