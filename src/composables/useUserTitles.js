@@ -85,9 +85,10 @@ export function ensureUserTitles(uids) {
 }
 
 /**
- * What a user shows to others: { familyId, tier, frame, month? } or null.
- * familyId / tier are null when they show a frame but no title. A crown only
- * while it is this month's (else what auto / the pick falls back to).
+ * What a user shows to others: { familyId, tier, frame, month?, nameSet? } or
+ * null. familyId / tier are null when they show a frame but no title. A crown
+ * only while it is this month's (else what auto / the pick falls back to).
+ * nameSet: the set of names they chose for their title (none = classic).
  */
 export function titleDisplayOf(uid) {
   const entry = uid ? cache[uid] : null;
@@ -169,7 +170,8 @@ export function watchMyTitles(uid) {
 /**
  * Save your display prefs through the setTitlePrefs callable (userTitles is
  * not client-writable). Any of { mode, titleId, titleTier, showRoomTitles,
- * frame }; titleTier is the step of the picked family (null = its highest).
+ * frame, nameSet }; titleTier is the step of the picked family (null = its
+ * highest), nameSet the names your title shows in ('classic' | 'chuuni').
  * @param {string} uid Your uid (to update the cache right away).
  * @param {object} prefs
  * @return {Promise<{prefs: object, display: ?object}>}

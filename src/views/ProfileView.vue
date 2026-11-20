@@ -9,7 +9,7 @@
       {{ displayName }}
     </h2>
     <div v-if="myDisplay?.familyId" class="flex justify-center mb-1">
-      <TitleBadge :family-id="myDisplay.familyId" :tier="myDisplay.tier" />
+      <TitleBadge :family-id="myDisplay.familyId" :tier="myDisplay.tier" :name-set="titlePrefs.nameSet" />
     </div>
     <p v-if="isGuest" class="text-xs text-amber-500 mb-6">{{ $t('auth.guest') }}</p>
 
@@ -75,7 +75,7 @@
         <button type="button" class="title-fold" :aria-expanded="titleOpen" @click="titleOpen = !titleOpen">
           <span class="text-xs text-gray-400 whitespace-nowrap">{{ $t('titles.mode') }}</span>
           <span class="title-fold-now">
-            <TitleBadge v-if="titlePrefs.mode !== 'off' && myDisplay?.familyId" :family-id="myDisplay.familyId" :tier="myDisplay.tier" />
+            <TitleBadge v-if="titlePrefs.mode !== 'off' && myDisplay?.familyId" :family-id="myDisplay.familyId" :tier="myDisplay.tier" :name-set="titlePrefs.nameSet" />
             <span v-else class="text-xs text-gray-300">{{ $t(`titles.mode${titlePrefs.mode === 'off' ? 'Off' : titlePrefs.mode === 'auto' ? 'Auto' : 'Pick'}`) }}</span>
           </span>
           <i class="fas fa-chevron-down title-fold-icon" :class="{ open: titleOpen }" aria-hidden="true"></i>
@@ -100,12 +100,36 @@
             <template v-else>{{ $t('titles.pick') }}</template>
           </p>
 
+          <!-- 名稱風格: the set of names my title shows in, for everyone who sees it -->
+          <div class="title-nameset" data-testid="name-set">
+            <div class="min-w-0">
+              <div class="title-nameset-label">{{ $t('titles.nameSet') }}</div>
+              <div class="text-[11px] text-gray-400">{{ $t('titles.nameSetHint') }}</div>
+            </div>
+            <div class="title-nameset-opts" role="group" :aria-label="$t('titles.nameSet')">
+              <button
+                v-for="s in nameSets"
+                :key="s.id"
+                type="button"
+                class="title-mode title-nameset-opt"
+                :class="{ active: titlePrefs.nameSet === s.id }"
+                :aria-pressed="titlePrefs.nameSet === s.id"
+                :disabled="titleSaving"
+                :data-name-set="s.id"
+                @click="setNameSet(s.id)"
+              >
+                {{ $t(s.label) }}
+              </button>
+            </div>
+          </div>
+
         <!-- 指定: a cell per family; one with several steps opens them to pick from -->
         <TitlePickGrid
           v-if="titlePrefs.mode === 'pick' && pickableTitles.length"
           :items="pickableTitles"
           :picked-id="titlePrefs.titleId"
           :picked-tier="titlePrefs.titleTier"
+          :name-set="titlePrefs.nameSet"
           :disabled="titleSaving"
           @pick="pickTitle"
         />
@@ -346,6 +370,11 @@ const titleModes = [
   { id: 'auto', label: 'titles.modeAuto' },
   { id: 'pick', label: 'titles.modePick' },
 ];
+// 名稱風格: the same titles under other names (prefs.nameSet)
+const nameSets = [
+  { id: 'classic', label: 'titles.nameSetClassic' },
+  { id: 'chuuni', label: 'titles.nameSetChuuni' },
+];
 const myTitles = computed(() => titles[user.value?.uid] || null);
 const titlePrefs = computed(() => normalizeTitlePrefs(myTitles.value?.prefs));
 // The stored display, re-resolved when its crown is from an older month
@@ -425,6 +454,10 @@ function pickTitle({ titleId, titleTier = null }) {
   const { titleId: pickedId, titleTier: pickedTier } = titlePrefs.value;
   if (titleId === pickedId && titleTier === pickedTier) return;
   saveTitles({ mode: 'pick', titleId, titleTier });
+}
+
+function setNameSet(nameSet) {
+  if (nameSet !== titlePrefs.value.nameSet) saveTitles({ nameSet });
 }
 
 function pickFrame(frame) {
@@ -557,6 +590,18 @@ const handleLogout = async () => {
 }
 .title-mode.active { color: rgb(var(--tw-white)); border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.12); font-weight: 600; }
 .title-mode:disabled:not(.active) { opacity: 0.4; }
+/* 名稱風格: label (it gives way) · a two-option switch that keeps its size */
+.title-nameset {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+  margin-top: 0.75rem;
+}
+.title-nameset-label { font-size: 0.875rem; color: rgb(var(--tw-white)); }
+.title-nameset-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem; flex-shrink: 0; }
+.title-nameset-opt { padding: 0.3rem 0.75rem; font-size: 0.8rem; white-space: nowrap; }
 .frame-opt {
   display: flex;
   flex-direction: column;

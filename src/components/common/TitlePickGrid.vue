@@ -9,7 +9,7 @@
         :aria-expanded="item.steps ? openId === item.familyId : undefined"
         @click="tapFamily(item)"
       >
-        <TitleBadge :family-id="item.familyId" :tier="item.shownTier" />
+        <TitleBadge :family-id="item.familyId" :tier="item.shownTier" :name-set="nameSet" />
         <span class="title-pick-sub">{{ $t(`titles.families.${item.familyId}.desc`) }}</span>
         <i v-if="item.picked" class="fas fa-check title-pick-check" aria-hidden="true"></i>
         <i v-if="item.steps" class="fas fa-chevron-down title-pick-more" aria-hidden="true"></i>
@@ -28,7 +28,7 @@
           :aria-label="$t('titles.stepsOf', { n: tier, total: TITLE_TIER_COUNT })"
           @click="pickTier(item, tier)"
         >
-          <TitleBadge :family-id="item.familyId" :tier="tier" />
+          <TitleBadge :family-id="item.familyId" :tier="tier" :name-set="nameSet" />
           <i v-if="item.picked && tier === item.shownTier" class="fas fa-check title-tier-check" aria-hidden="true"></i>
         </button>
       </div>
@@ -52,6 +52,8 @@ const props = defineProps({
   // prefs.titleId / prefs.titleTier
   pickedId: { type: String, default: null },
   pickedTier: { type: Number, default: null },
+  // prefs.nameSet: the names the cells and steps show in
+  nameSet: { type: String, default: '' },
   disabled: { type: Boolean, default: false },
 });
 const emit = defineEmits(['pick']);

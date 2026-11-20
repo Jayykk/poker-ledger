@@ -14,7 +14,9 @@
 // 稱號 pill next to a player's name. Either give it a `uid` (shows the title
 // that player chose to display, loaded through the shared cache) or a
 // `familyId` + `tier` (稱號圖鑑 / profile picker). Renders nothing when there
-// is no title. Rarity colors by tier: 1–2 gray · 3–4 blue · 5–6 purple ·
+// is no title. The name comes in the owner's name set: from their display
+// (uid) or the `nameSet` prop (familyId); a name the set lacks, and every
+// crown, shows the classic one. Rarity colors by tier: 1–2 gray · 3–4 blue · 5–6 purple ·
 // 7–8 gold + crown · 9–10 mythic (prismatic edge) + crown.
 // 本月王座 crowns are red-gold with the crown icon, so they read apart from a
 // legendary or mythic title;
@@ -22,15 +24,19 @@
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ensureUserTitles, titleDisplayOf } from '../../composables/useUserTitles.js';
-import { CROWN_ICON_MIN_TIER, isCrownId, titleRarity, titleTierOf } from '../../utils/titles.js';
+import {
+  CROWN_ICON_MIN_TIER, displayNameSet, isCrownId, titleName, titleRarity, titleTierOf,
+} from '../../utils/titles.js';
 
 const props = defineProps({
   uid: { type: String, default: '' },
   familyId: { type: String, default: '' },
   tier: { type: Number, default: 0 },
+  // With familyId: 'classic' | 'chuuni' (none: classic)
+  nameSet: { type: String, default: '' },
 });
 
-const { t } = useI18n();
+const { t, te } = useI18n();
 
 watch(() => props.uid, (uid) => {
   if (uid && !props.familyId) ensureUserTitles(uid);
@@ -38,7 +44,7 @@ watch(() => props.uid, (uid) => {
 
 const shown = computed(() => {
   const display = props.familyId
-    ? { familyId: props.familyId, tier: props.tier }
+    ? { familyId: props.familyId, tier: props.tier, nameSet: props.nameSet }
     : titleDisplayOf(props.uid);
   // Unknown families (a newer catalog than this build) stay hidden
   return display && titleTierOf(display.familyId, display.tier) ? display : null;
@@ -46,7 +52,9 @@ const shown = computed(() => {
 const rarity = computed(() => titleRarity(shown.value?.tier, shown.value?.familyId));
 const isCrown = computed(() => isCrownId(shown.value?.familyId));
 const hasCrownIcon = computed(() => isCrown.value || (shown.value?.tier || 0) >= CROWN_ICON_MIN_TIER);
-const name = computed(() => (shown.value ? t(titleTierOf(shown.value.familyId, shown.value.tier).nameKey) : ''));
+const name = computed(() => (shown.value
+  ? titleName({ t, te }, shown.value.familyId, shown.value.tier, displayNameSet(shown.value))
+  : ''));
 </script>
 
 <style scoped>
