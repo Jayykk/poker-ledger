@@ -4,6 +4,9 @@ import { createI18n } from 'vue-i18n';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import zhTW from '../src/i18n/locales/zh-TW.json';
+import { crownMonthOf } from '../functions/src/utils/crownRules.js';
+
+const THIS_MONTH = crownMonthOf(Date.now());
 
 const docs = {
   // Turned on (titles are opt-in); displays from before frames, resolved on the client
@@ -13,6 +16,12 @@ const docs = {
   dora: { ladder: 2, display: { familyId: 'hunter', tier: 10, frame: null }, unlocked: { hunter: { tier: 10, at: 1 } }, prefs: { mode: 'auto' } },
   // Written before the ten-step ladders: old champion 4 (12 wins) is 王朝 (6) now
   evan: { display: { familyId: 'champion', tier: 4, frame: null }, unlocked: { champion: { tier: 4, at: 1 } }, prefs: { mode: 'auto', frame: 'none' } },
+  // 中二版: the display carries the owner's name set
+  fay: { ladder: 2, display: { familyId: 'champion', tier: 7, frame: null, nameSet: 'chuuni' }, unlocked: { champion: { tier: 7, at: 1 } }, prefs: { mode: 'auto', frame: 'none', nameSet: 'chuuni' } },
+  // A display from before 頭像框 (no frame): resolved on the client, from the prefs
+  gus: { ladder: 2, display: { familyId: 'regular', tier: 3 }, unlocked: { regular: { tier: 3, at: 1 } }, prefs: { mode: 'auto', frame: 'auto', nameSet: 'chuuni' } },
+  // Holds a crown this month: it shows, in its one set of names
+  hal: { ladder: 2, display: null, unlocked: { regular: { tier: 3, at: 1 } }, prefs: { mode: 'auto', frame: 'none', nameSet: 'chuuni' }, crowns: { crownHunter: THIS_MONTH } },
 };
 const reads = [];
 
@@ -112,6 +121,72 @@ describe('TitleBadge', () => {
   });
 });
 
+describe('TitleBadge in the owner\'s name set (中二版)', () => {
+  const chuuni = zhTW.titles.familiesChuuni;
+
+  it('a chuuni display shows the chuuni name; rarity and crown icon are the tier\'s as ever', async () => {
+    const w = mountBadge({ uid: 'fay' });
+    const resolved = mountBadge({ uid: 'gus' });
+    await flushPromises();
+    expect(w.text()).toBe('冠軍帝國的皇帝');
+    expect(w.text()).toBe(chuuni.champion.t7);
+    expect(w.classes()).toContain('legendary');
+    expect(w.find('.fa-crown').exists()).toBe(true);
+    expect(w.attributes('title')).toContain(chuuni.champion.t7);
+    // Re-resolved on the client (old display shape): the set comes from the prefs
+    expect(resolved.text()).toBe(chuuni.regular.t3);
+    // Next to it, a classic owner keeps the classic name
+    const classic = mountBadge({ uid: 'alice' });
+    await flushPromises();
+    expect(classic.text()).toBe('冠軍帝國');
+  });
+
+  it('a crown is always in the classic names, whatever the owner picked', async () => {
+    const held = mountBadge({ uid: 'hal' });
+    await flushPromises();
+    expect(held.text()).toBe('本月獵頭王');
+    expect(held.classes()).toContain('crown');
+    expect(mountBadge({ familyId: 'crownHunter', tier: 4, nameSet: 'chuuni' }).text()).toBe('本月獵頭王');
+    expect(zhTW.titles.familiesChuuni.crownHunter).toBeUndefined();
+  });
+
+  it('familyId mode takes the set as a prop (picker / 圖鑑); none or an unknown one is classic', () => {
+    expect(mountBadge({ familyId: 'nightOwl', tier: 10, nameSet: 'chuuni' }).text()).toBe('月神');
+    expect(mountBadge({ familyId: 'badBeat', tier: 10, nameSet: 'chuuni' }).text()).toBe('萬惡的卑鄙之王');
+    expect(mountBadge({ familyId: 'nightOwl', tier: 1, nameSet: 'classic' }).text()).toBe('夜貓子');
+    expect(mountBadge({ familyId: 'nightOwl', tier: 1 }).text()).toBe('夜貓子');
+    expect(mountBadge({ familyId: 'nightOwl', tier: 1, nameSet: 'emo' }).text()).toBe('夜貓子');
+  });
+
+  it('a chuuni name this language lacks falls back to the classic one', async () => {
+    // A locale file from before the chuuni names, and one missing a single step
+    const { familiesChuuni, ...titles } = zhTW.titles;
+    const { t3: _dropped, ...regular } = familiesChuuni.regular;
+    const partial = { ...familiesChuuni, regular };
+    const mountWith = (messages, props) => mount(TitleBadge, {
+      props,
+      global: { plugins: [createI18n({ legacy: false, locale: 'zh-TW', missingWarn: false, messages: { 'zh-TW': messages } })] },
+    });
+    const none = mountWith({ ...zhTW, titles }, { uid: 'fay' });
+    const gap = mountWith({ ...zhTW, titles: { ...titles, familiesChuuni: partial } }, { familyId: 'regular', tier: 3, nameSet: 'chuuni' });
+    const kept = mountWith({ ...zhTW, titles: { ...titles, familiesChuuni: partial } }, { familyId: 'regular', tier: 4, nameSet: 'chuuni' });
+    await flushPromises();
+    expect(none.text()).toBe('冠軍帝國');
+    expect(gap.text()).toBe('常客');
+    expect(kept.text()).toBe(chuuni.regular.t4);
+  });
+
+  it('the longest names still sit in a capped pill that truncates (8 Chinese characters fit it)', () => {
+    const css = readFileSync(resolve(__dirname, '..', 'src/components/common/TitleBadge.vue'), 'utf-8');
+    expect(css).toMatch(/\.title-badge \{[^}]*min-width: 0;[^}]*max-width: 8\.5rem;[^}]*white-space: nowrap;/);
+    expect(css).toContain('.title-badge-text { overflow: hidden; text-overflow: ellipsis; }');
+    // 8 characters at 0.66rem + the crown icon + padding stay under 8.5rem
+    const longest = Math.max(...Object.values(chuuni).flatMap((f) => Object.values(f)).map((n) => [...n].length));
+    expect(longest).toBe(8);
+    expect(longest * 0.66 + 0.6 * 1.25 + 0.2 + 0.8).toBeLessThan(8.5);
+  });
+});
+
 describe('badges next to names', () => {
   const read = (p) => readFileSync(resolve(__dirname, '..', p), 'utf-8');
   it.each([
@@ -120,7 +195,7 @@ describe('badges next to names', () => {
     ['src/components/game/SeatDrawModal.vue', '<TitleBadge v-else-if="s.player?.uid" :uid="s.player.uid" />'],
     ['src/components/common/SettlementDetailModal.vue', '<TitleBadge v-if="player.odId" :uid="player.odId" />'],
     ['src/components/social/Leaderboard.vue', '<TitleBadge :uid="entry.uid" />'],
-    ['src/views/ProfileView.vue', '<TitleBadge :family-id="myDisplay.familyId" :tier="myDisplay.tier" />'],
+    ['src/views/ProfileView.vue', '<TitleBadge :family-id="myDisplay.familyId" :tier="myDisplay.tier" :name-set="titlePrefs.nameSet" />'],
   ])('%s', (file, tag) => {
     const src = read(file);
     expect(src).toContain(tag);

@@ -180,6 +180,31 @@ describe('稱號圖鑑 family cards (ten steps)', () => {
     expect(owl.find('.tv-steps-toggle').exists()).toBe(false);
   });
 
+  it('中二版: my badge, the next step and the ten steps are in my own name set; the 王座 crowns are not', async () => {
+    const chuuni = zhTW.titles.familiesChuuni;
+    const w = mount(TitlesView, { global: { plugins: [i18n], mocks: { $router: { push: () => {} } } } });
+    await flushPromises();
+    await flushPromises();
+    // My doc is live (one shared listener): the switch in 我的 lands in the cache
+    const { titles } = useUserTitles();
+    const mine = titles.me;
+    titles.me = { ...mine, prefs: { ...mine.prefs, nameSet: 'chuuni' } };
+    try {
+      await flushPromises();
+      const card = w.find('[data-family="regular"]');
+      expect(card.find('.title-badge').text()).toBe(chuuni.regular.t3);
+      expect(card.find('[data-testid="tier-next"]').text()).toBe(`下一階：${chuuni.regular.t4}`);
+      await card.find('.tv-steps-toggle').trigger('click');
+      const steps = card.findAll('[data-testid="tier-steps"] li');
+      expect(steps.map((li) => li.find('.tv-step-name').text())).toEqual(Object.values(chuuni.regular));
+      expect(w.find('[data-family="host"] [data-testid="tier-next"]').text()).toBe(`下一階：${chuuni.host.t1}`);
+      // Crowns have one set of names
+      expect(w.find('[data-crown="crownHunter"] .title-badge').text()).toBe(zhTW.titles.families.crownHunter.t4);
+    } finally {
+      titles.me = mine;
+    }
+  });
+
   it('nothing overflows a phone: the step rows truncate, the dots shrink', () => {
     const src = readFileSync(resolve(__dirname, '../src/views/TitlesView.vue'), 'utf-8');
     expect(src).toMatch(/\.tv-step-name \{[^}]*min-width: 0;[^}]*text-overflow: ellipsis;/);

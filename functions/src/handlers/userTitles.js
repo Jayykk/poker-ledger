@@ -144,11 +144,11 @@ export async function syncPublicProfile(db, uid, before, after) {
 }
 
 /**
- * setTitlePrefs callable: `{ mode, titleId, titleTier, showRoomTitles, frame }`
- * (each optional). A picked title must be unlocked, a picked step of it
- * (titleTier, null = its highest) reached and a picked frame earned
+ * setTitlePrefs callable: `{ mode, titleId, titleTier, showRoomTitles, frame,
+ * nameSet }` (each optional). A picked title must be unlocked, a picked step
+ * of it (titleTier, null = its highest) reached and a picked frame earned
  * (failed-precondition otherwise). Writes the prefs and the display they give
- * (title + frame).
+ * (title + frame, in the name set picked).
  *
  * @param {FirebaseFirestore.Firestore} db Firestore instance.
  * @param {string} uid Caller.

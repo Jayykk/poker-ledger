@@ -129,6 +129,73 @@ describe('profile 指定: steps of a family', () => {
   });
 });
 
+describe('profile 名稱風格 switch', () => {
+  const chuuni = zhTW.titles.familiesChuuni;
+  const opt = (w, id) => w.find(`[data-testid="name-set"] [data-name-set="${id}"]`);
+
+  beforeEach(() => {
+    saveTitlePrefs.mockClear();
+    titles.me = {
+      unlocked: { regular: { tier: 4, at: 1 }, host: { tier: 1, at: 2 } },
+      prefs: { mode: 'pick', titleId: 'regular', titleTier: null, showRoomTitles: false, frame: 'none' },
+      crowns: { crownHunter: MONTH },
+      display: null,
+    };
+  });
+
+  it('two options with the display settings, classic on until the player switches', async () => {
+    const w = await openProfilePicker();
+    const row = w.find('[data-testid="name-set"]');
+    expect(row.exists()).toBe(true);
+    expect(row.text()).toContain(zhTW.titles.nameSet);
+    expect(row.findAll('button').map((b) => b.text())).toEqual(['經典', '氣質']);
+    expect(opt(w, 'classic').classes()).toContain('active');
+    expect(opt(w, 'classic').attributes('aria-pressed')).toBe('true');
+    expect(opt(w, 'chuuni').classes()).not.toContain('active');
+    // Folded away with the rest of 顯示方式
+    await w.find('button.title-fold').trigger('click');
+    expect(w.find('[data-testid="name-set"]').exists()).toBe(false);
+  });
+
+  it('saves nameSet, and the picker (cells and steps) shows the names in the new set; crowns stay', async () => {
+    const w = await openProfilePicker();
+    expect(names(w.find('.title-pick-grid'))).toEqual([zhTW.titles.families.crownHunter.t4, zh.regular.t4, zh.host.t1]);
+
+    await opt(w, 'chuuni').trigger('click');
+    await flushPromises();
+    expect(saveTitlePrefs).toHaveBeenCalledTimes(1);
+    expect(saveTitlePrefs).toHaveBeenCalledWith('me', { nameSet: 'chuuni' });
+    expect(opt(w, 'chuuni').classes()).toContain('active');
+    expect(names(w.find('.title-pick-grid')))
+      .toEqual([zhTW.titles.families.crownHunter.t4, chuuni.regular.t4, chuuni.host.t1]);
+    await w.findAll('.title-pick')[1].trigger('click');
+    expect(names(w.find('.title-tier-strip')))
+      .toEqual([chuuni.regular.t4, chuuni.regular.t3, chuuni.regular.t2, chuuni.regular.t1]);
+    await w.findAll('.title-pick')[1].trigger('click');
+
+    // The one already on saves nothing; back to classic saves that
+    await opt(w, 'chuuni').trigger('click');
+    await flushPromises();
+    expect(saveTitlePrefs).toHaveBeenCalledTimes(1);
+    await opt(w, 'classic').trigger('click');
+    await flushPromises();
+    expect(saveTitlePrefs).toHaveBeenLastCalledWith('me', { nameSet: 'classic' });
+    expect(names(w.find('.title-pick-grid'))).toEqual([zhTW.titles.families.crownHunter.t4, zh.regular.t4, zh.host.t1]);
+  });
+
+  it('the switch keeps its size and the label gives way (nothing leaves the card on a phone)', async () => {
+    const { readFileSync } = await import('fs');
+    const { resolve } = await import('path');
+    const src = readFileSync(resolve(__dirname, '..', 'src/views/ProfileView.vue'), 'utf-8');
+    expect(src).toMatch(/\.title-nameset \{[^}]*min-width: 0;/);
+    expect(src).toMatch(/\.title-nameset-opts \{[^}]*flex-shrink: 0;/);
+    expect(src).toMatch(/\.title-nameset-opt \{[^}]*white-space: nowrap;/);
+    // The summary badge and the grid get the player's set
+    expect(src).toContain(':family-id="myDisplay.familyId" :tier="myDisplay.tier" :name-set="titlePrefs.nameSet" />');
+    expect(src).toMatch(/<TitlePickGrid[^>]*:name-set="titlePrefs\.nameSet"/);
+  });
+});
+
 describe('TitlePickGrid', () => {
   const items = [
     { familyId: 'crownHunter', tier: 4 },
@@ -183,6 +250,15 @@ describe('TitlePickGrid', () => {
     await low.findAll('.title-pick')[1].trigger('click');
     await low.findAll('.title-tier')[1].trigger('click'); // 5
     expect(low.emitted('pick')[0]).toEqual([{ titleId: 'champion', titleTier: 5 }]);
+  });
+
+  it('names in the set it is given; a crown keeps its one name', async () => {
+    const c = zhTW.titles.familiesChuuni;
+    const w = mountGrid({ nameSet: 'chuuni' });
+    expect(names(w)).toEqual([zhTW.titles.families.crownHunter.t4, c.champion.t6, c.regular.t3, c.nightOwl.t1]);
+    await w.findAll('.title-pick')[2].trigger('click');
+    expect(names(w.find('.title-tier-strip'))).toEqual([c.regular.t3, c.regular.t2, c.regular.t1]);
+    expect(names(mountGrid())).toEqual([zhTW.titles.families.crownHunter.t4, zh.champion.t6, zh.regular.t3, zh.nightOwl.t1]);
   });
 
   it('only the reached steps, and nothing while saving', async () => {

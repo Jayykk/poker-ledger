@@ -88,7 +88,7 @@
         <div class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
           <div v-for="card in group.cards" :key="card.id" class="tv-card" :class="{ locked: !card.tier }" :data-family="card.id">
             <div class="flex items-center justify-between gap-2 min-w-0">
-              <TitleBadge v-if="card.tier" :family-id="card.id" :tier="card.tier" />
+              <TitleBadge v-if="card.tier" :family-id="card.id" :tier="card.tier" :name-set="nameSet" />
               <span v-else class="tv-locked">
                 <i class="fas fa-lock mr-1"></i>{{ card.secret ? $t('titles.hiddenName') : $t('titles.locked') }}
               </span>
@@ -117,7 +117,7 @@
                   {{ formatValue(card.id, card.progress.value) }}<template v-if="card.progress.next"> / {{ formatValue(card.id, card.progress.next.threshold) }}</template>
                 </span>
                 <span class="text-gray-400 truncate" data-testid="tier-next">
-                  {{ card.progress.next ? $t('titles.next', { name: $t(card.progress.next.nameKey) }) : $t('titles.maxed') }}
+                  {{ card.progress.next ? $t('titles.next', { name: stepName(card.id, card.progress.next.tier) }) : $t('titles.maxed') }}
                 </span>
               </div>
               <!-- Every step, folded away until asked for -->
@@ -138,7 +138,7 @@
                   :class="[titleRarity(step.tier), { reached: step.tier <= card.tier, current: step.tier === card.tier }]"
                 >
                   <span class="tv-step-roman">{{ roman(step.tier) }}</span>
-                  <span class="tv-step-name">{{ $t(step.nameKey) }}</span>
+                  <span class="tv-step-name">{{ stepName(card.id, step.tier) }}</span>
                   <span class="tv-step-value">{{ formatValue(card.id, step.threshold) }}</span>
                 </li>
               </ol>
@@ -153,7 +153,8 @@
 <script setup>
 // 稱號圖鑑: every title family by 系列, the tier you hold (Ⅲ / Ⅹ), progress to
 // the next one (from your all-time leaderboardStats) and the ten steps on a
-// tap; hidden ones as ??? + a riddle until their first step.
+// tap; hidden ones as ??? + a riddle until their first step. Names are in the
+// name set you picked (prefs.nameSet); the 王座 crowns have one set.
 import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { doc, getDoc } from 'firebase/firestore';
@@ -166,10 +167,11 @@ import { formatNumber } from '../utils/formatters.js';
 import {
   TITLE_FAMILIES, TITLE_GROUPS, CROWN_TIER, nextTierProgress, titleRarity, titleCount,
   CROWN_IDS, CROWN_MIN_GROUP_GAMES, CROWN_MIN_PALS, crownLeaders, crownValue, getCrown,
+  normalizeTitlePrefs, titleName,
 } from '../utils/titles.js';
 import { statsDocId } from '../../functions/src/utils/leaderboardStatsMath.js';
 
-const { t } = useI18n();
+const { t, te } = useI18n();
 const { user, displayName } = useAuth();
 const { titles, watchMyTitles, ensureUserTitles, palsOf, currentCrownMonth } = useUserTitles();
 
@@ -183,6 +185,11 @@ const totalTitleSteps = TITLE_FAMILIES.reduce((sum, f) => sum + f.tiers.length, 
 // 頭像框: every step reached is one title; the frame shown comes from the display
 const myTitleCount = computed(() => titleCount(unlocked.value));
 const myFrame = computed(() => titles[user.value?.uid]?.display?.frame || null);
+// The names every step shows in: my own set
+const nameSet = computed(() => normalizeTitlePrefs(titles[user.value?.uid]?.prefs).nameSet);
+function stepName(familyId, tier) {
+  return titleName({ t, te }, familyId, tier, nameSet.value);
+}
 
 const groups = computed(() => TITLE_GROUPS.map((id) => ({
   id,
