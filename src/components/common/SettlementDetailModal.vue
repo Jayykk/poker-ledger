@@ -30,10 +30,8 @@
           class="flex justify-between items-center gap-3 p-3 bg-slate-700/50 rounded-lg"
         >
           <div class="min-w-0">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="text-white font-medium truncate shrink-[10]">{{ player.name }}</span>
-              <TitleBadge v-if="player.odId" :uid="player.odId" />
-            </div>
+            <div class="text-white font-medium truncate">{{ player.name }}</div>
+            <div class="title-line"><TitleBadge v-if="player.odId" :uid="player.odId" /></div>
             <div class="text-xs text-gray-400">
               {{ getSettlementSummary(player) }}
             </div>

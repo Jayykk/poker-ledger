@@ -40,7 +40,8 @@ const known = computed(() => ROOM_TITLE_IDS.includes(props.titleId));
   gap: 0.25rem;
   flex: 0 1 auto;
   min-width: 0;
-  max-width: 8.5rem;
+  /* The line it sits on is the limit (.title-line), not a fixed width */
+  max-width: 100%;
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 127, 80, 0.6);

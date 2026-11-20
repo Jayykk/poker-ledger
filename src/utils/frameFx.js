@@ -59,7 +59,7 @@ const DRAWERS = {
     ctx.globalCompositeOperation = 'source-over';
     k.ring(R, 3.6 * u, k.conic(0.6, ['#5c3311', '#e0a060', '#8a5226', '#f3c08a', '#6b3d16', '#d9935a', '#5c3311']), '#c47f45', 6 * u);
     k.ring(R + 2.6 * u, 0.8 * u, 'rgba(243,192,138,.5)');
-    k.shine(t, 1.1, 3.6 * u);
+    k.shine(t, 1.1, 3.6 * u, '255,214,170');
     k.hole();
   },
 
@@ -70,7 +70,7 @@ const DRAWERS = {
     ctx.globalCompositeOperation = 'source-over';
     k.ring(R, 3.6 * u, k.conic(t * 1.2, ['#64748b', '#ffffff', '#94a3b8', '#f1f5f9', '#475569', '#e2e8f0', '#64748b']), '#e2e8f0', 9 * u);
     ctx.save(); ctx.setLineDash([2 * u, 5 * u]); ctx.lineDashOffset = -t * 10 * u; k.ring(R + 6 * u, 1.2 * u, 'rgba(226,232,240,.7)'); ctx.restore();
-    k.shine(t, 2, 3.6 * u);
+    k.shine(t, 2, 3.6 * u, '226,240,255');
     k.hole();
     for (const s of k.fixed(4, () => ({ a: rnd(TAU), r: rnd(0, 10) * u, ph: rnd(TAU) }))) {
       k.star4(c + Math.cos(s.a) * (R + s.r), c + Math.sin(s.a) * (R + s.r), 7 * u, t + s.ph, '#ffffff', Math.max(0, Math.sin(t * 2 + s.ph)));
@@ -86,7 +86,7 @@ const DRAWERS = {
     ctx.globalCompositeOperation = 'source-over';
     k.ring(R, 4 * u, k.conic(t * 1.8, ['#8a6508', '#fff7c2', '#ffd700', '#a67400', '#fffbe6', '#e0a800', '#8a6508']), '#ffb300', 12 * u);
     ctx.save(); ctx.setLineDash([3 * u, 4 * u]); ctx.lineDashOffset = t * 14 * u; k.ring(R + 6.5 * u, 1.6 * u, '#ffd700', '#ffb300', 4 * u); ctx.restore();
-    k.shine(t, 2.6, 4 * u);
+    k.shine(t, 2.6, 4 * u, '255,240,170');
     k.hole();
     for (let side = -1; side <= 1; side += 2) {
       for (let i = 0; i < 6; i++) {
@@ -118,7 +118,7 @@ const DRAWERS = {
       }
     }
     ctx.globalCompositeOperation = 'source-over';
-    k.shine(t, 3, 3.8 * u);
+    k.shine(t, 3, 3.8 * u, '186,230,253');
     k.hole();
     // wings
     for (let side = -1; side <= 1; side += 2) {
@@ -300,7 +300,7 @@ const DRAWERS = {
     }
     k.ring(R + 7.5 * u, 0.8 * u, 'rgba(255,215,0,.45)');
     k.ring(R, 4.2 * u, k.conic(t * 1.6, ['#8a6508', '#fff7c2', '#ffd700', '#a67400', '#fffbe6', '#e0a800', '#8a6508']), '#ffb300', 12 * u);
-    k.shine(t, 2.6, 4.2 * u);
+    k.shine(t, 2.6, 4.2 * u, '255,240,170');
     k.hole();
     // coins orbiting, flipping in 3D
     for (let i = 0; i < 3; i++) {
@@ -333,7 +333,7 @@ const DRAWERS = {
     ctx.save(); ctx.setLineDash([1.2 * u, 7 * u]); ctx.lineDashOffset = -t * 16 * u;
     k.ring(R + 13 * u, 1.6 * u, '#e9d5ff'); ctx.restore();
     k.ring(R, 4.2 * u, k.conic(t * 2, ['#4c1d95', '#fde68a', '#a855f7', '#fff7cc', '#7c3aed', '#facc15', '#4c1d95']), '#c084fc', 14 * u);
-    k.shine(t, 3, 4.2 * u);
+    k.shine(t, 3, 4.2 * u, '253,230,138');
     k.hole();
     // jewelled crown on top, floating
     const cy = c - D / 2 - 5 * u + Math.sin(t * 2.2) * 1.6 * u;
@@ -590,12 +590,43 @@ export function createFrameRenderer(ctx, kind, size) {
     }
     ctx.restore();
   };
-  k.shine = (t, speed, w) => {
+  // A highlight travelling round the ring, the way light runs along polished
+  // metal: a streak that tapers out behind (thin and faint at the tail, the
+  // ring's own colour in the body, a hairline of white at the head), a small
+  // glint where it leads, and a fainter echo on the far side. It fades in and
+  // out over the lap instead of popping, then rests before the next one.
+  const streak = (head, len, w, rgb, strength) => {
+    const N = 20;
+    const step = len / N;
+    for (let i = 0; i < N; i++) {
+      const q = (i + 1) / N; // 0 at the tail → 1 at the head
+      const a1 = head - len + i * step;
+      // tinted body, widening towards the head
+      ctx.lineWidth = w * (0.3 + 0.55 * q);
+      ctx.strokeStyle = `rgba(${rgb},${(0.6 * q * q * strength).toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(c, c, R, a1, a1 + step * 1.15); ctx.stroke();
+      // white core over the leading third
+      if (q > 0.66) {
+        const h = (q - 0.66) / 0.34;
+        ctx.lineWidth = w * 0.26;
+        ctx.strokeStyle = `rgba(255,255,255,${(0.9 * h * h * strength).toFixed(3)})`;
+        ctx.beginPath(); ctx.arc(c, c, R - w * 0.16, a1, a1 + step * 1.15); ctx.stroke();
+      }
+    }
+  };
+  k.shine = (t, speed, w, rgb = '255,255,255') => {
     const a0 = (t * speed) % (TAU * 1.6);
     if (a0 > TAU) return;
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-    ctx.lineWidth = w; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.shadowColor = '#fff'; ctx.shadowBlur = 8 * u;
-    ctx.beginPath(); ctx.arc(c, c, R, a0, a0 + 0.55); ctx.stroke(); ctx.restore();
+    const life = Math.sin((a0 / TAU) * Math.PI);
+    if (life <= 0.01) return;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'butt';
+    streak(a0, 1.25, w, rgb, life);
+    streak(a0 + Math.PI, 0.7, w * 0.8, rgb, life * 0.4);
+    const hx = c + Math.cos(a0) * R;
+    const hy = c + Math.sin(a0) * R;
+    k.glow(hx, hy, w * 1.5, rgb, 0.55 * life);
+    ctx.restore();
+    k.star4(hx, hy, w * 1.25, a0 * 0.5, '#ffffff', 0.9 * life);
   };
   // Everything drawn so far sits BEHIND the face
   k.hole = () => {

@@ -42,16 +42,24 @@
       <div v-else class="sd-table">
         <div class="sd-row dealer" :class="{ me: chart.dealer && isMe(chart.dealer), empty: !chart.dealer }">
           <span class="sd-no">🃏</span>
-          <span class="sd-name">{{ chart.dealer ? chart.dealer.name : $t('seats.noDealerSeat') }}<small>{{ $t('seats.dealer') }}</small></span>
-          <LiveTitleBadge v-if="chart.dealer && roomTitles[chart.dealer.id]" :title-id="roomTitles[chart.dealer.id]" />
-          <TitleBadge v-else-if="chart.dealer?.uid" :uid="chart.dealer.uid" />
+          <div class="sd-who">
+            <div class="sd-name">{{ chart.dealer ? chart.dealer.name : $t('seats.noDealerSeat') }}<small>{{ $t('seats.dealer') }}</small></div>
+            <div class="title-line">
+              <LiveTitleBadge v-if="chart.dealer && roomTitles[chart.dealer.id]" :title-id="roomTitles[chart.dealer.id]" />
+              <TitleBadge v-else-if="chart.dealer?.uid" :uid="chart.dealer.uid" />
+            </div>
+          </div>
           <span v-if="chart.dealer?.seat.button" class="sd-btn" :title="$t('seats.button')">D</span>
         </div>
         <div v-for="s in chart.seats" :key="s.no" class="sd-row" :class="{ me: s.player && isMe(s.player), empty: !s.player }">
           <span class="sd-no">{{ s.no }}</span>
-          <span class="sd-name">{{ s.player ? s.player.name : $t('seats.empty') }}</span>
-          <LiveTitleBadge v-if="s.player && roomTitles[s.player.id]" :title-id="roomTitles[s.player.id]" />
-          <TitleBadge v-else-if="s.player?.uid" :uid="s.player.uid" />
+          <div class="sd-who">
+            <div class="sd-name">{{ s.player ? s.player.name : $t('seats.empty') }}</div>
+            <div class="title-line">
+              <LiveTitleBadge v-if="s.player && roomTitles[s.player.id]" :title-id="roomTitles[s.player.id]" />
+              <TitleBadge v-else-if="s.player?.uid" :uid="s.player.uid" />
+            </div>
+          </div>
           <span v-if="s.player?.seat.button" class="sd-btn" :title="$t('seats.button')">D</span>
         </div>
       </div>
@@ -137,7 +145,8 @@ async function draw() {
 .sd-row.me { background: rgb(var(--tw-amber-500) / 0.15); }
 .sd-row.empty .sd-name { color: rgb(var(--tw-slate-500)); font-weight: 500; font-style: italic; }
 .sd-no { width: 1.8rem; height: 1.8rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: rgb(var(--tw-white)); background: rgb(var(--tw-slate-700)); flex-shrink: 0; }
-.sd-name { flex: 1; min-width: 0; color: rgb(var(--tw-white)); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-who { flex: 1; min-width: 0; }
+.sd-name { color: rgb(var(--tw-white)); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sd-name small { margin-left: 0.4rem; font-size: 0.7rem; font-weight: 700; color: rgb(var(--tw-emerald-400)); }
 .sd-btn { width: 1.6rem; height: 1.6rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 900; color: #1f2937; background: #f8fafc; border: 2px solid #cbd5e1; flex-shrink: 0; }
 </style>
