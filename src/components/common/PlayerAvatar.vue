@@ -1,7 +1,8 @@
 <template>
   <span
+    ref="rootEl"
     class="pa"
-    :class="[`pa-${sizeKey}`, shownFrame ? `frame-${shownFrame}` : 'frame-none']"
+    :class="[`pa-${sizeKey}`, shownFrame ? `pa-framed frame-${shownFrame}` : 'frame-none']"
     :title="frameName || undefined"
   >
     <span class="pa-face">
@@ -15,6 +16,9 @@
       />
       <span v-else class="pa-initial" aria-hidden="true">{{ initial }}</span>
     </span>
+    <!-- 頭像框: drawn on a canvas larger than the avatar and centred on it, so
+         the effects reach outside without taking space (utils/frameFx.js) -->
+    <canvas v-if="shownFrame" ref="fxCanvas" class="pa-fx" aria-hidden="true"></canvas>
     <!-- 本月王座: a small crown on the corner, whatever title shows by the name -->
     <span v-if="showCrown" class="pa-crown" :title="$t('titles.throne.title')">
       <i class="fas fa-crown" aria-hidden="true"></i>
@@ -25,18 +29,29 @@
 </template>
 
 <script setup>
-// A player's round avatar with their 頭像框 (avatar frame) as the ring.
+// A player's round avatar with their 頭像框 (avatar frame) around it.
 // Image from `src`, else the player's LINE photo from the same cached
-// userTitles doc (`uid`), else the name's first character (also when broken). The frame is either given (`frame`: a frame id, or null / '' for
-// none) or read from the player's userTitles display through the shared cache
-// (`uid`; the same doc TitleBadge loads, so no extra read). No frame → a thin
-// neutral ring. Sizes: sm 28px (rows) · md 40px · lg 80px (profile).
+// userTitles doc (`uid`), else the name's first character (also when broken).
+// The frame is either given (`frame`: a frame id, or null / '' for none) or
+// read from the player's userTitles display through the shared cache (`uid`;
+// the same doc TitleBadge loads, so no extra read). Sizes: sm 28px (rows) ·
+// md 40px · lg 80px (profile).
+// A frame is animated on a canvas over the avatar (utils/frameFx.js): one
+// draw function per frame id, tier frames and themed ones alike. The canvas
+// is absolute and ignores the pointer, so rows keep their height. No frame,
+// or an id this build can't draw (a newer catalog) → no canvas, a thin
+// neutral ring. `still` shows the frame as one static picture (a locked
+// frame in the picker); 簡化特效 does the same for every frame (handled in
+// frameFx).
 // A small crown sits on the corner while the player wears a 本月王座 (given
 // as `crown`, or read through `uid` like the frame).
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { avatarOf, ensureUserTitles, frameOf, wearsCrown } from '../../composables/useUserTitles.js';
-import { FRAME_IDS } from '../../utils/titles.js';
+import { ALL_FRAME_IDS } from '../../utils/titles.js';
+import { hasFrameFx, mountFrame } from '../../utils/frameFx.js';
+
+const SIZE_PX = { sm: 28, md: 40, lg: 80 };
 
 const props = defineProps({
   src: { type: String, default: '' },
@@ -49,6 +64,8 @@ const props = defineProps({
   linked: { type: Boolean, default: false },
   // Given corner crown (wins over the uid lookup)
   crown: { type: Boolean, default: undefined },
+  // The frame as one static picture, never animated
+  still: { type: Boolean, default: false },
 });
 
 const { t } = useI18n();
@@ -66,8 +83,24 @@ const showCrown = computed(() => (props.crown !== undefined ? props.crown : wear
 const shownFrame = computed(() => {
   const id = given.value ? props.frame : frameOf(props.uid);
   // Unknown ids (a newer catalog than this build) show no frame
-  return FRAME_IDS.includes(id) ? id : null;
+  return ALL_FRAME_IDS.includes(id) && hasFrameFx(id) ? id : null;
 });
+
+// The frame's canvas: (re)mounted when the frame, the size or `still` changes
+const rootEl = ref(null);
+const fxCanvas = ref(null);
+let fx = null;
+const unmountFx = () => {
+  fx?.destroy();
+  fx = null;
+};
+watch([fxCanvas, shownFrame, sizeKey, () => props.still], ([canvas, frame, size, still]) => {
+  unmountFx();
+  if (!canvas || !frame) return;
+  // The box may be resized from outside (--size on the seat table)
+  fx = mountFrame(canvas, frame, rootEl.value?.offsetWidth || SIZE_PX[size], { still });
+}, { flush: 'post', immediate: true });
+onBeforeUnmount(unmountFx);
 const frameName = computed(() => (shownFrame.value ? t(`titles.frames.${shownFrame.value}`) : ''));
 
 const broken = ref(false);
@@ -80,12 +113,15 @@ const initial = computed(() => {
 </script>
 
 <style scoped>
-/* The ring is the padding of .pa showing its background; .pa-face sits on
-   top. Fixed frame hues (like the rarity badges) so a frame reads the same in
-   every theme; light themes get deeper tones for contrast. */
+/* Without a frame: a thin neutral ring, the padding of .pa showing its
+   background. With one the photo fills the box and the canvas draws the ring
+   and everything around it, in fixed hues (like the rarity badges) so a frame
+   reads the same in every theme. */
 .pa {
   --ring: 2px;
   position: relative;
+  /* the canvas and the corner marks stack inside the avatar only */
+  isolation: isolate;
   display: inline-flex;
   flex-shrink: 0;
   width: var(--size);
@@ -116,6 +152,20 @@ const initial = computed(() => {
   box-shadow: 0 0 0 1px rgb(var(--tw-slate-900) / 0.6);
 }
 .frame-none .pa-face { box-shadow: none; }
+.pa-framed { padding: 0; background: transparent; }
+/* FRAME_CANVAS_SCALE (2.1) times the avatar, centred; over the photo (its
+   middle is punched out) and under the corner crown and the account dot */
+.pa-fx {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: 50%;
+  width: 210%;
+  height: 210%;
+  max-width: none;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
 .pa-face img { width: 100%; height: 100%; object-fit: cover; }
 .pa-initial { font-weight: 700; line-height: 1; user-select: none; }
 .pa-sm .pa-initial { font-size: 0.75rem; }
@@ -123,6 +173,7 @@ const initial = computed(() => {
 .pa-lg .pa-initial { font-size: 2rem; }
 .pa-linked {
   position: absolute;
+  z-index: 2;
   right: -1px;
   bottom: -1px;
   width: 9px;
@@ -134,6 +185,7 @@ const initial = computed(() => {
 .pa-lg .pa-linked { width: 14px; height: 14px; right: 3px; bottom: 3px; }
 .pa-crown {
   position: absolute;
+  z-index: 2;
   top: -5px;
   right: -5px;
   width: 15px;
@@ -150,23 +202,7 @@ const initial = computed(() => {
 .pa-md .pa-crown { width: 18px; height: 18px; font-size: 10px; }
 .pa-lg .pa-crown { width: 26px; height: 26px; font-size: 13px; top: -2px; right: -2px; }
 
-.frame-bronze { background: #c47f45; }
-.frame-silver { background: #cbd5e1; }
-.frame-gold { background: #f5c542; }
-.frame-platinum { background: linear-gradient(135deg, #f1f5f9 0%, #7dd3fc 50%, #e2e8f0 100%); }
-.frame-diamond {
-  background: conic-gradient(from 210deg, #67e8f9, #a78bfa, #f0abfc, #67e8f9);
-  box-shadow: 0 0 4px rgba(167, 139, 250, 0.35);
-}
 
 :root[data-mode="light"] .pa-linked { background: #2563eb; }
 :root[data-mode="light"] .pa-crown { color: #b45309; background: #fff; box-shadow: 0 0 0 1px #d97706; }
-:root[data-mode="light"] .frame-bronze { background: #a0582a; }
-:root[data-mode="light"] .frame-silver { background: #8b97a8; }
-:root[data-mode="light"] .frame-gold { background: #c8960c; }
-:root[data-mode="light"] .frame-platinum { background: linear-gradient(135deg, #64748b 0%, #0ea5e9 50%, #94a3b8 100%); }
-:root[data-mode="light"] .frame-diamond {
-  background: conic-gradient(from 210deg, #0891b2, #7c3aed, #c026d3, #0891b2);
-  box-shadow: none;
-}
 </style>

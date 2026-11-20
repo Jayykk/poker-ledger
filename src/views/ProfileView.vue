@@ -136,7 +136,9 @@
         <p v-if="!pickableTitles.length" class="text-xs text-gray-500 text-left mt-2">{{ $t('titles.noneUnlocked') }}</p>
         </div>
 
-        <!-- 頭像框: folded the same way; earned ones to pick, locked ones dashed with what they need -->
+        <!-- 頭像框: folded the same way; two groups (等級框 by titles held, 主題框 by a
+             title family's step); earned ones to pick (their previews move), locked
+             ones dashed and still, with what they need -->
         <button type="button" class="title-fold" :aria-expanded="frameOpen" @click="frameOpen = !frameOpen">
           <span class="text-xs text-gray-400 whitespace-nowrap">{{ $t('titles.frame') }}</span>
           <span class="title-fold-now">
@@ -146,7 +148,8 @@
           <i class="fas fa-chevron-down title-fold-icon" :class="{ open: frameOpen }" aria-hidden="true"></i>
         </button>
         <div v-if="frameOpen" class="text-left">
-          <div class="grid grid-cols-4 sm:grid-cols-7 gap-2">
+          <div class="frame-group-title">{{ $t('titles.frameTiers') }}</div>
+          <div class="frame-grid" data-testid="frame-tiers">
             <button
               type="button"
               class="frame-opt"
@@ -175,14 +178,57 @@
               class="frame-opt"
               :class="{ active: titlePrefs.frame === f.id, locked: f.locked }"
               :disabled="titleSaving || f.locked"
+              :data-frame="f.id"
               @click="pickFrame(f.id)"
             >
-              <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="f.id" />
+              <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="f.id" :still="f.locked" />
               <span class="frame-opt-name">{{ $t(`titles.frames.${f.id}`) }}</span>
               <span v-if="f.locked" class="frame-opt-sub">{{ $t('titles.frameNeed', { n: f.min }) }}</span>
             </button>
           </div>
           <p class="text-[11px] text-gray-400 mt-1.5">{{ $t('titles.frameHint') }}</p>
+
+          <!-- 主題框: one per title family in THEME_FRAMES, shown only when picked -->
+          <div class="frame-group-title mt-3">{{ $t('titles.frameThemes') }}</div>
+          <div class="frame-grid" data-testid="frame-themes">
+            <button
+              v-for="th in themeFrameOptions"
+              :key="th.id"
+              type="button"
+              class="frame-opt"
+              :class="{ active: titlePrefs.frame === th.id, locked: th.locked }"
+              :disabled="titleSaving || th.locked"
+              :data-frame="th.id"
+              @click="pickFrame(th.id)"
+            >
+              <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="th.id" :still="th.locked" />
+              <span class="frame-opt-name">{{ $t(`titles.frames.${th.id}`) }}</span>
+              <span v-if="th.locked" class="frame-opt-sub">{{ th.need }}</span>
+            </button>
+          </div>
+          <p class="text-[11px] text-gray-400 mt-1.5">{{ $t('titles.frameThemesHint', { n: THEME_FRAME_MIN_TIER }) }}</p>
+        </div>
+
+        <!-- 簡化特效: this device only — frames stop moving on my screen -->
+        <div class="flex justify-between items-center gap-3 mt-4 text-left" data-testid="fx-lite">
+          <div class="min-w-0">
+            <div class="text-white text-sm">{{ $t('profile.fxLite') }}</div>
+            <div class="text-[11px] text-gray-400">{{ $t('profile.fxLiteHint') }}</div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="fxLite"
+            :aria-label="$t('profile.fxLite')"
+            @click="toggleFxLite"
+            class="w-12 h-6 rounded-full transition relative flex-shrink-0"
+            :class="fxLite ? 'bg-emerald-600' : 'bg-slate-700'"
+          >
+            <div
+              class="w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform"
+              :class="fxLite ? 'translate-x-6' : 'translate-x-0.5'"
+            ></div>
+          </button>
         </div>
 
         <div class="flex justify-between items-center gap-3 mt-4 text-left">
@@ -327,13 +373,14 @@ import TitlePickGrid from '../components/common/TitlePickGrid.vue';
 import PlayerAvatar from '../components/common/PlayerAvatar.vue';
 import { useUserTitles } from '../composables/useUserTitles.js';
 import {
-  TITLE_FAMILIES, FRAME_TIERS, getTitleFamily, normalizeTitlePrefs, titleCount, earnedFrame, frameRank,
-  activeCrowns, CROWN_TIER,
+  TITLE_FAMILIES, FRAME_TIERS, THEME_FRAMES, THEME_FRAME_MIN_TIER, getTitleFamily, normalizeTitlePrefs,
+  titleCount, earnedFrame, earnedThemeFrames, frameRank, titleName, activeCrowns, CROWN_TIER,
 } from '../utils/titles.js';
 import { STORAGE_KEYS } from '../utils/constants.js';
 import { THEMES as THEME_LIST, applyTheme, resolveThemeId } from '../utils/themes.js';
+import { applyFxLite, isFxLite } from '../utils/fx.js';
 
-const { t, locale } = useI18n();
+const { t, te, locale } = useI18n();
 const router = useRouter();
 const { displayName, isGuest, user, logout, linkEmailToGuest } = useAuth();
 const { notificationsEnabled, toggleNotifications } = usePushNotification();
@@ -350,6 +397,8 @@ const currentTheme = ref(resolveThemeId(localStorage.getItem(STORAGE_KEYS.THEME)
 const themeOpen = ref(false);
 const themeOptions = THEME_LIST.map((th) => ({ id: th.id }));
 const soundEnabled = ref(localStorage.getItem(STORAGE_KEYS.SOUND_ENABLED) !== 'false');
+// 簡化特效: stored on this device, applied to the document root (utils/fx.js)
+const fxLite = ref(isFxLite(STORAGE_KEYS.FX_LITE));
 
 const upgradeForm = ref({
   email: '',
@@ -413,6 +462,25 @@ const frameOptions = computed(() => FRAME_TIERS.map((f) => ({
   min: f.min,
   locked: frameRank(f.id) > frameRank(myEarnedFrame.value),
 })));
+// 主題框: a locked one says which title unlocks it (in my name set); a hidden
+// family not found yet keeps its name to itself
+const themeFrameOptions = computed(() => {
+  const unlocked = myTitles.value?.unlocked;
+  const earned = new Set(earnedThemeFrames(unlocked));
+  return THEME_FRAMES.map((f) => {
+    const secret = !!getTitleFamily(f.family)?.hidden && !(unlocked?.[f.family]?.tier > 0);
+    return {
+      id: f.id,
+      locked: !earned.has(f.id),
+      need: secret
+        ? t('titles.frameThemeNeedHidden', { n: f.minTier })
+        : t('titles.frameThemeNeed', {
+          n: f.minTier,
+          name: titleName({ t, te }, f.family, f.minTier, titlePrefs.value.nameSet),
+        }),
+    };
+  });
+});
 
 let stopTitles = () => {};
 watch(() => user.value?.uid, (uid) => {
@@ -475,6 +543,10 @@ const handleLanguageChange = () => {
 
 const setTheme = (id) => {
   currentTheme.value = applyTheme(id, { storageKey: STORAGE_KEYS.THEME });
+};
+
+const toggleFxLite = () => {
+  fxLite.value = applyFxLite(!fxLite.value, { storageKey: STORAGE_KEYS.FX_LITE });
 };
 
 const toggleSound = () => {
@@ -602,6 +674,9 @@ const handleLogout = async () => {
 .title-nameset-label { font-size: 0.875rem; color: rgb(var(--tw-white)); }
 .title-nameset-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem; flex-shrink: 0; }
 .title-nameset-opt { padding: 0.3rem 0.75rem; font-size: 0.8rem; white-space: nowrap; }
+/* 頭像框 groups: as many columns as fit, the rest wraps */
+.frame-group-title { font-size: 0.75rem; font-weight: 600; color: rgb(var(--tw-slate-300)); margin-bottom: 0.4rem; }
+.frame-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.25rem, 1fr)); gap: 0.5rem; }
 .frame-opt {
   display: flex;
   flex-direction: column;
@@ -616,9 +691,10 @@ const handleLogout = async () => {
 .frame-opt.active { border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.1); }
 .frame-opt.locked { border-style: dashed; background: transparent; }
 .frame-opt.locked :deep(.pa) { opacity: 0.35; }
-.frame-opt-name { font-size: 0.75rem; font-weight: 600; color: rgb(var(--tw-white)); }
+.frame-opt-name, .frame-opt-sub { max-width: 100%; overflow-wrap: anywhere; text-align: center; }
+.frame-opt-name { font-size: 0.75rem; font-weight: 600; line-height: 1.25; color: rgb(var(--tw-white)); }
 .frame-opt.locked .frame-opt-name { color: rgb(var(--tw-slate-400)); }
-.frame-opt-sub { font-size: 0.62rem; line-height: 1.2; color: rgb(var(--tw-slate-400)); text-align: center; }
+.frame-opt-sub { font-size: 0.62rem; line-height: 1.2; color: rgb(var(--tw-slate-400)); }
 .expand-enter-active,
 .expand-leave-active {
   transition: all 0.3s ease;

@@ -16,5 +16,7 @@ describe('profile folded sections', () => {
   it('稱號 顯示方式 and 頭像框 fold the same way', () => {
     expect(profile).toContain('const titleOpen = ref(false);');
     expect(profile).toContain('const frameOpen = ref(false);');
+    // The summary names the frame shown, tier or themed (titles.frames.<id>)
+    expect(profile).toContain("return myFrame.value ? t(`titles.frames.${myFrame.value}`) : t('titles.frameNone');");
   });
 });

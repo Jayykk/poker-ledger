@@ -9,6 +9,7 @@ import './styles/main.css';
 import './styles/themes/dark.css';
 import './styles/themes/light.css';
 import { buildThemeCss, applyTheme } from './utils/themes.js';
+import { applyFxLite, isFxLite } from './utils/fx.js';
 import { reportError, installHandledErrorReporting } from './utils/errorReport.js';
 import { STORAGE_KEYS as THEME_STORAGE_KEYS } from './utils/constants.js';
 
@@ -25,6 +26,8 @@ installHandledErrorReporting();
   let saved = null;
   try { saved = localStorage.getItem(THEME_STORAGE_KEYS.THEME); } catch { /* private mode */ }
   applyTheme(saved);
+  // 簡化特效: this device's choice for the 頭像框 effects
+  applyFxLite(isFxLite(THEME_STORAGE_KEYS.FX_LITE));
 }
 
 // ── Service Worker registration with update detection ────────────────

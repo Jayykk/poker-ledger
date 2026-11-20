@@ -26,6 +26,14 @@ import { isLegacyDefaultPrefs,
   earnedFrame,
   earnedFrames,
   FRAME_TIERS,
+  FRAME_IDS,
+  THEME_FRAMES,
+  THEME_FRAME_IDS,
+  THEME_FRAME_MIN_TIER,
+  ALL_FRAME_IDS,
+  getThemeFrame,
+  earnedThemeFrames,
+  isFrameEarned,
   TITLE_NAME_SETS,
   DEFAULT_TITLE_PREFS,
   displayNameSet,
@@ -87,7 +95,19 @@ describe('title catalog', () => {
         expect(get(`titles.families.${fam.id}.t11`)).toBeUndefined();
       }
       for (const group of TITLE_GROUPS) expect(get(`titles.groups.${group}`), `${locale} group ${group}`).toBeTruthy();
-      for (const frame of FRAME_TIERS) expect(get(`titles.frames.${frame.id}`), `${locale} frame ${frame.id}`).toBeTruthy();
+      for (const frame of [...FRAME_TIERS, ...THEME_FRAMES]) expect(get(`titles.frames.${frame.id}`), `${locale} frame ${frame.id}`).toBeTruthy();
+      expect(new Set(ALL_FRAME_IDS.map((id) => get(`titles.frames.${id}`))).size, `${locale} frame names`).toBe(ALL_FRAME_IDS.length);
+      // No name left over from a frame that is gone
+      expect(Object.keys(get('titles.frames')).sort(), `${locale} frame keys`).toEqual([...ALL_FRAME_IDS].sort());
+      for (const key of ['frameTiers', 'frameThemes', 'frameThemesHint', 'frameThemeNeed', 'frameThemeNeedHidden']) {
+        expect(get(`titles.${key}`), `${locale} titles.${key}`).toBeTruthy();
+      }
+      expect(get('titles.frameThemeNeed')).toContain('{name}');
+      for (const key of ['fxLite', 'fxLiteHint']) expect(get(`profile.${key}`), `${locale} profile.${key}`).toBeTruthy();
+      // Player-facing frame text never says 輸
+      for (const key of ['frames', 'frameThemesHint', 'frameThemeNeed', 'frameThemeNeedHidden']) {
+        expect(JSON.stringify(get(`titles.${key}`)), `${locale} titles.${key}`).not.toMatch(/[輸输]/);
+      }
       for (const rarity of frontend.TITLE_RARITIES) {
         expect(get(`titles.rarity.${rarity}`), `${locale} rarity ${rarity}`).toBeTruthy();
       }
@@ -721,9 +741,9 @@ describe('頭像框', () => {
     return out;
   };
 
-  it('frames at 10 / 25 / 50 / 70 / 100 titles (set from the 2026-10 simulation)', () => {
+  it('frames at 10 / 25 / 50 / 80 / 100 titles', () => {
     expect(FRAME_TIERS.map((f) => [f.id, f.min])).toEqual([
-      ['bronze', 10], ['silver', 25], ['gold', 50], ['platinum', 70], ['diamond', 100],
+      ['bronze', 10], ['silver', 25], ['gold', 50], ['platinum', 80], ['diamond', 100],
     ]);
   });
 
@@ -750,7 +770,9 @@ describe('頭像框', () => {
     expect(earnedFrame(held(25))).toBe('silver');
     expect(earnedFrame(held(50))).toBe('gold');
     expect(earnedFrame(held(69))).toBe('gold');
-    expect(earnedFrame(held(70))).toBe('platinum');
+    expect(earnedFrame(held(79))).toBe('gold');
+    expect(earnedFrame(held(80))).toBe('platinum');
+    expect(earnedFrame(held(99))).toBe('platinum');
     expect(earnedFrame(held(100))).toBe('diamond');
     expect(earnedFrame(held(120))).toBe('diamond');
     expect(earnedFrames(held(50))).toEqual(['bronze', 'silver', 'gold']);
@@ -769,6 +791,140 @@ describe('頭像框', () => {
     const before = held(25);
     const { unlocked } = mergeUnlocked(before, {}, 5);
     expect(earnedFrame(unlocked)).toBe('silver');
+  });
+});
+
+describe('主題框 (themed frames)', () => {
+  // The catalog is data: these read it instead of naming frames, so an id can
+  // change without touching the rules
+  const [first, second] = THEME_FRAMES;
+  const at = (frame, tier) => ({ [frame.family]: { tier, at: 1 } });
+
+  it('the eight themed frames and the family each belongs to', () => {
+    expect(THEME_FRAMES.map((f) => [f.id, f.family])).toEqual([
+      ['fire', 'hotStreak'], ['thunder', 'volatile'], ['coin', 'netWin'], ['king', 'champion'],
+      ['night', 'nightOwl'], ['frost', 'coldStreak'], ['abyss', 'badBeat'], ['tide', 'hunter'],
+    ]);
+    expect(FRAME_IDS).toEqual(['bronze', 'silver', 'gold', 'platinum', 'diamond']);
+  });
+
+  it('the catalog: one array, each frame on a real family at tier 5, ids apart from the tier frames', () => {
+    expect(THEME_FRAME_MIN_TIER).toBe(5);
+    expect(THEME_FRAMES.length).toBeGreaterThan(0);
+    for (const f of THEME_FRAMES) {
+      expect(getTitleFamily(f.family), f.id).toBeTruthy();
+      expect(f.minTier).toBe(THEME_FRAME_MIN_TIER);
+      expect(getThemeFrame(f.id)).toBe(f);
+    }
+    expect(THEME_FRAME_IDS).toEqual(THEME_FRAMES.map((f) => f.id));
+    expect(ALL_FRAME_IDS).toEqual([...FRAME_IDS, ...THEME_FRAME_IDS]);
+    expect(new Set(ALL_FRAME_IDS).size).toBe(ALL_FRAME_IDS.length);
+    expect(new Set(THEME_FRAMES.map((f) => f.family)).size).toBe(THEME_FRAMES.length);
+    for (const reserved of ['auto', 'none']) expect(ALL_FRAME_IDS).not.toContain(reserved);
+    expect(getThemeFrame('gold')).toBeNull();
+    expect(getThemeFrame('ruby')).toBeNull();
+    expect(getThemeFrame(null)).toBeNull();
+  });
+
+  it('earned at tier 5 of its family, not at 4', () => {
+    expect(earnedThemeFrames(null)).toEqual([]);
+    expect(earnedThemeFrames({})).toEqual([]);
+    expect(earnedThemeFrames(at(first, 4))).toEqual([]);
+    expect(earnedThemeFrames(at(first, 5))).toEqual([first.id]);
+    expect(earnedThemeFrames(at(first, 10))).toEqual([first.id]);
+    // Catalog order, whatever the map's order
+    expect(earnedThemeFrames({ ...at(second, 6), ...at(first, 5) })).toEqual([first.id, second.id]);
+    // Another family's tier earns nothing; an expiring entry doesn't either
+    expect(earnedThemeFrames({ regular: { tier: 10, at: 1 } })).toEqual([]);
+    expect(earnedThemeFrames({ [first.family]: { tier: 9, at: 1, expiresAt: 99 } })).toEqual([]);
+    for (const f of THEME_FRAMES) {
+      expect(earnedThemeFrames(at(f, f.minTier))).toEqual([f.id]);
+      expect(earnedThemeFrames(at(f, f.minTier - 1))).toEqual([]);
+    }
+  });
+
+  it('isFrameEarned covers both kinds', () => {
+    expect(isFrameEarned(first.id, at(first, 5))).toBe(true);
+    expect(isFrameEarned(first.id, at(first, 4))).toBe(false);
+    expect(isFrameEarned(second.id, at(first, 5))).toBe(false);
+    // 10 titles → bronze only
+    const ten = { regular: { tier: 10, at: 1 } };
+    expect(isFrameEarned('bronze', ten)).toBe(true);
+    expect(isFrameEarned('silver', ten)).toBe(false);
+    expect(isFrameEarned('bronze', {})).toBe(false);
+    for (const id of ['auto', 'none', 'ruby', null, undefined]) expect(isFrameEarned(id, ten)).toBe(false);
+  });
+
+  it('prefs keep a themed pick; validation needs it earned', () => {
+    expect(normalizeTitlePrefs({ frame: first.id }).frame).toBe(first.id);
+    expect(validateTitlePrefs({ frame: first.id }, null, at(first, 5)).prefs.frame).toBe(first.id);
+    expect(validateTitlePrefs({ frame: first.id }, null, at(first, 4)).error).toBe('frame-locked');
+    expect(validateTitlePrefs({ frame: first.id }, null, {}).error).toBe('frame-locked');
+    // Tier frames earned don't open a themed one, and the other way round
+    expect(validateTitlePrefs({ frame: first.id }, null, { regular: { tier: 10, at: 1 }, host: { tier: 10, at: 1 } }).error).toBe('frame-locked');
+    expect(validateTitlePrefs({ frame: 'bronze' }, null, at(first, 5)).error).toBe('frame-locked');
+    expect(validateTitlePrefs({ frame: second.id }, null, at(first, 5)).error).toBe('frame-locked');
+    expect(validateTitlePrefs({ frame: 'ruby' }, null, at(first, 5)).error).toBe('bad-frame');
+    // Going back to auto / none is always allowed
+    expect(validateTitlePrefs({ frame: 'auto' }, { frame: first.id }, at(first, 5)).prefs.frame).toBe('auto');
+    expect(validateTitlePrefs({ frame: 'none' }, { frame: first.id }, {}).prefs.frame).toBe('none');
+    // A themed pick that is no longer earned doesn't block other prefs
+    expect(validateTitlePrefs({ showRoomTitles: true }, { frame: first.id }, {}).prefs)
+      .toMatchObject({ frame: first.id, showRoomTitles: true });
+  });
+
+  it('resolveFrame: the themed pick while earned, with or without a tier frame', () => {
+    // 5 titles: no tier frame yet, the themed one still shows
+    expect(earnedFrame(at(first, 5))).toBeNull();
+    expect(resolveFrame(at(first, 5), { frame: first.id })).toBe(first.id);
+    const both = { ...at(first, 5), regular: { tier: 10, at: 1 }, host: { tier: 10, at: 1 } };
+    expect(earnedFrame(both)).toBe('silver');
+    expect(resolveFrame(both, { frame: first.id })).toBe(first.id);
+    expect(resolveFrame(both, { frame: 'none' })).toBeNull();
+  });
+
+  it('auto is always the highest tier frame, never a themed one', () => {
+    const all = Object.fromEntries(THEME_FRAMES.map((f) => [f.family, { tier: 10, at: 1 }]));
+    expect(earnedThemeFrames(all)).toEqual(THEME_FRAME_IDS);
+    expect(FRAME_IDS).toContain(resolveFrame(all, { frame: 'auto' }));
+    expect(resolveFrame(all, { frame: 'auto' })).toBe(earnedFrame(all));
+    expect(resolveFrame(at(first, 5), { frame: 'auto' })).toBeNull();
+    expect(earnedFrames(all)).not.toContain(first.id);
+  });
+
+  it('falls back like auto when the family is below tier 5 (a rebuild lowered it)', () => {
+    const low = { ...at(first, 4), regular: { tier: 10, at: 1 } };
+    expect(resolveFrame(low, { frame: first.id })).toBe('bronze');
+    expect(resolveFrame(at(first, 4), { frame: first.id })).toBeNull();
+    expect(resolveFrame({}, { frame: first.id })).toBeNull();
+
+    const stored = {
+      ladder: TITLE_LADDER_VERSION,
+      unlocked: { ...at(first, 5), regular: { tier: 10, at: 1 } },
+      prefs: { mode: 'off', frame: first.id },
+      display: { familyId: null, tier: null, frame: first.id },
+    };
+    // Stats that no longer reach the family at all: a rebuild takes it away
+    const next = buildUserTitles(stored, stats({ total: { games: 300 } }), 9, { rebuild: true });
+    expect(next.unlocked[first.family]).toBeUndefined();
+    expect(next.prefs.frame).toBe(first.id);
+    expect(next.display).toEqual({ familyId: null, tier: null, frame: 'bronze' });
+    expect(next.changed).toBe(true);
+  });
+
+  it('display.frame carries the themed id, with or without a title', () => {
+    const unlocked = { ...at(first, 6), regular: { tier: 3, at: 2 } };
+    expect(resolveDisplay(unlocked, { mode: 'off', frame: first.id }))
+      .toEqual({ familyId: null, tier: null, frame: first.id });
+    expect(resolveDisplay(unlocked, { mode: 'pick', titleId: 'regular', frame: first.id }))
+      .toEqual({ familyId: 'regular', tier: 3, frame: first.id });
+    const display = { familyId: 'regular', tier: 3, frame: first.id };
+    expect(sameDisplay(display, { ...display })).toBe(true);
+    expect(sameDisplay(display, { ...display, frame: second.id })).toBe(false);
+    expect(sameDisplay(display, { ...display, frame: null })).toBe(false);
+    // A stored display with a themed frame is shown as stored
+    expect(effectiveDisplay({ ladder: TITLE_LADDER_VERSION, unlocked, prefs: { mode: 'off', frame: first.id }, display }, '2026-11'))
+      .toEqual(display);
   });
 });
 

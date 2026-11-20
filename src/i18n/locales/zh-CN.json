@@ -269,7 +269,9 @@
         "name": "暖白纸感",
         "desc": "米白＋墨蓝（浅色）"
       }
-    }
+    },
+    "fxLite": "简化特效",
+    "fxLiteHint": "头像框不再有动画与粒子，只影响你自己的画面"
   },
   "friends": {
     "title": "好友",
@@ -2005,7 +2007,15 @@
       "silver": "银框",
       "gold": "金框",
       "platinum": "白金框",
-      "diamond": "钻石框"
+      "diamond": "钻石框",
+      "fire": "烈焰",
+      "thunder": "雷霆",
+      "coin": "黄金律",
+      "king": "万王之王",
+      "night": "永夜",
+      "frost": "不灭冰魂",
+      "abyss": "深渊暗影",
+      "tide": "怒涛"
     },
     "room": {
       "live": "房内实时称号",
@@ -2043,7 +2053,12 @@
         "games": "{n} 场"
       },
       "needPals": "再和 {n} 位牌友同桌（同一人满 2 场）就能参加本月王座"
-    }
+    },
+    "frameTiers": "等级框",
+    "frameThemes": "主题框",
+    "frameThemesHint": "对应的称号达到第 {n} 阶就能解锁；“自动”只会挑等级框",
+    "frameThemeNeed": "取得第 {n} 阶称号“{name}”",
+    "frameThemeNeedHidden": "某个隐藏称号达到第 {n} 阶"
   },
   "chipSet": {
     "title": "筹码面额",

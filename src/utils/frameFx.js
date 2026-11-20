@@ -1,0 +1,761 @@
+// 頭像框 effects: a canvas particle renderer, one draw function per frame.
+//
+// PlayerAvatar.vue lays a <canvas> over the avatar, FRAME_CANVAS_SCALE times
+// its size and centred, so the effects reach outside the photo without taking
+// any layout space. Each draw function paints what sits behind the face, then
+// punches the face's circle out of the canvas (hole) and paints what goes in
+// front (ornaments, sparks, snow).
+//
+// One requestAnimationFrame loop drives every avatar on the page (mountFrame
+// registers, its destroy() unregisters). The loop stops while the tab is
+// hidden and skips avatars that are off screen.
+// 簡化特效 (:root[data-fx="lite"], utils/fx.js) and a frame mounted with
+// { still } get ONE static picture instead: no particles, nothing moving, and
+// they stay out of the loop. Flipping the switch is seen here (the root
+// attribute is watched), no reload needed. The system's reduced-motion
+// setting is deliberately NOT followed: it is on by default on many PCs
+// (Windows "animation effects" off) and would hide the frames from people who
+// never asked for that — the switch is the way to turn them off.
+//
+// A new frame = a draw function in DRAWERS under its id (+ its catalog entry
+// in titleRules THEME_FRAMES and its name in titles.frames.*).
+
+const TAU = Math.PI * 2;
+const rnd = (a = 1, b) => (b === undefined ? Math.random() * a : a + Math.random() * (b - a));
+
+// The canvas box, as a multiple of the avatar size
+export const FRAME_CANVAS_SCALE = 2.1;
+// The time a still frame is drawn at
+const STILL_T = 0.9;
+// Above this many px the effects stop growing with the avatar at full rate,
+// so a large avatar (profile header) is a crisp bigger version of the small
+// one instead of a blown-up one
+const UNIT_FULL_UNTIL = 48;
+const UNIT_SLOWER = 0.25;
+
+/**
+ * The effect unit `u` for an avatar of `size` px: size / 100 up to 48px, then
+ * a quarter of the rate (80px → 0.56 instead of 0.8). Ring widths, ray
+ * reach and particle sizes are all multiples of it.
+ *
+ * @param {number} size Avatar diameter in px.
+ * @return {number}
+ */
+export function frameUnit(size) {
+  const d = Math.max(0, Number(size) || 0);
+  return (d <= UNIT_FULL_UNTIL ? d : UNIT_FULL_UNTIL + (d - UNIT_FULL_UNTIL) * UNIT_SLOWER) / 100;
+}
+
+// ── The draw functions ──────────────────────────────────────────────
+// Each gets the kit `k` (context, geometry, helpers, its own state `S`) and
+// the time `t` in seconds. `k.still`: a static picture — nothing is spawned
+// or moved.
+
+const DRAWERS = {
+  bronze(k, t) {
+    const { ctx, c, u, R } = k;
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.35, '196,127,69', 0.14);
+    ctx.globalCompositeOperation = 'source-over';
+    k.ring(R, 3.6 * u, k.conic(0.6, ['#5c3311', '#e0a060', '#8a5226', '#f3c08a', '#6b3d16', '#d9935a', '#5c3311']), '#c47f45', 6 * u);
+    k.ring(R + 2.6 * u, 0.8 * u, 'rgba(243,192,138,.5)');
+    k.shine(t, 1.1, 3.6 * u);
+    k.hole();
+  },
+
+  silver(k, t) {
+    const { ctx, c, u, R } = k;
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.45, '203,213,225', 0.16 + 0.04 * Math.sin(t * 2));
+    ctx.globalCompositeOperation = 'source-over';
+    k.ring(R, 3.6 * u, k.conic(t * 1.2, ['#64748b', '#ffffff', '#94a3b8', '#f1f5f9', '#475569', '#e2e8f0', '#64748b']), '#e2e8f0', 9 * u);
+    ctx.save(); ctx.setLineDash([2 * u, 5 * u]); ctx.lineDashOffset = -t * 10 * u; k.ring(R + 6 * u, 1.2 * u, 'rgba(226,232,240,.7)'); ctx.restore();
+    k.shine(t, 2, 3.6 * u);
+    k.hole();
+    for (const s of k.fixed(4, () => ({ a: rnd(TAU), r: rnd(0, 10) * u, ph: rnd(TAU) }))) {
+      k.star4(c + Math.cos(s.a) * (R + s.r), c + Math.sin(s.a) * (R + s.r), 7 * u, t + s.ph, '#ffffff', Math.max(0, Math.sin(t * 2 + s.ph)));
+    }
+  },
+
+  // The tier frame 金框: rays, a laurel
+  gold(k, t) {
+    const { ctx, c, u, R } = k;
+    k.rays(12, t * 0.3, 30 * u, '255,215,0', 0.24);
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.55, '255,200,40', 0.2 + 0.07 * Math.sin(t * 3));
+    ctx.globalCompositeOperation = 'source-over';
+    k.ring(R, 4 * u, k.conic(t * 1.8, ['#8a6508', '#fff7c2', '#ffd700', '#a67400', '#fffbe6', '#e0a800', '#8a6508']), '#ffb300', 12 * u);
+    ctx.save(); ctx.setLineDash([3 * u, 4 * u]); ctx.lineDashOffset = t * 14 * u; k.ring(R + 6.5 * u, 1.6 * u, '#ffd700', '#ffb300', 4 * u); ctx.restore();
+    k.shine(t, 2.6, 4 * u);
+    k.hole();
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 2 + side * (0.25 + i * 0.26);
+        const x = c + Math.cos(a) * (R + 9 * u);
+        const y = c + Math.sin(a) * (R + 9 * u);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(a + side * 0.9); ctx.fillStyle = i % 2 ? '#ffe066' : '#d4a017'; ctx.shadowColor = '#ffb300'; ctx.shadowBlur = 3 * u;
+        ctx.beginPath(); ctx.ellipse(0, 0, 5.5 * u, 2.2 * u, 0, 0, TAU); ctx.fill(); ctx.restore();
+      }
+    }
+    for (const s of k.fixed(6, () => ({ a: rnd(TAU), r: rnd(0, 18) * u, ph: rnd(TAU) }))) {
+      k.star4(c + Math.cos(s.a) * (R + s.r), c + Math.sin(s.a) * (R + s.r), 8 * u, t + s.ph, '#fff7c2', Math.max(0, Math.sin(t * 2.4 + s.ph)));
+    }
+  },
+
+  platinum(k, t) {
+    const { ctx, c, u, R } = k;
+    k.rays(16, -t * 0.3, 36 * u, '125,211,252', 0.26);
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.65, '56,189,248', 0.2 + 0.07 * Math.sin(t * 2.6));
+    k.ring(R + 8 * u, 1.4 * u, 'rgba(186,230,253,.8)', '#7dd3fc', 8 * u);
+    k.ring(R, 3.8 * u, k.conic(-t * 2.2, ['#e2e8f0', '#7dd3fc', '#ffffff', '#38bdf8', '#f1f5f9', '#0ea5e9', '#e2e8f0']), '#7dd3fc', 14 * u);
+    // two lights chasing each other round the outer ring
+    for (let n = 0; n < 2; n++) {
+      for (let j = 0; j < 16; j++) {
+        const a = t * 2.4 + n * Math.PI - j * 0.06;
+        const q = 1 - j / 16;
+        k.glow(c + Math.cos(a) * (R + 8 * u), c + Math.sin(a) * (R + 8 * u), (1.5 + 4 * q) * u, '224,242,254', 0.85 * q);
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    k.shine(t, 3, 3.8 * u);
+    k.hole();
+    // wings
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < 4; i++) {
+        const a = (side < 0 ? Math.PI : 0) + side * (-0.55 + i * 0.3);
+        const flap = Math.sin(t * 2.4) * 0.12 * side;
+        const x = c + Math.cos(a) * (R + 6 * u);
+        const y = c + Math.sin(a) * (R + 6 * u);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(a - side * 0.5 + flap); ctx.shadowColor = '#7dd3fc'; ctx.shadowBlur = 5 * u;
+        const g = ctx.createLinearGradient(0, 0, 20 * u, 0); g.addColorStop(0, '#ffffff'); g.addColorStop(1, 'rgba(125,211,252,.25)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse((9 - i) * u, 0, (13 - i * 2) * u, 2.6 * u, 0, 0, TAU); ctx.fill(); ctx.restore();
+      }
+    }
+    for (const s of k.fixed(6, () => ({ a: rnd(TAU), r: rnd(4, 24) * u, ph: rnd(TAU) }))) {
+      k.star4(c + Math.cos(s.a) * (R + s.r), c + Math.sin(s.a) * (R + s.r), 8 * u, t + s.ph, '#e0f2fe', Math.max(0, Math.sin(t * 2.6 + s.ph)));
+    }
+  },
+
+  diamond(k, t) {
+    const { ctx, c, u, R, D } = k;
+    const hue = (t * 60) % 360;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 18; i++) {
+      const a0 = t * 0.4 + (i * TAU) / 18;
+      const L = R + (i % 2 ? 30 : 48) * u;
+      const half = 0.07;
+      const h = (hue + i * 20) % 360;
+      const g = ctx.createRadialGradient(c, c, R * 0.9, c, c, L);
+      g.addColorStop(0, `hsla(${h},95%,70%,.42)`); g.addColorStop(1, `hsla(${h},95%,70%,0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(c, c); ctx.arc(c, c, L, a0 - half, a0 + half); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.75, '167,139,250', 0.22 + 0.08 * Math.sin(t * 3));
+    k.glow(c, c, R * 1.4, '103,232,249', 0.16);
+    k.ring(R, 4 * u, k.conic(t * 3, ['#67e8f9', '#a78bfa', '#f0abfc', '#fde68a', '#6ee7b7', '#67e8f9']), '#c4b5fd', 16 * u);
+    ctx.save(); ctx.setLineDash([2 * u, 6 * u]); ctx.lineDashOffset = -t * 20 * u; k.ring(R + 7 * u, 2 * u, k.conic(-t * 2, ['#f0abfc', '#67e8f9', '#fde68a', '#a78bfa', '#f0abfc'])); ctx.restore();
+    ctx.globalCompositeOperation = 'source-over';
+    k.shine(t, 3.4, 4 * u);
+    k.hole();
+    // small gems orbiting
+    for (let i = 0; i < 5; i++) {
+      const a = -t * 1.1 + (i * TAU) / 5;
+      const x = c + Math.cos(a) * (R + 15 * u);
+      const y = c + Math.sin(a) * (R + 15 * u);
+      ctx.save(); ctx.translate(x, y); ctx.rotate(t * 3 + i); ctx.fillStyle = `hsl(${(hue + i * 72) % 360},95%,78%)`; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 8 * u;
+      ctx.beginPath(); ctx.moveTo(0, -5.5 * u); ctx.lineTo(3.4 * u, 0); ctx.lineTo(0, 5.5 * u); ctx.lineTo(-3.4 * u, 0); ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+    // the cut gem on top
+    const gy = c - D / 2 - 9 * u + Math.sin(t * 2.4) * 1.4 * u;
+    ctx.save(); ctx.translate(c, gy); ctx.shadowColor = '#e9d5ff'; ctx.shadowBlur = 14 * u;
+    const gg = ctx.createLinearGradient(-9 * u, -8 * u, 9 * u, 10 * u); gg.addColorStop(0, '#ffffff'); gg.addColorStop(0.45, '#a5f3fc'); gg.addColorStop(1, '#a78bfa');
+    ctx.fillStyle = gg; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 0.9 * u; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(-9 * u, -3 * u); ctx.lineTo(-5 * u, -8 * u); ctx.lineTo(5 * u, -8 * u); ctx.lineTo(9 * u, -3 * u); ctx.lineTo(0, 9 * u); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-9 * u, -3 * u); ctx.lineTo(9 * u, -3 * u); ctx.moveTo(-3 * u, -3 * u); ctx.lineTo(0, 9 * u); ctx.lineTo(3 * u, -3 * u); ctx.stroke(); ctx.restore();
+    for (const s of k.fixed(10, () => ({ a: rnd(TAU), r: rnd(2, 30) * u, ph: rnd(TAU) }))) {
+      k.star4(c + Math.cos(s.a) * (R + s.r), c + Math.sin(s.a) * (R + s.r), 9 * u, t * 1.4 + s.ph, '#ffffff', Math.max(0, Math.sin(t * 3 + s.ph)));
+    }
+  },
+
+  fire(k, t) {
+    const { ctx, c, u, R, S } = k;
+    S.sparks ||= [];
+    // flame tongues born on the ring, rising and cooling: most of them over
+    // the upper half, where they are bigger and climb faster
+    if (!k.still) {
+      for (let i = 0; i < 7; i++) {
+        const a = Math.random() < 0.62 ? rnd(-Math.PI, 0) : rnd(TAU);
+        const up = Math.max(0, -Math.sin(a)); // 1 right at the top, 0 at the sides and below
+        S.parts.push({
+          x: c + Math.cos(a) * R, y: c + Math.sin(a) * R, vx: Math.cos(a) * 0.25 * u + rnd(-0.4, 0.4) * u,
+          vy: -rnd(0.8, 2.1) * u * (0.75 + up * 0.95), life: 1, d: rnd(0.02, 0.045),
+          // never smaller than a couple of px, so a 28px avatar still shows flames
+          s: Math.max(rnd(7, 15) * u * (1 + up * 0.5), 2.2 + up * 1.6), up,
+        });
+      }
+      // bright sparks shooting up, past the top of the canvas
+      if (Math.random() < 0.3) {
+        const a = rnd(-Math.PI * 0.85, -Math.PI * 0.15);
+        S.sparks.push({ x: c + Math.cos(a) * R, y: c + Math.sin(a) * R, vx: rnd(-0.5, 0.5) * u, vy: -rnd(2.6, 4.6) * u - 0.25, life: 1, d: rnd(0.025, 0.05) });
+      }
+    }
+    ctx.globalCompositeOperation = 'lighter';
+    // the halo flickers like a fire, not a lamp
+    k.glow(c, c - 6 * u, R * 1.85, '255,70,0', 0.2 + 0.09 * Math.sin(t * 11) + 0.05 * Math.sin(t * 23 + 1));
+    if (k.still) {
+      // a still flame: tongues standing over the upper half
+      for (let i = 0; i < 9; i++) {
+        const a = -Math.PI / 2 + (i - 4) * 0.34;
+        const lift = (i % 2 ? 5 : 11) * u;
+        k.glow(c + Math.cos(a) * (R + 3 * u), c + Math.sin(a) * (R + 3 * u) - lift, Math.max((i % 2 ? 10 : 13) * u, 3.4), i % 2 ? '255,150,30' : '255,64,8', 0.36);
+      }
+    } else {
+      S.parts = S.parts.filter((p) => p.life > 0);
+      for (const p of S.parts) {
+        p.x += p.vx; p.y += p.vy; p.vx += rnd(-0.14, 0.14) * u; p.vy *= 0.992; p.life -= p.d;
+        const heat = p.life;
+        const rgb = heat > 0.8 ? '255,246,200' : heat > 0.5 ? '255,160,36' : heat > 0.22 ? '255,64,8' : '140,20,6';
+        const rad = p.s * (0.4 + heat * 0.7);
+        // fades out before the top of the canvas, so a tall flame has no flat cut
+        const edge = Math.max(0, Math.min(1, (p.y - rad) / (k.C * 0.07)));
+        k.glow(p.x, p.y, rad, rgb, (0.3 + p.up * 0.14) * heat * edge);
+      }
+      S.sparks = S.sparks.filter((p) => p.life > 0);
+      for (const p of S.sparks) {
+        const px = p.x;
+        const py = p.y;
+        p.x += p.vx; p.y += p.vy; p.vx += rnd(-0.1, 0.1) * u; p.life -= p.d;
+        ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1.6 * u, 0.9); ctx.strokeStyle = `rgba(255,240,170,${p.life})`; ctx.shadowColor = '#ffb300'; ctx.shadowBlur = 5 * u;
+        ctx.beginPath(); ctx.moveTo(px - p.vx, py - p.vy); ctx.lineTo(p.x, p.y); ctx.stroke(); ctx.restore();
+      }
+    }
+    k.ring(R, 3.4 * u, k.conic(t * 5, ['#fff3c4', '#ffb300', '#ff3d00', '#7f0000', '#ff6d00', '#ffe082', '#fff3c4']), '#ff6d00', 16 * u);
+    k.ring(R - 1.4 * u, 1 * u, 'rgba(255,250,210,.9)', '#ffd54f', 6 * u);
+    ctx.globalCompositeOperation = 'source-over';
+    k.hole();
+  },
+
+  thunder(k, t) {
+    const { ctx, c, u, R, S } = k;
+    S.tick++;
+    // arcs jump every few frames; a still picture keeps the first set
+    if (k.still ? !S.bolts.length : S.tick % 4 === 0) {
+      S.bolts = [];
+      for (let b = 0; b < 3; b++) {
+        const a0 = rnd(TAU);
+        const span = rnd(0.7, 1.9);
+        const pts = [];
+        for (let i = 0; i <= 16; i++) {
+          const a = a0 + (span * i) / 16;
+          const r = R + 3 * u + rnd(-7, 9) * u;
+          pts.push([c + Math.cos(a) * r, c + Math.sin(a) * r]);
+        }
+        S.bolts.push(pts);
+      }
+      if (!k.still && Math.random() < 0.45) { // a bolt shooting outwards
+        const a = rnd(TAU);
+        const pts = [];
+        for (let i = 0; i <= 7; i++) {
+          const r = R + i * 5.5 * u;
+          const aa = a + rnd(-0.12, 0.12);
+          pts.push([c + Math.cos(aa) * r, c + Math.sin(aa) * r]);
+        }
+        S.bolts.push(pts); S.flash = 1;
+        for (let i = 0; i < 6; i++) S.parts.push({ x: pts[7][0], y: pts[7][1], vx: rnd(-1.6, 1.6) * u, vy: rnd(-1.6, 1.6) * u, life: 1 });
+      }
+    }
+    S.flash = (S.flash || 0) * 0.86;
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.8, '56,189,248', 0.16 + 0.25 * S.flash);
+    k.glow(c, c, R * 1.45, '129,140,248', 0.14);
+    k.ring(R, 3.2 * u, k.conic(-t * 3, ['#1e3a8a', '#7dd3fc', '#eef2ff', '#6366f1', '#0ea5e9', '#e0f2fe', '#1e3a8a']), '#38bdf8', 14 * u);
+    ctx.lineJoin = 'round';
+    for (const pts of S.bolts) {
+      for (const [w, col, blur] of [[2.6 * u, 'rgba(125,211,252,.9)', 14 * u], [1 * u, '#ffffff', 4 * u]]) {
+        ctx.save(); ctx.lineWidth = w; ctx.strokeStyle = col; ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = blur;
+        ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore();
+      }
+    }
+    S.parts = S.parts.filter((p) => p.life > 0);
+    for (const p of S.parts) { p.x += p.vx; p.y += p.vy; p.life -= 0.06; k.glow(p.x, p.y, 5 * u, '224,242,254', p.life); }
+    ctx.globalCompositeOperation = 'source-over';
+    k.hole();
+  },
+
+  // 黃金律: a studded ring, coins orbiting
+  coin(k, t) {
+    const { ctx, c, u, R } = k;
+    k.rays(14, t * 0.35, 40 * u, '255,215,0', 0.3);
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.6, '255,200,40', 0.22 + 0.07 * Math.sin(t * 3));
+    ctx.globalCompositeOperation = 'source-over';
+    // studded outer ring, counter-rotating
+    for (let i = 0; i < 24; i++) {
+      const a = -t * 0.6 + (i * TAU) / 24;
+      const x = c + Math.cos(a) * (R + 7.5 * u);
+      const y = c + Math.sin(a) * (R + 7.5 * u);
+      ctx.fillStyle = i % 3 === 0 ? '#fff6c8' : '#c9940a'; ctx.beginPath(); ctx.arc(x, y, (i % 3 === 0 ? 2.1 : 1.3) * u, 0, TAU); ctx.fill();
+    }
+    k.ring(R + 7.5 * u, 0.8 * u, 'rgba(255,215,0,.45)');
+    k.ring(R, 4.2 * u, k.conic(t * 1.6, ['#8a6508', '#fff7c2', '#ffd700', '#a67400', '#fffbe6', '#e0a800', '#8a6508']), '#ffb300', 12 * u);
+    k.shine(t, 2.6, 4.2 * u);
+    k.hole();
+    // coins orbiting, flipping in 3D
+    for (let i = 0; i < 3; i++) {
+      const a = t * 1.3 + (i * TAU) / 3;
+      const x = c + Math.cos(a) * (R + 17 * u);
+      const y = c + Math.sin(a) * (R + 17 * u);
+      const w = Math.cos(t * 6 + i * 2);
+      const rx = Math.max(0.8, Math.abs(w) * 7.5) * u;
+      const ry = 7.5 * u;
+      const g = ctx.createLinearGradient(x - rx, y - ry, x + rx, y + ry);
+      g.addColorStop(0, '#fffbe6'); g.addColorStop(0.5, w > 0 ? '#ffd700' : '#e0a800'); g.addColorStop(1, '#8a6508');
+      ctx.save(); ctx.shadowColor = '#ffb300'; ctx.shadowBlur = 8 * u; ctx.fillStyle = g;
+      ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.fill();
+      ctx.lineWidth = 0.8 * u; ctx.strokeStyle = '#7a5a06'; ctx.stroke(); ctx.restore();
+    }
+    for (const s of k.fixed(7, () => ({ a: rnd(TAU), r: rnd(-4, 22) * u, ph: rnd(TAU) }))) {
+      k.star4(c + Math.cos(s.a) * (R + s.r), c + Math.sin(s.a) * (R + s.r), 8 * u, t + s.ph, '#fff7c2', Math.max(0, Math.sin(t * 2.4 + s.ph)));
+    }
+  },
+
+  king(k, t) {
+    const { ctx, c, u, R, D } = k;
+    k.rays(16, t * 0.25, 50 * u, '250,204,21', 0.34);
+    k.rays(8, -t * 0.18, 34 * u, '216,180,254', 0.22, 0.3);
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.7, '168,85,247', 0.22 + 0.08 * Math.sin(t * 2.5));
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.save(); ctx.setLineDash([3 * u, 6 * u]); ctx.lineDashOffset = t * 22 * u;
+    k.ring(R + 8 * u, 2 * u, '#facc15', '#f59e0b', 6 * u); ctx.restore();
+    ctx.save(); ctx.setLineDash([1.2 * u, 7 * u]); ctx.lineDashOffset = -t * 16 * u;
+    k.ring(R + 13 * u, 1.6 * u, '#e9d5ff'); ctx.restore();
+    k.ring(R, 4.2 * u, k.conic(t * 2, ['#4c1d95', '#fde68a', '#a855f7', '#fff7cc', '#7c3aed', '#facc15', '#4c1d95']), '#c084fc', 14 * u);
+    k.shine(t, 3, 4.2 * u);
+    k.hole();
+    // jewelled crown on top, floating
+    const cy = c - D / 2 - 5 * u + Math.sin(t * 2.2) * 1.6 * u;
+    const w = 25 * u;
+    const h = 22 * u;
+    ctx.save(); ctx.translate(c, cy); ctx.shadowColor = '#f59e0b'; ctx.shadowBlur = 12 * u;
+    const g = ctx.createLinearGradient(0, -h, 0, 4 * u); g.addColorStop(0, '#fff7cc'); g.addColorStop(0.5, '#facc15'); g.addColorStop(1, '#b45309');
+    ctx.fillStyle = g; ctx.strokeStyle = '#fff7cc'; ctx.lineWidth = 1 * u; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(-w, 4 * u); ctx.lineTo(-w - 2 * u, -h * 0.55); ctx.lineTo(-w * 0.45, -h * 0.15); ctx.lineTo(0, -h);
+    ctx.lineTo(w * 0.45, -h * 0.15); ctx.lineTo(w + 2 * u, -h * 0.55); ctx.lineTo(w, 4 * u); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 6 * u;
+    for (const [x, y, r, col] of [[0, -3 * u, 3.6 * u, '#a855f7'], [-w * 0.6, -1 * u, 2.3 * u, '#f0abfc'], [w * 0.6, -1 * u, 2.3 * u, '#f0abfc'], [0, -h, 2.6 * u, '#fef3c7']]) {
+      ctx.fillStyle = col; ctx.shadowColor = col; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+    for (const s of k.fixed(9, () => ({ a: rnd(TAU), r: rnd(4, 30) * u, ph: rnd(TAU) }))) {
+      k.star4(c + Math.cos(s.a) * (R + s.r), c + Math.sin(s.a) * (R + s.r), 9 * u, t * 1.2 + s.ph, '#fde68a', Math.max(0, Math.sin(t * 2.8 + s.ph)));
+    }
+  },
+
+  night(k, t) {
+    const { ctx, c, u, R } = k;
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.9, '79,70,229', 0.26 + 0.07 * Math.sin(t * 1.6));
+    k.glow(c + 14 * u, c - 10 * u, R * 1.2, '168,85,247', 0.13);
+    const stars = k.fixed(46, () => ({ a: rnd(TAU), r: rnd(3, 30) * u, ph: rnd(TAU), z: rnd(0.6, 1.9) }));
+    for (const s of stars) {
+      const a = s.a + t * 0.12;
+      const al = 0.35 + 0.65 * Math.max(0, Math.sin(t * 2 + s.ph));
+      ctx.fillStyle = `rgba(224,231,255,${al})`; ctx.beginPath(); ctx.arc(c + Math.cos(a) * (R + s.r), c + Math.sin(a) * (R + s.r), s.z * u, 0, TAU); ctx.fill();
+    }
+    k.ring(R, 3.2 * u, k.conic(t * 0.8, ['#0b1026', '#818cf8', '#e0e7ff', '#312e81', '#0b1026', '#c7d2fe', '#0b1026']), '#818cf8', 14 * u);
+    // comet with a tail
+    if (!k.still) {
+      const ca = t * 1.7;
+      for (let j = 0; j < 22; j++) {
+        const a = ca - j * 0.045;
+        const q = 1 - j / 22;
+        k.glow(c + Math.cos(a) * (R + 13 * u), c + Math.sin(a) * (R + 13 * u), (1.5 + 4.5 * q) * u, j < 2 ? '255,255,255' : '199,210,254', 0.8 * q);
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    k.hole();
+    // crescent moon
+    const mr = Math.max(11 * u, 4.6); // never a speck, even on a 28px avatar
+    const mx = c + Math.cos(-0.85) * (R + Math.max(9 * u, mr * 0.8));
+    const my = c + Math.sin(-0.85) * (R + Math.max(9 * u, mr * 0.8));
+    ctx.save(); ctx.shadowColor = '#fde68a'; ctx.shadowBlur = 14 * u; ctx.fillStyle = '#fef9c3';
+    ctx.beginPath(); ctx.arc(mx, my, mr, 0, TAU); ctx.arc(mx + mr * 0.5, my - mr * 0.22, mr * 0.84, 0, TAU, true); ctx.fill('evenodd');
+    ctx.restore();
+    for (const s of stars.slice(0, 5)) {
+      k.star4(c + Math.cos(s.a - t * 0.2) * (R + s.r), c + Math.sin(s.a - t * 0.2) * (R + s.r), 7 * u, t + s.ph, '#e0e7ff', Math.max(0, Math.sin(t * 1.7 + s.ph)));
+    }
+  },
+
+  frost(k, t) {
+    const { ctx, c, u, R, S } = k;
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.7, '125,211,252', 0.2 + 0.06 * Math.sin(t * 2));
+    // ice crystals growing out of the ring
+    for (let i = 0; i < 16; i++) {
+      const a = (i * TAU) / 16 + t * 0.12;
+      const len = (i % 2 ? 13 : 24) * u + Math.sin(t * 2 + i) * 3 * u;
+      const hw = (i % 2 ? 2.6 : 3.8) * u;
+      const bx = c + Math.cos(a) * (R + 1 * u);
+      const by = c + Math.sin(a) * (R + 1 * u);
+      const tx = c + Math.cos(a) * (R + len);
+      const ty = c + Math.sin(a) * (R + len);
+      const nx = -Math.sin(a) * hw;
+      const ny = Math.cos(a) * hw;
+      const g = ctx.createLinearGradient(bx, by, tx, ty); g.addColorStop(0, 'rgba(240,249,255,.95)'); g.addColorStop(0.6, 'rgba(125,211,252,.75)'); g.addColorStop(1, 'rgba(56,189,248,.05)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(bx + nx, by + ny); ctx.lineTo(tx, ty); ctx.lineTo(bx - nx, by - ny); ctx.closePath(); ctx.fill();
+      if (!(i % 2)) k.star4(tx, ty, 5 * u, t + i, '#ffffff', Math.max(0, Math.sin(t * 3 + i * 1.7)));
+    }
+    k.ring(R, 3.2 * u, k.conic(-t * 0.9, ['#e0f2fe', '#38bdf8', '#f0f9ff', '#0ea5e9', '#bae6fd', '#ffffff', '#e0f2fe']), '#7dd3fc', 14 * u);
+    ctx.globalCompositeOperation = 'source-over';
+    k.hole();
+    if (k.still) return;
+    // snow drifting down in front
+    if (S.parts.length < 26 && Math.random() < 0.5) S.parts.push({ x: c + rnd(-1, 1) * R * 1.7, y: c - R * 1.9, vy: rnd(0.35, 0.9) * u, ph: rnd(TAU), z: rnd(1, 2.4) });
+    S.parts = S.parts.filter((p) => p.y < c + R * 1.9);
+    for (const p of S.parts) {
+      p.y += p.vy; p.x += Math.sin(t * 2 + p.ph) * 0.35 * u;
+      ctx.fillStyle = 'rgba(240,249,255,.9)'; ctx.shadowColor = '#bae6fd'; ctx.shadowBlur = 4 * u;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.z * u, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
+    }
+  },
+
+  abyss(k, t) {
+    const { ctx, c, u, R, S } = k;
+    // smoke swirling off the ring: dark wisps, and more glowing ones (the
+    // dark ones vanish on a dark page)
+    if (!k.still) {
+      for (let i = 0; i < 4; i++) {
+        S.parts.push({
+          a: rnd(TAU), r: R + rnd(-2, 4) * u, va: rnd(0.02, 0.05), vr: rnd(0.12, 0.42) * u, life: 1, d: rnd(0.012, 0.024),
+          s: Math.max(rnd(12, 24) * u, 4), light: Math.random() < 0.62, pink: Math.random() < 0.4,
+        });
+      }
+    }
+    k.glow(c, c, R * 1.75, '46,16,101', 0.55);
+    if (!k.still) {
+      S.parts = S.parts.filter((p) => p.life > 0);
+      for (const p of S.parts) {
+        p.a += p.va; p.r += p.vr; p.life -= p.d;
+        const x = c + Math.cos(p.a) * p.r;
+        const y = c + Math.sin(p.a) * p.r;
+        if (p.light) {
+          ctx.globalCompositeOperation = 'lighter'; k.glow(x, y, p.s * 0.7, p.pink ? '232,121,249' : '167,139,250', 0.55 * p.life); ctx.globalCompositeOperation = 'source-over';
+        } else k.glow(x, y, p.s, '20,6,48', 0.6 * p.life);
+      }
+    }
+    ctx.globalCompositeOperation = 'lighter';
+    const pulse = Math.abs(Math.sin(t * 2.6));
+    k.glow(c, c, R * 1.45, '147,51,234', 0.22 + 0.16 * pulse);
+    // runes lighting up one after another (never thinner than a good px)
+    for (let i = 0; i < 10; i++) {
+      const a = (i * TAU) / 10 - t * 0.3;
+      const al = Math.max(0.3, Math.sin(t * 4 - i * 0.63));
+      ctx.save(); ctx.lineWidth = Math.max(2.6 * u, 1.3); ctx.lineCap = 'round'; ctx.strokeStyle = `rgba(233,213,255,${al})`; ctx.shadowColor = '#c084fc'; ctx.shadowBlur = 8 * u;
+      ctx.beginPath(); ctx.arc(c, c, R + Math.max(9 * u, 3.4), a, a + 0.34); ctx.stroke(); ctx.restore();
+    }
+    k.ring(R, 3.6 * u, k.conic(-t * 4, ['#0f0a2e', '#a78bfa', '#1e1b4b', '#c4b5fd', '#0f0a2e', '#7c3aed', '#0f0a2e']), '#7c3aed', 16 * u);
+    // the inner edge, pulsing bright
+    k.ring(R - 1.3 * u, Math.max(1.1 * u, 0.7), `rgba(240,220,255,${0.5 + 0.45 * pulse})`, '#e879f9', 7 * u);
+    // souls: bright sparks spiralling outward, each with a short trail
+    if (!k.still) {
+      for (let n = 0; n < 3; n++) {
+        for (let j = 0; j < 9; j++) {
+          const q = (t * 0.5 + n / 3 - j * 0.014 + 1) % 1; // 0 on the ring → 1 far out
+          const a = t * 2.2 + (n * TAU) / 3 + q * 3.4;
+          const r = R + 2 * u + q * 30 * u;
+          const fade = Math.sin(q * Math.PI) * (1 - j / 9);
+          k.glow(c + Math.cos(a) * r, c + Math.sin(a) * r, Math.max((j ? 3.4 - j * 0.25 : 4.2) * u, j ? 1 : 1.5), j ? '232,121,249' : '255,255,255', (j ? 0.6 : 1) * fade);
+        }
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    k.hole();
+  },
+
+  tide(k, t) {
+    const { ctx, c, u, R, S } = k;
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.7, '14,165,233', 0.22 + 0.06 * Math.sin(t * 2));
+    for (let i = 0; i < 3; i++) { // rolling wave rings
+      ctx.save(); ctx.lineWidth = (2.6 - i * 0.6) * u; ctx.strokeStyle = `rgba(${i ? '103,232,249' : '224,242,254'},${0.85 - i * 0.24})`; ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = 8 * u;
+      ctx.beginPath();
+      for (let a = 0; a <= TAU + 0.05; a += 0.04) {
+        const r = R + (5 + i * 5.5) * u + Math.sin(a * (6 + i * 2) + t * (2.6 - i * 0.6) * (i % 2 ? -1 : 1)) * (2.6 + i) * u;
+        const x = c + Math.cos(a) * r;
+        const y = c + Math.sin(a) * r;
+        if (a) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+      }
+      ctx.stroke(); ctx.restore();
+    }
+    k.ring(R, 3.4 * u, k.conic(t * 1.4, ['#0c4a6e', '#22d3ee', '#e0f2fe', '#0284c7', '#67e8f9', '#0369a1', '#0c4a6e']), '#22d3ee', 14 * u);
+    ctx.globalCompositeOperation = 'source-over';
+    k.hole();
+    if (k.still) return;
+    // spray: droplets thrown up, falling back
+    if (Math.random() < 0.5) {
+      const a = rnd(-TAU / 2, 0);
+      S.parts.push({ x: c + Math.cos(a) * (R + 8 * u), y: c + Math.sin(a) * (R + 8 * u), vx: Math.cos(a) * rnd(0.3, 1.1) * u, vy: -rnd(0.8, 2.2) * u, life: 1, z: rnd(1, 2.6) });
+    }
+    S.parts = S.parts.filter((p) => p.life > 0);
+    for (const p of S.parts) {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.07 * u; p.life -= 0.02;
+      ctx.fillStyle = `rgba(207,250,254,${p.life})`; ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = 5 * u;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.z * u, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
+    }
+  },
+};
+
+/** Frame ids this renderer can draw. */
+export const FRAME_FX_IDS = Object.freeze(Object.keys(DRAWERS));
+
+/**
+ * Can this frame id be drawn?
+ *
+ * @param {?string} kind Frame id.
+ * @return {boolean}
+ */
+export function hasFrameFx(kind) {
+  return typeof kind === 'string' && Object.hasOwn(DRAWERS, kind);
+}
+
+/**
+ * A draw function for one avatar: `(t, { still, light }) => void` paints the
+ * frame `kind` at time `t` (seconds) on a 2D context whose canvas is
+ * `size * FRAME_CANVAS_SCALE` CSS px square (the context already scaled for
+ * the device pixel ratio).
+ *
+ * @param {CanvasRenderingContext2D} ctx 2D context.
+ * @param {string} kind Frame id (hasFrameFx).
+ * @param {number} size Avatar diameter in CSS px.
+ * @return {?function(number, {still?: boolean, light?: boolean}=): void} null
+ *   for an unknown frame.
+ */
+export function createFrameRenderer(ctx, kind, size) {
+  if (!ctx || !hasFrameFx(kind)) return null;
+  const D = size;
+  const C = D * FRAME_CANVAS_SCALE;
+  const c = C / 2;
+  const u = frameUnit(D);
+  const k = {
+    ctx, D, C, c, u,
+    R: D / 2 + 3 * u, // ring radius, just outside the face
+    S: { parts: [], bolts: [], tick: 0, fixed: [] },
+    still: false,
+  };
+  const { R } = k;
+
+  k.glow = (x, y, r, rgb, a) => {
+    if (r <= 0 || a <= 0) return;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  };
+  // A browser without conic gradients gets the same colours across the ring
+  k.conic = (rot, stops) => {
+    const g = typeof ctx.createConicGradient === 'function'
+      ? ctx.createConicGradient(rot, c, c)
+      : ctx.createLinearGradient(c + Math.cos(rot) * R, c + Math.sin(rot) * R, c - Math.cos(rot) * R, c - Math.sin(rot) * R);
+    stops.forEach((s, i) => g.addColorStop(i / (stops.length - 1), s));
+    return g;
+  };
+  k.ring = (r, w, style, blurColor, blur) => {
+    ctx.save(); ctx.lineWidth = w; ctx.strokeStyle = style;
+    if (blurColor) { ctx.shadowColor = blurColor; ctx.shadowBlur = blur; }
+    ctx.beginPath(); ctx.arc(c, c, r, 0, TAU); ctx.stroke(); ctx.restore();
+  };
+  k.star4 = (x, y, r, rot, color, a) => {
+    if (a <= 0) return;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha = a; ctx.fillStyle = color;
+    ctx.shadowColor = color; ctx.shadowBlur = r;
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const rr = i % 2 ? r * 0.22 : r;
+      const a2 = (i * TAU) / 8;
+      ctx.lineTo(Math.cos(a2) * rr, Math.sin(a2) * rr);
+    }
+    ctx.closePath(); ctx.fill(); ctx.restore();
+  };
+  k.rays = (n, rot, len, rgb, a, wide = 0.5) => {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < n; i++) {
+      const a0 = rot + (i * TAU) / n;
+      const half = (TAU / n) * wide * 0.5;
+      const L = R + (i % 2 ? len * 0.62 : len);
+      const g = ctx.createRadialGradient(c, c, R * 0.9, c, c, L);
+      g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(c, c); ctx.arc(c, c, L, a0 - half, a0 + half); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  };
+  k.shine = (t, speed, w) => {
+    const a0 = (t * speed) % (TAU * 1.6);
+    if (a0 > TAU) return;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    ctx.lineWidth = w; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.shadowColor = '#fff'; ctx.shadowBlur = 8 * u;
+    ctx.beginPath(); ctx.arc(c, c, R, a0, a0 + 0.55); ctx.stroke(); ctx.restore();
+  };
+  // Everything drawn so far sits BEHIND the face
+  k.hole = () => {
+    ctx.save(); ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(c, c, D / 2 - 0.5, 0, TAU); ctx.fill(); ctx.restore();
+  };
+  // Things placed once per avatar (sparkle spots, the star field)
+  k.fixed = (n, make) => {
+    if (!k.S.fixed.length) for (let i = 0; i < n; i++) k.S.fixed.push(make(i));
+    return k.S.fixed;
+  };
+
+  return (t, { still = false, light = false } = {}) => {
+    k.still = still;
+    ctx.clearRect(0, 0, C, C);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    // Glows are additive: on a light page they wash out, so they get a dark
+    // backing to shine against, close around the ring like a soft shadow
+    if (light) {
+      const g = ctx.createRadialGradient(c, c, R, c, c, R + 26 * u);
+      g.addColorStop(0, 'rgba(15,23,42,.55)'); g.addColorStop(0.45, 'rgba(15,23,42,.2)'); g.addColorStop(1, 'rgba(15,23,42,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c, c, R + 26 * u, 0, TAU); ctx.fill();
+    }
+    DRAWERS[kind](k, t);
+  };
+}
+
+// ── The shared loop ─────────────────────────────────────────────────
+
+const entries = new Set();
+let rafId = 0;
+let lastDraw = 0;
+let startedAt = 0;
+let watching = false;
+let visibility = null;
+// ~60 draws a second at most, so a 120Hz screen doesn't run the particles
+// (which move per draw) twice as fast
+const MIN_FRAME_MS = 14;
+
+const root = () => (typeof document !== 'undefined' ? document.documentElement : null);
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
+/**
+ * Should frames stand still for this viewer: 簡化特效 is on. (Only the
+ * switch; not the system's reduced-motion setting, see the top of the file.)
+ *
+ * @return {boolean}
+ */
+export function frameFxStill() {
+  return root()?.getAttribute('data-fx') === 'lite';
+}
+
+const lightMode = () => root()?.getAttribute('data-mode') === 'light';
+const animated = (entry, still) => !still && !entry.still;
+
+function drawStill(entry) {
+  entry.render(STILL_T, { still: true, light: lightMode() });
+}
+
+function loop(time) {
+  rafId = 0;
+  if (typeof document !== 'undefined' && document.hidden) return;
+  const still = frameFxStill();
+  let running = 0;
+  const due = time - lastDraw >= MIN_FRAME_MS;
+  if (due) lastDraw = time;
+  const light = due && lightMode();
+  for (const entry of entries) {
+    if (!animated(entry, still)) continue;
+    running += 1;
+    if (due && entry.visible) entry.render((time - startedAt) / 1000, { light });
+  }
+  if (running) rafId = requestAnimationFrame(loop);
+}
+
+function kick() {
+  if (rafId || typeof requestAnimationFrame !== 'function') return;
+  if (typeof document !== 'undefined' && document.hidden) return;
+  const still = frameFxStill();
+  for (const entry of entries) {
+    if (animated(entry, still)) {
+      rafId = requestAnimationFrame(loop);
+      return;
+    }
+  }
+}
+
+// The viewer's settings changed (簡化特效, theme) or the tab came back: still pictures are redrawn, the loop starts again if needed
+function refresh() {
+  const still = frameFxStill();
+  for (const entry of entries) if (!animated(entry, still)) drawStill(entry);
+  kick();
+}
+
+function watch() {
+  if (watching || typeof document === 'undefined') return;
+  watching = true;
+  startedAt = now();
+  document.addEventListener('visibilitychange', refresh);
+  if (typeof MutationObserver === 'function') {
+    new MutationObserver(refresh).observe(document.documentElement, { attributes: true, attributeFilter: ['data-fx', 'data-mode'] });
+  }
+  if (typeof IntersectionObserver === 'function') {
+    visibility = new IntersectionObserver((records) => {
+      for (const record of records) {
+        const entry = [...entries].find((e) => e.canvas === record.target);
+        if (entry) entry.visible = record.isIntersecting;
+      }
+    }, { rootMargin: '40px' });
+  }
+}
+
+/**
+ * Draw a frame on a canvas and keep it animated through the shared loop.
+ * Sizes the canvas (size × FRAME_CANVAS_SCALE CSS px, device pixel ratio up
+ * to 2). Where there is no 2D canvas (jsdom, a blocked canvas) or for an
+ * unknown frame nothing is drawn and null comes back.
+ *
+ * @param {HTMLCanvasElement} canvas The canvas over the avatar.
+ * @param {string} kind Frame id.
+ * @param {number} size Avatar diameter in CSS px.
+ * @param {{still?: boolean}} [options] `still`: one static picture, never
+ *   animated (a locked frame's preview).
+ * @return {?{destroy: function(): void}}
+ */
+export function mountFrame(canvas, kind, size, { still = false } = {}) {
+  if (!canvas || !hasFrameFx(kind) || !(size > 0)) return null;
+  // No 2D canvas in this environment at all: don't even ask for a context
+  if (typeof CanvasRenderingContext2D === 'undefined') return null;
+  const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+  const box = size * FRAME_CANVAS_SCALE;
+  let ctx = null;
+  try {
+    canvas.width = Math.round(box * dpr);
+    canvas.height = Math.round(box * dpr);
+    ctx = canvas.getContext('2d');
+  } catch { /* no canvas here */ }
+  if (!ctx) return null;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const entry = { canvas, still, visible: true, render: createFrameRenderer(ctx, kind, size) };
+  watch();
+  entries.add(entry);
+  visibility?.observe(canvas);
+  // Always one picture right away (a still one stays as it is)
+  drawStill(entry);
+  kick();
+  return {
+    destroy() {
+      entries.delete(entry);
+      visibility?.unobserve(canvas);
+      if (!entries.size && rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+    },
+  };
+}
+
+/** How many frames are mounted (tests). */
+export function mountedFrameCount() {
+  return entries.size;
+}
