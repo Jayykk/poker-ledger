@@ -31,12 +31,15 @@
 // none) or read from the player's userTitles display through the shared cache
 // (`uid`; the same doc TitleBadge loads, so no extra read). No frame → a thin
 // neutral ring. Sizes: sm 28px (rows) · md 40px · lg 80px (profile).
+// Frames are the tier ones and the themed ones (ALL_FRAME_IDS); each gets its
+// class `frame-<id>`. 簡化特效 (:root[data-fx="lite"], utils/fx.js) and
+// prefers-reduced-motion stop whatever a frame animates.
 // A small crown sits on the corner while the player wears a 本月王座 (given
 // as `crown`, or read through `uid` like the frame).
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { avatarOf, ensureUserTitles, frameOf, wearsCrown } from '../../composables/useUserTitles.js';
-import { FRAME_IDS } from '../../utils/titles.js';
+import { ALL_FRAME_IDS } from '../../utils/titles.js';
 
 const props = defineProps({
   src: { type: String, default: '' },
@@ -66,7 +69,7 @@ const showCrown = computed(() => (props.crown !== undefined ? props.crown : wear
 const shownFrame = computed(() => {
   const id = given.value ? props.frame : frameOf(props.uid);
   // Unknown ids (a newer catalog than this build) show no frame
-  return FRAME_IDS.includes(id) ? id : null;
+  return ALL_FRAME_IDS.includes(id) ? id : null;
 });
 const frameName = computed(() => (shownFrame.value ? t(`titles.frames.${shownFrame.value}`) : ''));
 
@@ -168,5 +171,11 @@ const initial = computed(() => {
 :root[data-mode="light"] .frame-diamond {
   background: conic-gradient(from 210deg, #0891b2, #7c3aed, #c026d3, #0891b2);
   box-shadow: none;
+}
+
+/* 簡化特效 / reduced motion: nothing on a frame moves (colours and shape stay) */
+:root[data-fx="lite"] .pa, :root[data-fx="lite"] .pa * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .pa, .pa * { animation: none !important; }
 }
 </style>

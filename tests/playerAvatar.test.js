@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import zhTW from '../src/i18n/locales/zh-TW.json';
 import { crownMonthOf } from '../functions/src/utils/crownRules.js';
+import { ALL_FRAME_IDS, THEME_FRAMES } from '../functions/src/utils/titleRules.js';
 
 const NOW_MONTH = crownMonthOf(Date.now());
 
@@ -134,6 +135,38 @@ describe('PlayerAvatar', () => {
     expect(given.find('img').attributes('src')).toBe('https://example.com/seat.png');
   });
 
+  it('every frame of the catalog gets its class and name; ids from a newer catalog show no frame', () => {
+    for (const id of ALL_FRAME_IDS) {
+      const w = mountWith(PlayerAvatar, { name: 'A', frame: id });
+      expect(w.classes(), id).toContain(`frame-${id}`);
+      expect(w.classes(), id).not.toContain('frame-none');
+      expect(w.attributes('title'), id).toBe(zhTW.titles.frames[id]);
+      // The photo / initial, the corner crown and the account dot stay
+      const full = mountWith(PlayerAvatar, { name: 'A', frame: id, crown: true, linked: true });
+      expect(full.find('.pa-face').text()).toBe('A');
+      expect(full.find('.pa-crown .fa-crown').exists()).toBe(true);
+      expect(full.find('.pa-linked').exists()).toBe(true);
+    }
+    for (const id of ['ruby', 'auto', 'none', 'constructor', 'toString']) {
+      const w = mountWith(PlayerAvatar, { name: 'A', frame: id });
+      expect(w.classes(), id).toContain('frame-none');
+      expect(w.attributes('title'), id).toBeUndefined();
+    }
+  });
+
+  it('a themed frame on a display shows through the shared cache', async () => {
+    const id = THEME_FRAMES[0].id;
+    docs.tess = { ladder: 2, display: { familyId: null, tier: null, frame: id }, unlocked: {}, prefs: { mode: 'off', frame: id } };
+    docs.uma = { ladder: 2, display: { familyId: null, tier: null, frame: 'from-a-newer-build' }, unlocked: {}, prefs: { mode: 'off' } };
+    const tess = mountWith(PlayerAvatar, { uid: 'tess', name: 'Tess' });
+    const uma = mountWith(PlayerAvatar, { uid: 'uma', name: 'Uma' });
+    await flushPromises();
+    expect(frameOf('tess')).toBe(id);
+    expect(tess.classes()).toContain(`frame-${id}`);
+    expect(uma.classes()).toContain('frame-none');
+    expect(uma.text()).toBe('U');
+  });
+
   it('reads the frame a player shows through the shared cache', async () => {
     const dave = mountWith(PlayerAvatar, { uid: 'dave', name: 'Dave' });
     const erin = mountWith(PlayerAvatar, { uid: 'erin', name: 'Erin' });
@@ -247,6 +280,7 @@ describe('where avatars and live titles go', () => {
     const profile = read('src/views/ProfileView.vue');
     expect(profile).toContain('<PlayerAvatar size="lg" :src="userAvatar || \'\'" :name="displayName || \'\'" :frame="myFrame" :uid="user?.uid || \'\'" />');
     expect(profile).toContain('@click="pickFrame(f.id)"');
+    expect(profile).toContain('@click="pickFrame(th.id)"');
     expect(profile).toContain("$t('titles.frameNeed', { n: f.min })");
     expect(read('src/views/TitlesView.vue')).toContain("$t('titles.titleCount', { n: myTitleCount })");
   });

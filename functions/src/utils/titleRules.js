@@ -19,7 +19,7 @@
 //   unlocked  { [familyId]: { tier, at } }  only ever goes up; `at` = when the
 //             current tier was first reached (millis)
 //   prefs     { mode: 'off'|'auto'|'pick', titleId, titleTier, showRoomTitles,
-//               frame: 'auto'|frameId, nameSet: 'classic'|'chuuni' }
+//               frame: 'auto'|'none'|frameId, nameSet: 'classic'|'chuuni' }
 //               titleTier: which reached step of the picked family to show
 //               (null = its highest; shown at most at the reached tier, so a
 //               rebuild that lowers it clamps). nameSet: which set of names
@@ -40,6 +40,11 @@
 // FRAME_TIERS says how many earn each frame. `unlocked` only grows, so a frame
 // never drops. prefs.frame 'auto' shows the highest earned; a lower earned one
 // can be picked.
+// 主題框 (THEME_FRAMES): a frame with its own look per title family, earned
+// while that family is at THEME_FRAME_MIN_TIER or above. Shown only when
+// picked ('auto' stays the highest tier frame); a pick that is no longer
+// earned (a rebuild lowered the family) falls back like 'auto'. A client
+// that doesn't know a frame id shows no frame.
 //
 // 本月王座 (source 'crown', CROWN_FAMILIES): monthly #1 inside the user's
 // 牌友圈, judged in crownRules.js and stored apart from `unlocked`:
@@ -121,7 +126,7 @@ export function isLegacyDefaultPrefs(prefs) {
 export const FRAME_MIN_BRONZE = 10;
 export const FRAME_MIN_SILVER = 25;
 export const FRAME_MIN_GOLD = 50;
-export const FRAME_MIN_PLATINUM = 70;
+export const FRAME_MIN_PLATINUM = 80;
 export const FRAME_MIN_DIAMOND = 100;
 
 // 頭像框, lowest first: `min` titles held earn the frame
@@ -137,7 +142,25 @@ export const FRAME_IDS = Object.freeze(FRAME_TIERS.map((f) => f.id));
 export const FRAME_AUTO = 'auto';
 // prefs.frame: no frame shown
 export const FRAME_NONE = 'none';
-const FRAME_PREFS = Object.freeze([FRAME_AUTO, FRAME_NONE, ...FRAME_IDS]);
+
+// 主題框: reaching `minTier` of `family` earns the frame `id`. Adding one is
+// an entry here, its look in PlayerAvatar.vue and its name (titles.frames.*).
+export const THEME_FRAME_MIN_TIER = 5;
+export const THEME_FRAMES = Object.freeze([
+  Object.freeze({ id: 'fire', family: 'hotStreak', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'tide', family: 'volatile', minTier: THEME_FRAME_MIN_TIER }),
+  // 'gold' is the tier frame
+  Object.freeze({ id: 'coin', family: 'netWin', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'night', family: 'nightOwl', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'bloodmoon', family: 'hunter', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'frost', family: 'coldStreak', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'king', family: 'champion', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'abyss', family: 'badBeat', minTier: THEME_FRAME_MIN_TIER }),
+]);
+export const THEME_FRAME_IDS = Object.freeze(THEME_FRAMES.map((f) => f.id));
+// Every frame an avatar can wear: the tier frames, then the themed ones
+export const ALL_FRAME_IDS = Object.freeze([...FRAME_IDS, ...THEME_FRAME_IDS]);
+const FRAME_PREFS = Object.freeze([FRAME_AUTO, FRAME_NONE, ...ALL_FRAME_IDS]);
 
 // σ (volatility / steadiness) needs this many games with a known 組 size
 export const TITLE_MIN_GROUP_GAMES = 10;
@@ -625,7 +648,49 @@ export function earnedFrames(unlocked) {
 }
 
 /**
- * The frame shown: the picked one while earned, else the highest earned.
+ * A themed frame's catalog entry.
+ *
+ * @param {?string} frameId Frame id.
+ * @return {?{id: string, family: string, minTier: number}} null when it is
+ *   not a themed frame.
+ */
+export function getThemeFrame(frameId) {
+  return THEME_FRAMES.find((f) => f.id === frameId) || null;
+}
+
+/**
+ * Themed frames the unlocked titles earn (catalog order): the frame's family
+ * is at its minTier or above. Like the tier frames, an entry with an expiry
+ * never earns one.
+ *
+ * @param {?object} unlocked Stored unlocked map.
+ * @return {Array<string>} Frame ids.
+ */
+export function earnedThemeFrames(unlocked) {
+  return THEME_FRAMES
+    .filter((f) => {
+      const entry = unlocked?.[f.family];
+      return countsTowardFrames(f.family, entry) && entry.tier >= f.minTier;
+    })
+    .map((f) => f.id);
+}
+
+/**
+ * Can this frame be worn: a tier frame up to the earned one, or an earned
+ * themed frame.
+ *
+ * @param {?string} frameId Frame id.
+ * @param {?object} unlocked Stored unlocked map.
+ * @return {boolean}
+ */
+export function isFrameEarned(frameId, unlocked) {
+  if (getThemeFrame(frameId)) return earnedThemeFrames(unlocked).includes(frameId);
+  return FRAME_IDS.includes(frameId) && frameRank(frameId) <= frameRank(earnedFrame(unlocked));
+}
+
+/**
+ * The frame shown: the picked one while earned (a tier frame or a themed
+ * one), else the highest earned tier frame. 'auto' never gives a themed one.
  *
  * @param {?object} unlocked Stored unlocked map.
  * @param {?object} prefs Stored prefs.
@@ -634,9 +699,10 @@ export function earnedFrames(unlocked) {
 export function resolveFrame(unlocked, prefs) {
   const picked = normalizeTitlePrefs(prefs).frame;
   if (picked === FRAME_NONE) return null;
+  if (getThemeFrame(picked) && isFrameEarned(picked, unlocked)) return picked;
   const earned = earnedFrame(unlocked);
   if (!earned) return null;
-  if (picked !== FRAME_AUTO && frameRank(picked) <= frameRank(earned)) return picked;
+  if (FRAME_IDS.includes(picked) && frameRank(picked) <= frameRank(earned)) return picked;
   return earned;
 }
 
@@ -755,8 +821,7 @@ export function validateTitlePrefs(input, current, unlocked, crownCtx = null) {
   }
   if (data.frame !== undefined) {
     if (!FRAME_PREFS.includes(data.frame)) return { error: 'bad-frame' };
-    const locked = frameRank(data.frame) > frameRank(earnedFrame(unlocked));
-    if (FRAME_IDS.includes(data.frame) && locked) {
+    if (ALL_FRAME_IDS.includes(data.frame) && !isFrameEarned(data.frame, unlocked)) {
       return { error: 'frame-locked' };
     }
     next.frame = data.frame;

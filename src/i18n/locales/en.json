@@ -269,7 +269,9 @@
         "name": "Ivory",
         "desc": "Warm paper and ink blue (light)"
       }
-    }
+    },
+    "fxLite": "Simplified effects",
+    "fxLiteHint": "Avatar frames stop animating and drop their particles, on your screen only"
   },
   "friends": {
     "title": "Friends",
@@ -2005,7 +2007,15 @@
       "silver": "Silver frame",
       "gold": "Gold frame",
       "platinum": "Platinum frame",
-      "diamond": "Diamond frame"
+      "diamond": "Diamond frame",
+      "fire": "Inferno",
+      "tide": "Raging Tide",
+      "coin": "Golden Rule",
+      "night": "Eternal Night",
+      "bloodmoon": "Blood Moon Hunt",
+      "frost": "Undying Frost",
+      "king": "King of Kings",
+      "abyss": "Abyssal Shadow"
     },
     "room": {
       "live": "Live room title",
@@ -2043,7 +2053,12 @@
         "games": "{n} games"
       },
       "needPals": "Share 2 games with {n} more players to join this month's crowns"
-    }
+    },
+    "frameTiers": "Tier frames",
+    "frameThemes": "Themed frames",
+    "frameThemesHint": "Reach tier {n} of the matching title to unlock one; Auto only picks tier frames",
+    "frameThemeNeed": "Earn the tier {n} title \"{name}\"",
+    "frameThemeNeedHidden": "Reach tier {n} of a hidden title"
   },
   "chipSet": {
     "title": "Chip denominations",
