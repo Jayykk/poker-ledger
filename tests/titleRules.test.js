@@ -97,6 +97,8 @@ describe('title catalog', () => {
       for (const group of TITLE_GROUPS) expect(get(`titles.groups.${group}`), `${locale} group ${group}`).toBeTruthy();
       for (const frame of [...FRAME_TIERS, ...THEME_FRAMES]) expect(get(`titles.frames.${frame.id}`), `${locale} frame ${frame.id}`).toBeTruthy();
       expect(new Set(ALL_FRAME_IDS.map((id) => get(`titles.frames.${id}`))).size, `${locale} frame names`).toBe(ALL_FRAME_IDS.length);
+      // No name left over from a frame that is gone
+      expect(Object.keys(get('titles.frames')).sort(), `${locale} frame keys`).toEqual([...ALL_FRAME_IDS].sort());
       for (const key of ['frameTiers', 'frameThemes', 'frameThemesHint', 'frameThemeNeed', 'frameThemeNeedHidden']) {
         expect(get(`titles.${key}`), `${locale} titles.${key}`).toBeTruthy();
       }
@@ -792,6 +794,14 @@ describe('主題框 (themed frames)', () => {
   // change without touching the rules
   const [first, second] = THEME_FRAMES;
   const at = (frame, tier) => ({ [frame.family]: { tier, at: 1 } });
+
+  it('the eight themed frames and the family each belongs to', () => {
+    expect(THEME_FRAMES.map((f) => [f.id, f.family])).toEqual([
+      ['fire', 'hotStreak'], ['thunder', 'volatile'], ['coin', 'netWin'], ['king', 'champion'],
+      ['night', 'nightOwl'], ['frost', 'coldStreak'], ['abyss', 'badBeat'], ['tide', 'hunter'],
+    ]);
+    expect(FRAME_IDS).toEqual(['bronze', 'silver', 'gold', 'platinum', 'diamond']);
+  });
 
   it('the catalog: one array, each frame on a real family at tier 5, ids apart from the tier frames', () => {
     expect(THEME_FRAME_MIN_TIER).toBe(5);

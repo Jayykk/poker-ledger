@@ -2009,13 +2009,13 @@
       "platinum": "Platinum frame",
       "diamond": "Diamond frame",
       "fire": "Inferno",
-      "tide": "Raging Tide",
+      "thunder": "Thunder",
       "coin": "Golden Rule",
-      "night": "Eternal Night",
-      "bloodmoon": "Blood Moon Hunt",
-      "frost": "Undying Frost",
       "king": "King of Kings",
-      "abyss": "Abyssal Shadow"
+      "night": "Eternal Night",
+      "frost": "Undying Frost",
+      "abyss": "Abyssal Shadow",
+      "tide": "Raging Tide"
     },
     "room": {
       "live": "Live room title",

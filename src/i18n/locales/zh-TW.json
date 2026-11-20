@@ -2009,13 +2009,13 @@
       "platinum": "白金框",
       "diamond": "鑽石框",
       "fire": "烈焰",
-      "tide": "怒濤",
+      "thunder": "雷霆",
       "coin": "黃金律",
-      "night": "永夜",
-      "bloodmoon": "血月獵殺",
-      "frost": "不滅冰魂",
       "king": "萬王之王",
-      "abyss": "深淵暗影"
+      "night": "永夜",
+      "frost": "不滅冰魂",
+      "abyss": "深淵暗影",
+      "tide": "怒濤"
     },
     "room": {
       "live": "房內即時稱號",

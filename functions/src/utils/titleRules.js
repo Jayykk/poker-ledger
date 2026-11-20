@@ -144,18 +144,19 @@ export const FRAME_AUTO = 'auto';
 export const FRAME_NONE = 'none';
 
 // 主題框: reaching `minTier` of `family` earns the frame `id`. Adding one is
-// an entry here, its look in PlayerAvatar.vue and its name (titles.frames.*).
+// an entry here, its draw function in src/utils/frameFx.js and its name
+// (titles.frames.*).
 export const THEME_FRAME_MIN_TIER = 5;
 export const THEME_FRAMES = Object.freeze([
   Object.freeze({ id: 'fire', family: 'hotStreak', minTier: THEME_FRAME_MIN_TIER }),
-  Object.freeze({ id: 'tide', family: 'volatile', minTier: THEME_FRAME_MIN_TIER }),
-  // 'gold' is the tier frame
+  Object.freeze({ id: 'thunder', family: 'volatile', minTier: THEME_FRAME_MIN_TIER }),
+  // 黃金律 ('gold' is the tier frame)
   Object.freeze({ id: 'coin', family: 'netWin', minTier: THEME_FRAME_MIN_TIER }),
-  Object.freeze({ id: 'night', family: 'nightOwl', minTier: THEME_FRAME_MIN_TIER }),
-  Object.freeze({ id: 'bloodmoon', family: 'hunter', minTier: THEME_FRAME_MIN_TIER }),
-  Object.freeze({ id: 'frost', family: 'coldStreak', minTier: THEME_FRAME_MIN_TIER }),
   Object.freeze({ id: 'king', family: 'champion', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'night', family: 'nightOwl', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'frost', family: 'coldStreak', minTier: THEME_FRAME_MIN_TIER }),
   Object.freeze({ id: 'abyss', family: 'badBeat', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'tide', family: 'hunter', minTier: THEME_FRAME_MIN_TIER }),
 ]);
 export const THEME_FRAME_IDS = Object.freeze(THEME_FRAMES.map((f) => f.id));
 // Every frame an avatar can wear: the tier frames, then the themed ones

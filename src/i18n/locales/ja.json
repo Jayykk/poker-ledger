@@ -2009,13 +2009,13 @@
       "platinum": "プラチナフレーム",
       "diamond": "ダイヤフレーム",
       "fire": "烈焔",
-      "tide": "怒濤",
+      "thunder": "雷霆",
       "coin": "黄金律",
-      "night": "永夜",
-      "bloodmoon": "血月の狩り",
-      "frost": "不滅の氷魂",
       "king": "王の中の王",
-      "abyss": "深淵の影"
+      "night": "永夜",
+      "frost": "不滅の氷魂",
+      "abyss": "深淵の影",
+      "tide": "怒濤"
     },
     "room": {
       "live": "ルーム内リアルタイム称号",

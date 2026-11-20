@@ -180,14 +180,14 @@ describe('PlayerAvatar', () => {
     expect(reads.filter((id) => id === 'dave')).toHaveLength(1);
   });
 
-  it('every frame has a style for both theme modes', () => {
+  it('no frame keeps the thin neutral ring; a frame hands the ring to its canvas', () => {
     const src = readFileSync(resolve(__dirname, '../src/components/common/PlayerAvatar.vue'), 'utf-8');
-    for (const id of ['bronze', 'silver', 'gold', 'platinum', 'diamond']) {
-      expect(src).toContain(`.frame-${id} {`);
-      expect(src).toContain(`:root[data-mode="light"] .frame-${id} {`);
-    }
-    expect(src).toMatch(/\.frame-platinum \{ background: linear-gradient/);
-    expect(src).toMatch(/\.frame-diamond \{\s*background: conic-gradient/);
+    expect(src).toMatch(/\.pa-sm\.frame-none, \.pa-md\.frame-none \{ --ring: 1px; \}/);
+    expect(src).toMatch(/\.pa-framed \{ padding: 0; background: transparent; \}/);
+    expect(src).toContain('<canvas v-if="shownFrame" ref="fxCanvas" class="pa-fx" aria-hidden="true"></canvas>');
+    // Light themes still restyle the corner marks
+    expect(src).toContain(':root[data-mode="light"] .pa-linked {');
+    expect(src).toContain(':root[data-mode="light"] .pa-crown {');
   });
 });
 

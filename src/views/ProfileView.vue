@@ -137,7 +137,8 @@
         </div>
 
         <!-- 頭像框: folded the same way; two groups (等級框 by titles held, 主題框 by a
-             title family's step); earned ones to pick, locked ones dashed with what they need -->
+             title family's step); earned ones to pick (their previews move), locked
+             ones dashed and still, with what they need -->
         <button type="button" class="title-fold" :aria-expanded="frameOpen" @click="frameOpen = !frameOpen">
           <span class="text-xs text-gray-400 whitespace-nowrap">{{ $t('titles.frame') }}</span>
           <span class="title-fold-now">
@@ -180,7 +181,7 @@
               :data-frame="f.id"
               @click="pickFrame(f.id)"
             >
-              <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="f.id" />
+              <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="f.id" :still="f.locked" />
               <span class="frame-opt-name">{{ $t(`titles.frames.${f.id}`) }}</span>
               <span v-if="f.locked" class="frame-opt-sub">{{ $t('titles.frameNeed', { n: f.min }) }}</span>
             </button>
@@ -200,7 +201,7 @@
               :data-frame="th.id"
               @click="pickFrame(th.id)"
             >
-              <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="th.id" />
+              <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="th.id" :still="th.locked" />
               <span class="frame-opt-name">{{ $t(`titles.frames.${th.id}`) }}</span>
               <span v-if="th.locked" class="frame-opt-sub">{{ th.need }}</span>
             </button>

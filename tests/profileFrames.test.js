@@ -189,9 +189,10 @@ describe('簡化特效', () => {
     expect(main).toContain('applyFxLite(isFxLite(THEME_STORAGE_KEYS.FX_LITE));');
   });
 
-  it('PlayerAvatar stops its animations in lite mode and for reduced motion', () => {
-    const src = readFileSync(resolve(__dirname, '../src/components/common/PlayerAvatar.vue'), 'utf-8');
-    expect(src).toMatch(/:root\[data-fx="lite"\] \.pa, :root\[data-fx="lite"\] \.pa \* \{ animation: none !important; \}/);
-    expect(src).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\.pa, \.pa \* \{ animation: none !important; \}/);
+  it('the frame renderer reads the flag itself (and reduced motion), watching the root for changes', () => {
+    const src = readFileSync(resolve(__dirname, '../src/utils/frameFx.js'), 'utf-8');
+    expect(src).toContain("root()?.getAttribute('data-fx') === 'lite'");
+    expect(src).toContain("window.matchMedia?.('(prefers-reduced-motion: reduce)').matches");
+    expect(src).toContain("attributeFilter: ['data-fx', 'data-mode']");
   });
 });
