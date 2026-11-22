@@ -384,17 +384,19 @@ const onShareTable = () => withNotice(() => shareSessionTableCard(session.value)
 // The card carries every tab (總和 / 牌局 / 代墊), whichever one is on screen.
 const onShareSummary = () => withNotice(() => shareSessionSummary(session.value, summary.value, expenses.value));
 
-// A member of the active period: is their table still running? Checked once
-// per gameId, so the host advancing to the next table is checked again.
+// Is the active table still running? Asked for every visitor but the host
+// (whose console advances a finished one), also someone not at that table:
+// their banner must not say 進行中 over a table that is over. Checked once per
+// gameId, so the host advancing to the next table is checked again.
 // Nobody is sent to the table from this page (it is also where the sign-ups
 // and 代墊分帳 are), except someone who came from the "table is live" card.
 watch(() => [view.value.mode, view.value.route, session.value?.activeSlot?.gameId], async ([mode, tableRoute, gameId]) => {
-  if (mode !== 'rsvp' || !tableRoute || !gameId || tableState.value.gameId === gameId) return;
+  if (mode !== 'rsvp' || !gameId || tableState.value.gameId === gameId) return;
   tableState.value = { gameId, state: null };
   const live = await isGameLive(gameId);
   if (session.value?.activeSlot?.gameId !== gameId) return;
   tableState.value = { gameId, state: live ? 'live' : 'gone' };
-  if (live && wantsEnter && !entering.value) {
+  if (live && tableRoute && wantsEnter && !entering.value) {
     entering.value = true;
     markSessionReturn(route.params.sessionId, gameId);
     // The page without ?enter stays behind in history: leaving the table

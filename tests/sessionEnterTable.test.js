@@ -135,6 +135,19 @@ describe('SessionView while a table runs', () => {
     expect(bob.find('[data-test="live"]').text()).toContain('進行中');
   });
 
+  it('someone not at the table is not told 進行中 over a table that already finished', async () => {
+    live = false;
+    const bob = await mountAs('bob');
+    expect(bob.find('[data-test="live"]').text()).toContain('目前無進行中時段');
+    expect(bob.find('[data-test="live"]').text()).not.toContain('進行中 ·');
+  });
+
+  it('?enter=1 takes nobody to a table they are not signed up for', async () => {
+    query.enter = '1';
+    await mountAs('bob');
+    expect(push).not.toHaveBeenCalled();
+  });
+
   it('the host has the button too, without waiting for a check', async () => {
     live = false;
     const w = await mountAs('host');
