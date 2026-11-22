@@ -393,8 +393,10 @@ export function streetEquities(hero, villain, board, dead = [], options = {}) {
 //   bad beat  at ANY of the three the winner had ≤ 20% (KK over AA preflop,
 //             ~18%, counts)
 //   cooler    both had a big hand (premium preflop: QQ+ or AK; or a final
-//             hand of three of a kind or better) and the winner was ≥ 50% at
-//             all three: ahead the whole way, so never also a bad beat
+//             hand of three of a kind or better) and it was no bad beat: the
+//             winner was above 20% at all three. Not "ahead the whole way":
+//             that left out quads running into a straight flush whose holder
+//             was a little behind before the flop (KQs against AJ)
 //             (a big made hand must also beat what the board alone shows)
 
 /**
@@ -421,12 +423,11 @@ export function isPremiumStart(holes) {
  */
 export function classifyShowdown({ equities, winnerBig, loserBig }) {
   // Compared in whole numbers (equity = (2·win + tie) / 2n), so exactly 20%
-  // is exactly 20%: ≤ 1/5 ⇔ 5·(2·win + tie) ≤ 2n; ≥ 1/2 ⇔ 2·win + tie ≥ n
+  // is exactly 20%: ≤ 1/5 ⇔ 5·(2·win + tie) ≤ 2n
   const halves = (e) => 2 * e.win + e.tie;
   const known = STREETS.map((street) => equities?.[street]).filter((e) => e && e.n > 0);
   const badBeat = known.some((e) => 5 * halves(e) <= 2 * e.n);
-  const cooler = !!winnerBig && !!loserBig && known.length === STREETS.length
-    && known.every((e) => halves(e) >= e.n);
+  const cooler = !!winnerBig && !!loserBig && known.length === STREETS.length && !badBeat;
   return { badBeat, cooler };
 }
 
