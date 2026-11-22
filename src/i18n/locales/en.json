@@ -1330,7 +1330,7 @@
         "t10": "Richest on Earth"
       },
       "steady": {
-        "desc": "Games while σ < 1.5 buy-ins and in profit",
+        "desc": "Games while σ < 2.6 buy-ins and in profit",
         "t1": "Slow and Steady",
         "t2": "Rock Solid",
         "t3": "Pro Player",
@@ -1528,7 +1528,7 @@
         "t10": "Indestructible"
       },
       "nightOwl": {
-        "desc": "Games finished 3–6 a.m.",
+        "desc": "Games finished 1–6 a.m.",
         "t1": "Night Owl",
         "t2": "Late Nighter",
         "t3": "Night Walker",

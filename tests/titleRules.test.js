@@ -260,7 +260,7 @@ describe('evaluateTitles', () => {
   it('volatility needs 10 games with a 組 size; steady also needs a net profit', () => {
     // 10 games of ±3 組 → σ = 3
     const swingy = { groupGames: 10, sumGroups: 0, sumSqGroups: 90 };
-    expect(evaluateTitles(stats({ total: { games: 10, ...swingy } })).volatile).toBe(4);
+    expect(evaluateTitles(stats({ total: { games: 10, ...swingy } })).volatile).toBe(7);
     expect(evaluateTitles(stats({ total: { games: 9, ...swingy, groupGames: 9, sumSqGroups: 81 } })).volatile)
       .toBeUndefined();
 
@@ -269,6 +269,10 @@ describe('evaluateTitles', () => {
     expect(evaluateTitles(stats({ total: calm })).steady).toBe(3);
     expect(evaluateTitles(stats({ total: { ...calm, profit: -1 } })).steady).toBeUndefined();
     expect(evaluateTitles(stats({ total: { ...swingy, games: 50, profit: 100 } })).steady).toBeUndefined();
+    // σ = 2.5 still counts as steady (under 2.6), σ = 2.6 does not
+    const sd = (v) => ({ games: 10, groupGames: 10, sumGroups: 0, sumSqGroups: 10 * v * v, profit: 100 });
+    expect(evaluateTitles(stats({ total: sd(2.5) })).steady).toBe(1);
+    expect(evaluateTitles(stats({ total: sd(2.6) })).steady).toBeUndefined();
   });
 
   it('the families that used to have one to three steps climb all ten now', () => {
