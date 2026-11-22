@@ -841,6 +841,9 @@
     "copySelected": "已選 {count}/{max} 人",
     "copyRosterHint": "從本活動已報名的成員直接帶入這個新時段，成員不必再報名一次",
     "copyOverCap": "「{label}」帶入人數超過上限",
+    "manage": "主辦管理",
+    "tableOpen": "牌桌已開，隨時可以入座",
+    "signedUp": "已報名",
     "createShort": "建立",
     "noActiveEvents": "目前沒有進行中的活動"
   },

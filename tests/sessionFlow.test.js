@@ -126,17 +126,17 @@ describe('resolveSessionView', () => {
     expect(resolveSessionView(s, 'host')).toEqual({ mode: 'host-console', route: '/game/g1' });
   });
 
-  it('redirects a member of the active linked period', () => {
+  it('a member of the active linked period stays on the board, with the table to enter', () => {
     const s = makeSession({
       status: 'active',
       periods: [{ id: 'p1', type: 'cash', status: 'active', rosterUids: ['host', 'bob'] }],
       participantUids: ['host', 'bob'],
       activeSlot: { id: 'p1', type: 'cash', gameId: 'g1' },
     });
-    expect(resolveSessionView(s, 'bob')).toEqual({ mode: 'redirect', route: '/game/g1' });
+    expect(resolveSessionView(s, 'bob')).toEqual({ mode: 'rsvp', route: '/game/g1' });
   });
 
-  it('shows the board (no redirect) to a member NOT in the active period', () => {
+  it('shows the board (no table to enter) to a member NOT in the active period', () => {
     const s = makeSession({
       status: 'active',
       periods: [
