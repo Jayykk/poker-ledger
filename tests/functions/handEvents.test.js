@@ -162,14 +162,16 @@ describe('classifyShowdown', () => {
     expect(at('preflop', eq(4001, 0, 20000)).badBeat).toBe(false);
   });
 
-  it('cooler: both big and ≥ 50% at all three streets (exactly 50% included)', () => {
-    const half = eq(20, 0, 40);
-    const all = { preflop: half, flop: ahead, turn: ahead };
+  it('cooler: both big and no bad beat (the winner above 20% at all three streets)', () => {
+    // behind before the flop, but not by a bad beat's margin
+    const behindABit = eq(16, 0, 40);
+    const all = { preflop: behindABit, flop: ahead, turn: ahead };
     expect(classifyShowdown({ equities: all, winnerBig: true, loserBig: true }))
       .toEqual({ badBeat: false, cooler: true });
     expect(classifyShowdown({ equities: all, winnerBig: true, loserBig: false }).cooler).toBe(false);
-    const behind = { ...all, flop: eq(19, 1, 40) };
-    expect(classifyShowdown({ equities: behind, winnerBig: true, loserBig: true }).cooler).toBe(false);
+    const beat = { ...all, flop: eq(8, 0, 40) };
+    expect(classifyShowdown({ equities: beat, winnerBig: true, loserBig: true }))
+      .toEqual({ badBeat: true, cooler: false });
     expect(classifyShowdown({ equities: { flop: ahead, turn: ahead }, winnerBig: true, loserBig: true }).cooler)
       .toBe(false);
   });
@@ -194,6 +196,15 @@ describe('bad beats and coolers in hand records', () => {
   it('set under set that hits quads on the river: a bad beat, not a cooler', () => {
     const got = handEventsOfHand(hand(['9♦', '5♣', '2♠', 'J♥', '5♦'], [['fives', ['5♠', '5♥'], W], ['nines', ['9♠', '9♥']]]));
     expect(got).toEqual({ fives: { quads: 1, badBeatWins: 1 } });
+  });
+
+  it('quads into a straight flush, the winner a little behind before the flop: a cooler for both', () => {
+    // KQ suited against AJ (about 40% before the flop), a straight on the flop, the J♦ on the river
+    const got = handEventsOfHand(hand(['10♦', 'J♠', '9♦', 'J♥', 'J♦'], [['kq', ['Q♦', 'K♦'], W], ['aj', ['A♠', 'J♣']]]));
+    expect(got).toEqual({
+      kq: { straightFlush: 1, coolers: 1 },
+      aj: { quads: 1, tragicHero: 1, coolers: 1 },
+    });
   });
 
   it('no cooler without two big hands; trips on the board are nobody\'s', () => {
