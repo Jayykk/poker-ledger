@@ -87,7 +87,7 @@ export function recordMillis(record) {
 //   winStreakBest / lossStreakBest  longest run of games with profit > 0 / < 0
 //                                 in completedAt order (a 0 result breaks both)
 //   hostedGames                   games the user hosted (history_sub.hostUid)
-//   nightGames                    games finished 03:00–06:00 Asia/Taipei
+//   nightGames                    games finished 01:00–06:00 Asia/Taipei
 //   grossWon / grossGiven         Σ of the games that ended up / down, each
 //                                 in the same money unit as `profit` (the
 //                                 down ones as a positive number), so
@@ -157,7 +157,8 @@ const round2 = (n) => Math.round(n * 100) / 100;
 const round4 = (n) => Math.round(n * 10000) / 10000;
 
 // Taipei hours [NIGHT_FROM_HOUR, NIGHT_TO_HOUR) count as a night game (夜貓子)
-const NIGHT_FROM_HOUR = 3;
+// From 01:00, not 00:00: old records that only kept the date read as midnight
+const NIGHT_FROM_HOUR = 1;
 const NIGHT_TO_HOUR = 6;
 
 /**
@@ -172,7 +173,7 @@ function completedMillis(record) {
 }
 
 /**
- * True when a game finished between 03:00 and 06:00 Asia/Taipei.
+ * True when a game finished between 01:00 and 06:00 Asia/Taipei.
  *
  * @param {number} ms Unix millis.
  * @return {boolean}
@@ -424,7 +425,8 @@ export function aggregateHistoryRecords(uid, records) {
 // 4: titles fields (groups / streaks / hosted / night / knockedOut / bubble …)
 // 5: hand events in the total bucket (quads / badBeatWins / revenge …)
 // 6: grossWon / grossGiven in every bucket (印鈔機 / 大善人 titles)
-export const LEADERBOARD_STATS_VERSION = 6;
+// 7: nightGames counts from 01:00 (was 03:00)
+export const LEADERBOARD_STATS_VERSION = 7;
 
 /**
  * Build the full leaderboardStats doc set for a user (Firestore payloads).

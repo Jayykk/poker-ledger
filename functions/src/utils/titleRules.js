@@ -169,7 +169,9 @@ const FRAME_PREFS = Object.freeze([FRAME_AUTO, FRAME_NONE, ...ALL_FRAME_IDS]);
 // σ (volatility / steadiness) needs this many games with a known 組 size
 export const TITLE_MIN_GROUP_GAMES = 10;
 // 穩健: σ of the per-game result (組) below this (where 老闆's ladder starts)
-export const STEADY_MAX_STDDEV = 1.5;
+// 2.6: at 1.5 nobody qualified (Nov 2026: of 11 players with 10+ games one
+// was under 1.5, and not in profit)
+export const STEADY_MAX_STDDEV = 2.6;
 
 // Steps per family
 export const TITLE_TIER_COUNT = 10;
@@ -187,7 +189,7 @@ export const TITLE_LADDERS = Object.freeze({
   netLoss: [1000, 2000, 4000, 7000, 12000, 20000, 30000, 45000, 70000, 100000], // top 47K → 8
   bigWin: [2, 3, 4, 6, 8, 10, 14, 18, 22, 30], // 組, top 12.95 → 6
   bigLoss: [2, 3, 4, 5, 6, 8, 10, 13, 16, 20], // 組, top 9.1 → 6
-  volatile: [1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7], // σ (組), top 3.76 → 5
+  volatile: [1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.5, 4, 5], // σ (組), top 3.31 → 7
   steady: [10, 15, 20, 30, 40, 55, 70, 90, 120, 160], // games (most played 105)
   // ── 獵頭
   hunter: [1, 2, 3, 4, 5, 7, 10, 15, 25, 40], // top 5 → 5

@@ -204,12 +204,12 @@ describe('buildLeaderboardStatsDocs', () => {
       .toEqual([]);
   });
 
-  it('stamps sourceVersion 6 (grossWon / grossGiven)', () => {
+  it('stamps sourceVersion 7 (night games from 01:00)', () => {
     const docs = buildLeaderboardStatsDocs({
       uid: 'u1', name: 'A', hidden: false,
       records: [{ type: 'live', profit: 1, createdAt: twMillis('2026-07-22T20:00:00') }],
     });
-    expect(docs[0].data.sourceVersion).toBe(6);
+    expect(docs[0].data.sourceVersion).toBe(7);
   });
 });
 
@@ -327,12 +327,14 @@ describe('titles stats fields', () => {
     expect(runs.tournament.winStreakBest).toBe(0);
   });
 
-  it('counts hosted games and games finished 03:00-06:00 Taipei', () => {
+  it('counts hosted games and games finished 01:00-06:00 Taipei', () => {
     const t = aggregateHistoryRecords(uid, [
-      cash(1, 3, { hostUid: uid }),
+      cash(1, 1, { hostUid: uid }),
       cash(1, 5),
       cash(1, 6, { hostUid: 'someone' }),
-      cash(1, 2),
+      // midnight is out: records that only kept the date read as 00:00
+      cash(1, 0),
+      cash(1, 23),
     ]).get('all').total;
     expect(t.hostedGames).toBe(1);
     expect(t.nightGames).toBe(2);
