@@ -841,6 +841,9 @@
     "copySelected": "{count}/{max} selected",
     "copyRosterHint": "Tick members already signed up for this event to seat them in this new period — no need to RSVP again",
     "copyOverCap": "\"{label}\" has more copied members than its player cap",
+    "manage": "Host tools",
+    "tableOpen": "The table is open, take your seat any time",
+    "signedUp": "Signed up",
     "createShort": "New",
     "noActiveEvents": "No events in progress"
   },

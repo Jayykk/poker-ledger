@@ -3,114 +3,38 @@
     <div v-if="loading && !session" class="state-msg">{{ t('loading') }}</div>
     <div v-else-if="!session" class="state-msg">{{ t('session.ended') }}</div>
 
-    <!-- Redirecting a participant into their active table -->
-    <div v-else-if="view.mode === 'redirect'" class="state-msg">{{ t('session.redirecting') }}</div>
+    <!-- Came from the "table is live" card (?enter=1): on the way to the table -->
+    <div v-else-if="entering" class="state-msg">{{ t('session.redirecting') }}</div>
 
-    <div v-else class="card">
-      <header class="head">
-        <h1>{{ session.name }}</h1>
-        <span class="status-pill" :class="session.status">{{ statusLabel }}</span>
+    <div v-else class="sv-page">
+      <header class="sv-head">
+        <div class="sv-title">
+          <h1>{{ session.name }}</h1>
+          <span class="status-pill" :class="session.status">{{ statusLabel }}</span>
+        </div>
+        <div class="sv-meta">
+          <span class="meta-chip"><i class="far fa-calendar" aria-hidden="true"></i>{{ formatDateTime(session.dateTimeMs) }}</span>
+          <span v-if="showLocation" class="meta-chip"><i class="fas fa-location-dot" aria-hidden="true"></i>{{ session.location.name }}</span>
+        </div>
       </header>
 
-      <div class="meta">
-        <div class="meta-row"><span>🗓️</span><span>{{ formatDateTime(session.dateTimeMs) }}</span></div>
-        <div v-if="showLocation" class="meta-row"><span>📍</span><span>{{ session.location.name }}</span></div>
-      </div>
-
-      <!-- Active-period banner (someone in the event but not the running table).
-           When nothing is actually running — no activeSlot, or it points at an
-           already-finished table — show the idle hint instead. Skipped for the
-           host console, which has its own "no active period" line. -->
-      <div
-        v-if="session.status === 'active' && view.mode !== 'host-console' && (staleActive || !session.activeSlot)"
-        class="active-banner idle"
-      >
-        ⏸️ {{ t('session.noActivePeriod') }}
-      </div>
-      <div v-else-if="session.status === 'active' && activeLabel" class="active-banner">
-        🔴 {{ t('session.statusActive') }} · {{ activeLabel }}
-      </div>
-
-      <!-- Period board (sign-up + per-period rosters) -->
-      <section class="periods">
-        <h3>{{ t('session.periods') }}</h3>
-        <div
-          v-for="p in (session.periods || [])"
-          :key="p.id"
-          class="period-card"
-          :class="p.status"
-        >
-          <div class="p-head">
-            <label class="p-pick">
-              <input
-                v-if="canPick && p.status === 'queued'"
-                type="checkbox"
-                :value="p.id"
-                v-model="selectedPeriodIds"
-                :disabled="!canTogglePeriod(p)"
-              />
-              <span class="kind">{{ typeLabel(p.type) }}</span>
-              <span class="p-label">{{ p.label || '—' }}</span>
-            </label>
-            <span class="p-count" :class="{ full: periodFull(p) }">{{ periodCount(p) }}/{{ p.maxPlayers }}</span>
-          </div>
-          <div class="p-sub">
-            <span class="p-status">{{ statusText(p.status) }}</span>
-            <span v-if="iAmIn(p)" class="p-mine">✓</span>
-          </div>
-          <ul v-if="(p.roster || []).length" class="p-roster">
-            <li v-for="(r, i) in p.roster" :key="r.uid || i">{{ r.name }}</li>
-          </ul>
+      <!-- What is running now, and the way into it. Nobody is sent to the
+           table from here on their own: this page is also where 代墊分帳 and
+           the sign-ups live, and has to stay reachable while a table runs. -->
+      <section v-if="session.status === 'active'" class="sv-live" :class="{ idle: !liveLabel }" data-test="live">
+        <div class="live-text">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span v-if="liveLabel" class="live-label">{{ t('session.statusActive') }} · {{ liveLabel }}</span>
+          <span v-else class="live-label">{{ t('session.noActivePeriod') }}</span>
         </div>
+        <p v-if="canEnter && !isHostView" class="live-hint">{{ t('session.tableOpen') }}</p>
+        <button v-if="canEnter" type="button" class="btn primary block" data-test="enter-table" @click="enterTable">
+          <i class="fas fa-right-to-bracket" aria-hidden="true"></i><span>{{ t('session.enterTable') }}</span>
+        </button>
       </section>
 
-      <!-- RSVP actions (non-host) -->
-      <div v-if="view.mode === 'rsvp'" class="cta">
-        <button class="btn-primary" :disabled="joinDisabled || rsvpBusy" @click="onJoin">
-          {{ amJoined ? t('common.save') : t('session.signUpPeriods') }}
-        </button>
-        <button v-if="amJoined" class="btn-danger" :disabled="rsvpBusy" @click="onCancel">{{ t('session.cancelRsvp') }}</button>
-      </div>
-
-      <!-- Host console -->
-      <div v-if="view.mode === 'host-console'" class="console">
-        <!-- Host is a participant too: manage own sign-ups via the period picker above -->
-        <div v-if="hasQueuedPeriod" class="host-rsvp">
-          <span class="muted">{{ t('session.mySignUp') }}</span>
-          <div class="host-rsvp-btns">
-            <button class="btn-secondary" :disabled="joinDisabled || rsvpBusy" @click="onJoin">
-              {{ amJoined ? t('common.save') : t('session.signUpPeriods') }}
-            </button>
-            <button v-if="amJoined" class="btn-danger" :disabled="rsvpBusy" @click="onCancel">{{ t('session.cancelRsvp') }}</button>
-          </div>
-        </div>
-        <div class="host-actions">
-          <button v-if="session.status === 'scheduling'" class="btn-primary" @click="onStart">
-            {{ t('session.startEvent') }}
-          </button>
-          <template v-if="session.status === 'active'">
-            <button v-if="session.activeSlot && view.route" class="btn-secondary" @click="enterTable">
-              {{ t('session.enterTable') }}
-            </button>
-            <p v-if="!session.activeSlot" class="muted">{{ t('session.noActivePeriod') }}</p>
-            <button v-if="canStartNext" class="btn-primary" @click="onStartNext">
-              {{ t('session.startNextPeriod') }}
-            </button>
-            <button class="btn-danger" @click="onEnd">{{ t('session.endEvent') }}</button>
-          </template>
-          <button class="btn-ghost" @click="onEdit">{{ t('session.modifyPeriods') }}</button>
-          <button class="btn-ghost danger-text" @click="onDelete">🗑 {{ t('session.deleteEvent') }}</button>
-        </div>
-        <div class="share-actions">
-          <button class="btn-ghost" @click="onShareInvite">📤 {{ t('session.shareInvite') }}</button>
-          <button v-if="session.status === 'active' && session.activeSlot && view.route" class="btn-ghost" @click="onShareTable">
-            🃏 {{ t('session.shareTable') }}
-          </button>
-        </div>
-      </div>
-
       <!-- Completed: summary -->
-      <section v-if="view.mode === 'completed'" class="summary">
+      <section v-if="view.mode === 'completed'" class="sv-card summary">
         <h3>{{ t('session.summary') }}</h3>
         <div v-if="!summary" class="muted">{{ t('loading') }}</div>
         <template v-else-if="summary.tableCount > 0 || expenseRows.length">
@@ -169,19 +93,99 @@
             </ol>
           </template>
           <div v-else class="muted">{{ t('session.noSettlement') }}</div>
-          <button class="btn-ghost full-w" @click="onShareSummary">📤 {{ t('session.shareSummary') }}</button>
+          <button type="button" class="btn ghost block full-w" @click="onShareSummary">
+            <i class="fas fa-share-nodes" aria-hidden="true"></i><span>{{ t('session.shareSummary') }}</span>
+          </button>
         </template>
         <div v-else class="muted">{{ t('session.noSettlement') }}</div>
+      </section>
+
+      <!-- Period board (sign-up + per-period rosters) -->
+      <section class="sv-card periods">
+        <h3>{{ t('session.periods') }}</h3>
+        <component
+          :is="pickable(p) ? 'label' : 'div'"
+          v-for="p in (session.periods || [])"
+          :key="p.id"
+          class="period-card"
+          :class="[p.status, { pickable: pickable(p), picked: selectedPeriodIds.includes(p.id) }]"
+        >
+          <div class="p-head">
+            <input
+              v-if="pickable(p)"
+              type="checkbox"
+              class="p-check"
+              :value="p.id"
+              v-model="selectedPeriodIds"
+              :disabled="!canTogglePeriod(p)"
+            />
+            <span class="kind">{{ typeLabel(p.type) }}</span>
+            <span class="p-label">{{ p.label || '—' }}</span>
+            <span class="p-count" :class="{ full: periodFull(p) }">{{ periodCount(p) }}/{{ p.maxPlayers }}</span>
+          </div>
+          <div class="p-sub">
+            <span class="p-status" :class="p.status">{{ statusText(p.status) }}</span>
+            <span v-if="iAmIn(p)" class="p-mine"><i class="fas fa-check" aria-hidden="true"></i>{{ t('session.signedUp') }}</span>
+          </div>
+          <ul v-if="(p.roster || []).length" class="p-roster">
+            <li v-for="(r, i) in p.roster" :key="r.uid || i" :class="{ me: r.uid === uid }">{{ r.name }}</li>
+          </ul>
+        </component>
+
+        <!-- Sign-up: the host takes part too, so both see it while a period is still open -->
+        <div v-if="canPick && (view.mode === 'rsvp' || hasQueuedPeriod)" class="signup">
+          <p v-if="view.mode === 'host-console'" class="muted signup-hint">{{ t('session.mySignUp') }}</p>
+          <div class="btn-row">
+            <button type="button" class="btn primary" :disabled="joinDisabled || rsvpBusy" @click="onJoin">
+              <span>{{ amJoined ? t('common.save') : t('session.signUpPeriods') }}</span>
+            </button>
+            <button v-if="amJoined" type="button" class="btn danger-outline" :disabled="rsvpBusy" @click="onCancel">
+              <span>{{ t('session.cancelRsvp') }}</span>
+            </button>
+          </div>
+        </div>
       </section>
 
       <!-- Shared expenses (代墊分帳): players of the event and the host -->
       <EventExpenses
         v-if="canSeeExpenses"
+        class="sv-card"
         :session-id="route.params.sessionId"
         :expenses="expenses"
         :people="people"
         :is-host="isHostView"
       />
+
+      <!-- Host console -->
+      <section v-if="view.mode === 'host-console'" class="sv-card console">
+        <h3>{{ t('session.manage') }}</h3>
+        <button v-if="session.status === 'scheduling'" type="button" class="btn primary block" @click="onStart">
+          <i class="fas fa-play" aria-hidden="true"></i><span>{{ t('session.startEvent') }}</span>
+        </button>
+        <button v-if="canStartNext" type="button" class="btn primary block" @click="onStartNext">
+          <i class="fas fa-forward-step" aria-hidden="true"></i><span>{{ t('session.startNextPeriod') }}</span>
+        </button>
+        <div class="btn-grid">
+          <button type="button" class="btn ghost" @click="onEdit">
+            <i class="fas fa-pen" aria-hidden="true"></i><span>{{ t('session.modifyPeriods') }}</span>
+          </button>
+          <button type="button" class="btn ghost" @click="onShareInvite">
+            <i class="fas fa-share-nodes" aria-hidden="true"></i><span>{{ t('session.shareInvite') }}</span>
+          </button>
+          <button v-if="session.status === 'active' && session.activeSlot && view.route" type="button" class="btn ghost" @click="onShareTable">
+            <i class="fas fa-chair" aria-hidden="true"></i><span>{{ t('session.shareTable') }}</span>
+          </button>
+        </div>
+        <!-- Ends or removes the event: set apart, and never next to the everyday buttons -->
+        <div class="btn-grid danger-zone">
+          <button v-if="session.status === 'active'" type="button" class="btn danger-outline" @click="onEnd">
+            <i class="fas fa-flag-checkered" aria-hidden="true"></i><span>{{ t('session.endEvent') }}</span>
+          </button>
+          <button type="button" class="btn danger-text" @click="onDelete">
+            <i class="fas fa-trash" aria-hidden="true"></i><span>{{ t('session.deleteEvent') }}</span>
+          </button>
+        </div>
+      </section>
 
       <p v-if="notice" class="notice">{{ notice }}</p>
     </div>
@@ -227,13 +231,28 @@ const notice = ref('');
 const selectedPeriodIds = ref([]);
 let pickInit = false;
 
-// Raw routing decision. `view` downgrades a 'redirect' whose target table
-// turned out to be finished already (stale activeSlot) to the sign-up board.
-const rawView = computed(() => resolveSessionView(session.value, uid.value));
-const staleActive = ref(false);
-const view = computed(() => (
-  rawView.value.mode === 'redirect' && staleActive.value ? { mode: 'rsvp' } : rawView.value
-));
+// What this visitor gets (sessionFlow.js): the summary, the host console or
+// the sign-up board; `view.route` is their table when one is running.
+const view = computed(() => resolveSessionView(session.value, uid.value));
+// The active table as last checked: 'live' | 'gone'. Auto-advance only runs
+// while the host has this page open, so activeSlot can go stale and point at
+// a settled game; entering that would bounce off the table back to the lobby.
+const tableState = ref({ gameId: null, state: null });
+const tableGone = computed(() => {
+  const gameId = session.value?.activeSlot?.gameId;
+  return !!gameId && tableState.value.gameId === gameId && tableState.value.state === 'gone';
+});
+// The way into the running table: the host always (their console advances a
+// finished one), a member of the active period once it is known to be live
+const canEnter = computed(() => {
+  if (session.value?.status !== 'active' || !view.value.route) return false;
+  if (view.value.mode === 'host-console') return true;
+  const gameId = session.value?.activeSlot?.gameId;
+  return tableState.value.gameId === gameId && tableState.value.state === 'live';
+});
+// Opened from the "table is live" card (?enter=1): go straight in, once
+const wantsEnter = route.query?.enter === '1';
+const entering = ref(false);
 const amJoined = computed(() => isParticipant(session.value, uid.value));
 const showLocation = computed(() => canViewLocation(session.value));
 const canStartNext = computed(() => !!session.value && session.value.status === 'active'
@@ -253,9 +272,10 @@ const summaryTab = ref('total');
 const signed = (n) => `${n >= 0 ? '+' : ''}${formatCashTotal(n, summary.value?.cashDecimals)}`;
 const hasQueuedPeriod = computed(() => (session.value?.periods || []).some((p) => p.status === 'queued'));
 
-const activeLabel = computed(() => {
+// What is running, '' when nothing is (no activeSlot, or a finished table)
+const liveLabel = computed(() => {
   const at = session.value?.activeSlot;
-  if (!at) return '';
+  if (!at || tableGone.value) return '';
   const p = (session.value?.periods || []).find((e) => e.id === at.id);
   return p ? `${typeLabel(p.type)} · ${p.label || ''}` : '';
 });
@@ -278,6 +298,10 @@ function statusText(s) {
   if (s === 'active') return t('session.statusActive');
   if (s === 'done') return t('session.done');
   return t('session.queued');
+}
+// A period this visitor can still tick
+function pickable(p) {
+  return canPick.value && p.status === 'queued';
 }
 function iAmIn(p) {
   return isSignedUpForPeriod(session.value, uid.value, p.id);
@@ -360,21 +384,25 @@ const onShareTable = () => withNotice(() => shareSessionTableCard(session.value)
 // The card carries every tab (總和 / 牌局 / 代墊), whichever one is on screen.
 const onShareSummary = () => withNotice(() => shareSessionSummary(session.value, summary.value, expenses.value));
 
-// Redirect a participant into their active linked table — after verifying the
-// table is still running. Auto-advance only runs while the host has this page
-// open, so activeSlot can go stale and point at a settled game; redirecting
-// then would only bounce the visitor off the table view back to the lobby.
-// Checked once per gameId, so a host advancing to the next table while the
-// visitor waits on this page re-triggers the redirect for the new game.
-let checkedGameId = null;
-watch(() => [rawView.value.mode, session.value?.activeSlot?.gameId], async ([mode, gameId]) => {
-  if (mode !== 'redirect' || !gameId || checkedGameId === gameId) return;
-  checkedGameId = gameId;
-  if (await isGameLive(gameId)) {
+// Is the active table still running? Asked for every visitor but the host
+// (whose console advances a finished one), also someone not at that table:
+// their banner must not say 進行中 over a table that is over. Checked once per
+// gameId, so the host advancing to the next table is checked again.
+// Nobody is sent to the table from this page (it is also where the sign-ups
+// and 代墊分帳 are), except someone who came from the "table is live" card.
+watch(() => [view.value.mode, view.value.route, session.value?.activeSlot?.gameId], async ([mode, tableRoute, gameId]) => {
+  if (mode !== 'rsvp' || !gameId || tableState.value.gameId === gameId) return;
+  tableState.value = { gameId, state: null };
+  const live = await isGameLive(gameId);
+  if (session.value?.activeSlot?.gameId !== gameId) return;
+  tableState.value = { gameId, state: live ? 'live' : 'gone' };
+  if (live && tableRoute && wantsEnter && !entering.value) {
+    entering.value = true;
     markSessionReturn(route.params.sessionId, gameId);
-    router.replace(rawView.value.route);
-  } else {
-    staleActive.value = true;
+    // The page without ?enter stays behind in history: leaving the table
+    // comes back here and stays
+    await router.replace(`/session/${route.params.sessionId}`);
+    router.push(tableRoute);
   }
 }, { immediate: true });
 
@@ -383,7 +411,7 @@ watch(() => session.value?.status, async (status) => {
   if (status === 'completed' && !summary.value) {
     summary.value = await loadSessionSummary(route.params.sessionId);
   }
-});
+}, { immediate: true });
 
 // Initialise the period picker once: my queued sign-ups, else all joinable queued.
 watch(session, (s) => {
@@ -426,97 +454,129 @@ onUnmounted(() => { if (unsubGame) { unsubGame(); unsubGame = null; } });
 </script>
 
 <style scoped>
+/* One column of cards, the same width as every other page. Every button is
+   the one .btn: fixed height, icon + label, and a label that never spills
+   out of it (a full-width button truncates, a grid button wraps inside its
+   cell and the row keeps one height). */
 .session-view {
   min-height: 100vh;
   background: linear-gradient(135deg, rgb(var(--tw-slate-900)) 0%, rgb(var(--tw-slate-800)) 100%);
-  padding: 32px 16px calc(4rem + env(safe-area-inset-bottom, 0px) + 2rem);
+  padding: 20px 16px calc(4rem + env(safe-area-inset-bottom, 0px) + 2rem);
   color: rgb(var(--tw-white));
 }
 .state-msg { max-width: 64rem; margin: 80px auto; text-align: center; color: rgb(var(--tw-white) / 0.7); font-size: 18px; }
-.card {
-  max-width: 48rem; margin: 0 auto;
-  background: rgb(var(--tw-white) / 0.05); border: 1px solid rgb(var(--tw-white) / 0.1);
-  border-radius: 16px; padding: 24px;
-}
-@media (min-width: 1024px) { .card { max-width: 64rem; } }
-.head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.head h1 { margin: 0; font-size: 24px; }
-.status-pill { flex: 0 0 auto; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
-.status-pill.scheduling { background: #2196F3; }
-.status-pill.active { background: rgb(var(--tw-amber-500)); }
+.sv-page { width: 100%; max-width: 28rem; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+@media (min-width: 768px) { .sv-page { max-width: 48rem; } }
+@media (min-width: 1024px) { .sv-page { max-width: 64rem; } }
+
+.sv-head { padding: 4px 2px 2px; }
+.sv-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.sv-title h1 { margin: 0; min-width: 0; font-size: 22px; font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; }
+.status-pill { flex: 0 0 auto; margin-top: 3px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; color: #fff; }
+.status-pill.scheduling { background: rgb(var(--tw-emerald-600)); }
+.status-pill.active { background: rgb(var(--tw-amber-500)); color: var(--on-accent, #fff); }
 .status-pill.completed { background: rgb(var(--tw-slate-500)); }
-
-.meta { margin: 16px 0; display: flex; flex-direction: column; gap: 8px; }
-.meta-row { display: flex; gap: 10px; color: rgb(var(--tw-white) / 0.85); }
-
-.active-banner {
-  margin: 8px 0 16px; padding: 12px; border-radius: 10px;
-  background: rgb(var(--tw-amber-500) / 0.15); border: 1px solid rgb(var(--tw-amber-500) / 0.4);
-  color: rgb(var(--tw-amber-200)); font-weight: bold;
+.sv-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.meta-chip {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+  padding: 4px 10px; border-radius: 999px; font-size: 13px;
+  background: rgb(var(--tw-white) / 0.07); color: rgb(var(--tw-white) / 0.85);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.active-banner.idle {
-  background: rgb(var(--tw-white) / 0.06); border-color: rgb(var(--tw-white) / 0.2);
-  color: rgb(var(--tw-white) / 0.65);
-}
+.meta-chip i { font-size: 12px; color: rgb(var(--tw-white) / 0.55); }
 
-.periods h3, .summary h3 {
-  font-size: 16px; margin: 18px 0 10px;
-  border-top: 1px solid rgb(var(--tw-white) / 0.1); padding-top: 14px;
+.sv-card {
+  background: rgb(var(--tw-slate-800) / 0.7); border: 1px solid rgb(var(--tw-slate-700));
+  border-radius: 16px; padding: 16px;
 }
+.sv-card h3 { margin: 0 0 12px; font-size: 15px; font-weight: 800; }
+.sv-card h4 { margin: 12px 0 6px; font-size: 13px; font-weight: 700; color: rgb(var(--tw-white) / 0.7); }
 
+.sv-live {
+  padding: 14px 16px; border-radius: 16px;
+  background: rgb(var(--tw-amber-500) / 0.14); border: 1px solid rgb(var(--tw-amber-500) / 0.45);
+}
+.sv-live.idle { background: rgb(var(--tw-white) / 0.05); border-color: rgb(var(--tw-white) / 0.14); }
+.live-text { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 800; color: rgb(var(--tw-amber-200)); }
+.sv-live.idle .live-text { color: rgb(var(--tw-white) / 0.6); font-weight: 600; }
+.live-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 999px; background: rgb(var(--tw-rose-500)); box-shadow: 0 0 0 0 rgb(var(--tw-rose-500) / 0.6); animation: sv-pulse 1.8s ease-out infinite; }
+.sv-live.idle .live-dot { background: rgb(var(--tw-white) / 0.35); animation: none; }
+@keyframes sv-pulse { to { box-shadow: 0 0 0 9px rgb(var(--tw-rose-500) / 0); } }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+.live-hint { margin: 6px 0 0; font-size: 12px; color: rgb(var(--tw-white) / 0.6); }
+.sv-live .btn { margin-top: 12px; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-width: 0; min-height: 44px; padding: 6px 14px;
+  border: 1px solid transparent; border-radius: 12px;
+  font-size: 14px; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer;
+  transition: transform 0.1s, opacity 0.15s;
+}
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn i { flex: 0 0 auto; font-size: 13px; }
+.btn span { min-width: 0; overflow-wrap: anywhere; }
+.btn.block { display: flex; width: 100%; }
+.btn.block span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn.primary { background: rgb(var(--tw-emerald-600)); color: #fff; }
+.btn.ghost { background: rgb(var(--tw-white) / 0.07); border-color: rgb(var(--tw-white) / 0.16); color: rgb(var(--tw-white)); }
+.btn.danger-outline { background: rgb(var(--tw-rose-500) / 0.1); border-color: rgb(var(--tw-rose-400) / 0.5); color: rgb(var(--tw-rose-300)); }
+.btn.danger-text { background: transparent; color: rgb(var(--tw-rose-300) / 0.9); }
+/* Side by side, sharing the row evenly */
+.btn-row { display: flex; gap: 8px; }
+.btn-row > .btn { flex: 1 1 0; }
+.btn-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.btn-grid > .btn:only-child { grid-column: 1 / -1; }
+.console > .btn.block { margin-bottom: 8px; }
+.danger-zone { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgb(var(--tw-white) / 0.08); }
+.full-w { margin-top: 12px; }
+
+/* ── Periods ── */
 .period-card {
+  display: block; padding: 12px; margin-bottom: 8px; border-radius: 12px;
   background: rgb(var(--tw-white) / 0.04); border: 1px solid rgb(var(--tw-white) / 0.1);
-  border-radius: 10px; padding: 12px; margin-bottom: 10px;
 }
-.period-card.active { border-color: rgb(var(--tw-amber-500) / 0.5); }
+.period-card.pickable { cursor: pointer; }
+.period-card.picked { border-color: rgb(var(--tw-emerald-500) / 0.6); background: rgb(var(--tw-emerald-500) / 0.08); }
+.period-card.active { border-color: rgb(var(--tw-amber-500) / 0.55); }
 .period-card.done { opacity: 0.6; }
-.p-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.p-pick { display: flex; align-items: center; gap: 8px; flex: 1; cursor: pointer; }
-.p-pick input { width: 18px; height: 18px; }
-.kind { font-size: 11px; background: rgb(var(--tw-white) / 0.12); padding: 2px 8px; border-radius: 10px; }
-.p-label { font-weight: bold; }
-.p-count { font-size: 14px; font-weight: bold; color: rgb(var(--tw-emerald-500)); }
+.p-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.p-check { flex: 0 0 auto; width: 18px; height: 18px; accent-color: rgb(var(--tw-emerald-500)); }
+.kind { flex: 0 0 auto; font-size: 11px; font-weight: 700; background: rgb(var(--tw-white) / 0.12); padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.p-label { flex: 1 1 auto; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-count { flex: 0 0 auto; font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; color: rgb(var(--tw-emerald-400)); }
 .p-count.full { color: rgb(var(--tw-rose-400)); }
-.p-sub { display: flex; gap: 12px; margin-top: 6px; font-size: 12px; color: rgb(var(--tw-white) / 0.55); }
-.p-mine { color: rgb(var(--tw-emerald-500)); }
+.p-sub { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 12px; color: rgb(var(--tw-white) / 0.55); }
+.p-status.active { color: rgb(var(--tw-amber-300)); font-weight: 700; }
+.p-mine { display: inline-flex; align-items: center; gap: 4px; color: rgb(var(--tw-emerald-400)); font-weight: 700; }
 .p-roster { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.p-roster li { font-size: 12px; background: rgb(var(--tw-white) / 0.08); padding: 2px 8px; border-radius: 8px; }
+.p-roster li { max-width: 100%; font-size: 12px; background: rgb(var(--tw-white) / 0.08); padding: 2px 9px; border-radius: 999px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-roster li.me { background: rgb(var(--tw-emerald-500) / 0.22); color: rgb(var(--tw-emerald-200)); font-weight: 700; }
+.signup { margin-top: 12px; }
+.signup-hint { margin: 0 0 8px; font-size: 12px; }
 
-.muted { color: rgb(var(--tw-white) / 0.45); }
-.cta { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
-.console { margin-top: 12px; }
-.host-actions, .share-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
-.host-rsvp {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 12px; margin-bottom: 4px;
-  background: rgb(var(--tw-emerald-500) / 0.1); border: 1px solid rgb(var(--tw-emerald-500) / 0.3); border-radius: 10px;
-}
-.host-rsvp-btns { display: flex; gap: 8px; }
-.host-rsvp-btns button { padding: 8px 14px; }
+.muted { color: rgb(var(--tw-white) / 0.5); }
 
-button { padding: 10px 16px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; }
-.btn-primary { background: linear-gradient(135deg, rgb(var(--tw-emerald-500)) 0%, rgb(var(--tw-emerald-600)) 100%); color: white; flex: 1; }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-secondary { background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); color: white; }
-.btn-danger { background: rgb(var(--tw-red-600)); color: white; }
-.btn-ghost { background: rgb(var(--tw-white) / 0.1); color: rgb(var(--tw-white)); border: 1px solid rgb(var(--tw-white) / 0.2); }
-.btn-ghost.danger-text { color: rgb(var(--tw-rose-300)); border-color: rgb(var(--tw-rose-400) / 0.4); }
-.full-w { width: 100%; margin-top: 12px; }
-
-.summary-totals { display: flex; gap: 16px; margin-bottom: 12px; }
-.summary-totals div { flex: 1; background: rgb(var(--tw-white) / 0.05); border-radius: 8px; padding: 12px; text-align: center; }
+/* ── Summary ── */
+.summary-totals { display: flex; gap: 8px; margin-bottom: 12px; }
+.summary-totals div { flex: 1; min-width: 0; background: rgb(var(--tw-white) / 0.05); border-radius: 12px; padding: 10px; text-align: center; }
 .summary-totals span { display: block; font-size: 12px; color: rgb(var(--tw-white) / 0.6); }
-.summary-totals strong { font-size: 20px; }
+.summary-totals strong { font-size: 20px; font-variant-numeric: tabular-nums; }
 .rank-list { list-style: none; padding: 0; margin: 0; }
-.rank-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgb(var(--tw-white) / 0.06); }
-.rank-medal { width: 24px; }
+.rank-list li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid rgb(var(--tw-white) / 0.06); }
+.rank-list li:last-child { border-bottom: none; }
+.rank-medal { flex: 0 0 auto; width: 24px; text-align: center; }
+.rank-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .rank-sub { display: block; font-size: 11px; color: rgb(var(--tw-white) / 0.45); }
-.summary-tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 10px; border-radius: 10px; background: rgb(var(--tw-white) / 0.06); }
-.summary-tabs button { flex: 1; padding: 8px 0; border-radius: 8px; background: transparent; color: rgb(var(--tw-white) / 0.65); }
+.rank-profit { flex: 0 0 auto; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rank-profit.pos { color: rgb(var(--tw-emerald-400)); }
+.rank-profit.neg { color: rgb(var(--tw-rose-400)); }
+.summary-tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 10px; border-radius: 12px; background: rgb(var(--tw-white) / 0.06); }
+.summary-tabs button { flex: 1; min-width: 0; padding: 8px 0; border: none; border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer; background: transparent; color: rgb(var(--tw-white) / 0.65); }
 .summary-tabs button.on { background: rgb(var(--tw-amber-500)); color: var(--on-accent, white); }
 .tab-hint { font-size: 12px; margin: 0 0 6px; }
-.rank-name { flex: 1; }
-.rank-profit.pos { color: rgb(var(--tw-emerald-500)); font-weight: bold; }
-.rank-profit.neg { color: rgb(var(--tw-rose-400)); font-weight: bold; }
-.notice { margin-top: 16px; color: rgb(var(--tw-amber-300)); font-size: 14px; }
+.notice { margin: 4px 2px 0; color: rgb(var(--tw-amber-300)); font-size: 14px; }
 </style>

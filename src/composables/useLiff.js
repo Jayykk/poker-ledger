@@ -976,13 +976,14 @@ const sendSessionUpdateMessage = async (session) => {
 };
 
 /**
- * Card B — "table is live" prompt. Links to the session page, which routes the
- * joiner straight into the active period's table.
+ * Card B — "table is live" prompt. Links to the session page with ?enter=1,
+ * which takes someone signed up for the active period straight to the table
+ * (the page itself no longer jumps anyone in on its own).
  */
 const shareSessionTableCard = async (session) => {
   if (!isInitialized.value || !session) return false;
   try {
-    const uri = sessionLiffUrl(session.id);
+    const uri = session.id && LIFF_ID ? liffLink(LIFF_ID, `session/${session.id}?enter=1`) : undefined;
     const at = session.activeSlot || {};
     const period = (session.periods || []).find((p) => p.id === at.id);
     const label = period ? `${period.label || ''} · ${periodTypeLabel(period.type)}` : periodTypeLabel(at.type);

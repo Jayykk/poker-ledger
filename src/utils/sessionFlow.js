@@ -97,8 +97,11 @@ export function buildActiveRoute(activeSlot) {
  * Decide what the SessionView should show for this visitor.
  *   mode 'completed'    → finished → show the session summary
  *   mode 'host-console' → host (any non-completed status) → management console
- *   mode 'redirect'     → active, member signed up for the active linked period → jump in
- *   mode 'rsvp'         → everyone else → the period sign-up board
+ *   mode 'rsvp'         → everyone else → the period sign-up board. A member
+ *                         signed up for the active linked period also gets
+ *                         `route`: their table, which the page offers as a
+ *                         button. (It used to jump them straight in, which kept
+ *                         them off this page and its 代墊分帳 while a table ran.)
  *
  * @param {Object} session - sessions/{id} document
  * @param {string} uid - the local user's uid
@@ -116,7 +119,7 @@ export function resolveSessionView(session, uid) {
     const route = buildActiveRoute(session.activeSlot);
     const activeId = session.activeSlot?.id;
     if (route && activeId && isSignedUpForPeriod(session, uid, activeId)) {
-      return { mode: 'redirect', route };
+      return { mode: 'rsvp', route };
     }
   }
   // Scheduling, or active-but-not-in-the-running-table: the sign-up board.

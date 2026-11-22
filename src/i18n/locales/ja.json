@@ -841,6 +841,9 @@
     "copySelected": "{count}/{max} 人選択中",
     "copyRosterHint": "このイベントに登録済みのメンバーを新しい時間帯へそのまま追加できます。再登録は不要です",
     "copyOverCap": "「{label}」の追加人数が上限を超えています",
+    "manage": "主催者メニュー",
+    "tableOpen": "テーブルは開いています。いつでも着席できます",
+    "signedUp": "参加中",
     "createShort": "作成",
     "noActiveEvents": "進行中のイベントはありません"
   },
