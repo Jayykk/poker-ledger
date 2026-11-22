@@ -6,7 +6,7 @@
 // players costs ten reads, not ten per render. Your own doc is live
 // (onSnapshot) while a page watches it, so a new title or a prefs change shows
 // up at once.
-import { reactive } from 'vue';
+import { reactive, ref } from 'vue';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../firebase-init.js';
@@ -24,8 +24,32 @@ const fetchedAt = new Map();
 const inFlight = new Map();
 let mine = { uid: null, unsubscribe: null, watchers: 0 };
 
-/** Current 王座 month key (Asia/Taipei), e.g. '2026-10'. */
+// The month as last looked at by the clock below. Everything that depends on
+// the month (a crown title, a 王座框, the corner crown) reads it through
+// currentCrownMonth(), so a page left open across the month change redraws
+// then, not at the next snapshot.
+const MONTH_CHECK_MS = 60 * 1000;
+const monthTick = ref(crownMonthOf(Date.now()));
+let monthClock = null;
+function watchMonth() {
+  if (monthClock || typeof setInterval !== 'function') return;
+  monthClock = setInterval(() => {
+    const month = crownMonthOf(Date.now());
+    if (month !== monthTick.value) monthTick.value = month;
+  }, MONTH_CHECK_MS);
+  // Never the reason a Node process (tests) stays alive
+  monthClock.unref?.();
+}
+
+/**
+ * Current 王座 month key (Asia/Taipei), e.g. '2026-10'. Always read off the
+ * clock; reading it inside a computed also makes that computed run again
+ * when the month changes.
+ */
 export function currentCrownMonth() {
+  watchMonth();
+  // eslint-disable-next-line no-unused-expressions
+  monthTick.value;
   return crownMonthOf(Date.now());
 }
 
