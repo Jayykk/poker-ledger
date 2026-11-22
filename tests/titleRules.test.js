@@ -821,7 +821,7 @@ describe('主題框 (themed frames)', () => {
       expect(getThemeFrame(f.id)).toBe(f);
     }
     expect(THEME_FRAME_IDS).toEqual(THEME_FRAMES.map((f) => f.id));
-    expect(ALL_FRAME_IDS).toEqual([...FRAME_IDS, ...THEME_FRAME_IDS]);
+    expect(ALL_FRAME_IDS.slice(0, FRAME_IDS.length + THEME_FRAME_IDS.length)).toEqual([...FRAME_IDS, ...THEME_FRAME_IDS]);
     expect(new Set(ALL_FRAME_IDS).size).toBe(ALL_FRAME_IDS.length);
     expect(new Set(THEME_FRAMES.map((f) => f.family)).size).toBe(THEME_FRAMES.length);
     for (const reserved of ['auto', 'none']) expect(ALL_FRAME_IDS).not.toContain(reserved);

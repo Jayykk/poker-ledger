@@ -2018,7 +2018,12 @@
       "night": "永夜",
       "frost": "不灭冰魂",
       "abyss": "深渊暗影",
-      "tide": "怒涛"
+      "tide": "怒涛",
+      "mint": "印钞机",
+      "grace": "散财天使",
+      "tycoon": "风云老板",
+      "reticle": "猎头准星",
+      "sunrise": "日不落"
     },
     "room": {
       "live": "房内实时称号",
@@ -2061,7 +2066,10 @@
     "frameThemes": "主题框",
     "frameThemesHint": "对应的称号达到第 {n} 阶就能解锁；“自动”只会挑等级框",
     "frameThemeNeed": "取得第 {n} 阶称号“{name}”",
-    "frameThemeNeedHidden": "某个隐藏称号达到第 {n} 阶"
+    "frameThemeNeedHidden": "某个隐藏称号达到第 {n} 阶",
+    "frameCrowns": "王座框",
+    "frameCrownsHint": "当月坐上对应的王座才能戴，月底换人就会退回原本的框",
+    "frameCrownNeed": "本月拿下“{name}”"
   },
   "chipSet": {
     "title": "筹码面额",

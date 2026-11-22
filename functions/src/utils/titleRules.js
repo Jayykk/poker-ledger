@@ -46,6 +46,11 @@
 // earned (a rebuild lowered the family) falls back like 'auto'. A client
 // that doesn't know a frame id shows no frame.
 //
+// 王座框 (CROWN_FRAMES): a frame per 本月王座, worn only while that crown is
+// held this month. Picked like a themed frame; at the month change it falls
+// back like 'auto' (display.month marks a display that hangs on the month,
+// whether through its title or its frame).
+//
 // 本月王座 (source 'crown', CROWN_FAMILIES): monthly #1 inside the user's
 // 牌友圈, judged in crownRules.js and stored apart from `unlocked`:
 //   crowns        { [crownId]: monthKey }   active while monthKey is the
@@ -162,8 +167,17 @@ export const THEME_FRAMES = Object.freeze([
   Object.freeze({ id: 'tide', family: 'hunter', minTier: THEME_FRAME_MIN_TIER }),
 ]);
 export const THEME_FRAME_IDS = Object.freeze(THEME_FRAMES.map((f) => f.id));
-// Every frame an avatar can wear: the tier frames, then the themed ones
-export const ALL_FRAME_IDS = Object.freeze([...FRAME_IDS, ...THEME_FRAME_IDS]);
+// 王座框: holding `crown` this month earns the frame `id` (for that month)
+export const CROWN_FRAMES = Object.freeze([
+  Object.freeze({ id: 'mint', crown: 'crownProfit' }),
+  Object.freeze({ id: 'grace', crown: 'crownLoss' }),
+  Object.freeze({ id: 'tycoon', crown: 'crownBoss' }),
+  Object.freeze({ id: 'reticle', crown: 'crownHunter' }),
+  Object.freeze({ id: 'sunrise', crown: 'crownRegular' }),
+]);
+export const CROWN_FRAME_IDS = Object.freeze(CROWN_FRAMES.map((f) => f.id));
+// Every frame an avatar can wear: the tier frames, the themed ones, the crown ones
+export const ALL_FRAME_IDS = Object.freeze([...FRAME_IDS, ...THEME_FRAME_IDS, ...CROWN_FRAME_IDS]);
 const FRAME_PREFS = Object.freeze([FRAME_AUTO, FRAME_NONE, ...ALL_FRAME_IDS]);
 
 // σ (volatility / steadiness) needs this many games with a known 組 size
@@ -682,30 +696,61 @@ export function earnedThemeFrames(unlocked) {
 }
 
 /**
- * Can this frame be worn: a tier frame up to the earned one, or an earned
- * themed frame.
+ * A crown frame's catalog entry.
+ *
+ * @param {?string} frameId Frame id.
+ * @return {?{id: string, crown: string}} null when it is not a crown frame.
+ */
+export function getCrownFrame(frameId) {
+  return CROWN_FRAMES.find((f) => f.id === frameId) || null;
+}
+
+/**
+ * Crown frames that can be worn now (catalog order): their crown is held
+ * this month.
+ *
+ * @param {?{crowns: ?object, month: ?string}} crownCtx Stored crowns and the
+ *   current month key.
+ * @return {Array<string>} Frame ids.
+ */
+export function earnedCrownFrames(crownCtx) {
+  const held = new Set(activeCrowns(crownCtx?.crowns, crownCtx?.month));
+  return CROWN_FRAMES.filter((f) => held.has(f.crown)).map((f) => f.id);
+}
+
+/**
+ * Can this frame be worn: a tier frame up to the earned one, an earned
+ * themed frame, or the frame of a crown held this month.
  *
  * @param {?string} frameId Frame id.
  * @param {?object} unlocked Stored unlocked map.
+ * @param {?{crowns: ?object, month: ?string}} [crownCtx] Stored crowns and
+ *   the current month key (none: no crown frames).
  * @return {boolean}
  */
-export function isFrameEarned(frameId, unlocked) {
+export function isFrameEarned(frameId, unlocked, crownCtx = null) {
+  if (getCrownFrame(frameId)) return earnedCrownFrames(crownCtx).includes(frameId);
   if (getThemeFrame(frameId)) return earnedThemeFrames(unlocked).includes(frameId);
   return FRAME_IDS.includes(frameId) && frameRank(frameId) <= frameRank(earnedFrame(unlocked));
 }
 
 /**
- * The frame shown: the picked one while earned (a tier frame or a themed
- * one), else the highest earned tier frame. 'auto' never gives a themed one.
+ * The frame shown: the picked one while earned (a tier frame, a themed one or
+ * a crown one), else the highest earned tier frame. 'auto' never gives a
+ * themed or a crown one; a crown frame whose crown is gone falls back the
+ * same way (the pick stays, so winning the crown again brings it back).
  *
  * @param {?object} unlocked Stored unlocked map.
  * @param {?object} prefs Stored prefs.
+ * @param {?{crowns: ?object, month: ?string}} [crownCtx] Stored crowns and
+ *   the current month key (none: no crown frames).
  * @return {?string} Frame id or null.
  */
-export function resolveFrame(unlocked, prefs) {
+export function resolveFrame(unlocked, prefs, crownCtx = null) {
   const picked = normalizeTitlePrefs(prefs).frame;
   if (picked === FRAME_NONE) return null;
-  if (getThemeFrame(picked) && isFrameEarned(picked, unlocked)) return picked;
+  const special = getThemeFrame(picked) || getCrownFrame(picked);
+  if (special && isFrameEarned(picked, unlocked, crownCtx)) return picked;
   const earned = earnedFrame(unlocked);
   if (!earned) return null;
   if (FRAME_IDS.includes(picked) && frameRank(picked) <= frameRank(earned)) return picked;
@@ -827,7 +872,7 @@ export function validateTitlePrefs(input, current, unlocked, crownCtx = null) {
   }
   if (data.frame !== undefined) {
     if (!FRAME_PREFS.includes(data.frame)) return { error: 'bad-frame' };
-    if (ALL_FRAME_IDS.includes(data.frame) && !isFrameEarned(data.frame, unlocked)) {
+    if (ALL_FRAME_IDS.includes(data.frame) && !isFrameEarned(data.frame, unlocked, crownCtx)) {
       return { error: 'frame-locked' };
     }
     next.frame = data.frame;
@@ -885,8 +930,9 @@ export function resolveTitle(unlocked, prefs, crownCtx = null) {
 /**
  * What other players see: the title (resolveTitle) and the frame
  * (resolveFrame). The title fields are null when the title is off or none is
- * unlocked; null overall when there is neither a title nor a frame. A crown
- * display also carries its `month`, so readers can spot it going stale. A
+ * unlocked; null overall when there is neither a title nor a frame. A display
+ * with a crown title or a crown frame also carries its `month`, so readers
+ * can spot it going stale. A
  * title shown in another name set than classic carries `nameSet` (the
  * owner's prefs.nameSet), so a viewer needs nothing but the display; crowns
  * have one set of names and never do.
@@ -899,10 +945,12 @@ export function resolveTitle(unlocked, prefs, crownCtx = null) {
  */
 export function resolveDisplay(unlocked, prefs, crownCtx = null) {
   const title = resolveTitle(unlocked, prefs, crownCtx);
-  const frame = resolveFrame(unlocked, prefs);
+  const frame = resolveFrame(unlocked, prefs, crownCtx);
   if (!title && !frame) return null;
   const display = { familyId: title?.familyId || null, tier: title?.tier || null, frame };
+  // A crown title or a crown frame only holds for this month
   if (title?.month) display.month = title.month;
+  else if (getCrownFrame(frame)) display.month = crownCtx.month;
   const nameSet = displayNameSet({ ...display, nameSet: normalizeTitlePrefs(prefs).nameSet });
   if (nameSet !== NAME_SET_CLASSIC) display.nameSet = nameSet;
   return display;
@@ -923,7 +971,7 @@ export function effectiveDisplay(doc, month) {
   const current = upgradeTitlesDoc(doc);
   const stored = current?.display || null;
   const stale = !stored || stored.frame === undefined
-    || (isCrownId(stored.familyId) && stored.month !== month);
+    || ((isCrownId(stored.familyId) || getCrownFrame(stored.frame)) && stored.month !== month);
   if (!stale) return stored;
   return resolveDisplay(current?.unlocked, current?.prefs, { crowns: current?.crowns, month });
 }
