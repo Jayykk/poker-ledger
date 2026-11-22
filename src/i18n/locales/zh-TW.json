@@ -2015,7 +2015,12 @@
       "night": "永夜",
       "frost": "不滅冰魂",
       "abyss": "深淵暗影",
-      "tide": "怒濤"
+      "tide": "怒濤",
+      "mint": "印鈔機",
+      "grace": "散財天使",
+      "tycoon": "風雲老闆",
+      "reticle": "獵頭準星",
+      "sunrise": "日不落"
     },
     "room": {
       "live": "房內即時稱號",
@@ -2058,7 +2063,10 @@
     "frameThemes": "主題框",
     "frameThemesHint": "對應的稱號達到第 {n} 階就能解鎖；「自動」只會挑等級框",
     "frameThemeNeed": "取得第 {n} 階稱號「{name}」",
-    "frameThemeNeedHidden": "某個隱藏稱號達到第 {n} 階"
+    "frameThemeNeedHidden": "某個隱藏稱號達到第 {n} 階",
+    "frameCrowns": "王座框",
+    "frameCrownsHint": "當月坐上對應的王座才能戴，月底換人就會退回原本的框",
+    "frameCrownNeed": "本月拿下「{name}」"
   },
   "chipSet": {
     "title": "籌碼面額",

@@ -2015,7 +2015,12 @@
       "night": "Eternal Night",
       "frost": "Undying Frost",
       "abyss": "Abyssal Shadow",
-      "tide": "Raging Tide"
+      "tide": "Raging Tide",
+      "mint": "Money Printer",
+      "grace": "Angel of Giving",
+      "tycoon": "Big Boss",
+      "reticle": "Crosshair",
+      "sunrise": "Never-Setting Sun"
     },
     "room": {
       "live": "Live room title",
@@ -2058,7 +2063,10 @@
     "frameThemes": "Themed frames",
     "frameThemesHint": "Reach tier {n} of the matching title to unlock one; Auto only picks tier frames",
     "frameThemeNeed": "Earn the tier {n} title \"{name}\"",
-    "frameThemeNeedHidden": "Reach tier {n} of a hidden title"
+    "frameThemeNeedHidden": "Reach tier {n} of a hidden title",
+    "frameCrowns": "Throne frames",
+    "frameCrownsHint": "Wearable only in a month you hold the matching throne; when it changes hands your usual frame is back",
+    "frameCrownNeed": "Hold \"{name}\" this month"
   },
   "chipSet": {
     "title": "Chip denominations",

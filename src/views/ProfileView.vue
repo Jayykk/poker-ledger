@@ -207,6 +207,26 @@
             </button>
           </div>
           <p class="text-[11px] text-gray-400 mt-1.5">{{ $t('titles.frameThemesHint', { n: THEME_FRAME_MIN_TIER }) }}</p>
+
+          <!-- 王座框: one per 本月王座, wearable only in a month you hold that crown -->
+          <div class="frame-group-title mt-3">{{ $t('titles.frameCrowns') }}</div>
+          <div class="frame-grid" data-testid="frame-crowns">
+            <button
+              v-for="cf in crownFrameOptions"
+              :key="cf.id"
+              type="button"
+              class="frame-opt"
+              :class="{ active: titlePrefs.frame === cf.id, locked: cf.locked }"
+              :disabled="titleSaving || cf.locked"
+              :data-frame="cf.id"
+              @click="pickFrame(cf.id)"
+            >
+              <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="cf.id" :still="cf.locked" />
+              <span class="frame-opt-name">{{ $t(`titles.frames.${cf.id}`) }}</span>
+              <span v-if="cf.locked" class="frame-opt-sub">{{ cf.need }}</span>
+            </button>
+          </div>
+          <p class="text-[11px] text-gray-400 mt-1.5">{{ $t('titles.frameCrownsHint') }}</p>
         </div>
 
         <!-- 簡化特效: this device only — frames stop moving on my screen -->
@@ -374,7 +394,7 @@ import PlayerAvatar from '../components/common/PlayerAvatar.vue';
 import { useUserTitles } from '../composables/useUserTitles.js';
 import {
   TITLE_FAMILIES, FRAME_TIERS, THEME_FRAMES, THEME_FRAME_MIN_TIER, getTitleFamily, normalizeTitlePrefs,
-  titleCount, earnedFrame, earnedThemeFrames, frameRank, titleName, activeCrowns, CROWN_TIER,
+  titleCount, earnedFrame, earnedThemeFrames, earnedCrownFrames, CROWN_FRAMES, frameRank, titleName, activeCrowns, CROWN_TIER,
 } from '../utils/titles.js';
 import { STORAGE_KEYS } from '../utils/constants.js';
 import { THEMES as THEME_LIST, applyTheme, resolveThemeId } from '../utils/themes.js';
@@ -480,6 +500,16 @@ const themeFrameOptions = computed(() => {
         }),
     };
   });
+});
+
+// 王座框: wearable while its crown is held this month; a locked one names the crown
+const crownFrameOptions = computed(() => {
+  const earned = new Set(earnedCrownFrames({ crowns: myTitles.value?.crowns, month: currentCrownMonth() }));
+  return CROWN_FRAMES.map((f) => ({
+    id: f.id,
+    locked: !earned.has(f.id),
+    need: t('titles.frameCrownNeed', { name: titleName({ t, te }, f.crown, CROWN_TIER) }),
+  }));
 });
 
 let stopTitles = () => {};

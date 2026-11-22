@@ -2015,7 +2015,12 @@
       "night": "永夜",
       "frost": "不滅の氷魂",
       "abyss": "深淵の影",
-      "tide": "怒濤"
+      "tide": "怒濤",
+      "mint": "マネープリンター",
+      "grace": "施しの天使",
+      "tycoon": "風雲ボス",
+      "reticle": "ヘッドハンターの照準",
+      "sunrise": "沈まぬ太陽"
     },
     "room": {
       "live": "ルーム内リアルタイム称号",
@@ -2058,7 +2063,10 @@
     "frameThemes": "テーマフレーム",
     "frameThemesHint": "対応する称号が第 {n} 段階に届くと解放。「自動」はランクフレームだけを選びます",
     "frameThemeNeed": "第 {n} 段階の称号「{name}」を獲得",
-    "frameThemeNeedHidden": "隠し称号のどれかが第 {n} 段階に到達"
+    "frameThemeNeedHidden": "隠し称号のどれかが第 {n} 段階に到達",
+    "frameCrowns": "王座フレーム",
+    "frameCrownsHint": "対応する王座に就いている月だけ着けられます。月が替わると元のフレームに戻ります",
+    "frameCrownNeed": "今月「{name}」を獲得"
   },
   "chipSet": {
     "title": "チップ額面",
