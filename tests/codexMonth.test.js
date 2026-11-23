@@ -6,6 +6,7 @@ import { describe, it, expect, vi, afterAll } from 'vitest';
 import { ref } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
+import { createPinia } from 'pinia';
 import zhTW from '../src/i18n/locales/zh-TW.json';
 
 // Fake time from before anything loads: the month clock is an interval
@@ -55,7 +56,7 @@ describe('稱號圖鑑 across the month change', () => {
   afterAll(() => vi.useRealTimers());
 
   it('the leader of the month that just ended shows as wearing it, without a remount', async () => {
-    const w = mount(TitlesView, { global: { plugins: [i18n], mocks: { $router: { push: () => {} } } } });
+    const w = mount(TitlesView, { global: { plugins: [i18n, createPinia()], mocks: { $router: { push: () => {} } } } });
     await flushPromises();
     await flushPromises();
     const reigning = () => w.find('[data-crown="crownProfit"] [data-testid="throne-reigning"]').text();

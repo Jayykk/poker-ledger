@@ -89,7 +89,6 @@
       <button v-if="view.crown" type="button" class="cd-link" @click="$emit('open', 'crown', view.crown)">
         {{ $t('titles.codexDetail.seeCrown') }} <i class="fas fa-chevron-right" aria-hidden="true"></i>
       </button>
-      <p class="cd-muted mt-2">{{ view.wearHint }}</p>
     </div>
 
     <!-- ── A 王座 ── -->
@@ -120,9 +119,16 @@
       </p>
     </div>
 
-    <template v-if="view?.kind === 'frame'" #footer>
-      <button type="button" class="cd-go" data-testid="codex-go-profile" @click="$emit('go-profile')">
-        {{ $t('titles.codexDetail.goProfile') }}
+    <!-- Only a frame I have can be put on; it goes on right here -->
+    <template v-if="view?.kind === 'frame' && view.status.earned" #footer>
+      <button
+        type="button"
+        class="cd-go"
+        data-testid="codex-wear"
+        :disabled="view.chip === 'worn' || wearing"
+        @click="$emit('wear', view.id)"
+      >
+        {{ view.chip === 'worn' ? $t('titles.codexDetail.worn') : $t('titles.codexDetail.wear') }}
       </button>
     </template>
   </BaseModal>
@@ -154,8 +160,10 @@ const props = defineProps({
   // crownMonth, nameSet, myFrame, avatar, name, throneRow(id), formatValue,
   // formatCrown, stepName, memberName
   ctx: { type: Object, required: true },
+  // A frame save in flight (the 更換 button waits)
+  wearing: { type: Boolean, default: false },
 });
-defineEmits(['close', 'open', 'go-profile']);
+defineEmits(['close', 'open', 'wear']);
 
 const { t, te, locale } = useI18n();
 
@@ -221,7 +229,6 @@ function frameView(id) {
       : Number(ctx.siteStats?.frames?.[id]) || 0,
     circle: frameCount(ctx.circleDocs, id, ctx.crownMonth),
     ratio: status.progress ? Math.min(100, Math.round((status.progress.value / status.progress.goal) * 100)) : 0,
-    wearHint: status.kind === 'tier' ? t('titles.codexDetail.wearHintTier') : t('titles.codexDetail.wearHintSpecial'),
   };
   if (status.kind === 'tier') {
     const { value, goal } = status.progress;
@@ -389,5 +396,11 @@ function crownView(id) {
   /* the theme's text-on-accent: a light theme's `white` is dark ink */
   color: var(--on-accent);
   background: rgb(var(--tw-amber-600));
+}
+/* Already on: a quiet outline instead of the call to action */
+.cd-go:disabled {
+  color: rgb(var(--tw-slate-400));
+  background: transparent;
+  border: 1px solid rgb(var(--tw-slate-600));
 }
 </style>

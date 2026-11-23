@@ -1308,46 +1308,22 @@ export function createFrameRenderer(ctx, kind, size) {
     }
     ctx.restore();
   };
-  // A highlight travelling round the ring, the way light runs along polished
-  // metal: a streak that tapers out behind (thin and faint at the tail, the
-  // ring's own colour in the body, a hairline of white at the head), a small
-  // glint where it leads, and a fainter echo on the far side. It fades in and
-  // out over the lap instead of popping, then rests before the next one.
-  const streak = (head, len, w, rgb, strength) => {
-    const N = 20;
-    const step = len / N;
-    for (let i = 0; i < N; i++) {
-      const q = (i + 1) / N; // 0 at the tail → 1 at the head
-      const a1 = head - len + i * step;
-      // tinted body, widening towards the head
-      ctx.lineWidth = w * (0.3 + 0.55 * q);
-      ctx.strokeStyle = `rgba(${rgb},${(0.6 * q * q * strength).toFixed(3)})`;
-      ctx.beginPath(); ctx.arc(c, c, R, a1, a1 + step * 1.15); ctx.stroke();
-      // white core over the leading third
-      if (q > 0.66) {
-        const h = (q - 0.66) / 0.34;
-        ctx.lineWidth = w * 0.26;
-        ctx.strokeStyle = `rgba(255,255,255,${(0.9 * h * h * strength).toFixed(3)})`;
-        ctx.beginPath(); ctx.arc(c, c, R - w * 0.16, a1, a1 + step * 1.15); ctx.stroke();
-      }
-    }
-  };
+  // The ring catching the light: the whole ring brightens in its tint and
+  // dims again, slowly (a faster frame breathes a little faster). Nothing
+  // travels round it: no moving dot, no glint.
   k.shine = (t, speed, w, rgb = '255,255,255') => {
-    const a0 = (t * speed) % (TAU * 1.6);
-    if (a0 > TAU) return;
-    const life = Math.sin((a0 / TAU) * Math.PI);
-    if (life <= 0.01) return;
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'butt';
-    streak(a0, 1.25, w, rgb, life);
-    streak(a0 + Math.PI, 0.7, w * 0.8, rgb, life * 0.4);
-    const hx = c + Math.cos(a0) * R;
-    const hy = c + Math.sin(a0) * R;
-    k.glow(hx, hy, w * 1.5, rgb, 0.55 * life);
+    const breath = 0.5 - 0.5 * Math.cos(t * (0.6 + speed * 0.25));
+    const a = 0.32 * breath * breath;
+    if (a < 0.01) return;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.lineWidth = w * 0.6;
+    ctx.strokeStyle = `rgba(${rgb},${a.toFixed(3)})`;
+    ctx.shadowColor = `rgba(${rgb},${a.toFixed(3)})`; ctx.shadowBlur = w * 2;
+    ctx.beginPath(); ctx.arc(c, c, R, 0, TAU); ctx.stroke();
     ctx.restore();
-    k.star4(hx, hy, w * 1.25, a0 * 0.5, '#ffffff', 0.9 * life);
   };
-  // The usual start of a frame: a glow behind, the ring in its colours, the
-  // highlight running round it
+  // The usual start of a frame: a glow behind, the ring in its colours,
+  // catching the light now and then
   k.base = (t, { glow, stops, shine, speed = 1.6, width = 4 }) => {
     ctx.globalCompositeOperation = 'lighter';
     k.glow(c, c, R * 1.7, glow, 0.2 + 0.07 * Math.sin(t * 2.4));

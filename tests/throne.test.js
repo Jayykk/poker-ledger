@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
+import { createPinia } from 'pinia';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import zhTW from '../src/i18n/locales/zh-TW.json';
@@ -61,7 +62,10 @@ const docs = {
 const reads = [];
 
 vi.mock('../src/firebase-init.js', () => ({ db: {}, functions: {} }));
-vi.mock('firebase/functions', () => ({ httpsCallable: () => async () => ({ data: {} }) }));
+const callableCalls = [];
+vi.mock('firebase/functions', () => ({
+  httpsCallable: (_fns, name) => async (payload) => { callableCalls.push([name, payload]); return { data: {} }; },
+}));
 vi.mock('firebase/firestore', () => ({
   doc: (_db, collection, id) => ({ path: `${collection}/${id}`, id }),
   getDoc: async (r) => {
@@ -105,7 +109,7 @@ const { __route: route, __calls: routerCalls } = await import('vue-router');
 const i18n = createI18n({ legacy: false, locale: 'zh-TW', messages: { 'zh-TW': zhTW } });
 
 async function mountCodex() {
-  const w = mount(TitlesView, { global: { plugins: [i18n], mocks: { $router: { push: () => {} } } } });
+  const w = mount(TitlesView, { global: { plugins: [i18n, createPinia()], mocks: { $router: { push: () => {} } } } });
   await flushPromises();
   await flushPromises();
   return w;
@@ -368,12 +372,24 @@ describe('稱號圖鑑 頭像框 tab', () => {
     expect(d.find('[data-testid="codex-frame-progress"]').text()).toBe(`已收集 1 / ${FRAME_TIERS[0].min} 個，還差 ${FRAME_TIERS[0].min - 1} 個`);
     expect(d.find('[data-testid="codex-frame-counts"]').text()).toContain('全站 6 / 12 人拿到');
     expect(d.find('[data-testid="codex-frame-counts"]').text()).toContain('牌友圈 0 / 4 人拿到');
+    // Not mine: nothing to put on, so no button to 我的
+    expect(w.find('[data-testid="codex-wear"]').exists()).toBe(false);
 
     route.query = { tab: 'frames', item: 'frame:mint' };
     await flushPromises();
     d = w.find('[data-testid="codex-frame"]');
     expect(d.find('[data-testid="codex-frame-status"]').text()).toBe('已獲得');
     expect(d.find('[data-testid="codex-frame-how"]').text()).toContain('下個月一整個月都能戴');
+    // Mine: 更換此頭像框 puts it on right here, no trip to 我的
+    const wear = w.find('[data-testid="codex-wear"]');
+    expect(wear.text()).toBe('更換此頭像框');
+    expect(wear.attributes('disabled')).toBeUndefined();
+    await wear.trigger('click');
+    await flushPromises();
+    expect(callableCalls.at(-1)).toEqual(['setTitlePrefs', { frame: 'mint' }]);
+    expect(routerCalls.some(([kind, to]) => kind === 'push' && to === '/profile')).toBe(false);
+    // No wearing note under it
+    expect(d.text()).not.toContain('指定才會戴上');
     const lines = d.findAll('[data-testid="codex-frame-line"]').map((p) => p.text());
     expect(lines).toEqual([
       `${label(PREV)} 拿下，${label(MONTH)} 整個月都能戴`,
