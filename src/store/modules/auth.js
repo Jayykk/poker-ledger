@@ -24,6 +24,18 @@ export const useAuthStore = defineStore('auth', () => {
   const isGuest = computed(() => user.value?.isAnonymous || false);
   const displayName = computed(() => user.value?.displayName || 'Guest');
 
+  // App start settles who is signed in in steps (the saved session, then a
+  // LINE sign-in from LIFF). A page that reads data on mount — a table link —
+  // waits for that, or it reads as nobody (permission-denied) and is bounced.
+  let resolveSettled;
+  const settled = new Promise((resolve) => { resolveSettled = resolve; });
+  const markAuthSettled = () => resolveSettled();
+  /** Resolves once app start has signed in (or given up), at most after `maxMs`. */
+  const whenAuthSettled = (maxMs = 20000) => Promise.race([
+    settled,
+    new Promise((resolve) => setTimeout(resolve, maxMs)),
+  ]);
+
   /**
    * Initialize auth state listener
    */
@@ -209,6 +221,8 @@ export const useAuthStore = defineStore('auth', () => {
     isGuest,
     displayName,
     initAuth,
+    markAuthSettled,
+    whenAuthSettled,
     register,
     login,
     guestLogin,

@@ -350,6 +350,7 @@ import { useLiff } from '../composables/useLiff.js';
 import { useTournamentClock } from '../composables/useTournamentClock.js';
 import { computeAverageStackBB } from '../utils/tournamentStats.js';
 import { useNotification } from '../composables/useNotification.js';
+import { linkBounceMessageKey } from '../utils/linkRead.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import { useShare, appLink } from '../composables/useShare.js';
 import { inviteText, tournamentSettlementText } from '../utils/shareText.js';
@@ -401,7 +402,7 @@ const {
 } = gameStore;
 const { sendBuyInMessage, sendUndoMessage, sendTournamentSettlementMessage, shareGameInvite, isInLineClient } = useLiff();
 const { shareOut } = useShare();
-const { success, warning, error: showError, copyWithNotification } = useNotification();
+const { success, warning, info, error: showError, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
 
@@ -750,8 +751,11 @@ onMounted(async () => {
           const baseBuyIn = result.baseBuyIn || DEFAULT_BUY_IN;
           await joinAsNewPlayer(targetGameId, baseBuyIn);
         } else {
-          // Logged (and so reported) with why the link bounced
-          console.error('[TournamentGameView] Link bounced to lobby:', new Error(`Auto-join: ${result.msg || 'cannot join'}`));
+          // Ended, gone, or unreadable: say so and go to the lobby (an old
+          // link is often just the way into the app). Not reported
+          console.warn('[TournamentGameView] Link bounced to lobby:', result.reason, result.msg);
+          const key = linkBounceMessageKey(result);
+          (key === 'game.linkEnded' ? info : warning)(t(key));
           router.push('/lobby');
         }
       } catch (err) {

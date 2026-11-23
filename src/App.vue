@@ -204,8 +204,18 @@ const withTimeout = (promise, ms, label) => {
   ]);
 };
 
+// App start that takes this long is reported with how long each step took
+// (a link that "spins and never opens" — which step was it?)
+const SLOW_START_MS = 20000;
+
 // Initialize auth
 onMounted(async () => {
+  const startedAt = Date.now();
+  const stepMs = {};
+  const timed = async (label, run) => {
+    const t0 = Date.now();
+    try { return await run(); } finally { stepMs[label] = Date.now() - t0; }
+  };
   try {
     dbg(`📍 URL: ${window.location.href}`);
     dbg(`📍 Hash: ${window.location.hash || '(empty)'}`);
@@ -237,12 +247,12 @@ onMounted(async () => {
     
     // Step 1: Firebase Auth
     dbg('⏳ initAuth...');
-    const authUser = await withTimeout(authStore.initAuth(), 10000, 'initAuth');
+    const authUser = await timed('initAuth', () => withTimeout(authStore.initAuth(), 10000, 'initAuth'));
     dbg(authUser ? `✅ Firebase user: ${authUser.displayName || authUser.uid} (anon=${authUser.isAnonymous})` : '⚠️ No Firebase session');
     
     // Step 2: LIFF init
     dbg('⏳ initLiff...');
-    const liffOk = await withTimeout(initLiff(), 10000, 'initLiff');
+    const liffOk = await timed('initLiff', () => withTimeout(initLiff(), 10000, 'initLiff'));
     dbg(liffOk ? `✅ LIFF ready (loggedIn=${liffLoggedIn.value}, inClient=${isInLineClient.value})` : '⚠️ LIFF init failed or no LIFF_ID');
     
     // Step 3: LIFF auto-login
@@ -256,7 +266,7 @@ onMounted(async () => {
         if (token) {
           dbg(`⏳ loginWithLine (token=${token.substring(0, 8)}...)...`);
           try {
-            const success = await withTimeout(authStore.loginWithLine(token), 15000, 'loginWithLine');
+            const success = await timed('loginWithLine', () => withTimeout(authStore.loginWithLine(token), 15000, 'loginWithLine'));
             dbg(success ? `✅ LINE login success: ${authStore.user?.displayName}` : `❌ LINE login returned false: ${authStore.error}`);
           } catch (err) {
             dbg(`❌ LINE login failed: ${err.message}`);
@@ -271,16 +281,21 @@ onMounted(async () => {
       dbg(`ℹ️ LIFF not logged in (loggedIn=${liffLoggedIn.value}, inClient=${isInLineClient.value})`);
     }
     
+    // Signed in (or not) for good: a table link's page can read now
+    authStore.markAuthSettled();
+
     // Step 4: Route decision
     if (authStore.user) {
       dbg(`✅ Authenticated as: ${authStore.user.displayName || authStore.user.uid}`);
       
       // Load user data
       dbg('⏳ loadUserData...');
-      await withTimeout(userStore.loadUserData(), 10000, 'loadUserData').catch(e => dbg(`⚠️ loadUserData: ${e.message}`));
+      await timed('loadUserData', () => withTimeout(userStore.loadUserData(), 10000, 'loadUserData')).catch(e => dbg(`⚠️ loadUserData: ${e.message}`));
       
       // Process pending invite first
-      const inviteProcessed = await processPendingInvite();
+      // Capped: it joins over the network, and the start screen waits on it
+      const inviteProcessed = await timed('pendingInvite', () => withTimeout(processPendingInvite(), 15000, 'processPendingInvite'))
+        .catch((e) => { dbg(`⚠️ pendingInvite: ${e.message}`); return false; });
       inviteProcessedInMount.value = true;
       
       // Only check for saved game if no invite was processed
@@ -288,7 +303,7 @@ onMounted(async () => {
         const savedGameId = localStorage.getItem(STORAGE_KEYS.LAST_GAME_ID);
         if (savedGameId) {
           dbg(`⏳ Restoring game: ${savedGameId}`);
-          await withTimeout(gameStore.joinGameListener(savedGameId), 10000, 'joinGameListener').catch(e => dbg(`⚠️ joinGame: ${e.message}`));
+          await timed('restoreGame', () => withTimeout(gameStore.joinGameListener(savedGameId), 10000, 'joinGameListener')).catch(e => dbg(`⚠️ joinGame: ${e.message}`));
         }
       }
       
@@ -322,8 +337,14 @@ onMounted(async () => {
     // On fatal error, go to login instead of spinning forever
     router.push('/login');
   } finally {
+    authStore.markAuthSettled();
     loading.value = false;
     dbg('🏁 Init complete, loading=false');
+    const totalMs = Date.now() - startedAt;
+    if (totalMs > SLOW_START_MS) {
+      const steps = Object.entries(stepMs).map(([k, ms]) => `${k} ${(ms / 1000).toFixed(1)}s`).join(', ');
+      console.error('[App] Slow start:', new Error(`Start took ${Math.round(totalMs / 1000)}s (${steps})`));
+    }
   }
 });
 
