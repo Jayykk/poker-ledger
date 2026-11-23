@@ -507,6 +507,545 @@ const DRAWERS = {
     }
   },
 
+  // ── 主題框, the rest of the families (one each) ──────────────────────
+
+  // 累積給出: petals drifting down
+  petal(k, t) {
+    const { ctx, c, u, R } = k;
+    k.base(t, { glow: '244,114,182', stops: ['#831843', '#fbcfe8', '#ec4899', '#fff1f2', '#be185d', '#f9a8d4', '#831843'], shine: '252,231,243', speed: 1.1 });
+    k.ring(R + 6.5 * u, 1 * u, 'rgba(251,207,232,.7)');
+    k.hole();
+    const petal = (x, y, rot, s, a) => {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha = a; ctx.fillStyle = '#fbcfe8'; ctx.shadowColor = '#f472b6'; ctx.shadowBlur = 4 * u;
+      ctx.beginPath(); ctx.ellipse(0, 0, s, s * 0.5, 0, 0, TAU); ctx.fill(); ctx.restore();
+    };
+    // a wreath of petals on the ring
+    for (let i = 0; i < 10; i++) {
+      const a = (i * TAU) / 10 + t * 0.25;
+      petal(c + Math.cos(a) * (R + 8 * u), c + Math.sin(a) * (R + 8 * u), a + 0.9, Math.max(5 * u, 2), 0.9);
+    }
+    for (const p of k.parts(12, 0.14, () => ({ x: c + rnd(-1, 1) * R * 1.7, y: c - R * 1.8, vy: rnd(0.5, 1) * u, ph: rnd(TAU), life: 1 }))) {
+      p.y += p.vy; p.x += Math.sin(t * 1.6 + p.ph) * 0.6 * u; p.life -= 0.006;
+      if (k.off(p.x, p.y)) petal(p.x, p.y, t * 2 + p.ph, Math.max(4.5 * u, 1.8), Math.min(1, p.life * 3));
+    }
+  },
+
+  // 單場大贏: fireworks
+  firework(k, t) {
+    const { ctx, c, u, R } = k;
+    k.rays(12, t * 0.3, 36 * u, '250,204,21', 0.2);
+    k.base(t, { glow: '217,70,239', stops: ['#4a044e', '#f5d0fe', '#d946ef', '#fef08a', '#a21caf', '#facc15', '#4a044e'], shine: '250,232,255', speed: 2.2 });
+    k.hole();
+    // three bursts taking turns round the ring: sparks flying out, slowing,
+    // sinking a little and going out
+    const hues = ['#fde047', '#f472b6', '#67e8f9'];
+    for (let b = 0; b < 3; b++) {
+      const phase = t * 0.6 + b / 3;
+      const q = k.still ? 0.45 : (phase % 1);
+      const a0 = b * 2.1 + Math.floor(phase) * 1.7;
+      const bx = c + Math.cos(a0) * (R + 15 * u);
+      const by = c + Math.sin(a0) * (R + 15 * u);
+      const out = 1 - (1 - q) * (1 - q); // fast at first
+      const alpha = Math.min(1, q * 8) * (1 - q * q);
+      if (alpha <= 0) continue;
+      ctx.save(); ctx.shadowColor = hues[b]; ctx.shadowBlur = 6 * u;
+      for (let ring = 0; ring < 2; ring++) {
+        const n = ring ? 8 : 12;
+        for (let n2 = 0; n2 < n; n2++) {
+          const a = (n2 * TAU) / n + ring * 0.3;
+          // head and two dimmer dots behind it: the spark's streak
+          for (let tail = 0; tail < 3; tail++) {
+            const r = out * (ring ? 10 : 18) * u * (1 - tail * 0.16);
+            ctx.globalAlpha = alpha * (1 - tail * 0.35);
+            ctx.fillStyle = ring || tail ? hues[b] : '#ffffff';
+            ctx.beginPath(); ctx.arc(bx + Math.cos(a) * r, by + Math.sin(a) * r + q * q * 5 * u, Math.max((1.9 - tail * 0.45) * u, 0.75), 0, TAU); ctx.fill();
+          }
+        }
+      }
+      ctx.restore();
+    }
+  },
+
+  // 單場大給: a meteor shower
+  meteor(k, t) {
+    const { ctx, c, u, R } = k;
+    k.base(t, { glow: '99,102,241', stops: ['#1e1b4b', '#c7d2fe', '#6366f1', '#fde68a', '#312e81', '#a5b4fc', '#1e1b4b'], shine: '224,231,255', speed: 1.4 });
+    ctx.save(); ctx.setLineDash([1 * u, 5 * u]); k.ring(R + 8 * u, 1.3 * u, 'rgba(199,210,254,.75)'); ctx.restore();
+    k.hole();
+    const streak = (x, y, len, a) => {
+      if (!k.off(x, y)) return;
+      const g = ctx.createLinearGradient(x, y, x + len, y - len);
+      g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(1, 'rgba(165,180,252,0)');
+      ctx.save(); ctx.strokeStyle = g; ctx.lineWidth = Math.max(1.6 * u, 0.8); ctx.lineCap = 'round'; ctx.shadowColor = '#a5b4fc'; ctx.shadowBlur = 6 * u;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len, y - len); ctx.stroke(); ctx.restore();
+      k.glow(x, y, Math.max(3 * u, 1.2), '255,255,255', a);
+    };
+    if (k.still) {
+      streak(c - R - 6 * u, c - 4 * u, 14 * u, 0.9); streak(c + R * 0.4, c + R + 8 * u, 12 * u, 0.8); streak(c - R * 0.2, c - R - 12 * u, 10 * u, 0.7);
+    }
+    for (const p of k.parts(7, 0.09, () => ({ x: c + rnd(-0.6, 2) * R, y: c - R * 1.9, v: rnd(1.3, 2.2) * u, len: rnd(10, 18) * u, life: 1 }))) {
+      p.x -= p.v; p.y += p.v; p.life -= 0.012;
+      streak(p.x, p.y, p.len, Math.min(1, p.life * 2.5));
+    }
+  },
+
+  // 穩定型: still water
+  zen(k, t) {
+    const { ctx, c, u, R } = k;
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.7, '45,212,191', 0.18 + 0.04 * Math.sin(t * 1.2));
+    // slow ripples
+    for (let i = 0; i < 3; i++) {
+      const q = k.still ? 0.2 + i * 0.3 : ((t * 0.22 + i / 3) % 1);
+      k.ring(R + (3 + q * 22) * u, 1.2 * u, `rgba(153,246,228,${(0.6 * (1 - q)).toFixed(3)})`);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    k.ring(R, 3.8 * u, k.conic(t * 0.5, ['#042f2e', '#99f6e4', '#0d9488', '#f0fdfa', '#115e59', '#5eead4', '#042f2e']), '#2dd4bf', 12 * u);
+    k.shine(t, 1.2, 3.8 * u, '204,251,241');
+    k.hole();
+    // two drops circling each other, light and dark
+    for (let i = 0; i < 2; i++) {
+      const a = t * 0.6 + i * Math.PI;
+      const x = c + Math.cos(a) * (R + 9 * u);
+      const y = c + Math.sin(a) * (R + 9 * u);
+      ctx.save(); ctx.fillStyle = i ? '#0f766e' : '#f0fdfa'; ctx.strokeStyle = i ? '#99f6e4' : '#0f766e'; ctx.lineWidth = 0.8 * u; ctx.shadowColor = '#5eead4'; ctx.shadowBlur = 7 * u;
+      ctx.beginPath(); ctx.arc(x, y, Math.max(3.6 * u, 1.5), 0, TAU); ctx.fill(); ctx.stroke(); ctx.restore();
+      for (let j = 1; j < 9; j++) k.glow(c + Math.cos(a - j * 0.07) * (R + 9 * u), c + Math.sin(a - j * 0.07) * (R + 9 * u), (3.2 - j * 0.3) * u, i ? '20,184,166' : '204,251,241', 0.4 * (1 - j / 9));
+    }
+  },
+
+  // 人氣目標: will-o'-the-wisps
+  ghost(k, t) {
+    const { ctx, c, u, R } = k;
+    k.base(t, { glow: '34,211,238', stops: ['#0f172a', '#e2e8f0', '#475569', '#a5f3fc', '#1e293b', '#67e8f9', '#0f172a'], shine: '236,254,255', speed: 0.9 });
+    k.hole();
+    ctx.globalCompositeOperation = 'lighter';
+    // a cold mist breathing round the ring
+    for (let i = 0; i < 10; i++) {
+      const a = (i * TAU) / 10 + t * 0.25;
+      k.glow(c + Math.cos(a) * (R + 9 * u), c + Math.sin(a) * (R + 9 * u), (9 + 3 * Math.sin(t * 1.4 + i)) * u, '103,232,249', 0.1);
+    }
+    // wisps chasing round, both ways
+    for (let i = 0; i < 5; i++) {
+      const dir = i % 2 ? -1 : 1;
+      const a = t * (0.9 + i * 0.17) * dir + i * 1.3;
+      const rr = R + (10 + 5 * Math.sin(t * 1.7 + i)) * u;
+      for (let j = 0; j < 16; j++) {
+        const q = 1 - j / 16;
+        const aj = a - j * 0.075 * dir;
+        const wob = Math.sin(t * 5 + j * 0.6 + i) * 1.4 * u * (1 - q);
+        k.glow(c + Math.cos(aj) * (rr + wob), c + Math.sin(aj) * (rr + wob), Math.max((1.6 + 6 * q) * u, 0.8), i % 2 ? '165,243,252' : '241,245,249', 0.8 * q * q);
+      }
+      k.glow(c + Math.cos(a) * rr, c + Math.sin(a) * rr, Math.max(4 * u, 1.6), '255,255,255', 0.95);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  },
+
+  // 神秘大獎: question marks and treasure light
+  mystery(k, t) {
+    const { c, u, R } = k;
+    k.rays(8, t * 0.4, 44 * u, '192,132,252', 0.26, 0.34);
+    k.rays(8, -t * 0.3, 30 * u, '250,204,21', 0.24, 0.3);
+    k.base(t, { glow: '147,51,234', stops: ['#3b0764', '#e9d5ff', '#9333ea', '#fde68a', '#581c87', '#facc15', '#3b0764'], shine: '243,232,255', speed: 2 });
+    k.hole();
+    for (let i = 0; i < 4; i++) {
+      const a = t * 0.8 + (i * TAU) / 4;
+      const bob = Math.sin(t * 2.4 + i * 1.3);
+      k.glyph(i % 2 ? '?' : '★', c + Math.cos(a) * (R + 12 * u), c + Math.sin(a) * (R + 12 * u) + bob * 1.5 * u, Math.max(13 * u, 6), i % 2 ? '#fde68a' : '#e9d5ff', 0, 0.7 + 0.3 * bob);
+    }
+    for (const s of k.fixed(6, () => ({ a: rnd(TAU), r: rnd(4, 26) * u, ph: rnd(TAU) }))) {
+      k.star4(c + Math.cos(s.a) * (R + s.r), c + Math.sin(s.a) * (R + s.r), 7 * u, t + s.ph, '#fef3c7', Math.max(0, Math.sin(t * 2.8 + s.ph)));
+    }
+  },
+
+  // 復仇者: crossing blades of light
+  blade(k, t) {
+    const { ctx, c, u, R } = k;
+    k.rays(10, t * 0.6, 34 * u, '244,63,94', 0.22, 0.28);
+    k.base(t, { glow: '225,29,72', stops: ['#1c1917', '#fecdd3', '#be123c', '#e7e5e4', '#44403c', '#fb7185', '#1c1917'], shine: '255,228,230', speed: 2.6 });
+    k.hole();
+    // slashes flashing across the edge, one after another, leaving an afterglow
+    for (let i = 0; i < 4; i++) {
+      const phase = t * 1.1 + i / 4;
+      const q = k.still ? 0.3 : (phase % 1);
+      const seat = i * 1.7 + Math.floor(phase) * 2.4;
+      const a = Math.max(0, 1 - Math.abs(q - 0.25) * 2.4);
+      if (a <= 0) continue;
+      const mx = c + Math.cos(seat) * (R + 7 * u);
+      const my = c + Math.sin(seat) * (R + 7 * u);
+      const dx = -Math.sin(seat + 0.45) * 22 * u;
+      const dy = Math.cos(seat + 0.45) * 22 * u;
+      const g = ctx.createLinearGradient(mx - dx, my - dy, mx + dx, my + dy);
+      g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, `rgba(255,255,255,${a})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.save(); ctx.lineCap = 'round'; ctx.shadowColor = '#f43f5e'; ctx.shadowBlur = 12 * u;
+      ctx.strokeStyle = `rgba(244,63,94,${(a * 0.7).toFixed(3)})`; ctx.lineWidth = Math.max(5.5 * u, 2.2);
+      ctx.beginPath(); ctx.moveTo(mx - dx, my - dy); ctx.lineTo(mx + dx, my + dy); ctx.stroke();
+      ctx.strokeStyle = g; ctx.lineWidth = Math.max(2.2 * u, 1);
+      ctx.beginPath(); ctx.moveTo(mx - dx, my - dy); ctx.lineTo(mx + dx, my + dy); ctx.stroke(); ctx.restore();
+    }
+    // two crossed swords under the face
+    const sw = Math.max(1 * u, 0.42);
+    for (const side of [-1, 1]) {
+      ctx.save(); ctx.translate(c, c + R + 9 * u); ctx.rotate(side * 0.8); ctx.scale(sw, sw);
+      ctx.shadowColor = '#fb7185'; ctx.shadowBlur = 8;
+      const g = ctx.createLinearGradient(-2, 0, 2, 0); g.addColorStop(0, '#94a3b8'); g.addColorStop(0.5, '#ffffff'); g.addColorStop(1, '#cbd5e1');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, -24); ctx.lineTo(2.2, -19); ctx.lineTo(2.2, 2); ctx.lineTo(-2.2, 2); ctx.lineTo(-2.2, -19); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fbbf24'; ctx.fillRect(-6, 2, 12, 2.4);
+      ctx.fillStyle = '#9f1239'; ctx.fillRect(-1.5, 4.4, 3, 6); ctx.restore();
+    }
+    k.star4(c, c + R + 9 * u, Math.max(6 * u, 2.5), t * 2, '#ffffff', 0.5 + 0.5 * Math.sin(t * 4));
+  },
+
+  // 錢圈常客: a laurel wreath and a medal
+  laurel(k, t) {
+    const { ctx, c, u, R } = k;
+    k.rays(12, t * 0.2, 34 * u, '134,239,172', 0.2);
+    k.base(t, { glow: '34,197,94', stops: ['#14532d', '#bbf7d0', '#16a34a', '#fef9c3', '#166534', '#86efac', '#14532d'], shine: '220,252,231', speed: 1.5 });
+    k.hole();
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 8; i++) {
+        const a = Math.PI / 2 + side * (0.3 + i * 0.3);
+        const sway = Math.sin(t * 1.8 + i * 0.6) * 0.12;
+        ctx.save(); ctx.translate(c + Math.cos(a) * (R + 8 * u), c + Math.sin(a) * (R + 8 * u)); ctx.rotate(a + side * (0.95 + sway));
+        ctx.fillStyle = i % 2 ? '#86efac' : '#22c55e'; ctx.shadowColor = '#22c55e'; ctx.shadowBlur = 3 * u;
+        ctx.beginPath(); ctx.ellipse(0, 0, Math.max(6 * u, 2.2), Math.max(2.4 * u, 0.9), 0, 0, TAU); ctx.fill(); ctx.restore();
+      }
+    }
+    // medal at the foot of the wreath
+    const my = c + R + 9 * u;
+    ctx.save(); ctx.shadowColor = '#facc15'; ctx.shadowBlur = 8 * u; ctx.fillStyle = '#fde047'; ctx.strokeStyle = '#a16207'; ctx.lineWidth = 0.8 * u;
+    ctx.beginPath(); ctx.arc(c, my, Math.max(5.5 * u, 2.2), 0, TAU); ctx.fill(); ctx.stroke(); ctx.restore();
+    k.star4(c, my, 5 * u, t, '#fffbeb', 0.6 + 0.4 * Math.sin(t * 3));
+  },
+
+  // 不死鳥: wings of fire
+  firebird(k, t) {
+    const { ctx, c, u, R } = k;
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.9, '249,115,22', 0.24 + 0.08 * Math.sin(t * 3));
+    // wing feathers fanning out on both sides, beating
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 6; i++) {
+        const beat = Math.sin(t * 2.6) * 0.16;
+        const a = (side < 0 ? Math.PI : 0) + side * (-0.95 + i * 0.3 + beat);
+        const len = (26 - Math.abs(i - 2.5) * 4) * u;
+        ctx.save(); ctx.translate(c + Math.cos(a) * R, c + Math.sin(a) * R); ctx.rotate(a);
+        const g = ctx.createLinearGradient(0, 0, len, 0);
+        g.addColorStop(0, 'rgba(254,240,138,.95)'); g.addColorStop(0.5, 'rgba(249,115,22,.75)'); g.addColorStop(1, 'rgba(220,38,38,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.ellipse(len / 2, 0, len / 2, Math.max(3 * u, 1.2), 0, 0, TAU); ctx.fill(); ctx.restore();
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    k.ring(R, 4 * u, k.conic(t * 2, ['#7c2d12', '#fef08a', '#f97316', '#fff7ed', '#b91c1c', '#fbbf24', '#7c2d12']), '#fb923c', 16 * u);
+    k.shine(t, 3, 4 * u, '255,237,213');
+    k.hole();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const p of k.parts(18, 0.3, () => ({ x: c + rnd(-1, 1) * R * 1.3, y: c + R * 1.2, vy: rnd(0.6, 1.3) * u, ph: rnd(TAU), life: 1 }))) {
+      p.y -= p.vy; p.x += Math.sin(t * 3 + p.ph) * 0.4 * u; p.life -= 0.012;
+      if (k.off(p.x, p.y)) k.glow(p.x, p.y, Math.max(2.6 * u, 1), '253,186,116', p.life);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  },
+
+  // 重買王: charging up, segment by segment
+  reload(k, t) {
+    const { ctx, c, u, R } = k;
+    k.base(t, { glow: '6,182,212', stops: ['#083344', '#a5f3fc', '#0891b2', '#ecfeff', '#155e75', '#67e8f9', '#083344'], shine: '207,250,254', speed: 2.4 });
+    k.hole();
+    // twelve cells filling clockwise, then starting over
+    const N = 12;
+    const filled = k.still ? 8 : (t * 5) % (N + 3);
+    ctx.save(); ctx.lineCap = 'butt';
+    for (let i = 0; i < N; i++) {
+      const a0 = -Math.PI / 2 + (i * TAU) / N + 0.06;
+      const on = i < filled;
+      ctx.lineWidth = Math.max(3.4 * u, 1.3); ctx.strokeStyle = on ? '#67e8f9' : 'rgba(103,232,249,.22)';
+      ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = on ? 7 * u : 0;
+      ctx.beginPath(); ctx.arc(c, c, R + 8 * u, a0, a0 + TAU / N - 0.12); ctx.stroke();
+    }
+    ctx.restore();
+    // two arrows chasing round: again, and again
+    for (let i = 0; i < 2; i++) {
+      const a = t * 2 + i * Math.PI;
+      ctx.save(); ctx.translate(c + Math.cos(a) * (R + 15 * u), c + Math.sin(a) * (R + 15 * u)); ctx.rotate(a + Math.PI / 2);
+      ctx.fillStyle = '#ecfeff'; ctx.shadowColor = '#22d3ee'; ctx.shadowBlur = 6 * u;
+      const s = Math.max(4.2 * u, 1.7);
+      ctx.beginPath(); ctx.moveTo(s, 0); ctx.lineTo(-s, -s * 0.8); ctx.lineTo(-s, s * 0.8); ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+  },
+
+  // 亞軍: silver wings
+  silverwing(k, t) {
+    const { ctx, c, u, R } = k;
+    k.rays(14, -t * 0.25, 36 * u, '226,232,240', 0.2);
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.7, '148,163,184', 0.2 + 0.05 * Math.sin(t * 2));
+    ctx.globalCompositeOperation = 'source-over';
+    k.ring(R + 6.5 * u, 1.2 * u, 'rgba(241,245,249,.8)', '#e2e8f0', 6 * u);
+    k.ring(R, 4 * u, k.conic(t * 1.5, ['#334155', '#ffffff', '#94a3b8', '#f8fafc', '#475569', '#e2e8f0', '#334155']), '#e2e8f0', 13 * u);
+    k.shine(t, 2.4, 4 * u, '241,245,249');
+    k.hole();
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 5; i++) {
+        const flap = Math.sin(t * 2.2) * 0.14 * side;
+        const a = (side < 0 ? Math.PI : 0) + side * (-0.7 + i * 0.3);
+        ctx.save(); ctx.translate(c + Math.cos(a) * (R + 5 * u), c + Math.sin(a) * (R + 5 * u)); ctx.rotate(a - side * 0.55 + flap);
+        ctx.shadowColor = '#e2e8f0'; ctx.shadowBlur = 5 * u;
+        const len = (21 - i * 2.6) * u;
+        const g = ctx.createLinearGradient(0, 0, len * 1.4, 0); g.addColorStop(0, '#ffffff'); g.addColorStop(1, 'rgba(148,163,184,.2)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(len * 0.7, 0, len * 0.7, Math.max(2.6 * u, 1), 0, 0, TAU); ctx.fill(); ctx.restore();
+      }
+    }
+    k.glyph('2', c, c + R + 9 * u, Math.max(11 * u, 6), '#f8fafc', 0, 0.95);
+  },
+
+  // 泡沫: bubbles
+  foam(k, t) {
+    const { ctx, c, u, R } = k;
+    k.base(t, { glow: '56,189,248', stops: ['#0c4a6e', '#bae6fd', '#38bdf8', '#fbcfe8', '#0369a1', '#a5f3fc', '#0c4a6e'], shine: '224,242,254', speed: 1.3 });
+    k.hole();
+    const bubble = (x, y, r, a, hue) => {
+      if (!k.off(x, y) || a <= 0) return;
+      ctx.save(); ctx.globalAlpha = a; ctx.lineWidth = Math.max(0.9 * u, 0.5);
+      ctx.strokeStyle = `hsl(${hue},90%,82%)`; ctx.fillStyle = `hsla(${hue},90%,80%,.16)`; ctx.shadowColor = `hsl(${hue},90%,75%)`; ctx.shadowBlur = 5 * u;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(x - r * 0.35, y - r * 0.35, r * 0.22, 0, TAU); ctx.fill(); ctx.restore();
+    };
+    for (const b of k.fixed(7, (i) => ({ a: (i * TAU) / 7 + rnd(0.5), r: rnd(8, 16) * u, z: rnd(3.5, 6.5), ph: rnd(TAU) }))) {
+      const a = b.a + Math.sin(t * 0.8 + b.ph) * 0.15;
+      bubble(c + Math.cos(a) * (R + b.r), c + Math.sin(a) * (R + b.r) + Math.sin(t * 1.6 + b.ph) * 2 * u, Math.max(b.z * u, 1.6), 0.95, 180 + ((t * 30 + b.ph * 40) % 150));
+    }
+    for (const p of k.parts(10, 0.12, () => ({ x: c + rnd(-1, 1) * R * 1.6, y: c + R * 1.7, vy: rnd(0.5, 1) * u, z: rnd(2.5, 5), ph: rnd(TAU), life: 1 }))) {
+      p.y -= p.vy; p.x += Math.sin(t * 2 + p.ph) * 0.4 * u; p.life -= 0.007;
+      bubble(p.x, p.y, Math.max(p.z * u, 1.3), Math.min(1, p.life * 3), 190 + p.ph * 20);
+    }
+  },
+
+  // 開路先鋒: a gale
+  gale(k, t) {
+    const { ctx, c, u, R } = k;
+    k.base(t, { glow: '163,230,53', stops: ['#1a2e05', '#ecfccb', '#65a30d', '#f7fee7', '#3f6212', '#bef264', '#1a2e05'], shine: '236,252,203', speed: 3.4 });
+    k.hole();
+    // wind streaks whipping round at different speeds
+    ctx.save(); ctx.lineCap = 'round';
+    for (let i = 0; i < 6; i++) {
+      const a = t * (2.2 + (i % 3) * 0.7) + i * 1.05;
+      const rr = R + (6 + (i % 3) * 5) * u;
+      for (let j = 0; j < 10; j++) {
+        const q = 1 - j / 10;
+        ctx.strokeStyle = `rgba(236,252,203,${(0.75 * q).toFixed(3)})`; ctx.lineWidth = Math.max((0.6 + 1.8 * q) * u, 0.5);
+        ctx.shadowColor = '#a3e635'; ctx.shadowBlur = 4 * u;
+        ctx.beginPath(); ctx.arc(c, c, rr, a - j * 0.09 - 0.1, a - j * 0.09); ctx.stroke();
+      }
+    }
+    ctx.restore();
+    // leaves caught in it
+    for (let i = 0; i < 4; i++) {
+      const a = t * 1.9 + (i * TAU) / 4;
+      ctx.save(); ctx.translate(c + Math.cos(a) * (R + 14 * u), c + Math.sin(a) * (R + 14 * u)); ctx.rotate(a * 2 + t * 4);
+      ctx.fillStyle = '#bef264'; ctx.shadowColor = '#84cc16'; ctx.shadowBlur = 4 * u;
+      ctx.beginPath(); ctx.ellipse(0, 0, Math.max(4.5 * u, 1.8), Math.max(1.8 * u, 0.8), 0, 0, TAU); ctx.fill(); ctx.restore();
+    }
+  },
+
+  // 大牌對決: fire against ice
+  clash(k, t) {
+    const { ctx, c, u, R } = k;
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c - R * 0.7, c, R * 1.4, '239,68,68', 0.22 + 0.06 * Math.sin(t * 3));
+    k.glow(c + R * 0.7, c, R * 1.4, '56,189,248', 0.22 + 0.06 * Math.cos(t * 3));
+    ctx.globalCompositeOperation = 'source-over';
+    // the ring: red on the left half, blue on the right
+    ctx.save(); ctx.lineWidth = 4.2 * u; ctx.shadowBlur = 14 * u;
+    ctx.strokeStyle = k.conic(t * 1.5, ['#7f1d1d', '#fecaca', '#ef4444', '#fff7ed', '#7f1d1d']); ctx.shadowColor = '#ef4444';
+    ctx.beginPath(); ctx.arc(c, c, R, Math.PI / 2, Math.PI * 1.5); ctx.stroke();
+    ctx.strokeStyle = k.conic(-t * 1.5, ['#0c4a6e', '#e0f2fe', '#38bdf8', '#ffffff', '#0c4a6e']); ctx.shadowColor = '#38bdf8';
+    ctx.beginPath(); ctx.arc(c, c, R, -Math.PI / 2, Math.PI / 2); ctx.stroke(); ctx.restore();
+    k.shine(t, 2.8, 4.2 * u, '255,255,255');
+    k.hole();
+    // sparks where the two meet, top and bottom
+    for (const dir of [-1, 1]) {
+      const x = c;
+      const y = c + dir * R;
+      const pulse = 0.6 + 0.4 * Math.sin(t * 6 + dir);
+      k.glow(x, y, 9 * u * pulse, '255,255,255', 0.5);
+      k.star4(x, y, Math.max(15 * u, 5.5) * pulse, t * 2, '#ffffff', 0.95);
+      for (let i = 0; i < 6; i++) {
+        const a = (i * TAU) / 6 + t * 3 * dir;
+        const r = ((t * 22 + i * 7) % 12) * u;
+        k.glow(x + Math.cos(a) * r, y + Math.sin(a) * r, Math.max(2.8 * u, 1.1), i % 2 ? '254,202,202' : '186,230,253', 1 - r / (12 * u));
+      }
+    }
+    // embers on the left, snow on the right
+    for (const p of k.parts(14, 0.2, () => {
+      const hot = Math.random() < 0.5;
+      return { hot, x: c + (hot ? -1 : 1) * rnd(0.5, 1.6) * R, y: c + (hot ? 1 : -1) * R * 1.5, vy: rnd(0.5, 1) * u * (hot ? -1 : 1), ph: rnd(TAU), life: 1 };
+    })) {
+      p.y += p.vy; p.x += Math.sin(t * 2.5 + p.ph) * 0.3 * u; p.life -= 0.009;
+      if (k.off(p.x, p.y)) k.glow(p.x, p.y, Math.max(3.2 * u, 1.3), p.hot ? '253,186,116' : '224,242,254', p.life);
+    }
+  },
+
+  // 悲劇英雄: a crown of thorns
+  thorn(k, t) {
+    const { ctx, c, u, R } = k;
+    k.base(t, { glow: '159,18,57', stops: ['#1c1917', '#fda4af', '#881337', '#d6d3d1', '#292524', '#be123c', '#1c1917'], shine: '254,205,211', speed: 1.1 });
+    k.hole();
+    // thorns all round, breathing
+    for (let i = 0; i < 18; i++) {
+      const a = (i * TAU) / 18 + (i % 2 ? 0.12 : -0.12);
+      const len = ((i % 3 ? 9 : 15) + Math.sin(t * 1.6 + i) * 1.4) * u;
+      const hw = Math.max(2.8 * u, 1.1);
+      const bx = c + Math.cos(a) * (R + 1.5 * u);
+      const by = c + Math.sin(a) * (R + 1.5 * u);
+      ctx.save(); ctx.fillStyle = i % 3 ? '#78716c' : '#d6d3d1'; ctx.shadowColor = '#e11d48'; ctx.shadowBlur = 6 * u;
+      ctx.beginPath(); ctx.moveTo(bx - Math.sin(a) * hw, by + Math.cos(a) * hw);
+      ctx.lineTo(c + Math.cos(a + 0.18) * (R + len), c + Math.sin(a + 0.18) * (R + len));
+      ctx.lineTo(bx + Math.sin(a) * hw, by - Math.cos(a) * hw); ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+    // a rose, and petals falling from it
+    const rx = c + Math.cos(-0.8) * (R + 8 * u);
+    const ry = c + Math.sin(-0.8) * (R + 8 * u);
+    const rs = Math.max(5.5 * u, 2.4);
+    ctx.save(); ctx.shadowColor = '#e11d48'; ctx.shadowBlur = 8 * u;
+    for (let i = 0; i < 5; i++) {
+      const a = (i * TAU) / 5 + t * 0.3;
+      ctx.fillStyle = i % 2 ? '#e11d48' : '#9f1239';
+      ctx.beginPath(); ctx.arc(rx + Math.cos(a) * rs * 0.45, ry + Math.sin(a) * rs * 0.45, rs * 0.6, 0, TAU); ctx.fill();
+    }
+    ctx.fillStyle = '#4c0519'; ctx.beginPath(); ctx.arc(rx, ry, rs * 0.3, 0, TAU); ctx.fill(); ctx.restore();
+    for (const p of k.parts(6, 0.05, () => ({ x: rx + rnd(-3, 3) * u, y: ry, vy: rnd(0.4, 0.8) * u, ph: rnd(TAU), life: 1 }))) {
+      p.y += p.vy; p.x += Math.sin(t * 2 + p.ph) * 0.5 * u; p.life -= 0.008;
+      if (!k.off(p.x, p.y)) continue;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(t * 2 + p.ph); ctx.globalAlpha = Math.min(1, p.life * 3); ctx.fillStyle = '#e11d48';
+      ctx.beginPath(); ctx.ellipse(0, 0, Math.max(3 * u, 1.3), Math.max(1.6 * u, 0.7), 0, 0, TAU); ctx.fill(); ctx.restore();
+    }
+  },
+
+  // 四條: the four suits in orbit
+  quad(k, t) {
+    const { ctx, c, u, R } = k;
+    k.rays(4, t * 0.5, 46 * u, '250,204,21', 0.28, 0.22);
+    k.rays(4, t * 0.5 + TAU / 8, 30 * u, '248,250,252', 0.2, 0.18);
+    k.base(t, { glow: '234,179,8', stops: ['#18181b', '#fef9c3', '#eab308', '#f4f4f5', '#3f3f46', '#fde047', '#18181b'], shine: '254,249,195', speed: 2 });
+    ctx.save(); ctx.setLineDash([6 * u, 4 * u]); ctx.lineDashOffset = -t * 12 * u; k.ring(R + 7 * u, 1.5 * u, '#fde047', '#eab308', 5 * u); ctx.restore();
+    k.hole();
+    const suits = [['♠', '#f4f4f5'], ['♥', '#f87171'], ['♣', '#f4f4f5'], ['♦', '#f87171']];
+    for (let i = 0; i < 4; i++) {
+      const a = t * 0.9 + (i * TAU) / 4;
+      const x = c + Math.cos(a) * (R + 14 * u);
+      const y = c + Math.sin(a) * (R + 14 * u);
+      const s = Math.max(8.5 * u, 4.2);
+      ctx.save(); ctx.fillStyle = '#18181b'; ctx.strokeStyle = '#fde047'; ctx.lineWidth = Math.max(0.9 * u, 0.5); ctx.shadowColor = '#eab308'; ctx.shadowBlur = 7 * u;
+      ctx.beginPath(); ctx.arc(x, y, s, 0, TAU); ctx.fill(); ctx.stroke(); ctx.restore();
+      k.glyph(suits[i][0], x, y, s * 1.5, suits[i][1], 0, 1);
+    }
+  },
+
+  // 同花順: a rainbow, step by step
+  rainbow(k, t) {
+    const { ctx, c, u, R } = k;
+    const hue = (t * 50) % 360;
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.7, '129,140,248', 0.2 + 0.06 * Math.sin(t * 2.4));
+    ctx.globalCompositeOperation = 'source-over';
+    k.ring(R, 4 * u, k.conic(t * 2.4, ['#ef4444', '#f59e0b', '#eab308', '#22c55e', '#06b6d4', '#6366f1', '#d946ef', '#ef4444']), '#a5b4fc', 14 * u);
+    k.shine(t, 3, 4 * u);
+    k.hole();
+    // five steps climbing round the ring, each a colour on: a straight, all one suit
+    for (let i = 0; i < 5; i++) {
+      const a = t * 0.8 + i * 0.5;
+      const rr = R + (7 + i * 2.6) * u;
+      ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = Math.max(2.6 * u, 1.1);
+      ctx.strokeStyle = `hsl(${(hue + i * 55) % 360},95%,68%)`; ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 7 * u;
+      ctx.beginPath(); ctx.arc(c, c, rr, a, a + 0.42); ctx.stroke();
+      ctx.beginPath(); ctx.arc(c, c, rr, a + Math.PI, a + Math.PI + 0.42); ctx.stroke(); ctx.restore();
+    }
+    for (const s of k.fixed(6, () => ({ a: rnd(TAU), r: rnd(6, 26) * u, ph: rnd(TAU) }))) {
+      k.star4(c + Math.cos(s.a) * (R + s.r), c + Math.sin(s.a) * (R + s.r), 7 * u, t + s.ph, '#ffffff', Math.max(0, Math.sin(t * 2.6 + s.ph)));
+    }
+  },
+
+  // 皇家同花順: 10 J Q K A, crowned
+  royal(k, t) {
+    const { ctx, c, u, R, D } = k;
+    k.rays(16, t * 0.3, 50 * u, '250,204,21', 0.3);
+    k.rays(8, -t * 0.22, 36 * u, '239,68,68', 0.2, 0.3);
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.9, '220,38,38', 0.2 + 0.08 * Math.sin(t * 2.6));
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.save(); ctx.setLineDash([2 * u, 4 * u]); ctx.lineDashOffset = t * 14 * u; k.ring(R + 7 * u, 1.8 * u, '#fde047', '#f59e0b', 6 * u); ctx.restore();
+    k.ring(R, 4.4 * u, k.conic(t * 2, ['#450a0a', '#fef08a', '#dc2626', '#fffbeb', '#7f1d1d', '#facc15', '#450a0a']), '#f59e0b', 16 * u);
+    k.shine(t, 3, 4.4 * u, '254,243,199');
+    k.hole();
+    // the five cards, fanned under the face
+    const ranks = ['10', 'J', 'Q', 'K', 'A'];
+    for (let i = 0; i < 5; i++) {
+      const a = Math.PI / 2 + (i - 2) * 0.36;
+      const lift = Math.sin(t * 2.4 - i * 0.6) * 1.4 * u;
+      const w = Math.max(8 * u, 4.2);
+      const h = w * 1.35;
+      ctx.save(); ctx.translate(c + Math.cos(a) * (R + 11 * u + lift), c + Math.sin(a) * (R + 11 * u + lift)); ctx.rotate(a - Math.PI / 2);
+      ctx.fillStyle = '#fffbeb'; ctx.strokeStyle = '#b45309'; ctx.lineWidth = Math.max(0.6 * u, 0.4); ctx.shadowColor = '#facc15'; ctx.shadowBlur = 6 * u;
+      ctx.fillRect(-w / 2, -h / 2, w, h); ctx.shadowBlur = 0; ctx.strokeRect(-w / 2, -h / 2, w, h); ctx.restore();
+      k.glyph(ranks[i], c + Math.cos(a) * (R + 11 * u + lift), c + Math.sin(a) * (R + 11 * u + lift), w * (i ? 0.95 : 0.7), '#b91c1c', a - Math.PI / 2, 1);
+    }
+    k.crown(c - D / 2 - 5 * u + Math.sin(t * 2.2) * 1.5 * u, 32 * u, ['#fffbeb', '#facc15', '#92400e'], '#ef4444');
+  },
+
+  // 常客: the hands of a clock
+  clock(k, t) {
+    const { ctx, c, u, R } = k;
+    k.base(t, { glow: '217,119,6', stops: ['#292524', '#fde68a', '#b45309', '#fffbeb', '#44403c', '#fbbf24', '#292524'], shine: '254,243,199', speed: 1.2 });
+    k.ring(R + 12 * u, 1 * u, 'rgba(253,230,138,.45)');
+    k.hole();
+    // twelve hour marks, the one under the hand lit
+    const hand = k.still ? 1.1 : t * 0.9;
+    for (let i = 0; i < 12; i++) {
+      const a = -Math.PI / 2 + (i * TAU) / 12;
+      const near = Math.max(0, Math.cos(hand - Math.PI / 2 - a));
+      const long = i % 3 === 0;
+      ctx.save(); ctx.strokeStyle = '#fde68a'; ctx.globalAlpha = 0.45 + 0.55 * near ** 6; ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max((long ? 2.2 : 1.3) * u, 0.6); ctx.shadowColor = '#f59e0b'; ctx.shadowBlur = 5 * u;
+      ctx.beginPath(); ctx.moveTo(c + Math.cos(a) * (R + 6 * u), c + Math.sin(a) * (R + 6 * u));
+      ctx.lineTo(c + Math.cos(a) * (R + (long ? 11 : 9) * u), c + Math.sin(a) * (R + (long ? 11 : 9) * u)); ctx.stroke(); ctx.restore();
+    }
+    // the hand sweeping outside the face, with a fading trail
+    const ha = hand - Math.PI / 2;
+    for (let j = 0; j < 14; j++) {
+      const a = ha - j * 0.06;
+      k.glow(c + Math.cos(a) * (R + 12 * u), c + Math.sin(a) * (R + 12 * u), Math.max((4 - j * 0.24) * u, 0.8), j ? '253,230,138' : '255,255,255', 0.85 * (1 - j / 14));
+    }
+    // and a slow one going the other way: the long nights
+    const ma = -hand * 0.25;
+    k.star4(c + Math.cos(ma) * (R + 17 * u), c + Math.sin(ma) * (R + 17 * u), Math.max(6 * u, 2.5), t, '#fffbeb', 0.9);
+  },
+
+  // 主辦人: a carnival
+  carnival(k, t) {
+    const { ctx, c, u, R } = k;
+    k.rays(12, t * 0.3, 38 * u, '244,114,182', 0.2);
+    k.base(t, { glow: '236,72,153', stops: ['#701a75', '#fbcfe8', '#ec4899', '#fef08a', '#0e7490', '#67e8f9', '#701a75'], shine: '253,242,248', speed: 2.2 });
+    k.hole();
+    // a string of lights, chasing
+    const cols = ['#fde047', '#f472b6', '#67e8f9', '#86efac'];
+    for (let i = 0; i < 16; i++) {
+      const a = (i * TAU) / 16;
+      const on = k.still ? 1 : 0.35 + 0.65 * (Math.floor(t * 5 + i) % 2);
+      ctx.save(); ctx.globalAlpha = on; ctx.fillStyle = cols[i % 4]; ctx.shadowColor = cols[i % 4]; ctx.shadowBlur = 7 * u;
+      ctx.beginPath(); ctx.arc(c + Math.cos(a) * (R + 8 * u), c + Math.sin(a) * (R + 8 * u), Math.max(2.3 * u, 1), 0, TAU); ctx.fill(); ctx.restore();
+    }
+    // confetti
+    for (const p of k.parts(18, 0.3, () => ({ x: c + rnd(-1, 1) * R * 1.7, y: c - R * 1.8, vy: rnd(0.6, 1.2) * u, ph: rnd(TAU), col: cols[Math.floor(rnd(4))], life: 1 }))) {
+      p.y += p.vy; p.x += Math.sin(t * 3 + p.ph) * 0.5 * u; p.life -= 0.008;
+      if (!k.off(p.x, p.y)) continue;
+      const w = Math.max(3.6 * u, 1.6);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(t * 5 + p.ph); ctx.globalAlpha = Math.min(1, p.life * 3); ctx.fillStyle = p.col;
+      ctx.fillRect(-w / 2, -w * 0.25 * Math.abs(Math.cos(t * 6 + p.ph)) - 0.3, w, w * 0.5 * Math.abs(Math.cos(t * 6 + p.ph)) + 0.6); ctx.restore();
+    }
+  },
+
   // ── 王座框: one per 本月王座, each under a small crown of its own colour ──
 
   // 本月印鈔機: banknotes fluttering up, green-gold
@@ -806,6 +1345,34 @@ export function createFrameRenderer(ctx, kind, size) {
     k.glow(hx, hy, w * 1.5, rgb, 0.55 * life);
     ctx.restore();
     k.star4(hx, hy, w * 1.25, a0 * 0.5, '#ffffff', 0.9 * life);
+  };
+  // The usual start of a frame: a glow behind, the ring in its colours, the
+  // highlight running round it
+  k.base = (t, { glow, stops, shine, speed = 1.6, width = 4 }) => {
+    ctx.globalCompositeOperation = 'lighter';
+    k.glow(c, c, R * 1.7, glow, 0.2 + 0.07 * Math.sin(t * 2.4));
+    ctx.globalCompositeOperation = 'source-over';
+    k.ring(R, width * u, k.conic(t * speed, stops), `rgb(${glow})`, 14 * u);
+    k.shine(t, speed * 1.2 + 0.8, width * u, shine);
+  };
+  // Is a point clear of the face? (particles never cross it)
+  k.off = (x, y) => Math.hypot(x - c, y - c) >= D / 2 + 2 * u;
+  // The moving particles of a frame: at most `max`, a new one (make()) with
+  // probability `rate` per draw, gone when their life runs out. None in a
+  // still picture.
+  k.parts = (max, rate, make) => {
+    if (k.still) return [];
+    if (k.S.parts.length < max && Math.random() < rate) k.S.parts.push(make());
+    k.S.parts = k.S.parts.filter((p) => p.life > 0);
+    return k.S.parts;
+  };
+  // One character (a suit, a rank, a mark) centred on a point
+  k.glyph = (text, x, y, size, color, rot = 0, alpha = 1) => {
+    if (alpha <= 0) return;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha = Math.min(1, alpha);
+    ctx.font = `800 ${size}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = size * 0.35;
+    ctx.fillText(text, 0, size * 0.06); ctx.restore();
   };
   // A small crown floating over the head (王座框): [light, body, dark] and
   // the colour of its gems. `cy` is its base line.
