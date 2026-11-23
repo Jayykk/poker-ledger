@@ -212,7 +212,7 @@ async function run() {
   let titleStats = null;
   try {
     titleStats = await recountTitleStats(db);
-    console.log(`Title stats: ${titleStats.players} players over ${titleStats.docs} docs, ${titleStats.written ? 'written' : 'unchanged'}`);
+    console.log(`Title stats: ${titleStats.players} players over ${titleStats.docs} docs, ${titleStats.changed ? 'counts changed' : 'counts unchanged'}`);
   } catch (error) {
     failures++;
     console.error('  Title stats FAILED:', error.message);

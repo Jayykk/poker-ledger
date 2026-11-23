@@ -16,7 +16,8 @@
 //   crownsPending { [crownId]: n }         players leading that month's race
 //                                          who never won it before: winners
 //                                          once the month is over
-//   countedAt read time of the scan (handlers/titleStats.js keeps the newest)
+//   countedAt read time of the scan, a Timestamp (handlers/titleStats.js
+//            keeps the newest, compared to the nanosecond: readAtOrAfter)
 // A recount instead of counters: each game reads every userTitles doc once
 // (cheap at this app's size, and it can never drift). No game is needed at
 // the month change either: siteCrownCount adds crownsPending once `month`
@@ -79,6 +80,35 @@ export function siteCrownCount(stats, crownId, month) {
   const won = Number(stats?.crowns?.[crownId]) || 0;
   const over = typeof stats?.month === 'string' && stats.month < month;
   return won + (over ? Number(stats?.crownsPending?.[crownId]) || 0 : 0);
+}
+
+/**
+ * A scan's read time as [seconds, nanoseconds]: a Firestore Timestamp (full
+ * precision), or Unix millis.
+ *
+ * @param {*} time Timestamp-like ({ seconds, nanoseconds }) or millis.
+ * @return {?Array<number>} null when there is none.
+ */
+function readTimeKey(time) {
+  if (time && Number.isFinite(time.seconds)) return [time.seconds, Number(time.nanoseconds) || 0];
+  if (Number.isFinite(time)) return [Math.floor(time / 1000), (time % 1000) * 1e6];
+  return null;
+}
+
+/**
+ * Is scan time `a` at or after `b`, at full precision? (a missing `b` is
+ * always older)
+ *
+ * @param {*} a Read time.
+ * @param {*} b Read time.
+ * @return {boolean}
+ */
+export function readAtOrAfter(a, b) {
+  const ka = readTimeKey(a);
+  const kb = readTimeKey(b);
+  if (!kb) return true;
+  if (!ka) return false;
+  return ka[0] > kb[0] || (ka[0] === kb[0] && ka[1] >= kb[1]);
 }
 
 /**
