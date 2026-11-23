@@ -804,11 +804,19 @@ describe('主題框 (themed frames)', () => {
   const [first, second] = THEME_FRAMES;
   const at = (frame, tier) => ({ [frame.family]: { tier, at: 1 } });
 
-  it('the eight themed frames and the family each belongs to', () => {
-    expect(THEME_FRAMES.map((f) => [f.id, f.family])).toEqual([
+  it('every title family has a themed frame of its own; the first eight keep their place', () => {
+    expect(THEME_FRAMES.slice(0, 8).map((f) => [f.id, f.family])).toEqual([
       ['fire', 'hotStreak'], ['thunder', 'volatile'], ['coin', 'netWin'], ['king', 'champion'],
       ['night', 'nightOwl'], ['frost', 'coldStreak'], ['abyss', 'badBeat'], ['tide', 'hunter'],
     ]);
+    expect(THEME_FRAMES.map((f) => f.family).sort()).toEqual(TITLE_FAMILIES.map((f) => f.id).sort());
+    expect(Object.fromEntries(THEME_FRAMES.map((f) => [f.family, f.id]))).toMatchObject({
+      netLoss: 'petal', bigWin: 'firework', bigLoss: 'meteor', steady: 'zen',
+      hunted: 'ghost', mysteryTop: 'mystery', avenger: 'blade',
+      itm: 'laurel', phoenix: 'firebird', rebuyer: 'reload', runnerUp: 'silverwing', bubble: 'foam', firstOut: 'gale',
+      cooler: 'clash', tragicHero: 'thorn', quads: 'quad', straightFlush: 'rainbow', royalFlush: 'royal',
+      regular: 'clock', host: 'carnival',
+    });
     expect(FRAME_IDS).toEqual(['bronze', 'silver', 'gold', 'platinum', 'diamond']);
   });
 
@@ -838,8 +846,8 @@ describe('主題框 (themed frames)', () => {
     expect(earnedThemeFrames(at(first, 10))).toEqual([first.id]);
     // Catalog order, whatever the map's order
     expect(earnedThemeFrames({ ...at(second, 6), ...at(first, 5) })).toEqual([first.id, second.id]);
-    // Another family's tier earns nothing; an expiring entry doesn't either
-    expect(earnedThemeFrames({ regular: { tier: 10, at: 1 } })).toEqual([]);
+    // Another family's tier earns only its own; an expiring entry earns nothing
+    expect(earnedThemeFrames({ regular: { tier: 10, at: 1 } })).toEqual(['clock']);
     expect(earnedThemeFrames({ [first.family]: { tier: 9, at: 1, expiresAt: 99 } })).toEqual([]);
     for (const f of THEME_FRAMES) {
       expect(earnedThemeFrames(at(f, f.minTier))).toEqual([f.id]);

@@ -151,7 +151,8 @@ export const FRAME_AUTO = 'auto';
 // prefs.frame: no frame shown
 export const FRAME_NONE = 'none';
 
-// 主題框: reaching `minTier` of `family` earns the frame `id`. Adding one is
+// 主題框: reaching `minTier` of `family` earns the frame `id`. Every title
+// family has one. Adding one is
 // an entry here, its draw function in src/utils/frameFx.js and its name
 // (titles.frames.*).
 export const THEME_FRAME_MIN_TIER = 5;
@@ -165,6 +166,26 @@ export const THEME_FRAMES = Object.freeze([
   Object.freeze({ id: 'frost', family: 'coldStreak', minTier: THEME_FRAME_MIN_TIER }),
   Object.freeze({ id: 'abyss', family: 'badBeat', minTier: THEME_FRAME_MIN_TIER }),
   Object.freeze({ id: 'tide', family: 'hunter', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'petal', family: 'netLoss', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'firework', family: 'bigWin', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'meteor', family: 'bigLoss', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'zen', family: 'steady', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'ghost', family: 'hunted', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'mystery', family: 'mysteryTop', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'blade', family: 'avenger', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'laurel', family: 'itm', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'firebird', family: 'phoenix', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'reload', family: 'rebuyer', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'silverwing', family: 'runnerUp', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'foam', family: 'bubble', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'gale', family: 'firstOut', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'clash', family: 'cooler', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'thorn', family: 'tragicHero', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'quad', family: 'quads', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'rainbow', family: 'straightFlush', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'royal', family: 'royalFlush', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'clock', family: 'regular', minTier: THEME_FRAME_MIN_TIER }),
+  Object.freeze({ id: 'carnival', family: 'host', minTier: THEME_FRAME_MIN_TIER }),
 ]);
 export const THEME_FRAME_IDS = Object.freeze(THEME_FRAMES.map((f) => f.id));
 // 王座框: holding `crown` this month earns the frame `id` (for that month)
