@@ -143,6 +143,33 @@ describe('frame renderer registry', () => {
     }
   });
 
+  it('every frame gets through its whole cycle: the slow parts too (a discharge, a chime, a finishing cut)', () => {
+    // nothing recorded: eight seconds of every frame is a lot of calls
+    const gradient = { addColorStop() {} };
+    const quietCtx = () => new Proxy({}, {
+      get: (target, prop) => (prop in target ? target[prop] : () => (String(prop).startsWith('create') ? gradient : undefined)),
+      set: (target, prop, value) => { target[prop] = value; return true; },
+    });
+    for (const id of ALL_FRAME_IDS) {
+      const render = fx.createFrameRenderer(quietCtx(), id, 40);
+      expect(() => { for (let i = 0; i < 420; i++) render(i / 60); }, id).not.toThrow();
+      // and standing still after having moved
+      expect(() => render(0.9, { still: true }), `${id} still`).not.toThrow();
+    }
+  }, 60000);
+
+  it('no frame spawns anything in a still picture, and none needs conic gradients', () => {
+    for (const id of ALL_FRAME_IDS) {
+      const ctx = fakeCtx();
+      ctx.createConicGradient = undefined;
+      const render = fx.createFrameRenderer(ctx, id, 40);
+      render(0.9, { still: true });
+      const first = ctx.calls.length;
+      for (let i = 0; i < 3; i++) render(0.9, { still: true });
+      expect(ctx.calls.length, id).toBe(first * 4);
+    }
+  });
+
   it('works without conic gradients (older browsers)', () => {
     const ctx = fakeCtx();
     ctx.createConicGradient = undefined;
