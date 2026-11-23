@@ -36,3 +36,26 @@ export function quickPutIns({ bigBlind = 0, baseBuyIn = 0 } = {}) {
     .filter((v, i, a) => a.indexOf(v) === i)
     .map((amount) => ({ label: amount.toLocaleString(), amount }));
 }
+
+/**
+ * Winners of a saved hand, biggest share first: flagged `winner: true`, else
+ * (older records) chips > 0. Chips are optional, so a winner may hold 0.
+ * @param {Array<{ chips?: number, winner?: boolean }>} players
+ * @return {Array<Object>}
+ */
+export function handWinners(players = []) {
+  const list = players || [];
+  const flagged = list.filter((p) => p.winner);
+  const winners = flagged.length ? flagged : list.filter((p) => (Number(p.chips) || 0) > 0);
+  return [...winners].sort((a, b) => (Number(b.chips) || 0) - (Number(a.chips) || 0));
+}
+
+/**
+ * "Name (+chips)", or just the name when the hand was saved without chips.
+ * @param {{ playerName: string, chips?: number }} p
+ * @return {string}
+ */
+export function winnerLabel(p) {
+  const chips = Number(p.chips) || 0;
+  return chips > 0 ? `${p.playerName} (+${chips})` : p.playerName;
+}

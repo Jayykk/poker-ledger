@@ -202,6 +202,7 @@ import { formatNumber, formatDate, getProfitColorClass } from '../../utils/forma
 import { useHand } from '../../composables/useHand.js';
 import { useAuthStore } from '../../store/modules/auth.js';
 import { canRecordHandAfter, backfillHandFields } from '../../utils/handBackfill.js';
+import { handWinners, winnerLabel } from '../../utils/handRecordFlow.js';
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -312,19 +313,10 @@ const getCardColor = (card) => {
 const getWinnerInfo = (hand) => {
   if (!hand.players || hand.players.length === 0) return '-';
   
-  const winners = hand.players
-    .filter(p => p.chips > 0)
-    .sort((a, b) => b.chips - a.chips);
-  
+  const winners = handWinners(hand.players);
   if (winners.length === 0) return '-';
-  
-  // If multiple winners (split pot), show all
-  if (winners.length > 1) {
-    return winners.map(w => `${w.playerName} (+${w.chips})`).join(', ');
-  }
-  
-  const topWinner = winners[0];
-  return `${topWinner.playerName} (+${topWinner.chips})`;
+  // Several winners (split pot): show all
+  return winners.map(winnerLabel).join(', ');
 };
 
 const getParticipants = (hand) => {

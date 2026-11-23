@@ -431,7 +431,7 @@
       "potBalanced": "Pot {pot} · balances ✅",
       "needTwo": "Pick at least two players",
       "needWinner": "Pick the winner",
-      "needPutIn": "Enter what the others put in",
+      "putInOptional": "Chips are optional: cards and winner alone can be saved",
       "photo": "Fill from a photo"
     }
   },

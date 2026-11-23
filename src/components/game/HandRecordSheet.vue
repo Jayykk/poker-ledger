@@ -9,7 +9,7 @@
       <span v-for="n in 3" :key="n" :class="{ on: step >= n }"></span>
     </div>
 
-    <div class="max-h-[64vh] overflow-y-auto space-y-3 pr-0.5">
+    <div class="hr-body space-y-3">
       <!-- ① Who's in this hand — seat order, tap to pick -->
       <template v-if="step === 1">
         <div>
@@ -25,7 +25,7 @@
             :class="{ on: p.participating }"
             @click="toggleIn(p)"
           >
-            <span class="hr-no">{{ p.seatMark || '·' }}</span>{{ p.playerName }}
+            <span class="hr-no">{{ p.seatMark || '·' }}</span><span class="truncate">{{ p.playerName }}</span>
           </button>
         </div>
       </template>
@@ -63,7 +63,10 @@
         <div class="space-y-1.5">
           <div v-for="p in participants" :key="p.playerId" class="hr-row">
             <span class="hr-no">{{ p.seatMark || '·' }}</span>
-            <span class="flex-1 min-w-0 truncate font-semibold text-white">{{ p.playerName }}</span>
+            <div class="flex-1 min-w-0">
+              <div class="truncate font-semibold text-white">{{ p.playerName }}</div>
+              <div v-if="handTypeLabel(p)" class="hr-type">{{ handTypeLabel(p) }}</div>
+            </div>
             <template v-if="p.mucked">
               <button type="button" class="hr-muck" @click="unmuck(p)">{{ $t('hand.flow.mucked') }}</button>
             </template>
@@ -79,7 +82,6 @@
                 {{ p.cards[i - 1] || '' }}
               </button>
             </template>
-            <span class="hr-type">{{ handTypeLabel(p) }}</span>
           </div>
         </div>
 
@@ -124,41 +126,47 @@
             :class="{ on: p.winner }"
             @click="p.winner = !p.winner"
           >
-            <span v-if="p.winner">🏆</span>{{ p.playerName }}
+            <span v-if="p.winner">🏆</span><span class="truncate">{{ p.playerName }}</span>
           </button>
         </div>
 
         <template v-if="winners.length">
-          <div class="hr-sub">{{ $t('hand.flow.putIn') }}</div>
-          <div v-for="p in losers" :key="p.playerId" class="hr-row wrap">
-            <span class="flex-1 min-w-0 truncate font-semibold text-white">{{ p.playerName }}</span>
-            <input
-              v-model.number="p.putIn"
-              type="number"
-              min="0"
-              inputmode="numeric"
-              class="hr-input"
-              :aria-label="$t('hand.flow.putIn')"
-            />
-            <div class="w-full flex flex-wrap gap-1.5">
+          <div>
+            <div class="hr-title text-sm">{{ $t('hand.flow.putIn') }}</div>
+            <div class="hr-sub">{{ $t('hand.flow.putInOptional') }}</div>
+          </div>
+          <div v-for="p in losers" :key="p.playerId" class="hr-row col">
+            <div class="flex items-center gap-2 w-full">
+              <span class="flex-1 min-w-0 truncate font-semibold text-white">{{ p.playerName }}</span>
+              <input
+                v-model.number="p.putIn"
+                type="number"
+                min="0"
+                inputmode="numeric"
+                placeholder="0"
+                class="hr-input"
+                :aria-label="$t('hand.flow.putIn')"
+              />
+            </div>
+            <div class="hr-quicks">
               <button v-for="q in quickAmounts" :key="q.label" type="button" class="hr-quick" @click="p.putIn = (Number(p.putIn) || 0) + q.amount">
-                +{{ q.label }}
+                <span>+{{ q.label }}</span>
               </button>
-              <button type="button" class="hr-quick clear" @click="p.putIn = 0">{{ $t('hand.flow.clear') }}</button>
+              <button type="button" class="hr-quick clear" :aria-label="$t('hand.flow.clear')" :title="$t('hand.flow.clear')" @click="p.putIn = ''"><i class="fas fa-times"></i></button>
             </div>
           </div>
           <div v-for="p in winners" :key="`w${p.playerId}`" class="hr-row win">
             <span class="flex-1 min-w-0 truncate font-semibold">🏆 {{ p.playerName }}</span>
-            <span class="font-mono font-bold">+{{ formatNumber(shareOf(p)) }}</span>
+            <span v-if="pot > 0" class="font-mono font-bold flex-shrink-0">+{{ formatNumber(shareOf(p)) }}</span>
           </div>
-          <div class="hr-sub text-center">{{ $t('hand.flow.potBalanced', { pot: formatNumber(pot) }) }}</div>
+          <div v-if="pot > 0" class="hr-sub text-center">{{ $t('hand.flow.potBalanced', { pot: formatNumber(pot) }) }}</div>
         </template>
       </template>
     </div>
 
     <template #footer>
       <div class="flex gap-2">
-        <BaseButton v-if="step > 1" variant="ghost" @click="step -= 1">{{ $t('hand.flow.back') }}</BaseButton>
+        <BaseButton v-if="step > 1" variant="ghost" class="flex-shrink-0 whitespace-nowrap" @click="step -= 1">{{ $t('hand.flow.back') }}</BaseButton>
         <BaseButton v-if="step < 3" variant="primary" full-width :disabled="!canNext" @click="next">
           {{ step === 1 ? $t('hand.flow.toCards') : $t('hand.flow.toResult') }}
         </BaseButton>
@@ -174,7 +182,7 @@
 <script setup>
 // 紀錄手牌 in three steps: ① who's in (seat order) → ② the cards (one pad
 // that fills the next empty slot; the hand type is worked out) → ③ who won
-// and what everyone else put in — the winners' share is computed, so the
+// and, optionally, what everyone else put in — the winners' share is computed, so the
 // hand always balances. Saves the same shape as before (players[].cards /
 // handType / chips, + winner) so the hand history reads old and new alike.
 import { ref, computed, watch } from 'vue';
@@ -230,7 +238,7 @@ watch(() => props.players, (list) => {
       mucked: false,
       participating: false,
       winner: false,
-      putIn: 0,
+      putIn: '',
     });
 }, { immediate: true });
 
@@ -241,7 +249,7 @@ const losers = computed(() => participants.value.filter((p) => !p.winner));
 
 function toggleIn(p) {
   p.participating = !p.participating;
-  if (!p.participating) Object.assign(p, { cards: [], mucked: false, winner: false, putIn: 0 });
+  if (!p.participating) Object.assign(p, { cards: [], mucked: false, winner: false, putIn: '' });
 }
 
 // ── ② cards ──
@@ -339,11 +347,11 @@ const shareOf = (p) => shares.value[p.playerId] || 0;
 
 // ── steps ──
 const canNext = computed(() => (step.value === 1 ? participants.value.length >= 2 : true));
-const canSave = computed(() => winners.value.length > 0 && losers.value.length > 0 && pot.value > 0);
+// Chips are optional: a hand can be kept for its cards and winner alone
+const canSave = computed(() => winners.value.length > 0);
 const hint = computed(() => {
   if (step.value === 1 && !canNext.value) return t('hand.flow.needTwo');
   if (step.value === 3 && !winners.value.length) return t('hand.flow.needWinner');
-  if (step.value === 3 && !canSave.value) return t('hand.flow.needPutIn');
   return '';
 });
 function next() {
@@ -393,37 +401,43 @@ function reset() {
   suit.value = '';
   cursor.value = null;
   handRecord.value.communityCards = [];
-  handRecord.value.players.forEach((p) => Object.assign(p, { cards: [], mucked: false, participating: false, winner: false, putIn: 0 }));
+  handRecord.value.players.forEach((p) => Object.assign(p, { cards: [], mucked: false, participating: false, winner: false, putIn: '' }));
 }
 </script>
 
 <style scoped>
+/* One scroll area that leaves the header, steps and footer (save) in view:
+   BaseModal is at most 75vh, about 12.5rem of it is everything but this. */
+.hr-body { max-height: max(14rem, calc(75vh - 12.5rem)); overflow-y: auto; overscroll-behavior: contain; padding-right: 0.125rem; }
 .hr-steps { display: flex; gap: 0.3rem; margin-bottom: 0.75rem; }
 .hr-steps span { flex: 1; height: 0.25rem; border-radius: 999px; background: rgb(var(--tw-slate-700)); }
 .hr-steps span.on { background: rgb(var(--tw-amber-500)); }
 .hr-title { font-weight: 700; color: rgb(var(--tw-white)); }
 .hr-sub { font-size: 0.75rem; color: rgb(var(--tw-slate-400)); }
-.hr-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.4rem 0.7rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; color: rgb(var(--tw-slate-200)); background: rgb(var(--tw-slate-800)); border: 1px solid rgb(var(--tw-slate-600)); }
+.hr-chip { display: inline-flex; align-items: center; gap: 0.35rem; max-width: 100%; min-width: 0; min-height: 2.25rem; padding: 0.35rem 0.75rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; white-space: nowrap; color: rgb(var(--tw-slate-200)); background: rgb(var(--tw-white) / 0.06); border: 1px solid rgb(var(--tw-slate-600)); }
 .hr-chip.on { color: rgb(var(--tw-amber-200)); background: rgb(var(--tw-amber-500) / 0.18); border-color: rgb(var(--tw-amber-500)); }
 .hr-no { min-width: 1.3rem; height: 1.3rem; padding: 0 0.25rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; color: rgb(var(--tw-white)); background: rgb(var(--tw-slate-600)); flex-shrink: 0; }
-.hr-row { display: flex; align-items: center; gap: 0.45rem; padding: 0.45rem 0.6rem; border-radius: 0.6rem; background: rgb(var(--tw-slate-800) / 0.7); }
-.hr-row.wrap { flex-wrap: wrap; }
-.hr-row.win { color: rgb(var(--tw-emerald-300)); background: rgb(var(--tw-emerald-500) / 0.12); }
+.hr-row { display: flex; align-items: center; gap: 0.5rem; min-width: 0; padding: 0.5rem 0.65rem; border-radius: 0.75rem; background: rgb(var(--tw-slate-900) / 0.55); border: 1px solid rgb(var(--tw-slate-700)); }
+.hr-row.col { flex-direction: column; align-items: stretch; }
+.hr-row.win { color: rgb(var(--tw-emerald-300)); background: rgb(var(--tw-emerald-500) / 0.12); border-color: rgb(var(--tw-emerald-500) / 0.35); }
 .hr-slot { width: 2.4rem; height: 3.3rem; border-radius: 0.35rem; border: 1.5px dashed rgb(var(--tw-slate-500)); font-weight: 800; font-size: 0.85rem; color: rgb(var(--tw-slate-400)); flex-shrink: 0; }
 .hr-slot.sm { width: 2.1rem; height: 2.9rem; }
 .hr-slot.filled { border: none; background: #f8fafc; color: #111827; }
 .hr-slot.filled.red { color: #dc2626; }
 .hr-slot.cur { border-style: solid; border-color: rgb(var(--tw-amber-400)); box-shadow: 0 0 0 2px rgb(var(--tw-amber-500) / 0.35); }
-.hr-muck { padding: 0.35rem 0.6rem; border-radius: 0.4rem; font-size: 0.75rem; color: rgb(var(--tw-slate-300)); background: rgb(var(--tw-slate-700)); }
-.hr-type { width: 3.4rem; text-align: right; font-size: 0.72rem; color: rgb(var(--tw-amber-300)); flex-shrink: 0; }
+.hr-muck { flex-shrink: 0; white-space: nowrap; padding: 0.35rem 0.6rem; border-radius: 0.4rem; font-size: 0.75rem; color: rgb(var(--tw-slate-300)); background: rgb(var(--tw-slate-700)); }
+.hr-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; color: rgb(var(--tw-amber-300)); }
 .hr-pad { position: sticky; bottom: 0; padding: 0.5rem; border-radius: 0.7rem; background: rgb(var(--tw-slate-900)); border: 1px solid rgb(var(--tw-slate-700)); }
-.hr-key { padding: 0.5rem 0; border-radius: 0.4rem; font-weight: 800; color: rgb(var(--tw-white)); background: rgb(var(--tw-slate-700)); }
+.hr-key { min-width: 0; height: 2.4rem; padding: 0 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 0.4rem; font-weight: 800; color: rgb(var(--tw-white)); background: rgb(var(--tw-slate-700)); }
 .hr-key:disabled { opacity: 0.3; }
 .hr-key.suit { font-size: 1.2rem; }
 .hr-key.suit.red { color: #f87171; }
 .hr-key.suit.on { background: rgb(var(--tw-amber-500)); color: var(--on-accent); }
-.hr-key.skip { font-size: 0.75rem; font-weight: 600; color: rgb(var(--tw-slate-300)); }
-.hr-input { width: 6.5rem; padding: 0.35rem 0.5rem; border-radius: 0.4rem; text-align: right; font-family: 'JetBrains Mono', monospace; color: rgb(var(--tw-white)); background: rgb(var(--tw-slate-900)); border: 1px solid rgb(var(--tw-slate-600)); }
-.hr-quick { padding: 0.25rem 0.55rem; border-radius: 0.4rem; font-size: 0.75rem; font-weight: 700; color: rgb(var(--tw-slate-100)); background: rgb(var(--tw-slate-700)); }
-.hr-quick.clear { color: rgb(var(--tw-rose-300)); }
+.hr-key.skip { font-size: 0.65rem; line-height: 1.05; white-space: normal; overflow-wrap: anywhere; font-weight: 600; color: rgb(var(--tw-slate-300)); }
+.hr-input { flex-shrink: 0; width: 6.5rem; height: 2.25rem; padding: 0.35rem 0.5rem; border-radius: 0.4rem; text-align: right; font-family: 'JetBrains Mono', monospace; color: rgb(var(--tw-white)); background: rgb(var(--tw-slate-900)); border: 1px solid rgb(var(--tw-slate-600)); }
+/* Quick amounts stay on one line: equal cells, a label that never spills */
+.hr-quicks { display: flex; gap: 0.25rem; }
+.hr-quick { flex: 1 1 0; min-width: 0; height: 2rem; padding: 0 1px; border-radius: 0.5rem; font-size: 0.7rem; letter-spacing: -0.01em; font-weight: 700; color: rgb(var(--tw-slate-100)); background: rgb(var(--tw-slate-700)); }
+.hr-quick span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hr-quick.clear { flex: 0 0 2rem; color: rgb(var(--tw-rose-300)); }
 </style>

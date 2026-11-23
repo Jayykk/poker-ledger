@@ -46,6 +46,7 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BaseCard from '../common/BaseCard.vue';
+import { handWinners, winnerLabel } from '../../utils/handRecordFlow.js';
 
 const props = defineProps({
   hands: {
@@ -68,14 +69,8 @@ const getCardColor = (card) => {
 const getWinnerInfo = (hand) => {
   if (!hand.players || hand.players.length === 0) return '-';
   
-  const winners = hand.players
-    .filter(p => p.chips > 0)
-    .sort((a, b) => b.chips - a.chips);
-  
-  if (winners.length === 0) return '-';
-  
-  const topWinner = winners[0];
-  return `${topWinner.playerName} (+${topWinner.chips})`;
+  const winners = handWinners(hand.players);
+  return winners.length ? winnerLabel(winners[0]) : '-';
 };
 
 const formatDate = (timestamp) => {

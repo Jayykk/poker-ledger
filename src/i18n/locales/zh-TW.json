@@ -431,7 +431,7 @@
       "potBalanced": "底池 {pot} · 自動平衡 ✅",
       "needTwo": "至少選兩個人",
       "needWinner": "選出贏家",
-      "needPutIn": "填上輸家各自投入多少",
+      "putInOptional": "籌碼可不填，只記牌和贏家也能存",
       "photo": "拍照自動填牌"
     }
   },
