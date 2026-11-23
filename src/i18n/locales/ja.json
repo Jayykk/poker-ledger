@@ -143,6 +143,8 @@
     "inviteLink": "招待リンク",
     "closeGame": "ゲーム終了（データ削除）",
     "noActiveGame": "進行中のゲームがありません",
+    "linkEnded": "このテーブルは終了しました",
+    "linkUnreachable": "テーブルを開けませんでした。ロビーに戻ります",
     "enterGameId": "ゲームIDを入力",
     "selectSeat": "席を選択",
     "emptySeats": "空席",

@@ -59,10 +59,13 @@ if ('serviceWorker' in navigator) {
 
       const promptUpdate = (waitingWorker) => {
         if (!waitingWorker) return;
-        // Prompt via the app's shared action notification (Pinia is active
-        // by the time an update lands post-mount).
+        // Prompt via the app's shared action notification. The store is given
+        // its Pinia: an update already waiting is prompted on 'load', which can
+        // come before app.use(pinia) (a LIFF link waits on liff.init() first),
+        // and useStore() without an active Pinia threw "reading '_s'". The
+        // prompt shows once the app mounts.
         try {
-          useNotificationStore().addActionNotification({
+          useNotificationStore(pinia).addActionNotification({
             type: 'custom',
             title: '有新版本可用',
             message: '是否立即更新？',

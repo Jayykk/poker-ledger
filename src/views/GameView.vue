@@ -276,6 +276,7 @@ import { useHand } from '../composables/useHand.js';
 import { useTransactions } from '../composables/useTransactions.js';
 import { useLiff } from '../composables/useLiff.js';
 import { useNotification } from '../composables/useNotification.js';
+import { linkBounceMessageKey } from '../utils/linkRead.js';
 import { useConfirm } from '../composables/useConfirm.js';
 import { useShare, appLink } from '../composables/useShare.js';
 import { inviteText, cashSettlementText } from '../utils/shareText.js';
@@ -329,7 +330,7 @@ const {
   lineNotifyEnabled, isInLineClient,
 } = useLiff();
 const { shareOut } = useShare();
-const { success, warning, error: showError, copyWithNotification } = useNotification();
+const { success, warning, info, error: showError, copyWithNotification } = useNotification();
 const { confirm } = useConfirm();
 const { withLoading } = useLoading();
 
@@ -419,10 +420,11 @@ onMounted(async () => {
         router.push('/lobby');
       }
     } else {
-      // Game not found or ended. Logged (and so reported) with the reason, so
-      // a link that bounced to the lobby says why: ended / not found here,
-      // vs. the store's own "Check game error" when it couldn't be read
-      console.error('[GameView] Link bounced to lobby:', new Error(`Auto-join: ${result.msg || 'cannot join'}`));
+      // Ended, gone, or unreadable: say so and go to the lobby (an old link
+      // is often just the way into the app). Not reported — see linkBounceMessageKey
+      console.warn('[GameView] Link bounced to lobby:', result.reason, result.msg);
+      const key = linkBounceMessageKey(result);
+      (key === 'game.linkEnded' ? info : warning)(t(key));
       router.push('/lobby');
     }
   } catch (err) {

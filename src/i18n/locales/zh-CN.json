@@ -143,6 +143,8 @@
     "inviteLink": "邀请链接",
     "closeGame": "解散房间 (删除数据)",
     "noActiveGame": "目前没有进行中的牌局",
+    "linkEnded": "这桌已经结束了",
+    "linkUnreachable": "暂时打不开这桌，先带你回大厅",
     "enterGameId": "输入 Game ID",
     "selectSeat": "选择入座",
     "emptySeats": "空位",

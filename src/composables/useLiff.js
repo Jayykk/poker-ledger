@@ -814,12 +814,29 @@ const ctaFooter = (uri, label, color) => ({
 });
 
 /**
+ * Whether the LINE share picker can open. It needs a LINE login in this
+ * browser too: on a computer the app is signed in through the LINE Login
+ * hand-off, not LIFF, and the picker threw "Need access_token" (the share
+ * button did nothing). Then this starts the LIFF login, which comes back to
+ * this page — tap share again there.
+ * @return {boolean}
+ */
+const pickerReady = () => {
+  if (!isInitialized.value) return false;
+  if (!liff.isLoggedIn()) {
+    liff.login({ redirectUri: window.location.href });
+    return false;
+  }
+  return true;
+};
+
+/**
  * Share a game invite via the LINE share target picker (Flex Message).
  * Cash → green, tournament → gold; the whole bubble + footer button open the
  * table where the joiner is auto-seated.
  */
 const shareGameInvite = async (gameName, gameId, hostName, isTournament = false) => {
-  if (!isInitialized.value) return false;
+  if (!pickerReady()) return false;
   try {
     const liffPath = isTournament ? `tournament-game/${gameId}` : `game/${gameId}`;
     const liffUrl = liffLink(LIFF_ID, liffPath);
@@ -938,7 +955,7 @@ const buildSessionBubble = (session, { headerText, headerColor, alertText, alert
 
 /** Card A via the LINE share picker (manual invite — host picks recipients). */
 const shareSessionInvite = async (session) => {
-  if (!isInitialized.value || !session) return false;
+  if (!session || !pickerReady()) return false;
   try {
     // Header is a status label (not the event name) so the name only shows once,
     // in the body — avoids the duplicated-title look in the chat.
@@ -981,7 +998,7 @@ const sendSessionUpdateMessage = async (session) => {
  * (the page itself no longer jumps anyone in on its own).
  */
 const shareSessionTableCard = async (session) => {
-  if (!isInitialized.value || !session) return false;
+  if (!session || !pickerReady()) return false;
   try {
     const uri = session.id && LIFF_ID ? liffLink(LIFF_ID, `session/${session.id}?enter=1`) : undefined;
     const at = session.activeSlot || {};
@@ -1015,7 +1032,7 @@ const shareSessionTableCard = async (session) => {
  * 總和 / 牌局 / 代墊 sections too (see buildSessionSummaryBubble).
  */
 const shareSessionSummary = async (session, summary, expenses = []) => {
-  if (!isInitialized.value || !session || !summary) return false;
+  if (!session || !summary || !pickerReady()) return false;
   try {
     const bubble = buildSessionSummaryBubble(session, summary, expenses, sessionLiffUrl(session.id));
     const result = await liff.shareTargetPicker([{ type: 'flex', altText: `🏆 ${session.name || '活動'} 總結`, contents: bubble }]);

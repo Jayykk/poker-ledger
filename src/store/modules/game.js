@@ -30,6 +30,7 @@ import { BUY_IN_CLOSED, isTimedClock, isTimedBuyInClosed } from '../../utils/tim
 import { tournamentSettlementErrorKey } from '../../utils/tournamentSettlementErrors.js';
 import { rosterClockStats } from '../../utils/tournamentStats.js';
 import { cashSettlementErrorKey } from '../../utils/cashSettlementErrors.js';
+import { LINK_READ_TIMEOUT_MS, LINK_READ_TRIES, isTransientReadError, withTimeoutMs } from '../../utils/linkRead.js';
 import {
   gameBountyPerEntry, planKnockout, applyKnockout, resetHeadForReentry, restoreHeadAfterReentryUndo,
   isKnockoutBounty, isMysteryBounty, mysteryPhaseActive, freeSlotCount, addTicket, removeTicket,
@@ -453,20 +454,38 @@ export const useGameStore = defineStore('game', () => {
   };
 
   /**
-   * Check game status
+   * Check game status (a table link opening). Waits for app start to sign in
+   * first — read as nobody, the rules refuse it and the link bounced — and
+   * retries a read the network dropped (LINE's webview often says "offline"
+   * for a moment). An error says why in `reason`: 'ended' | 'missing' |
+   * 'network' (the table may be fine) | 'failed'.
    */
   const checkGameStatus = async (id) => {
     loading.value = true;
     try {
+      await authStore.whenAuthSettled();
       const docRef = doc(db, 'games', id);
-      const snap = await getDoc(docRef);
+      let snap;
+      for (let attempt = 1; ; attempt++) {
+        try {
+          snap = await withTimeoutMs(getDoc(docRef), LINK_READ_TIMEOUT_MS, 'unavailable');
+          break;
+        } catch (err) {
+          if (!isTransientReadError(err)) throw err;
+          if (attempt >= LINK_READ_TRIES) {
+            console.warn('[game] Game read failed, network:', err?.message || err);
+            return { status: 'error', reason: 'network', msg: err.message };
+          }
+          await new Promise((r) => setTimeout(r, 1500 * attempt));
+        }
+      }
       
       if (!snap.exists()) {
-        return { status: 'error', msg: 'Game not found' };
+        return { status: 'error', reason: 'missing', msg: 'Game not found' };
       }
       
       if (snap.data().status !== GAME_STATUS.ACTIVE) {
-        return { status: 'error', msg: 'Game has ended' };
+        return { status: 'error', reason: 'ended', msg: 'Game has ended' };
       }
       
       const players = snap.data().players || [];
@@ -480,7 +499,7 @@ export const useGameStore = defineStore('game', () => {
       return { status: 'open', unboundPlayers, baseBuyIn: snap.data().baseBuyIn || DEFAULT_BUY_IN };
     } catch (err) {
       console.error('Check game error:', err);
-      return { status: 'error', msg: err.message };
+      return { status: 'error', reason: 'failed', msg: err.message };
     } finally {
       loading.value = false;
     }
