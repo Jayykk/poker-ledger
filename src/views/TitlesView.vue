@@ -245,7 +245,9 @@ const { t, te } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const { user, displayName } = useAuth();
-const { titles, watchMyTitles, ensureUserTitles, palsOf, currentCrownMonth } = useUserTitles();
+const {
+  titles, watchMyTitles, ensureUserTitles, palsOf, currentCrownMonth, frameOf,
+} = useUserTitles();
 
 const stats = ref(null);
 const loading = ref(true);
@@ -257,7 +259,9 @@ const unlocked = computed(() => myDoc.value?.unlocked || {});
 const totalTitleSteps = TITLE_FAMILIES.reduce((sum, f) => sum + f.tiers.length, 0);
 // 頭像框: every step reached is one title; the frame shown comes from the display
 const myTitleCount = computed(() => titleCount(unlocked.value));
-const myFrame = computed(() => myDoc.value?.display?.frame || null);
+// The frame I show, as everyone sees it (effectiveDisplay: a 王座框 follows
+// the month even before a game rewrites my stored display)
+const myFrame = computed(() => frameOf(user.value?.uid));
 // The names every step shows in: my own set
 const nameSet = computed(() => normalizeTitlePrefs(myDoc.value?.prefs).nameSet);
 function stepName(familyId, tier) {
@@ -418,12 +422,15 @@ const framesEarned = computed(() => frameGroups.value.reduce((sum, g) => sum + g
 const framesTotal = computed(() => frameGroups.value.reduce((sum, g) => sum + g.items.length, 0));
 
 // ── 幾人拿到 (site-wide) ───────────────────────────────────────────
-// One read; without it (rules not deployed, offline) the dialog shows the
-// 牌友圈 counts only
+// One read once signed in (the rule needs it; on a reload the user arrives
+// after mount, see the watch below); without it (rules not deployed, offline)
+// the dialog shows the 牌友圈 counts only
 const siteStats = ref(null);
-getDoc(doc(db, TITLE_STATS_COLLECTION, TITLE_STATS_DOC))
-  .then((snap) => { siteStats.value = snap.exists() ? snap.data() : null; })
-  .catch((error) => console.warn('[titles] title stats load failed', error?.code || error));
+function loadSiteStats() {
+  getDoc(doc(db, TITLE_STATS_COLLECTION, TITLE_STATS_DOC))
+    .then((snap) => { siteStats.value = snap.exists() ? snap.data() : null; })
+    .catch((error) => console.warn('[titles] title stats load failed', error?.code || error));
+}
 
 // ── Detail dialog (?item=kind:id) ─────────────────────────────────
 const isItem = (kind, id) => (kind === 'title' && !!getTitleFamily(id) && getTitleFamily(id).group !== 'crown')
@@ -485,6 +492,7 @@ watch(() => user.value?.uid, async (uid) => {
   if (!uid) return;
   loading.value = true;
   stopWatch = watchMyTitles(uid);
+  loadSiteStats();
   try {
     const snap = await getDoc(doc(db, 'leaderboardStats', statsDocId(uid, 'all')));
     stats.value = snap.exists() ? snap.data() : null;

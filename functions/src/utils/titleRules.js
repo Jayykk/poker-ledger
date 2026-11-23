@@ -987,12 +987,14 @@ export function resolveDisplay(unlocked, prefs, crownCtx = null) {
 
 /**
  * The display to show now. The stored one is written by Cloud Functions after
- * games and prefs changes, so a crown in it goes stale when the month changes
- * (and docs from before frames lack `frame`, docs from before the ten-step
- * ladders hold old tier numbers): those are resolved again here with the same
- * rules. Used by the client for every badge.
+ * games and prefs changes, so anything that hangs on the crowns can be out of
+ * date by the time it is read (the month changed, or it predates the
+ * worn-the-month-after rule), and docs from before frames lack `frame`, docs
+ * from before the ten-step ladders hold old tier numbers: those are resolved
+ * again here with the same rules. Used by the client for every badge.
  *
- * @param {?object} doc userTitles doc ({ unlocked, prefs, display, crowns }).
+ * @param {?object} doc userTitles doc ({ unlocked, prefs, display, crowns,
+ *   crownHistory }).
  * @param {string} month Current month key (crownMonthOf(Date.now())).
  * @return {?object} Display.
  */
@@ -1000,13 +1002,15 @@ export function effectiveDisplay(doc, month) {
   const current = upgradeTitlesDoc(doc);
   const stored = current?.display || null;
   const crownCtx = crownCtxOf(current, month);
-  // Hangs on the month: a crown title / frame from another month, or crowns
-  // worn this month that a display written last month can't know about (the
-  // month's new wearers before any game of theirs rewrote it)
-  const monthBound = isCrownId(stored?.familyId) || !!getCrownFrame(stored?.frame)
+  // Hangs on the crowns: a crown title / frame shown, or crowns worn this
+  // month (a display written last month can't know about them). Resolved
+  // from the doc every time (pure and cheap) rather than trusted by its
+  // month: a stored display can show a crown that isn't worn at all (written
+  // for a race leader under the rules before crowns were worn the month
+  // after), and a viewer must not show a crown that wearsCrown denies.
+  const crownBound = isCrownId(stored?.familyId) || !!getCrownFrame(stored?.frame)
     || wornCrowns(crownCtx).length > 0;
-  const stale = !stored || stored.frame === undefined || (monthBound && stored.month !== month);
-  if (!stale) return stored;
+  if (stored && stored.frame !== undefined && !crownBound) return stored;
   return resolveDisplay(current?.unlocked, current?.prefs, crownCtx);
 }
 

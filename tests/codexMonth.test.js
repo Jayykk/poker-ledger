@@ -1,6 +1,6 @@
 /**
  * 稱號圖鑑 left open across the month change: November's race leader becomes
- * December's wearer (在位 row, its 王座框) without a remount.
+ * December's wearer (在位 row, its 王座框 on my header) without a remount.
  */
 import { describe, it, expect, vi, afterAll } from 'vitest';
 import { ref } from 'vue';
@@ -18,7 +18,8 @@ const docs = {
     ladder: 2,
     unlocked: { regular: { tier: 1, at: 1 } },
     pals: ['amy', 'bob', 'cy'],
-    prefs: { mode: 'auto', frame: 'auto' },
+    // Picked the 印鈔機 frame: worn once the crown is
+    prefs: { mode: 'auto', frame: 'mint' },
     // Leading November's 印鈔機 race
     crowns: { crownProfit: NOV },
     display: { familyId: 'regular', tier: 1, frame: null },
@@ -59,6 +60,8 @@ describe('稱號圖鑑 across the month change', () => {
     await flushPromises();
     const reigning = () => w.find('[data-crown="crownProfit"] [data-testid="throne-reigning"]').text();
     expect(reigning()).toContain('從缺');
+    // My header avatar: no frame yet (stored display, nothing worn)
+    expect(w.find('.pa.frame-mint').exists()).toBe(false);
     expect(w.find('[data-testid="throne"]').text()).toContain('2026-11');
 
     // 00:01 on the 1st, Taipei: only the clock moved
@@ -67,5 +70,8 @@ describe('稱號圖鑑 across the month change', () => {
     expect(w.find('[data-testid="throne"]').text()).toContain('2026-12');
     expect(reigning()).toContain('Me');
     expect(w.find('[data-crown="crownProfit"]').classes()).toContain('held');
+    // The stored display still says no frame: the header follows the resolved one
+    expect(docs['userTitles/me'].display.frame).toBeNull();
+    expect(w.find('.pa.frame-mint').exists()).toBe(true);
   });
 });

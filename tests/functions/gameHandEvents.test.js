@@ -77,6 +77,8 @@ const {
   fillHandEventsForUser, loadGameHandEvents, sameHandEvents, refreshGameHandEvents,
 } = await import('../../functions/src/handlers/gameHandEvents.js');
 const { recomputeLeaderboardStatsForUser } = await import('../../functions/src/handlers/leaderboardStats.js');
+const { recomputeMonthlyCrowns } = await import('../../functions/src/handlers/monthlyCrowns.js');
+const { recountTitleStats } = await import('../../functions/src/handlers/titleStats.js');
 const { emptyHandEvents } = await import('../../functions/src/utils/leaderboardStatsMath.js');
 
 const roster = [
@@ -194,6 +196,41 @@ describe('backfill: fillHandEventsForUser', () => {
     const db = fakeDb({ 'games/g1/hands/h1': quadsHand }, { failing: ['transactions'] });
     const got = await loadGameHandEvents(db, 'g1', cashGame);
     expect(got.u2).toMatchObject({ quads: 1, tragicHero: 1 });
+  });
+});
+
+describe('幾人拿到 recount: only when a userTitles doc changed', () => {
+  beforeEach(() => {
+    recountTitleStats.mockClear();
+    recomputeLeaderboardStatsForUser.mockClear();
+  });
+
+  it('projection: no titles and no crowns written, no recount; either one written, one recount', async () => {
+    const run = async () => {
+      currentDb = fakeDb({ 'games/g1': cashGame });
+      await syncCompletedGameHistoryProjection('g1');
+    };
+    await run();
+    expect(recountTitleStats).not.toHaveBeenCalled();
+    recomputeLeaderboardStatsForUser.mockResolvedValueOnce({ titles: { written: true } });
+    await run();
+    expect(recountTitleStats).toHaveBeenCalledTimes(1);
+    recomputeMonthlyCrowns.mockResolvedValueOnce({ written: 2 });
+    await run();
+    expect(recountTitleStats).toHaveBeenCalledTimes(2);
+  });
+
+  it("補記手牌: a hand that changed someone's titles recounts once", async () => {
+    const db = fakeDb({
+      'games/g1': { ...cashGame, historyProjection: { syncedUserIds: ['u1', 'u2'] } },
+      'users/u1/history_sub/g1': { gameId: 'g1', handEvents: emptyHandEvents() },
+      'users/u2/history_sub/g1': { gameId: 'g1', handEvents: emptyHandEvents() },
+      'games/g1/hands/h1': { ...quadsHand, recordedAfter: true },
+    });
+    recomputeLeaderboardStatsForUser.mockResolvedValueOnce({ titles: { written: false } });
+    recomputeLeaderboardStatsForUser.mockResolvedValueOnce({ titles: { written: true } });
+    await refreshGameHandEvents(db, 'g1');
+    expect(recountTitleStats).toHaveBeenCalledTimes(1);
   });
 });
 

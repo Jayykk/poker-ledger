@@ -84,7 +84,7 @@ describe('王座框', () => {
     expect(resolveDisplay(gold, { mode: 'off', frame: 'auto' }, ctx)).toEqual({ familyId: null, tier: null, frame: 'gold' });
 
     const doc = { ladder: 2, unlocked: gold, prefs, crowns: ctx.crowns, display };
-    expect(effectiveDisplay(doc, NOV)).toBe(display);
+    expect(effectiveDisplay(doc, NOV)).toEqual(display);
     // December, before any function rewrote the doc: read again, worn out
     expect(effectiveDisplay(doc, DEC)).toEqual({ familyId: null, tier: null, frame: 'gold' });
     expect(sameDisplay(display, { ...display, month: DEC })).toBe(false);
@@ -109,6 +109,16 @@ describe('王座框', () => {
     const dec = buildCrownUpdate(stored, [[DEC, []]], DEC);
     const jan = buildCrownUpdate({ ...stored, ...dec }, [[JAN, []]], JAN);
     expect(jan.display).toEqual({ familyId: null, tier: null, frame: 'gold' });
+  });
+
+  it('a display written for a race leader before this rule shows no crown, in its own month too', () => {
+    // Stored by the old rule: leading November → crown title + frame for November
+    const doc = { ladder: 2, unlocked: gold, prefs: { mode: 'auto', frame: 'mint' }, crowns: { crownProfit: NOV },
+      display: { familyId: 'crownProfit', tier: 4, frame: 'mint', month: NOV } };
+    const shown = effectiveDisplay(doc, NOV);
+    expect(shown.familyId).not.toBe('crownProfit');
+    expect(shown).toMatchObject({ tier: 10, frame: 'gold' });
+    expect(shown.month).toBeUndefined();
   });
 
   it('a new wearer shows the crown at the month change, before any game rewrote the doc', () => {

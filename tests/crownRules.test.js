@@ -252,7 +252,7 @@ describe('display with crowns', () => {
       crowns,
       display: { familyId: 'crownHunter', tier: 4, frame: 'bronze', month: NOV },
     };
-    expect(effectiveDisplay(doc, NOV)).toBe(doc.display);
+    expect(effectiveDisplay(doc, NOV)).toEqual(doc.display);
     expect(effectiveDisplay(doc, DEC)).toEqual({ familyId: 'regular', tier: 8, frame: 'bronze' });
     // Normal titles are shown as stored
     const plain = { ...doc, display: { familyId: 'regular', tier: 8, frame: 'bronze' } };

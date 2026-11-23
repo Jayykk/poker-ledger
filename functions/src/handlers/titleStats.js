@@ -1,7 +1,8 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { crownMonthOf } from '../utils/crownRules.js';
 import {
-  TITLE_STATS_COLLECTION, TITLE_STATS_DOC, readAtOrAfter, sameTitleStats, titleStatsFrom,
+  TITLE_STATS_COLLECTION, TITLE_STATS_DOC, readAtOrAfter, readTimeMillis, sameTitleStats,
+  titleStatsFrom,
 } from '../utils/titleStatsMath.js';
 import { TITLES_COLLECTION } from './userTitles.js';
 
@@ -30,7 +31,12 @@ export async function recountTitleStats(db, { now = Date.now() } = {}) {
     .select('unlocked', 'crowns', 'crownHistory')
     .get();
   const countedAt = snap.readTime || Timestamp.fromMillis(now);
-  const stats = titleStatsFrom(snap.docs.map((docSnap) => docSnap.data()), crownMonthOf(now));
+  // The month of the data read, not of when the call began: a scan that
+  // lands after the month change is judged in the new month
+  const stats = titleStatsFrom(
+    snap.docs.map((docSnap) => docSnap.data()),
+    crownMonthOf(readTimeMillis(countedAt) ?? now),
+  );
   const ref = db.collection(TITLE_STATS_COLLECTION).doc(TITLE_STATS_DOC);
   return db.runTransaction(async (tx) => {
     const stored = await tx.get(ref);

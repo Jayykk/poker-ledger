@@ -96,6 +96,17 @@ function readTimeKey(time) {
 }
 
 /**
+ * A scan's read time in Unix millis (rounded down), null when there is none.
+ *
+ * @param {*} time Timestamp-like ({ seconds, nanoseconds }) or millis.
+ * @return {?number}
+ */
+export function readTimeMillis(time) {
+  const key = readTimeKey(time);
+  return key ? key[0] * 1000 + Math.floor(key[1] / 1e6) : null;
+}
+
+/**
  * Is scan time `a` at or after `b`, at full precision? (a missing `b` is
  * always older)
  *
