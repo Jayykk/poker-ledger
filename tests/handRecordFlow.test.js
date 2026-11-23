@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import zhTW from '../src/i18n/locales/zh-TW.json';
-import { splitPot, quickPutIns } from '../src/utils/handRecordFlow.js';
+import { splitPot, quickPutIns, handWinners, winnerLabel, handResult } from '../src/utils/handRecordFlow.js';
+import HandHistoryDetail from '../src/components/game/HandHistoryDetail.vue';
 
 const created = [];
 vi.mock('../src/composables/useHand.js', () => ({
@@ -78,7 +79,7 @@ describe('紀錄手牌: three steps, balances by itself', () => {
 
     await btn(w, '下一步：誰贏').trigger('click');
     await w.findAll('.hr-chip').find((c) => c.text().includes('嘉杰 Jay')).trigger('click');
-    const rows = w.findAll('.hr-row.wrap');
+    const rows = w.findAll('.hr-row.col');
     await rows[0].find('input').setValue(8000); // 阿華
     await rows[1].findAll('.hr-quick').find((q) => q.text() === '+3BB').trigger('click'); // 小美 6,000
     expect(w.text()).toContain('+14,000');
@@ -95,5 +96,58 @@ describe('紀錄手牌: three steps, balances by itself', () => {
     expect(by['小美']).toMatchObject({ cards: [], handType: '', chips: -6000 });
     expect(data.players.reduce((s, p) => s + p.chips, 0)).toBe(0);
     expect(data.players.some((p) => p.playerName === '大雄')).toBe(false); // not in this hand
+  });
+
+  it('③ chips are optional: a winner alone can be saved, everyone at 0', async () => {
+    created.length = 0;
+    const w = mountSheet();
+    const chips = w.findAll('.hr-chip');
+    await chips[1].trigger('click'); // 嘉杰 Jay
+    await chips[2].trigger('click'); // 阿華
+    await btn(w, '下一步：填牌').trigger('click');
+    await btn(w, '下一步：誰贏').trigger('click');
+    expect(btn(w, '儲存').attributes('disabled')).toBeDefined(); // still needs a winner
+    await w.findAll('.hr-chip').find((c) => c.text().includes('嘉杰 Jay')).trigger('click');
+    expect(w.text()).toContain(zhTW.hand.flow.putInOptional);
+    expect(w.text()).not.toContain('自動平衡'); // no pot line without chips
+    expect(btn(w, '儲存').attributes('disabled')).toBeUndefined();
+
+    await btn(w, '儲存').trigger('click');
+    await flushPromises();
+    expect(created).toHaveLength(1);
+    const by = Object.fromEntries(created[0].data.players.map((p) => [p.playerName, p]));
+    expect(by['嘉杰 Jay']).toMatchObject({ chips: 0, winner: true });
+    expect(by['阿華'].chips === 0).toBe(true);
+    expect(by['阿華'].winner).toBeUndefined();
+  });
+});
+
+describe('winners of a saved hand', () => {
+  it('the winner flag first (chips may be 0), else chips > 0 for older hands', () => {
+    expect(handWinners([{ playerName: 'A', chips: 0, winner: true }, { playerName: 'B', chips: 0 }]).map(winnerLabel)).toEqual(['A']);
+    expect(handWinners([{ playerName: 'A', chips: -5 }, { playerName: 'B', chips: 3 }, { playerName: 'C', chips: 7 }]).map(winnerLabel))
+      .toEqual(['C (+7)', 'B (+3)']);
+    expect(handWinners([{ playerName: 'A', chips: 0 }])).toEqual([]);
+    expect(handWinners(undefined)).toEqual([]);
+  });
+
+  it('a result cell: 🏆 for a winner even at 0 chips, signed chips, "—" otherwise', () => {
+    const noChips = [{ playerName: 'A', chips: 0, winner: true }, { playerName: 'B', chips: 0 }];
+    expect(noChips.map((p) => handResult(p, noChips))).toEqual([{ text: '🏆', tone: 'win' }, { text: '—', tone: 'none' }]);
+    const withChips = [{ playerName: 'A', chips: 900, winner: true }, { playerName: 'B', chips: -900 }];
+    expect(withChips.map((p) => handResult(p, withChips))).toEqual([{ text: '🏆 +900', tone: 'win' }, { text: '-900', tone: 'loss' }]);
+    const older = [{ playerName: 'A', chips: 50 }, { playerName: 'B', chips: -50 }];
+    expect(handResult(older[0], older)).toEqual({ text: '🏆 +50', tone: 'win' });
+  });
+
+  it('the hand detail shows who won a hand saved without chips', () => {
+    const i18n = createI18n({ legacy: false, locale: 'zh-TW', messages: { 'zh-TW': zhTW } });
+    const hand = { communityCards: [], createdAt: Date.now(), players: [
+      { playerName: '嘉杰', cards: [], chips: 0, winner: true },
+      { playerName: '阿華', cards: [], chips: 0 },
+    ] };
+    const w = mount(HandHistoryDetail, { props: { modelValue: true, hand }, global: { plugins: [i18n] } });
+    expect(w.text()).toContain('🏆');
+    expect(w.text()).toContain('—');
   });
 });
