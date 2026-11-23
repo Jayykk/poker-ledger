@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, triggerRef } from 'vue';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -191,6 +191,27 @@ export const useAuthStore = defineStore('auth', () => {
   };
 
   /**
+   * Already signed in with LINE: copy LINE's current photo and name onto the
+   * account (lineLogin updates Firebase Auth and users/{uid}, whose trigger
+   * updates userTitles), then reload the user so the app shows them. No new
+   * sign-in, so nothing listening on the user restarts.
+   */
+  const refreshLineProfile = async (accessToken) => {
+    try {
+      const lineLoginFn = httpsCallable(functions, 'lineLogin');
+      await lineLoginFn({ accessToken });
+      if (!auth.currentUser) return false;
+      await auth.currentUser.reload();
+      // reload() changes the same user object in place
+      triggerRef(user);
+      return true;
+    } catch (err) {
+      console.warn('LINE profile refresh failed:', err);
+      return false;
+    }
+  };
+
+  /**
    * Home-screen app LINE login: claim the hand-off started by the app and, once
    * the backend returns a custom token, sign in with it. Polled while waiting,
    * so it leaves `loading` alone. Resolves to the backend status
@@ -227,6 +248,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     guestLogin,
     loginWithLine,
+    refreshLineProfile,
     claimLineHandoff,
     logout,
     updateGuestDisplayName,

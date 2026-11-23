@@ -110,6 +110,7 @@ import { useNotificationStore } from './store/modules/notification.js';
 import { useLoadingStore } from './store/modules/loading.js';
 import { useConfirm } from './composables/useConfirm.js';
 import { useLiff } from './composables/useLiff.js';
+import { lineProfileStale, lineProfileKey } from './utils/lineProfileSync.js';
 import LoadingSpinner from './components/common/LoadingSpinner.vue';
 import ToastNotification from './components/common/ToastNotification.vue';
 import ActionNotification from './components/common/ActionNotification.vue';
@@ -125,7 +126,7 @@ const userStore = useUserStore();
 const notificationStore = useNotificationStore();
 const loadingStore = useLoadingStore();
 const { confirm } = useConfirm();
-const { isInLineClient, isLoggedIn: liffLoggedIn, initLiff, getAccessToken } = useLiff();
+const { isInLineClient, isLoggedIn: liffLoggedIn, initLiff, getAccessToken, fetchProfile } = useLiff();
 
 const loading = ref(true);
 // LIFF debug overlay — dev builds only; in production the logs aren't
@@ -186,6 +187,23 @@ const processPendingInvite = async () => {
   }
   
   return false;
+};
+
+// Signed in with LINE from a saved session: refresh the account when its
+// LINE photo or name changed (tried once per change, see lineProfileKey)
+const syncLineProfile = async () => {
+  const profile = await fetchProfile();
+  if (!lineProfileStale(authStore.user, profile)) return;
+  const key = lineProfileKey(profile);
+  try {
+    if (localStorage.getItem(STORAGE_KEYS.LINE_PROFILE_SYNCED) === key) return;
+    localStorage.setItem(STORAGE_KEYS.LINE_PROFILE_SYNCED, key);
+  } catch { /* storage blocked: refresh anyway */ }
+  const token = getAccessToken();
+  if (!token) return;
+  dbg('⏳ refreshLineProfile (LINE photo / name changed)...');
+  const ok = await authStore.refreshLineProfile(token);
+  dbg(ok ? `✅ LINE profile refreshed: ${authStore.user?.photoURL}` : '⚠️ LINE profile refresh failed');
 };
 
 // Debug logging helper (shows on LIFF debug overlay; no-op in production)
@@ -276,6 +294,10 @@ onMounted(async () => {
         } else {
           dbg('❌ No LIFF access token available');
         }
+      } else {
+        // A saved session skips lineLogin: catch up on a new LINE photo / name
+        // in the background (start doesn't wait on it)
+        syncLineProfile().catch((e) => dbg(`⚠️ syncLineProfile: ${e.message}`));
       }
     } else {
       dbg(`ℹ️ LIFF not logged in (loggedIn=${liffLoggedIn.value}, inClient=${isInLineClient.value})`);

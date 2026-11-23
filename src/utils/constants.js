@@ -89,7 +89,9 @@ export const STORAGE_KEYS = {
   // 簡化特效: 頭像框 without motion on this device ('true' / 'false')
   FX_LITE: 'poker_fx_lite',
   // 我的 › 頭像框 只顯示已獲得 ('true' / 'false'; none = on)
-  FRAMES_EARNED_ONLY: 'poker_frames_earned_only'
+  FRAMES_EARNED_ONLY: 'poker_frames_earned_only',
+  // LINE photo + name last refreshed from (lineProfileKey)
+  LINE_PROFILE_SYNCED: 'poker_line_profile_synced'
 };
 
 // Theme options
