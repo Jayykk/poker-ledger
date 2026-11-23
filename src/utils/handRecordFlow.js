@@ -59,3 +59,19 @@ export function winnerLabel(p) {
   const chips = Number(p.chips) || 0;
   return chips > 0 ? `${p.playerName} (+${chips})` : p.playerName;
 }
+
+/**
+ * A player's result cell in a saved hand: signed chips, a 🏆 for a winner
+ * (also when the hand was saved without chips), "—" for 0 and not a winner.
+ * @param {{ chips?: number }} p
+ * @param {Array<Object>} players the hand's players
+ * @return {{ text: string, tone: 'win' | 'loss' | 'none' }}
+ */
+export function handResult(p, players = []) {
+  const chips = Number(p.chips) || 0;
+  const won = handWinners(players).includes(p);
+  const amount = chips ? `${chips > 0 ? '+' : ''}${chips}` : '';
+  if (won) return { text: amount ? `🏆 ${amount}` : '🏆', tone: 'win' };
+  if (chips) return { text: amount, tone: chips > 0 ? 'win' : 'loss' };
+  return { text: '—', tone: 'none' };
+}

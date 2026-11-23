@@ -161,10 +161,10 @@
 
                   <!-- Chips -->
                   <div
-                    class="font-mono font-bold text-sm ml-2"
-                    :class="player.chips >= 0 ? 'text-emerald-400' : 'text-rose-400'"
+                    class="font-mono font-bold text-sm ml-2 whitespace-nowrap"
+                    :class="TONE_CLASS[handResult(player, hand.players).tone]"
                   >
-                    {{ player.chips > 0 ? '+' : '' }}{{ player.chips }}
+                    {{ handResult(player, hand.players).text }}
                   </div>
                 </div>
               </div>
@@ -202,7 +202,9 @@ import { formatNumber, formatDate, getProfitColorClass } from '../../utils/forma
 import { useHand } from '../../composables/useHand.js';
 import { useAuthStore } from '../../store/modules/auth.js';
 import { canRecordHandAfter, backfillHandFields } from '../../utils/handBackfill.js';
-import { handWinners, winnerLabel } from '../../utils/handRecordFlow.js';
+import { handWinners, winnerLabel, handResult } from '../../utils/handRecordFlow.js';
+
+const TONE_CLASS = { win: 'text-emerald-400', loss: 'text-rose-400', none: 'text-gray-500' };
 
 const { t } = useI18n();
 const authStore = useAuthStore();

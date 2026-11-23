@@ -56,10 +56,10 @@
 
             <!-- Chips -->
             <div
-              class="font-mono font-bold text-lg"
-              :class="player.chips >= 0 ? 'text-emerald-400' : 'text-rose-400'"
+              class="font-mono font-bold text-lg whitespace-nowrap"
+              :class="TONE_CLASS[handResult(player, hand.players).tone]"
             >
-              {{ player.chips > 0 ? '+' : '' }}{{ player.chips }}
+              {{ handResult(player, hand.players).text }}
             </div>
           </div>
         </div>
@@ -76,6 +76,9 @@
 <script setup>
 import { useI18n } from 'vue-i18n';
 import BaseModal from '../common/BaseModal.vue';
+import { handResult } from '../../utils/handRecordFlow.js';
+
+const TONE_CLASS = { win: 'text-emerald-400', loss: 'text-rose-400', none: 'text-gray-500' };
 
 const props = defineProps({
   modelValue: {

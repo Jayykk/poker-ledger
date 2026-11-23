@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import zhTW from '../src/i18n/locales/zh-TW.json';
-import { splitPot, quickPutIns, handWinners, winnerLabel } from '../src/utils/handRecordFlow.js';
+import { splitPot, quickPutIns, handWinners, winnerLabel, handResult } from '../src/utils/handRecordFlow.js';
+import HandHistoryDetail from '../src/components/game/HandHistoryDetail.vue';
 
 const created = [];
 vi.mock('../src/composables/useHand.js', () => ({
@@ -128,5 +129,25 @@ describe('winners of a saved hand', () => {
       .toEqual(['C (+7)', 'B (+3)']);
     expect(handWinners([{ playerName: 'A', chips: 0 }])).toEqual([]);
     expect(handWinners(undefined)).toEqual([]);
+  });
+
+  it('a result cell: 🏆 for a winner even at 0 chips, signed chips, "—" otherwise', () => {
+    const noChips = [{ playerName: 'A', chips: 0, winner: true }, { playerName: 'B', chips: 0 }];
+    expect(noChips.map((p) => handResult(p, noChips))).toEqual([{ text: '🏆', tone: 'win' }, { text: '—', tone: 'none' }]);
+    const withChips = [{ playerName: 'A', chips: 900, winner: true }, { playerName: 'B', chips: -900 }];
+    expect(withChips.map((p) => handResult(p, withChips))).toEqual([{ text: '🏆 +900', tone: 'win' }, { text: '-900', tone: 'loss' }]);
+    const older = [{ playerName: 'A', chips: 50 }, { playerName: 'B', chips: -50 }];
+    expect(handResult(older[0], older)).toEqual({ text: '🏆 +50', tone: 'win' });
+  });
+
+  it('the hand detail shows who won a hand saved without chips', () => {
+    const i18n = createI18n({ legacy: false, locale: 'zh-TW', messages: { 'zh-TW': zhTW } });
+    const hand = { communityCards: [], createdAt: Date.now(), players: [
+      { playerName: '嘉杰', cards: [], chips: 0, winner: true },
+      { playerName: '阿華', cards: [], chips: 0 },
+    ] };
+    const w = mount(HandHistoryDetail, { props: { modelValue: true, hand }, global: { plugins: [i18n] } });
+    expect(w.text()).toContain('🏆');
+    expect(w.text()).toContain('—');
   });
 });
