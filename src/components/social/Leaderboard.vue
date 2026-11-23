@@ -105,14 +105,14 @@
         v-for="(entry, index) in leaderboard"
         :key="entry.uid"
         @click="selectedSort === 'specialHands' && handleViewHandDetails(entry)"
-        class="flex items-center gap-2.5 p-3 rounded-lg transition-colors"
+        class="lb-row p-3 rounded-lg transition-colors"
         :class="[
           entry.uid === user?.uid ? 'bg-amber-600/20 border border-amber-600/50' : 'bg-slate-700',
           selectedSort === 'specialHands' ? 'cursor-pointer hover:bg-slate-600' : ''
         ]"
       >
         <!-- Rank: medal for top 3, number otherwise -->
-        <div class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-base"
+        <div class="lb-rank w-8 h-8 rounded-full flex items-center justify-center font-bold text-base"
           :class="getRankClass(index)"
         >
           <span v-if="index === 0">🥇</span>
@@ -121,67 +121,57 @@
           <span v-else>{{ index + 1 }}</span>
         </div>
 
-        <PlayerAvatar size="sm" :src="avatarSrcOf(entry, user)" :name="entry.name" :uid="entry.uid" />
+        <div class="lb-avatar"><PlayerAvatar size="sm" :src="avatarSrcOf(entry, user)" :name="entry.name" :uid="entry.uid" /></div>
 
-        <!-- User info -->
-        <div class="flex-1 min-w-0">
-          <div class="text-white font-bold flex items-center gap-1.5 min-w-0">
-            <span class="truncate">{{ entry.name }}</span>
-            <span v-if="entry.uid === user?.uid" class="text-xs text-amber-400 flex-shrink-0">{{ $t('friends.you') }}</span>
+        <div class="lb-body">
+          <div class="lb-head">
+            <div class="lb-who">
+              <div class="text-white font-bold flex items-center gap-1.5 min-w-0">
+                <span class="truncate">{{ entry.name }}</span>
+                <span v-if="entry.uid === user?.uid" class="text-xs text-amber-400 flex-shrink-0">{{ $t('friends.you') }}</span>
+              </div>
+              <!-- Its own line under the name (as in a room), so neither is cut to "…" -->
+              <div class="title-line"><TitleBadge :uid="entry.uid" /></div>
+            </div>
+            <!-- The number: beside the name, or under it when the row is too narrow -->
+            <div class="lb-stat">
+              <div v-if="selectedSort === 'profit'"
+                class="text-xl font-mono font-bold"
+                :class="entry.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'"
+              >
+                {{ entry.profit >= 0 ? '+' : '' }}{{ formatNumber(entry.profit) }}
+              </div>
+              <div v-else-if="selectedSort === 'winRate'"
+                class="text-xl font-mono font-bold text-emerald-400"
+              >
+                {{ entry.winRate }}%
+              </div>
+              <div v-else-if="selectedSort === 'champion'"
+                class="text-xl font-mono font-bold text-amber-400"
+              >
+                🏆 {{ entry.champion }}
+              </div>
+              <div v-else-if="selectedSort === 'itm'" class="text-xl font-mono font-bold text-emerald-400">
+                {{ entry.itmRate.toFixed(1) }}%
+              </div>
+              <div v-else-if="selectedSort === 'roi'" class="text-xl font-mono font-bold" :class="roiClass(entry.roi)">
+                {{ entry.roi > 0 ? '+' : '' }}{{ entry.roi.toFixed(1) }}%
+              </div>
+              <div v-else-if="selectedSort === 'hunter'" class="text-xl font-mono font-bold text-rose-300">
+                🎯 {{ entry.knockouts }}
+              </div>
+              <div v-else-if="selectedSort === 'lucky'" class="text-xl font-mono font-bold text-amber-400">
+                ${{ formatNumber(entry.mysteryWon) }}
+              </div>
+              <div v-else-if="selectedSort === 'specialHands'"
+                class="text-xl font-mono font-bold text-amber-400"
+              >
+                {{ entry.specialHands }}
+              </div>
+            </div>
           </div>
-          <!-- Its own line under the name (as in a room), so neither is cut to "…" -->
-          <div class="title-line"><TitleBadge :uid="entry.uid" /></div>
-          <div class="text-xs text-gray-400">
-            {{ $t('friends.gamesCount', { n: entry.games }) }}
-          </div>
-        </div>
-
-        <!-- Profit / Win Rate / Special Hands -->
-        <div class="text-right flex-shrink-0">
-          <div v-if="selectedSort === 'profit'"
-            class="text-xl font-mono font-bold"
-            :class="entry.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'"
-          >
-            {{ entry.profit >= 0 ? '+' : '' }}{{ formatNumber(entry.profit) }}
-          </div>
-          <div v-else-if="selectedSort === 'winRate'"
-            class="text-xl font-mono font-bold text-emerald-400"
-          >
-            {{ entry.winRate }}%
-          </div>
-          <div v-else-if="selectedSort === 'champion'"
-            class="text-xl font-mono font-bold text-amber-400"
-          >
-            🏆 {{ entry.champion }}
-          </div>
-          <div v-else-if="selectedSort === 'itm'" class="text-xl font-mono font-bold text-emerald-400">
-            {{ entry.itmRate.toFixed(1) }}%
-          </div>
-          <div v-else-if="selectedSort === 'roi'" class="text-xl font-mono font-bold" :class="roiClass(entry.roi)">
-            {{ entry.roi > 0 ? '+' : '' }}{{ entry.roi.toFixed(1) }}%
-          </div>
-          <div v-else-if="selectedSort === 'hunter'" class="text-xl font-mono font-bold text-rose-300">
-            🎯 {{ entry.knockouts }}
-          </div>
-          <div v-else-if="selectedSort === 'lucky'" class="text-xl font-mono font-bold text-amber-400">
-            ${{ formatNumber(entry.mysteryWon) }}
-          </div>
-          <div v-else-if="selectedSort === 'specialHands'"
-            class="text-xl font-mono font-bold text-amber-400"
-          >
-            {{ entry.specialHands }}
-          </div>
-          <div class="text-xs text-gray-400">
-            <span v-if="selectedSort === 'profit'">{{ entry.winRate }}% {{ $t('friends.winRateLabel') }}</span>
-            <span v-else-if="selectedSort === 'winRate'">{{ formatNumber(entry.profit) }} {{ $t('friends.profitLabel') }}</span>
-            <span v-else-if="selectedSort === 'champion'">🥈 {{ entry.runnerUp }}</span>
-            <span v-else-if="selectedSort === 'itm'">{{ $t('friends.itmCount', { n: entry.itmCount }) }}</span>
-            <span v-else-if="selectedSort === 'roi'">
-              {{ entry.rebuyComplete ? $t('friends.rebuyCount', { n: entry.rebuyCount }) : $t('common.unknown') }}
-            </span>
-            <span v-else-if="selectedSort === 'hunter'">{{ $t('friends.bountyWon', { amount: formatNumber(entry.bountyWon) }) }}</span>
-            <span v-else-if="selectedSort === 'lucky'">{{ $t('friends.luckyLine', { draws: entry.draws, top: entry.topDraws, rate: entry.topRate }) }}</span>
-            <span v-else-if="selectedSort === 'specialHands'">{{ entry.winRate }}% {{ $t('friends.winRateLabel') }}</span>
+          <div class="lb-meta">
+            <span v-for="(part, i) in metaParts(entry)" :key="i" class="lb-part">{{ part }}</span>
           </div>
         </div>
       </div>
@@ -191,66 +181,59 @@
         v-if="myRankInfo"
         class="mt-3 pt-3 border-t border-slate-600"
       >
-        <div class="flex items-center gap-2.5 p-3 rounded-lg bg-amber-600/20 border border-amber-600/50">
-          <div class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm bg-slate-600 text-gray-200">
+        <div class="lb-row p-3 rounded-lg bg-amber-600/20 border border-amber-600/50">
+          <div class="lb-rank w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm bg-slate-600 text-gray-200">
             {{ myRankInfo.rank }}
           </div>
-          <PlayerAvatar size="sm" :src="avatarSrcOf(myRankInfo, user)" :name="myRankInfo.name" :uid="myRankInfo.uid" />
-          <div class="flex-1 min-w-0">
-            <div class="text-white font-bold flex items-center gap-1.5 min-w-0">
-              <span class="truncate">{{ myRankInfo.name }}</span>
-              <span class="text-xs text-amber-400 flex-shrink-0">{{ $t('friends.you') }}</span>
+          <div class="lb-avatar"><PlayerAvatar size="sm" :src="avatarSrcOf(myRankInfo, user)" :name="myRankInfo.name" :uid="myRankInfo.uid" /></div>
+          <div class="lb-body">
+            <div class="lb-head">
+              <div class="lb-who">
+                <div class="text-white font-bold flex items-center gap-1.5 min-w-0">
+                  <span class="truncate">{{ myRankInfo.name }}</span>
+                  <span class="text-xs text-amber-400 flex-shrink-0">{{ $t('friends.you') }}</span>
+                </div>
+                <div class="title-line"><TitleBadge :uid="myRankInfo.uid" /></div>
+              </div>
+              <!-- The number: beside the name, or under it when the row is too narrow -->
+              <div class="lb-stat">
+                <div v-if="selectedSort === 'profit'"
+                  class="text-xl font-mono font-bold"
+                  :class="myRankInfo.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'"
+                >
+                  {{ myRankInfo.profit >= 0 ? '+' : '' }}{{ formatNumber(myRankInfo.profit) }}
+                </div>
+                <div v-else-if="selectedSort === 'winRate'"
+                  class="text-xl font-mono font-bold text-emerald-400"
+                >
+                  {{ myRankInfo.winRate }}%
+                </div>
+                <div v-else-if="selectedSort === 'champion'"
+                  class="text-xl font-mono font-bold text-amber-400"
+                >
+                  🏆 {{ myRankInfo.champion }}
+                </div>
+                <div v-else-if="selectedSort === 'itm'" class="text-xl font-mono font-bold text-emerald-400">
+                  {{ myRankInfo.itmRate.toFixed(1) }}%
+                </div>
+                <div v-else-if="selectedSort === 'roi'" class="text-xl font-mono font-bold" :class="roiClass(myRankInfo.roi)">
+                  {{ myRankInfo.roi > 0 ? '+' : '' }}{{ myRankInfo.roi.toFixed(1) }}%
+                </div>
+                <div v-else-if="selectedSort === 'hunter'" class="text-xl font-mono font-bold text-rose-300">
+                  🎯 {{ myRankInfo.knockouts }}
+                </div>
+                <div v-else-if="selectedSort === 'lucky'" class="text-xl font-mono font-bold text-amber-400">
+                  ${{ formatNumber(myRankInfo.mysteryWon) }}
+                </div>
+                <div v-else-if="selectedSort === 'specialHands'"
+                  class="text-xl font-mono font-bold text-amber-400"
+                >
+                  {{ myRankInfo.specialHands }}
+                </div>
+              </div>
             </div>
-            <div class="title-line"><TitleBadge :uid="myRankInfo.uid" /></div>
-            <div class="text-xs text-gray-400">
-              {{ $t('friends.gamesCount', { n: myRankInfo.games }) }}
-            </div>
-          </div>
-          <div class="text-right flex-shrink-0">
-            <div v-if="selectedSort === 'profit'"
-              class="text-xl font-mono font-bold"
-              :class="myRankInfo.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'"
-            >
-              {{ myRankInfo.profit >= 0 ? '+' : '' }}{{ formatNumber(myRankInfo.profit) }}
-            </div>
-            <div v-else-if="selectedSort === 'winRate'"
-              class="text-xl font-mono font-bold text-emerald-400"
-            >
-              {{ myRankInfo.winRate }}%
-            </div>
-            <div v-else-if="selectedSort === 'champion'"
-              class="text-xl font-mono font-bold text-amber-400"
-            >
-              🏆 {{ myRankInfo.champion }}
-            </div>
-            <div v-else-if="selectedSort === 'itm'" class="text-xl font-mono font-bold text-emerald-400">
-              {{ myRankInfo.itmRate.toFixed(1) }}%
-            </div>
-            <div v-else-if="selectedSort === 'roi'" class="text-xl font-mono font-bold" :class="roiClass(myRankInfo.roi)">
-              {{ myRankInfo.roi > 0 ? '+' : '' }}{{ myRankInfo.roi.toFixed(1) }}%
-            </div>
-            <div v-else-if="selectedSort === 'hunter'" class="text-xl font-mono font-bold text-rose-300">
-              🎯 {{ myRankInfo.knockouts }}
-            </div>
-            <div v-else-if="selectedSort === 'lucky'" class="text-xl font-mono font-bold text-amber-400">
-              ${{ formatNumber(myRankInfo.mysteryWon) }}
-            </div>
-            <div v-else-if="selectedSort === 'specialHands'"
-              class="text-xl font-mono font-bold text-amber-400"
-            >
-              {{ myRankInfo.specialHands }}
-            </div>
-            <div v-if="selectedSort === 'itm'" class="text-xs text-gray-400">
-              {{ $t('friends.itmCount', { n: myRankInfo.itmCount }) }}
-            </div>
-            <div v-else-if="selectedSort === 'roi'" class="text-xs text-gray-400">
-              {{ myRankInfo.rebuyComplete ? $t('friends.rebuyCount', { n: myRankInfo.rebuyCount }) : $t('common.unknown') }}
-            </div>
-            <div v-else-if="selectedSort === 'hunter'" class="text-xs text-gray-400">
-              {{ $t('friends.bountyWon', { amount: formatNumber(myRankInfo.bountyWon) }) }}
-            </div>
-            <div v-else-if="selectedSort === 'lucky'" class="text-xs text-gray-400">
-              {{ $t('friends.luckyLine', { draws: myRankInfo.draws, top: myRankInfo.topDraws, rate: myRankInfo.topRate }) }}
+            <div class="lb-meta">
+              <span v-for="(part, i) in metaParts(myRankInfo)" :key="i" class="lb-part">{{ part }}</span>
             </div>
           </div>
         </div>
@@ -443,6 +426,27 @@ const getRankClass = (index) => {
   return 'bg-slate-600 text-gray-300';
 };
 
+// The sort's second stat, shown after the games count under the name
+const statLine = (entry) => {
+  switch (selectedSort.value) {
+    case 'profit':
+    case 'specialHands': return `${entry.winRate}% ${t('friends.winRateLabel')}`;
+    case 'winRate': return `${formatNumber(entry.profit)} ${t('friends.profitLabel')}`;
+    case 'champion': return `🥈 ${entry.runnerUp}`;
+    case 'itm': return t('friends.itmCount', { n: entry.itmCount });
+    case 'roi': return entry.rebuyComplete ? t('friends.rebuyCount', { n: entry.rebuyCount }) : t('common.unknown');
+    case 'hunter': return t('friends.bountyWon', { amount: formatNumber(entry.bountyWon) });
+    case 'lucky': return t('friends.luckyLine', { draws: entry.draws, top: entry.topDraws, rate: entry.topRate });
+    default: return '';
+  }
+};
+// Cut at " · " so a narrow row (a phone's large system font, LINE's in-app
+// browser) wraps between parts, never inside one
+const metaParts = (entry) => [
+  t('friends.gamesCount', { n: entry.games }),
+  ...statLine(entry).split(' · '),
+].filter(Boolean);
+
 const roiClass = (roi) => roi > 0 ? 'text-emerald-400' : roi < 0 ? 'text-rose-400' : 'text-gray-300';
 
 // Map a UI period tab to its leaderboardStats period key (Asia/Taipei calendar,
@@ -572,3 +576,24 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+/* Rank, avatar, then the body: the name (its title under it) beside the
+   number, and the games / second-stat line under both. A narrow row (a
+   phone's large system font, LINE's in-app browser) never squeezes the name
+   to one letter: the line wraps between its parts, and past that the number
+   drops under the name */
+.lb-row { display: flex; align-items: center; gap: 0.5rem; }
+.lb-rank, .lb-avatar { flex-shrink: 0; }
+.lb-avatar { display: flex; }
+.lb-body { flex: 1 1 0; min-width: 0; }
+.lb-head { display: flex; flex-wrap: wrap; align-items: center; column-gap: 0.5rem; }
+.lb-who { flex: 1 1 0; min-width: 4.5em; }
+.lb-stat { margin-left: auto; text-align: right; white-space: nowrap; }
+.lb-meta { font-size: 0.75rem; line-height: 1.35; color: rgb(var(--tw-gray-400)); }
+/* A part moves to the next line whole (its " ·" with it); only one wider
+   than the line breaks inside */
+.lb-part { display: inline-block; max-width: 100%; }
+.lb-part:not(:last-child) { margin-right: 0.35em; }
+.lb-part:not(:last-child)::after { content: ' ·'; }
+</style>

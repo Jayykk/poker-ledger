@@ -386,7 +386,8 @@ function crownView(id) {
   border-radius: 0.6rem;
   font-size: 0.8rem;
   font-weight: 700;
-  color: rgb(var(--tw-white));
+  /* the theme's text-on-accent: a light theme's `white` is dark ink */
+  color: var(--on-accent);
   background: rgb(var(--tw-amber-600));
 }
 </style>
