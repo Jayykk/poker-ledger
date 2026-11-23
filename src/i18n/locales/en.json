@@ -143,6 +143,8 @@
     "inviteLink": "Invite Link",
     "closeGame": "Close Game (Delete Data)",
     "noActiveGame": "No active game",
+    "linkEnded": "That table has already ended",
+    "linkUnreachable": "Could not open the table right now — back to the lobby",
     "enterGameId": "Enter Game ID",
     "selectSeat": "Select Seat",
     "emptySeats": "Empty Seats",

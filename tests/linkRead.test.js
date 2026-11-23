@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { isTransientReadError, withTimeoutMs, linkBounceMessageKey } from '../src/utils/linkRead.js';
 
 describe('isTransientReadError', () => {
@@ -41,4 +43,16 @@ describe('linkBounceMessageKey', () => {
     expect(linkBounceMessageKey({ reason: 'failed' })).toBe('game.linkUnreachable');
     expect(linkBounceMessageKey(undefined)).toBe('game.linkUnreachable');
   });
+});
+
+// The lobby toast shows t(key): a key missing from a locale shows as raw text
+it('linkBounceMessageKey: every key it returns is in every locale', () => {
+  const keys = new Set(['ended', 'missing', 'network', 'failed'].map((reason) => linkBounceMessageKey({ reason })));
+  for (const loc of ['zh-TW', 'zh-CN', 'en', 'ja']) {
+    const messages = JSON.parse(readFileSync(resolve(__dirname, '..', 'src/i18n/locales', `${loc}.json`), 'utf-8'));
+    for (const key of keys) {
+      const value = key.split('.').reduce((o, k) => o?.[k], messages);
+      expect(typeof value, `${loc} ${key}`).toBe('string');
+    }
+  }
 });
