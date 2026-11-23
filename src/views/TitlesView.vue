@@ -8,7 +8,7 @@
     </div>
     <p class="text-xs text-gray-400 mb-3">{{ $t('titles.codexSub') }}</p>
     <!-- Titles held and the 頭像框 they give -->
-    <div class="flex items-center gap-3 mb-5">
+    <div class="flex items-center gap-3 mb-3">
       <PlayerAvatar size="md" :src="user?.photoURL || ''" :name="displayName || ''" :frame="myFrame" />
       <div class="min-w-0">
         <div class="text-sm font-bold text-white">
@@ -18,13 +18,30 @@
         <div class="text-xs text-amber-400">{{ $t('titles.unlockedCount', { n: myTitleCount, total: totalTitleSteps }) }}</div>
       </div>
     </div>
+    <!-- 稱號 (王座 + every family) | 頭像框 (every frame) -->
+    <div class="tv-tabs" role="tablist" data-testid="codex-tabs">
+      <button
+        v-for="tab in TABS"
+        :key="tab"
+        type="button"
+        role="tab"
+        class="tv-tab"
+        :class="{ active: activeTab === tab }"
+        :aria-selected="activeTab === tab"
+        :data-tab="tab"
+        @click="setTab(tab)"
+      >
+        {{ $t(`titles.codexDetail.tabs.${tab}`) }}
+        <span class="tv-tab-count">{{ tab === 'frames' ? `${framesEarned} / ${framesTotal}` : `${myTitleCount} / ${totalTitleSteps}` }}</span>
+      </button>
+    </div>
 
     <div v-if="loading" class="flex justify-center py-12">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
     </div>
 
-    <template v-else>
-      <!-- 本月王座: this month's crowns inside my 牌友圈 (me + my pals) -->
+    <template v-else-if="activeTab === 'titles'">
+      <!-- 本月王座: worn this month (won last month) and this month's race, in my 牌友圈 -->
       <section class="mb-6" data-testid="throne">
         <div class="flex items-baseline justify-between gap-2 mb-2 min-w-0">
           <h3 class="text-sm font-bold text-gray-300 flex-shrink-0">
@@ -32,24 +49,36 @@
           </h3>
           <span class="text-[11px] text-gray-400 truncate">{{ $t('titles.throne.sub', { month: crownMonth, n: myPals.length }) }}</span>
         </div>
+        <p class="text-[11px] text-gray-400 mb-2">{{ $t('titles.throne.rule') }}</p>
         <!-- Too few pals to compete yet (someone new) -->
         <p v-if="myPals.length < CROWN_MIN_PALS" class="tv-card text-xs text-gray-300" data-testid="throne-need-pals">
           {{ $t('titles.throne.needPals', { n: CROWN_MIN_PALS - myPals.length }) }}
         </p>
         <div v-else class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-          <div v-for="row in throne" :key="row.id" class="tv-card tv-throne" :class="{ held: row.mine }" :data-crown="row.id">
+          <div
+            v-for="row in throne"
+            :key="row.id"
+            class="tv-card tv-throne tv-tap"
+            :class="{ held: row.wearing.includes(user?.uid) }"
+            :data-crown="row.id"
+            role="button"
+            tabindex="0"
+            @click="openDetail('crown', row.id)"
+            @keydown.enter="openDetail('crown', row.id)"
+          >
             <div class="flex items-center justify-between gap-2 min-w-0">
               <TitleBadge :family-id="row.id" :tier="CROWN_TIER" />
               <span class="text-[10px] text-gray-400 flex-shrink-0">{{ $t('titles.throne.history', { n: row.history }) }}</span>
             </div>
             <p class="tv-desc">{{ $t(`titles.families.${row.id}.desc`) }}</p>
 
-            <!-- Holders: ties share the crown, so maybe several -->
-            <div class="flex items-center gap-2 mt-2 min-w-0">
-              <template v-if="row.holders.length">
+            <!-- Worn this month: last month's final holders -->
+            <div class="tv-row" data-testid="throne-reigning">
+              <span class="tv-row-label">{{ $t('titles.throne.reigning') }}</span>
+              <template v-if="row.wearing.length">
                 <span class="tv-stack">
                   <PlayerAvatar
-                    v-for="uid in row.holders.slice(0, 3)"
+                    v-for="uid in row.wearing.slice(0, 3)"
                     :key="uid"
                     size="sm"
                     :uid="uid"
@@ -57,15 +86,24 @@
                     :name="nameOf(uid)"
                     :crown="false"
                   />
-                  <span v-if="row.holders.length > 3" class="tv-more">+{{ row.holders.length - 3 }}</span>
+                  <span v-if="row.wearing.length > 3" class="tv-more">+{{ row.wearing.length - 3 }}</span>
                 </span>
+                <span class="tv-reigning">{{ row.wearing.map(nameOf).join(' · ') }}</span>
+              </template>
+              <span v-else class="tv-vacant">{{ $t('titles.throne.vacant') }}</span>
+            </div>
+
+            <!-- This month's race: ties share the lead, so maybe several -->
+            <div class="tv-row">
+              <span class="tv-row-label">{{ $t('titles.throne.racing') }}</span>
+              <template v-if="row.holders.length">
                 <span class="tv-holders">{{ row.holders.map(nameOf).join(' · ') }}</span>
                 <span v-if="!row.private" class="tv-value">{{ formatCrown(row.id, row.value) }}</span>
               </template>
               <span v-else class="tv-vacant">{{ $t('titles.throne.vacant') }}</span>
             </div>
 
-            <!-- Me against the holder (money crowns show no amounts: who won or
+            <!-- Me against the leader (money crowns show no amounts: who won or
                  lost how much this month isn't for the whole circle to read) -->
             <div v-if="!row.private || row.mine" class="tv-me">
               <template v-if="row.mine">
@@ -86,7 +124,17 @@
       <section v-for="group in groups" :key="group.id" class="mb-6">
         <h3 class="text-sm font-bold text-gray-300 mb-2">{{ $t(`titles.groups.${group.id}`) }}</h3>
         <div class="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-          <div v-for="card in group.cards" :key="card.id" class="tv-card" :class="{ locked: !card.tier }" :data-family="card.id">
+          <div
+            v-for="card in group.cards"
+            :key="card.id"
+            class="tv-card tv-tap"
+            :class="{ locked: !card.tier }"
+            :data-family="card.id"
+            role="button"
+            tabindex="0"
+            @click="openDetail('title', card.id)"
+            @keydown.enter="openDetail('title', card.id)"
+          >
             <div class="flex items-center justify-between gap-2 min-w-0">
               <TitleBadge v-if="card.tier" :family-id="card.id" :tier="card.tier" :name-set="nameSet" />
               <span v-else class="tv-locked">
@@ -120,73 +168,102 @@
                   {{ card.progress.next ? $t('titles.next', { name: stepName(card.id, card.progress.next.tier) }) : $t('titles.maxed') }}
                 </span>
               </div>
-              <!-- Every step, folded away until asked for -->
-              <button
-                type="button"
-                class="tv-steps-toggle"
-                :aria-expanded="!!openSteps[card.id]"
-                @click="openSteps[card.id] = !openSteps[card.id]"
-              >
-                {{ openSteps[card.id] ? $t('titles.hideSteps') : $t('titles.showSteps') }}
-                <i class="fas fa-chevron-down tv-steps-icon" :class="{ open: openSteps[card.id] }" aria-hidden="true"></i>
-              </button>
-              <ol v-if="openSteps[card.id]" class="tv-steps" data-testid="tier-steps">
-                <li
-                  v-for="step in card.steps"
-                  :key="step.tier"
-                  class="tv-step"
-                  :class="[titleRarity(step.tier), { reached: step.tier <= card.tier, current: step.tier === card.tier }]"
-                >
-                  <span class="tv-step-roman">{{ roman(step.tier) }}</span>
-                  <span class="tv-step-name">{{ stepName(card.id, step.tier) }}</span>
-                  <span class="tv-step-value">{{ formatValue(card.id, step.threshold) }}</span>
-                </li>
-              </ol>
             </template>
+            <span class="tv-more-hint">{{ $t('titles.codexDetail.tapForMore') }} <i class="fas fa-chevron-right" aria-hidden="true"></i></span>
           </div>
         </div>
       </section>
     </template>
+
+    <template v-else>
+      <!-- 頭像框: every frame, how far I am, tap for how to get it -->
+      <section class="mb-6" data-testid="codex-frames">
+        <p class="text-[11px] text-gray-400 mb-2">{{ $t('titles.codexDetail.framesSub') }}</p>
+        <div v-for="group in frameGroups" :key="group.kind" class="mb-3">
+          <div class="tv-frame-group">
+            {{ $t(`titles.codexDetail.kind.${group.kind}`) }}
+            <span class="text-gray-500 font-normal">{{ group.earned }} / {{ group.items.length }}</span>
+          </div>
+          <div class="tv-frame-grid">
+            <button
+              v-for="f in group.items"
+              :key="f.id"
+              type="button"
+              class="tv-frame"
+              :class="{ earned: f.earned, worn: f.worn }"
+              :data-frame="f.id"
+              @click="openDetail('frame', f.id)"
+            >
+              <PlayerAvatar size="md" :src="user?.photoURL || ''" :name="displayName || ''" :frame="f.id" :still="!f.earned" />
+              <span class="tv-frame-name">{{ $t(`titles.frames.${f.id}`) }}</span>
+              <span class="tv-frame-sub">{{ f.sub }}</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </template>
+
+    <CodexDetail :item="openItem" :ctx="detailCtx" @close="closeDetail" @open="switchDetail" @go-profile="goProfile" />
   </div>
 </template>
 
 <script setup>
-// 稱號圖鑑: every title family by 系列, the tier you hold (Ⅲ / Ⅹ), progress to
-// the next one (from your all-time leaderboardStats) and the ten steps on a
-// tap; hidden ones as ??? + a riddle until their first step. Names are in the
-// name set you picked (prefs.nameSet); the 王座 crowns have one set.
-import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue';
+// 稱號圖鑑, two tabs. 稱號: the 本月王座 of my 牌友圈 (worn this month = won
+// last month, and this month's race) and every title family by 系列 (tier
+// held Ⅲ / Ⅹ, progress to the next one from my all-time leaderboardStats);
+// hidden ones as ??? + a riddle until their first step. 頭像框: every frame
+// with where I stand (the collection; a family's themed frame is also one tap
+// away from its title).
+// A tap opens the detail dialog (CodexDetail): the ten steps, how to get a
+// frame, how many players hold each (site-wide from titleStats/global, and in
+// my 牌友圈). The open item lives in the route (?item=kind:id), so the phone's
+// back button closes it. Names are in the name set I picked (prefs.nameSet);
+// the 王座 crowns have one set.
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRoute, useRouter } from 'vue-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase-init.js';
 import { useAuth } from '../composables/useAuth.js';
 import { useUserTitles } from '../composables/useUserTitles.js';
 import TitleBadge from '../components/common/TitleBadge.vue';
 import PlayerAvatar from '../components/common/PlayerAvatar.vue';
+import CodexDetail from '../components/titles/CodexDetail.vue';
 import { formatNumber } from '../utils/formatters.js';
 import {
   TITLE_FAMILIES, TITLE_GROUPS, CROWN_TIER, nextTierProgress, titleRarity, titleCount,
   CROWN_IDS, CROWN_MIN_GROUP_GAMES, CROWN_MIN_PALS, crownLeaders, crownValue, getCrown,
-  normalizeTitlePrefs, titleName,
+  getTitleFamily, getThemeFrame, normalizeTitlePrefs, titleName, wonCrownMonths,
 } from '../utils/titles.js';
+import {
+  FRAME_KINDS, crownWearers, frameStatus, framesOfKind, frameKind,
+} from '../utils/codex.js';
 import { statsDocId } from '../../functions/src/utils/leaderboardStatsMath.js';
+import { TITLE_STATS_COLLECTION, TITLE_STATS_DOC } from '../../functions/src/utils/titleStatsMath.js';
 
 const { t, te } = useI18n();
+const route = useRoute();
+const router = useRouter();
 const { user, displayName } = useAuth();
-const { titles, watchMyTitles, ensureUserTitles, palsOf, currentCrownMonth } = useUserTitles();
+const {
+  titles, watchMyTitles, ensureUserTitles, palsOf, currentCrownMonth, frameOf,
+} = useUserTitles();
 
 const stats = ref(null);
 const loading = ref(true);
 let stopWatch = () => {};
 
-const unlocked = computed(() => titles[user.value?.uid]?.unlocked || {});
+const myDoc = computed(() => titles[user.value?.uid] || null);
+const unlocked = computed(() => myDoc.value?.unlocked || {});
 // Every tier is its own title: count steps held out of all steps (28 × 10)
 const totalTitleSteps = TITLE_FAMILIES.reduce((sum, f) => sum + f.tiers.length, 0);
 // 頭像框: every step reached is one title; the frame shown comes from the display
 const myTitleCount = computed(() => titleCount(unlocked.value));
-const myFrame = computed(() => titles[user.value?.uid]?.display?.frame || null);
+// The frame I show, as everyone sees it (effectiveDisplay: a 王座框 follows
+// the month even before a game rewrites my stored display)
+const myFrame = computed(() => frameOf(user.value?.uid));
 // The names every step shows in: my own set
-const nameSet = computed(() => normalizeTitlePrefs(titles[user.value?.uid]?.prefs).nameSet);
+const nameSet = computed(() => normalizeTitlePrefs(myDoc.value?.prefs).nameSet);
 function stepName(familyId, tier) {
   return titleName({ t, te }, familyId, tier, nameSet.value);
 }
@@ -210,9 +287,6 @@ const groups = computed(() => TITLE_GROUPS.map((id) => ({
   }),
 })));
 
-// Cards whose ten steps are unfolded (familyId → true)
-const openSteps = reactive({});
-
 const ROMAN = ['—', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ', 'Ⅹ'];
 // Tier as a roman numeral (— before the first step)
 function roman(tier) {
@@ -226,28 +300,45 @@ function formatValue(familyId, value) {
   return formatNumber(Math.round(value || 0));
 }
 
+// ── Tabs (?tab=frames; none = 稱號) ────────────────────────────────
+// In the route so 我的 › 頭像框 can link straight to the frames, and a
+// dialog's back keeps the tab it was opened from. A switch replaces the entry:
+// back leaves the 圖鑑 instead of stepping through tabs.
+const TABS = ['titles', 'frames'];
+const activeTab = computed(() => (route.query.tab === 'frames' ? 'frames' : 'titles'));
+function setTab(tab) {
+  if (tab === activeTab.value) return;
+  const query = { ...route.query };
+  if (tab === 'frames') query.tab = 'frames';
+  else delete query.tab;
+  router.replace({ query });
+  window.scrollTo?.({ top: 0 });
+}
+
 // ── 本月王座 ───────────────────────────────────────────────────────
 // My circle's month stats (one doc each: me + my pals) and their userTitles
-// through the shared cache (avatars / names). The leaders are judged with the
-// same rules the server uses for crowns; for me that is exactly whether I
-// hold it (my circle is the one I'm judged in).
-const crownMonth = currentCrownMonth();
+// through the shared cache (avatars / names / crowns worn). The race leaders
+// are judged with the same rules the server uses; for me that is exactly
+// whether I lead (my circle is the one I'm judged in). The month follows the
+// clock (currentCrownMonth), so a page left open across the month change
+// moves to the new month: who wears what, the race, the frames.
+const crownMonth = computed(() => currentCrownMonth());
 const myPals = computed(() => palsOf(user.value?.uid));
 const circleStats = ref({});
 let circleKey = '';
 
-// Waits for my userTitles doc (the pals), so the circle loads once
-watch(() => [user.value?.uid, !!titles[user.value?.uid], myPals.value.join(',')], async ([uid, ready]) => {
+// Waits for my userTitles doc (the pals), so the circle loads once per month
+watch(() => [user.value?.uid, !!titles[user.value?.uid], myPals.value.join(','), crownMonth.value], async ([uid, ready, , month]) => {
   if (!uid || !ready) return;
   const members = [uid, ...myPals.value];
-  const key = `${crownMonth}:${members.join(',')}`;
+  const key = `${month}:${members.join(',')}`;
   if (key === circleKey) return;
   circleKey = key;
   ensureUserTitles(myPals.value);
   const loaded = {};
   await Promise.all(members.map(async (member) => {
     try {
-      const snap = await getDoc(doc(db, 'leaderboardStats', statsDocId(member, crownMonth)));
+      const snap = await getDoc(doc(db, 'leaderboardStats', statsDocId(member, month)));
       loaded[member] = snap.exists() ? snap.data() : null;
     } catch (error) {
       console.warn('[titles] crown stats load failed', member, error?.code || error);
@@ -256,25 +347,33 @@ watch(() => [user.value?.uid, !!titles[user.value?.uid], myPals.value.join(',')]
   if (circleKey === key) circleStats.value = loaded;
 }, { immediate: true });
 
+// Me + my pals whose userTitles are loaded (crowns worn, circle counts)
+const circleMembers = computed(() => {
+  const me = user.value?.uid;
+  if (!me) return [];
+  return [me, ...myPals.value].filter((uid) => titles[uid]).map((uid) => ({ uid, doc: titles[uid] }));
+});
+const circleDocs = computed(() => circleMembers.value.map((m) => m.doc));
+
 const throne = computed(() => {
   const me = user.value?.uid;
   if (!me) return [];
   const members = [me, ...myPals.value].map((uid) => ({ uid, stats: circleStats.value[uid] || null }));
   const mine = circleStats.value[me] || null;
-  const history = titles[me]?.crownHistory || {};
   return CROWN_IDS.map((id) => {
     const { holders, value } = crownLeaders(id, members);
     const myValue = crownValue(id, mine);
     return {
       id,
       private: getCrown(id)?.unit === 'money',
+      wearing: crownWearers(circleMembers.value, id, crownMonth.value),
       holders,
       value,
       myValue,
       mine: holders.includes(me),
       gap: value != null && myValue != null ? value - myValue : null,
       playedThisMonth: !!mine && !mine.hidden,
-      history: Array.isArray(history[id]) ? history[id].length : 0,
+      history: wonCrownMonths(myDoc.value, id, crownMonth.value).length,
     };
   });
 });
@@ -293,6 +392,99 @@ function formatCrown(id, value) {
   return t(`titles.throne.units.${unit}`, { n: formatNumber(Math.round(v)) });
 }
 
+// ── 頭像框 ─────────────────────────────────────────────────────────
+// A tile's second line: 戴著中 / 已獲得, else how far (titles held, the
+// family's tier, the crown's wins); a hidden family not found yet stays ???
+function frameSub(id, status) {
+  if (myFrame.value === id) return t('titles.codexDetail.worn');
+  if (status.earned) return t('titles.codexDetail.earned');
+  if (status.kind === 'crown') {
+    return status.wonMonths.length
+      ? t('titles.codexDetail.tileWonTimes', { n: status.wonMonths.length })
+      : t('titles.codexDetail.notEarned');
+  }
+  if (status.kind === 'theme') {
+    const fam = getTitleFamily(getThemeFrame(id).family);
+    if (fam?.hidden && !status.progress.value) return t('titles.hiddenName');
+    return t('titles.codexDetail.tileTierOf', { n: status.progress.value, total: status.progress.goal });
+  }
+  return t('titles.codexDetail.tileCount', { n: status.progress.value, total: status.progress.goal });
+}
+
+const frameGroups = computed(() => FRAME_KINDS.map((kind) => {
+  const items = framesOfKind(kind).map((id) => {
+    const status = frameStatus(id, myDoc.value, crownMonth.value);
+    return { id, earned: status.earned, worn: myFrame.value === id, sub: frameSub(id, status) };
+  });
+  return { kind, items, earned: items.filter((f) => f.earned).length };
+}));
+const framesEarned = computed(() => frameGroups.value.reduce((sum, g) => sum + g.earned, 0));
+const framesTotal = computed(() => frameGroups.value.reduce((sum, g) => sum + g.items.length, 0));
+
+// ── 幾人拿到 (site-wide) ───────────────────────────────────────────
+// One read once signed in (the rule needs it; on a reload the user arrives
+// after mount, see the watch below); without it (rules not deployed, offline)
+// the dialog shows the 牌友圈 counts only
+const siteStats = ref(null);
+function loadSiteStats() {
+  getDoc(doc(db, TITLE_STATS_COLLECTION, TITLE_STATS_DOC))
+    .then((snap) => { siteStats.value = snap.exists() ? snap.data() : null; })
+    .catch((error) => console.warn('[titles] title stats load failed', error?.code || error));
+}
+
+// ── Detail dialog (?item=kind:id) ─────────────────────────────────
+const isItem = (kind, id) => (kind === 'title' && !!getTitleFamily(id) && getTitleFamily(id).group !== 'crown')
+  || (kind === 'frame' && !!frameKind(id))
+  || (kind === 'crown' && CROWN_IDS.includes(id));
+const openItem = computed(() => {
+  const raw = route.query.item;
+  if (typeof raw !== 'string') return null;
+  const [kind, id] = raw.split(':');
+  return isItem(kind, id) ? { kind, id } : null;
+});
+// Opened from this page (a history entry to go back over) or from a link
+let pushed = false;
+watch(openItem, (item) => { if (!item) pushed = false; });
+
+function openDetail(kind, id) {
+  pushed = true;
+  router.push({ query: { ...route.query, item: `${kind}:${id}` } });
+}
+// From inside the dialog: same history entry, so back still closes it
+function switchDetail(kind, id) {
+  router.replace({ query: { ...route.query, item: `${kind}:${id}` } });
+}
+function closeDetail() {
+  if (pushed) {
+    pushed = false;
+    router.back();
+    return;
+  }
+  const query = { ...route.query };
+  delete query.item;
+  router.replace({ query });
+}
+function goProfile() {
+  router.push('/profile');
+}
+
+const detailCtx = computed(() => ({
+  myDoc: myDoc.value,
+  allStats: stats.value,
+  siteStats: siteStats.value,
+  circleDocs: circleDocs.value,
+  crownMonth: crownMonth.value,
+  nameSet: nameSet.value,
+  myFrame: myFrame.value,
+  avatar: user.value?.photoURL || '',
+  name: displayName.value || '',
+  throneRow: (id) => (myPals.value.length < CROWN_MIN_PALS ? null : throne.value.find((row) => row.id === id) || null),
+  crownWearers: (id) => crownWearers(circleMembers.value, id, crownMonth.value),
+  formatValue,
+  stepName,
+  memberName: nameOf,
+}));
+
 // The signed-in user can arrive after mount (page reload)
 watch(() => user.value?.uid, async (uid) => {
   stopWatch();
@@ -300,6 +492,7 @@ watch(() => user.value?.uid, async (uid) => {
   if (!uid) return;
   loading.value = true;
   stopWatch = watchMyTitles(uid);
+  loadSiteStats();
   try {
     const snap = await getDoc(doc(db, 'leaderboardStats', statsDocId(uid, 'all')));
     stats.value = snap.exists() ? snap.data() : null;
@@ -396,38 +589,79 @@ onBeforeUnmount(() => stopWatch());
 .tv-dot.reached.legendary { background: #f59e0b; }
 .tv-dot.reached.mythic { background: linear-gradient(135deg, #22d3ee, #a78bfa, #f472b6); }
 
-.tv-steps-toggle {
-  margin-top: 0.4rem;
-  font-size: 0.68rem;
-  color: rgb(var(--tw-slate-400));
-}
-.tv-steps-icon { font-size: 0.55rem; margin-left: 0.2rem; transition: transform 0.2s ease; }
-.tv-steps-icon.open { transform: rotate(180deg); }
-/* The ten steps: one row each (roman · name · threshold), the name truncates */
-.tv-steps { margin-top: 0.3rem; display: flex; flex-direction: column; gap: 0.15rem; }
-.tv-step {
+/* 稱號 | 頭像框: two halves of one bar; the count rides along */
+.tv-tabs {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  margin-bottom: 1rem;
+  border-radius: 0.75rem;
+  background: rgb(var(--tw-slate-800));
+  border: 1px solid rgb(var(--tw-slate-700));
+}
+.tv-tab {
+  flex: 1 1 0;
   min-width: 0;
-  padding: 0.1rem 0.4rem;
-  border-radius: 0.4rem;
-  font-size: 0.68rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 700;
   color: rgb(var(--tw-slate-400));
 }
-.tv-step-roman { flex-shrink: 0; width: 1.1rem; text-align: center; }
-.tv-step-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tv-step-value { flex-shrink: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.tv-step.current { background: rgb(var(--tw-slate-700) / 0.6); }
-.tv-step.reached { font-weight: 700; }
-.tv-step.reached.common { color: #cbd5e1; }
-.tv-step.reached.rare { color: #93c5fd; }
-.tv-step.reached.epic { color: #d8b4fe; }
-.tv-step.reached.legendary { color: #fde68a; }
-.tv-step.reached.mythic { color: #c4b5fd; }
-:root[data-mode="light"] .tv-step.reached.common { color: #475569; }
-:root[data-mode="light"] .tv-step.reached.rare { color: #1d4ed8; }
-:root[data-mode="light"] .tv-step.reached.epic { color: #7e22ce; }
-:root[data-mode="light"] .tv-step.reached.legendary { color: #92400e; }
-:root[data-mode="light"] .tv-step.reached.mythic { color: #6d28d9; }
+.tv-tab.active { color: rgb(var(--tw-white)); background: rgb(var(--tw-slate-700)); }
+.tv-tab-count { margin-left: 0.3rem; font-size: 0.68rem; font-weight: 600; color: rgb(var(--tw-slate-400)); }
+.tv-tab.active .tv-tab-count { color: rgb(var(--tw-amber-400)); }
+/* Every card opens its detail */
+.tv-tap { position: relative; cursor: pointer; text-align: left; }
+.tv-tap:focus-visible { outline: 2px solid rgb(var(--tw-amber-500)); outline-offset: 2px; }
+.tv-more-hint {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.65rem;
+  color: rgb(var(--tw-slate-400));
+}
+.tv-more-hint .fa-chevron-right { font-size: 0.5rem; margin-left: 0.15rem; }
+/* 王座 rows: a fixed label, then the people (truncating) */
+.tv-row { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.45rem; min-width: 0; }
+.tv-row-label {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.3rem;
+  color: rgb(var(--tw-slate-300));
+  background: rgb(var(--tw-slate-700) / 0.7);
+}
+.tv-reigning {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgb(var(--tw-amber-400));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 頭像框 tiles: same size as the profile picker's */
+.tv-frame-group { font-size: 0.75rem; font-weight: 600; color: rgb(var(--tw-slate-300)); margin-bottom: 0.4rem; }
+.tv-frame-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.25rem, 1fr)); gap: 0.5rem; }
+.tv-frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.5rem 0.25rem;
+  border-radius: 0.75rem;
+  border: 1px dashed rgb(var(--tw-slate-700));
+}
+.tv-frame :deep(.pa) { opacity: 0.4; }
+.tv-frame.earned { border-style: solid; background: rgb(var(--tw-slate-800)); }
+.tv-frame.earned :deep(.pa) { opacity: 1; }
+.tv-frame.worn { border-color: rgb(var(--tw-amber-500)); background: rgb(var(--tw-amber-500) / 0.1); }
+.tv-frame-name, .tv-frame-sub { max-width: 100%; overflow-wrap: anywhere; text-align: center; }
+.tv-frame-name { font-size: 0.72rem; font-weight: 600; line-height: 1.25; color: rgb(var(--tw-slate-400)); }
+.tv-frame.earned .tv-frame-name { color: rgb(var(--tw-white)); }
+.tv-frame-sub { font-size: 0.6rem; line-height: 1.2; color: rgb(var(--tw-slate-400)); }
+.tv-frame.worn .tv-frame-sub { color: rgb(var(--tw-amber-400)); }
 </style>

@@ -11,13 +11,15 @@ import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../firebase-init.js';
 import {
-  TITLE_LADDER_VERSION, activeCrowns, crownMonthOf, effectiveDisplay, normalizeTitlePrefs, upgradeTitlesDoc,
+  TITLE_LADDER_VERSION, crownCtxOf, crownMonthOf, effectiveDisplay, normalizeTitlePrefs,
+  upgradeTitlesDoc, wornCrowns,
 } from '../utils/titles.js';
 
 const COLLECTION = 'userTitles';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-// uid → { ladder, unlocked, prefs, display, crowns, crownHistory, pals, avatar, name }
+// uid → { ladder, unlocked, prefs, display, crowns, crownHistory, frames, pals, avatar,
+// name }
 // (an empty entry when the user has no doc)
 const cache = reactive({});
 const fetchedAt = new Map();
@@ -69,6 +71,8 @@ const toEntry = (raw) => {
     // 本月王座: { crownId: monthKey } held, { crownId: [monthKey] } past ones
     crowns: data?.crowns || {},
     crownHistory: data?.crownHistory || {},
+    // 頭像框: frameId → when first earned (0 = before this was recorded)
+    frames: data?.frames || {},
     // 牌友圈 (uids)
     pals: Array.isArray(data?.pals) ? data.pals : [],
     // LINE photo + name, copied from users/{uid} by Cloud Functions
@@ -134,7 +138,7 @@ export function frameOf(uid) {
 }
 
 /**
- * Wears a 本月王座 right now (the avatar's corner crown): holds one this month
+ * Wears a 本月王座 right now (the avatar's corner crown): won one last month
  * and has titles turned on — a crown is a title, so it follows the opt-in.
  * @param {string} uid
  * @return {boolean}
@@ -142,7 +146,7 @@ export function frameOf(uid) {
 export function wearsCrown(uid) {
   const entry = uid ? cache[uid] : null;
   if (!entry || entry.prefs.mode === 'off') return false;
-  return activeCrowns(entry.crowns, currentCrownMonth()).length > 0;
+  return wornCrowns(crownCtxOf(entry, currentCrownMonth())).length > 0;
 }
 
 /**

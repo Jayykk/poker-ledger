@@ -1,7 +1,8 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
 import {
-  TITLE_LADDER_VERSION, buildUserTitles, resolveDisplay, upgradeTitlesDoc, validateTitlePrefs,
+  TITLE_LADDER_VERSION, buildUserTitles, crownCtxOf, resolveDisplay, upgradeTitlesDoc,
+  validateTitlePrefs,
 } from '../utils/titleRules.js';
 import { crownMonthOf } from '../utils/crownRules.js';
 import { filterPals, isHiddenAccount, samePals } from '../utils/palsMath.js';
@@ -74,6 +75,7 @@ export async function recomputeUserTitles(db, uid, allTimeStats, now = Date.now(
         unlocked: result.unlocked,
         prefs: result.prefs,
         display: result.display,
+        frames: result.frames,
         ladder: result.ladder,
         ...(profile || {}),
         ...(palsChanged ? { pals, palsUpdatedAt: now } : {}),
@@ -164,8 +166,8 @@ export async function setTitlePrefs(db, uid, data, now = Date.now()) {
     // A doc from before the ten-step ladders is written back on them
     const stored = upgradeTitlesDoc(snap.exists ? snap.data() : {});
     const unlocked = stored.unlocked || {};
-    // A crown held this month can be picked too
-    const crownCtx = { crowns: stored.crowns, month: crownMonthOf(now) };
+    // A crown won last month (worn this month) can be picked too
+    const crownCtx = crownCtxOf(stored, crownMonthOf(now));
     const result = validateTitlePrefs(data, stored.prefs, unlocked, crownCtx);
     if (result.error) {
       throw new HttpsError(

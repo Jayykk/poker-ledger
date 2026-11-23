@@ -103,10 +103,10 @@ describe('pals in the titles recompute', () => {
 });
 
 describe('setTitlePrefs with a crown', () => {
-  it('picks a crown held this month; the display carries its month', async () => {
+  it('picks a crown worn this month (won last month); the display carries its month', async () => {
     const db = fakeDb(titles('me', {
       unlocked: { regular: { tier: 2, at: 1 } },
-      crowns: { crownHunter: OCT },
+      crowns: { crownHunter: '2026-09' },
       pals: ['amy'],
       display: { familyId: 'crownHunter', tier: 4, frame: null, month: OCT },
     }));
@@ -126,9 +126,12 @@ describe('setTitlePrefs with a crown', () => {
     expect(db.docs.get('userTitles/me')).toMatchObject({ ladder: 2, unlocked: { regular: { tier: 4, at: 1 } } });
   });
 
-  it('a crown from an older month cannot be picked', async () => {
-    const db = fakeDb(titles('me', { crowns: { crownHunter: '2026-09' } }));
+  it('a crown from an older month, or one still being raced for, cannot be picked', async () => {
+    const db = fakeDb(titles('me', { crowns: { crownHunter: '2026-08' } }));
     await expect(setTitlePrefs(db, 'me', { mode: 'pick', titleId: 'crownHunter' }, NOW))
+      .rejects.toThrow('TITLE_PREFS_NOT_UNLOCKED');
+    const leading = fakeDb(titles('me', { crowns: { crownHunter: OCT } }));
+    await expect(setTitlePrefs(leading, 'me', { mode: 'pick', titleId: 'crownHunter' }, NOW))
       .rejects.toThrow('TITLE_PREFS_NOT_UNLOCKED');
   });
 });
@@ -161,8 +164,8 @@ describe('recomputeMonthlyCrowns', () => {
     // cat and dan tie on knockouts inside cat's circle: shared
     expect(db.docs.get('userTitles/cat').crowns).toEqual({ crownHunter: OCT, crownProfit: OCT });
     expect(db.docs.get('userTitles/dan').crowns).toBeUndefined();
-    // Auto display shows the first crown held
-    expect(db.docs.get('userTitles/amy').display).toEqual({ familyId: 'crownHunter', tier: 4, frame: null, month: OCT });
+    // Leading October's race wears nothing yet
+    expect(db.docs.get('userTitles/amy').display ?? null).toBeNull();
   });
 
   it('batched reads; only changed docs written; a second run writes nothing', async () => {
@@ -194,7 +197,6 @@ describe('recomputeMonthlyCrowns', () => {
     expect(pass.lost).toEqual([{ uid: 'amy', crownId: 'crownHunter' }]);
     expect(db.docs.get('userTitles/amy').crowns).toEqual({ crownRegular: OCT });
     expect(db.docs.get('userTitles/amy').crownHistory).toEqual({});
-    expect(db.docs.get('userTitles/amy').display.familyId).toBe('crownRegular');
   });
 
   it('next month: last month\'s crowns are finalised into the history', async () => {
@@ -202,10 +204,11 @@ describe('recomputeMonthlyCrowns', () => {
     await recomputeMonthlyCrowns(db, ['bob'], [OCT], { now: NOW });
     const nov = Date.parse('2026-11-03T12:00:00+08:00');
     await recomputeMonthlyCrowns(db, ['amy'], ['2026-11'], { now: nov });
+    // ...and worn through November (auto: the first in CROWN_IDS order)
     expect(db.docs.get('userTitles/amy')).toMatchObject({
       crowns: {},
       crownHistory: { crownHunter: [OCT], crownRegular: [OCT] },
-      display: null,
+      display: { familyId: 'crownHunter', tier: 4, frame: null, month: '2026-11' },
     });
   });
 

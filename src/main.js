@@ -198,7 +198,11 @@ import { logger } from "./utils/logger.js";
     // landed the form scrolled past its first field. New pages start at the
     // top; back / forward restores where you were.
     scrollBehavior(to, from, savedPosition) {
-      return savedPosition || { top: 0 };
+      if (savedPosition) return savedPosition;
+      // Only the query changed (a dialog such as the 稱號圖鑑 detail opening,
+      // a tab): stay where the page is
+      if (to.path === from.path) return false;
+      return { top: 0 };
     },
     routes: [
       { path: '/', redirect: '/login' },

@@ -5,6 +5,7 @@ import { roundNumber, toMillis } from '../utils/numbers.js';
 import { normalizeCashDecimals } from '../utils/cashRounding.js';
 import { recomputeLeaderboardStatsForUser } from './leaderboardStats.js';
 import { recomputeMonthlyCrowns } from './monthlyCrowns.js';
+import { recountTitleStats } from './titleStats.js';
 import { crownMonthOf } from '../utils/crownRules.js';
 import { deriveTournamentEntryMetrics } from '../utils/tournamentSettlementMath.js';
 import { emptyHandEvents } from '../utils/leaderboardStatsMath.js';
@@ -443,9 +444,12 @@ export async function syncCompletedGameHistoryProjection(gameId, options = {}) {
   // source of truth and must not be rolled back by an aggregation failure —
   // a missed refresh self-heals on the next sync or via the backfill script.
   const statsUserIds = [...new Set([...nextUserIds, ...staleUserIds])];
+  // Did any userTitles doc change? Only then can the 幾人拿到 counts move
+  let titlesWritten = false;
   for (const uid of statsUserIds) {
     try {
-      await recomputeLeaderboardStatsForUser(db, uid);
+      const result = await recomputeLeaderboardStatsForUser(db, uid);
+      if (result?.titles?.written) titlesWritten = true;
     } catch (statsError) {
       console.error(`leaderboardStats recompute failed for user ${uid}:`, statsError);
     }
@@ -457,9 +461,22 @@ export async function syncCompletedGameHistoryProjection(gameId, options = {}) {
   try {
     const now = Date.now();
     const gameMonth = crownMonthOf(writes[0]?.data.completedAt || gameCompletedMillis(game, now));
-    await recomputeMonthlyCrowns(db, statsUserIds, [gameMonth, crownMonthOf(now)], { now });
+    const months = [gameMonth, crownMonthOf(now)];
+    const crowns = await recomputeMonthlyCrowns(db, statsUserIds, months, { now });
+    if (crowns?.written) titlesWritten = true;
   } catch (crownError) {
     console.error(`monthly crowns recompute failed for game ${gameId}:`, crownError);
+  }
+
+  // 稱號圖鑑「幾人拿到」, once the titles and crowns above are written. It
+  // reads every userTitles doc, so only when one of them changed (a re-sync
+  // of the same game changes nothing)
+  if (titlesWritten) {
+    try {
+      await recountTitleStats(db);
+    } catch (statsError) {
+      console.error(`title stats recount failed for game ${gameId}:`, statsError);
+    }
   }
 
   return {

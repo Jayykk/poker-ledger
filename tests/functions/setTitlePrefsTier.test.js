@@ -64,7 +64,7 @@ describe('setTitlePrefs with a step (titleTier)', () => {
   });
 
   it('a crown ignores the step', async () => {
-    const db = fakeDb(doc({ crowns: { crownHunter: '2026-11' } }));
+    const db = fakeDb(doc({ crowns: { crownHunter: '2026-10' } }));
     const result = await setTitlePrefs(db, 'me', { mode: 'pick', titleId: 'crownHunter', titleTier: 2 }, NOW);
     expect(result.prefs.titleTier).toBeNull();
     expect(result.display).toEqual({ familyId: 'crownHunter', tier: 4, frame: null, month: '2026-11' });
@@ -159,7 +159,7 @@ describe('setTitlePrefs with a name set (nameSet)', () => {
   });
 
   it('a crown shows in its one set of names', async () => {
-    const db = fakeDb(doc({ crowns: { crownHunter: '2026-11' } }));
+    const db = fakeDb(doc({ crowns: { crownHunter: '2026-10' } }));
     const result = await setTitlePrefs(db, 'me', { nameSet: 'chuuni' }, NOW);
     expect(result.prefs.nameSet).toBe('chuuni');
     expect(result.display).toEqual({ familyId: 'crownHunter', tier: 4, frame: null, month: '2026-11' });

@@ -1,6 +1,7 @@
 import { gameHandEvents } from '../utils/handEvents.js';
 import { HAND_EVENT_KEYS, emptyHandEvents } from '../utils/leaderboardStatsMath.js';
 import { recomputeLeaderboardStatsForUser } from './leaderboardStats.js';
+import { recountTitleStats } from './titleStats.js';
 
 // history_sub.handEvents (手牌 / 復仇者 titles): read a game's hand records
 // and knockout log once and work out every player's counts
@@ -100,12 +101,23 @@ export async function refreshGameHandEvents(db, gameId) {
     }
   }
 
+  let titlesWritten = false;
   for (const uid of summary.written) {
     try {
-      await recomputeLeaderboardStatsForUser(db, uid);
+      const result = await recomputeLeaderboardStatsForUser(db, uid);
+      if (result?.titles?.written) titlesWritten = true;
       summary.recomputed.push(uid);
     } catch (error) {
       console.error(`leaderboardStats recompute failed for user ${uid}:`, error);
+    }
+  }
+  // A hand recorded after the game can unlock a 手牌 title (and its themed
+  // frame): the 幾人拿到 counts follow
+  if (titlesWritten) {
+    try {
+      await recountTitleStats(db);
+    } catch (error) {
+      console.error(`title stats recount failed for game ${gameId}:`, error);
     }
   }
   return summary;

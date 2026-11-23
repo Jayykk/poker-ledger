@@ -99,20 +99,20 @@ describe('title catalog', () => {
       expect(new Set(ALL_FRAME_IDS.map((id) => get(`titles.frames.${id}`))).size, `${locale} frame names`).toBe(ALL_FRAME_IDS.length);
       // No name left over from a frame that is gone
       expect(Object.keys(get('titles.frames')).sort(), `${locale} frame keys`).toEqual([...ALL_FRAME_IDS].sort());
-      for (const key of ['frameTiers', 'frameThemes', 'frameThemesHint', 'frameThemeNeed', 'frameThemeNeedHidden']) {
+      for (const key of ['frameTiers', 'frameThemes', 'frameEarnedOnly', 'frameHowMore', 'frameNoneOfKind']) {
         expect(get(`titles.${key}`), `${locale} titles.${key}`).toBeTruthy();
       }
-      expect(get('titles.frameThemeNeed')).toContain('{name}');
+      expect(get('titles.frameNoneOfKind')).toContain('{kind}');
+      expect(get('titles.codexDetail.howTheme')).toContain('{name}');
       for (const key of ['fxLite', 'fxLiteHint']) expect(get(`profile.${key}`), `${locale} profile.${key}`).toBeTruthy();
       // Player-facing frame text never says 輸
-      for (const key of ['frames', 'frameThemesHint', 'frameThemeNeed', 'frameThemeNeedHidden']) {
+      for (const key of ['frames', 'codexDetail']) {
         expect(JSON.stringify(get(`titles.${key}`)), `${locale} titles.${key}`).not.toMatch(/[輸输]/);
       }
       for (const rarity of frontend.TITLE_RARITIES) {
         expect(get(`titles.rarity.${rarity}`), `${locale} rarity ${rarity}`).toBeTruthy();
       }
-      for (const key of ['frame', 'frameAuto', 'frameNeed', 'frameNone', 'frameHint', 'titleCount', 'room.live',
-        'showSteps', 'hideSteps', 'stepsOf']) {
+      for (const key of ['frame', 'frameAuto', 'frameNone', 'titleCount', 'room.live', 'stepsOf']) {
         expect(get(`titles.${key}`), `${locale} titles.${key}`).toBeTruthy();
       }
       for (const id of ROOM_TITLE_IDS) {
@@ -531,7 +531,8 @@ describe('prefs and display', () => {
   });
 
   it('crowns ignore titleTier', () => {
-    const crownCtx = { crowns: { crownHunter: '2026-11' }, month: '2026-11' };
+    // Won in October, worn in November
+    const crownCtx = { crowns: { crownHunter: '2026-10' }, month: '2026-11' };
     const v = validateTitlePrefs({ mode: 'pick', titleId: 'crownHunter', titleTier: 2 }, null, unlocked, crownCtx);
     expect(v.prefs).toMatchObject({ titleId: 'crownHunter', titleTier: null });
     // Even a stored step shows the crown's one step
@@ -543,7 +544,8 @@ describe('prefs and display', () => {
 describe('名稱風格 (name sets)', () => {
   const unlocked = { regular: { tier: 4, at: 100 }, champion: { tier: 6, at: 50 } };
   const MONTH = '2026-11';
-  const crownCtx = { crowns: { crownHunter: MONTH }, month: MONTH };
+  // Won in October, worn in November (MONTH)
+  const crownCtx = { crowns: { crownHunter: '2026-10' }, month: MONTH };
 
   it('prefs.nameSet: classic by default, anything unknown is classic', () => {
     expect(TITLE_NAME_SETS).toEqual(['classic', 'chuuni']);
@@ -621,8 +623,8 @@ describe('名稱風格 (name sets)', () => {
     const stored = { familyId: 'regular', tier: 4, frame: null, nameSet: 'chuuni' };
     const doc = { ladder: TITLE_LADDER_VERSION, unlocked, prefs: { mode: 'pick', titleId: 'regular', nameSet: 'chuuni' }, display: stored };
     expect(effectiveDisplay(doc, MONTH)).toBe(stored);
-    // A crown from an older month went stale: back to the title, in the set
-    const stale = { ...doc, prefs: { mode: 'auto', nameSet: 'chuuni' }, crowns: { crownHunter: '2026-10' }, display: { familyId: 'crownHunter', tier: 4, frame: null, month: '2026-10' } };
+    // A crown worn in October (won in September) went stale: back to the title, in the set
+    const stale = { ...doc, prefs: { mode: 'auto', nameSet: 'chuuni' }, crowns: { crownHunter: '2026-09' }, display: { familyId: 'crownHunter', tier: 4, frame: null, month: '2026-10' } };
     expect(effectiveDisplay(stale, MONTH)).toEqual({ familyId: 'champion', tier: 6, frame: null, nameSet: 'chuuni' });
   });
 
@@ -631,13 +633,18 @@ describe('名稱風格 (name sets)', () => {
       ladder: TITLE_LADDER_VERSION,
       unlocked,
       prefs: { mode: 'auto', frame: 'none', nameSet: 'chuuni' },
-      crowns: { crownHunter: '2026-10' },
+      // Won in September, worn in October
+      crowns: { crownHunter: '2026-09' },
       display: { familyId: 'crownHunter', tier: 4, frame: null, month: '2026-10' },
     };
     const lost = buildCrownUpdate(stored, [[MONTH, []]], MONTH);
     expect(lost.display).toEqual({ familyId: 'champion', tier: 6, frame: null, nameSet: 'chuuni' });
-    const held = buildCrownUpdate(stored, [[MONTH, ['crownHunter']]], MONTH);
-    expect(held.display).toEqual({ familyId: 'crownHunter', tier: 4, frame: null, month: MONTH });
+    // Leading November wears nothing yet
+    const leading = buildCrownUpdate(stored, [[MONTH, ['crownHunter']]], MONTH);
+    expect(leading.display).toEqual({ familyId: 'champion', tier: 6, frame: null, nameSet: 'chuuni' });
+    // Won in October: worn now
+    const won = buildCrownUpdate({ ...stored, crowns: { crownHunter: '2026-10' } }, [[MONTH, []]], MONTH);
+    expect(won.display).toEqual({ familyId: 'crownHunter', tier: 4, frame: null, month: MONTH });
   });
 });
 
@@ -1011,7 +1018,10 @@ describe('buildUserTitles', () => {
     expect(next.display).toEqual({ familyId: null, tier: null, frame: 'bronze' });
     expect(next.prefs.frame).toBe('auto');
     // Written once; the same again is no change
-    expect(buildUserTitles({ ...prev, display: next.display }, s, 10).changed).toBe(false);
+    // Earned before frames were recorded: the tier frame's time is unknown; a
+    // themed frame whose family sits on its minTier takes that step's time
+    expect(next.frames).toEqual({ bronze: 0, clock: 5, carnival: 6 });
+    expect(buildUserTitles({ ...prev, display: next.display, frames: next.frames }, s, 10).changed).toBe(false);
   });
 
   it('a new tier that crosses a frame threshold updates the frame', () => {
@@ -1158,7 +1168,7 @@ describe('docs from before the ten-step ladders (old 1..4 tiers)', () => {
     expect(merged.changed).toBe(true);
     expect(merged.unlocked.champion).toEqual({ tier: 6, at: 6 });
     // The rebuilt doc is stable
-    const stored = { ...old, ladder: next.ladder, unlocked: next.unlocked, display: next.display };
+    const stored = { ...old, ladder: next.ladder, unlocked: next.unlocked, display: next.display, frames: next.frames };
     expect(buildUserTitles(stored, s, 100, { rebuild: true }).changed).toBe(false);
     // rebuildUnlocked itself works on whatever numbering it is given
     expect(rebuildUnlocked({ regular: { tier: 6, at: 5 } }, { regular: 6 }, 1).unlocked).toEqual({ regular: { tier: 6, at: 5 } });

@@ -1,6 +1,7 @@
 /**
  * A page left open across the month change: a 王座框 (and the corner crown)
- * goes at the change, without waiting for a new snapshot.
+ * goes at the change, and the month's new wearers get theirs, without waiting
+ * for a new snapshot.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { computed } from 'vue';
@@ -10,6 +11,7 @@ import { crownMonthOf } from '../functions/src/utils/crownRules.js';
 vi.useFakeTimers();
 vi.setSystemTime(new Date('2026-11-30T23:58:00+08:00'));
 const NOV = crownMonthOf(Date.now());
+const OCT = '2026-10';
 
 const gold = Object.fromEntries(['regular', 'host', 'netWin', 'netLoss', 'hotStreak'].map((id) => [id, { tier: 10, at: 1 }]));
 const docs = {
@@ -17,8 +19,17 @@ const docs = {
     ladder: 2,
     unlocked: gold,
     prefs: { mode: 'off', frame: 'mint' },
-    crowns: { crownProfit: NOV },
+    // Won October, worn through November
+    crowns: { crownProfit: OCT },
     display: { familyId: null, tier: null, frame: 'mint', month: NOV },
+  },
+  lin: {
+    ladder: 2,
+    unlocked: gold,
+    prefs: { mode: 'off', frame: 'mint' },
+    // Leading November: worn from December
+    crowns: { crownProfit: NOV },
+    display: { familyId: null, tier: null, frame: 'gold' },
   },
 };
 
@@ -35,18 +46,21 @@ const { frameOf, ensureUserTitles, currentCrownMonth } = await import('../src/co
 describe('王座框 across the month change', () => {
   afterEach(() => vi.useRealTimers());
 
-  it('a mounted avatar drops the crown frame when the month turns', async () => {
+  it("a mounted avatar drops last month's crown frame and takes up the new one when the month turns", async () => {
     expect(NOV).toBe('2026-11');
-    await ensureUserTitles('tess');
+    await ensureUserTitles(['tess', 'lin']);
     // what a mounted PlayerAvatar holds: a computed over frameOf
     const frame = computed(() => frameOf('tess'));
+    const next = computed(() => frameOf('lin'));
     const month = computed(() => currentCrownMonth());
     expect(frame.value).toBe('mint');
+    expect(next.value).toBe('gold');
     expect(month.value).toBe('2026-11');
 
     // 00:01 on the 1st, Taipei: nothing else changed, only the clock
     vi.advanceTimersByTime(3 * 60 * 1000);
     expect(month.value).toBe('2026-12');
     expect(frame.value).toBe('gold');
+    expect(next.value).toBe('mint');
   });
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref } from 'vue';
-import { mount, flushPromises } from '@vue/test-utils';
+import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils';
 import { createI18n } from 'vue-i18n';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
@@ -9,8 +9,8 @@ import { THEME_FRAMES, FRAME_TIERS } from '../functions/src/utils/titleRules.js'
 import { STORAGE_KEYS } from '../src/utils/constants.js';
 import { applyFxLite, isFxLite } from '../src/utils/fx.js';
 
-// 我的 → 頭像框: 等級框 / 主題框 groups, locked ones with what they need, and
-// the 簡化特效 switch.
+// 我的 → 頭像框: 等級框 / 主題框 / 王座框 groups, 只顯示已獲得 (on by default),
+// and the 簡化特效 switch.
 // 12 titles held → bronze; hotStreak at 5 earns its themed frame, hunter at 4
 // doesn't yet; nightOwl / badBeat are hidden families not found yet.
 const myDoc = {
@@ -59,7 +59,7 @@ const { default: ProfileView } = await import('../src/views/ProfileView.vue');
 const i18n = createI18n({ legacy: false, locale: 'zh-TW', messages: { 'zh-TW': zhTW } });
 
 async function openPicker() {
-  const w = mount(ProfileView, { global: { plugins: [i18n], stubs: { 'router-link': true } } });
+  const w = mount(ProfileView, { global: { plugins: [i18n], stubs: { 'router-link': RouterLinkStub } } });
   await flushPromises();
   const fold = w.findAll('button.title-fold').find((b) => b.text().includes('頭像框'));
   await fold.trigger('click');
@@ -73,46 +73,60 @@ beforeEach(() => {
 });
 
 describe('頭像框 picker', () => {
-  it('two groups: 等級框 (off / auto / every tier) and 主題框 (the catalog)', async () => {
+  it('earned only by default: off / auto / earned tier frames, earned themed ones, a note for an empty group', async () => {
     const w = await openPicker();
     expect(w.text()).toContain('等級框');
     expect(w.text()).toContain('主題框');
+    expect(w.find('[data-testid="frames-earned-only"] input').element.checked).toBe(true);
     const tiers = w.find('[data-testid="frame-tiers"]');
-    expect(tiers.findAll('.frame-opt')).toHaveLength(2 + FRAME_TIERS.length);
+    expect(tiers.findAll('.frame-opt')).toHaveLength(2 + 1);
+    expect(tiers.findAll('[data-frame]').map((b) => b.attributes('data-frame'))).toEqual(['bronze']);
+    const themes = w.find('[data-testid="frame-themes"]');
+    expect(themes.findAll('[data-frame]').map((b) => b.attributes('data-frame'))).toEqual([themed('hotStreak')]);
+    expect(themes.find('.frame-opt .pa').classes()).toContain(`frame-${themed('hotStreak')}`);
+    // No crown frame earned: the group says so and points at the 圖鑑
+    expect(w.find('[data-testid="frame-crowns"]').exists()).toBe(false);
+    expect(w.find('[data-testid="frame-crowns-none"]').text()).toContain('還沒有王座框');
+    // How to get one is not told here any more
+    expect(w.text()).not.toContain('收集 25 個稱號');
+    expect(w.findAll('[data-frame] .frame-opt-sub')).toHaveLength(0);
+  });
+
+  it('turned off: every frame shows, the locked ones dashed, still and disabled; remembered on this device', async () => {
+    const w = await openPicker();
+    await w.find('[data-testid="frames-earned-only"] input').trigger('change');
+    expect(localStorage.getItem(STORAGE_KEYS.FRAMES_EARNED_ONLY)).toBe('false');
+    const tiers = w.find('[data-testid="frame-tiers"]');
     expect(tiers.findAll('[data-frame]').map((b) => b.attributes('data-frame'))).toEqual(FRAME_TIERS.map((f) => f.id));
     const themes = w.find('[data-testid="frame-themes"]');
     expect(themes.findAll('[data-frame]').map((b) => b.attributes('data-frame'))).toEqual(THEME_FRAMES.map((f) => f.id));
-    // Every option previews the frame on my avatar
-    expect(themes.findAll('.frame-opt .pa')).toHaveLength(THEME_FRAMES.length);
     for (const f of THEME_FRAMES) {
-      expect(themes.find(`[data-frame="${f.id}"] .pa`).classes()).toContain(`frame-${f.id}`);
       expect(themes.find(`[data-frame="${f.id}"] .frame-opt-name`).text()).toBe(zhTW.titles.frames[f.id]);
     }
-  });
-
-  it('locked tier frames say how many titles, locked themed ones which title', async () => {
-    const w = await openPicker();
-    const tier = (id) => w.find(`[data-testid="frame-tiers"] [data-frame="${id}"]`);
+    const tier = (id) => tiers.find(`[data-frame="${id}"]`);
     expect(tier('bronze').classes()).not.toContain('locked');
     expect(tier('silver').classes()).toContain('locked');
     expect(tier('silver').attributes('disabled')).toBeDefined();
-    expect(tier('silver').find('.frame-opt-sub').text()).toBe('收集 25 個稱號');
-    expect(tier('platinum').find('.frame-opt-sub').text()).toBe('收集 80 個稱號');
-
-    const theme = (family) => w.find(`[data-testid="frame-themes"] [data-frame="${themed(family)}"]`);
-    // Earned: no condition, can be picked
-    expect(theme('hotStreak').classes()).not.toContain('locked');
-    expect(theme('hotStreak').attributes('disabled')).toBeUndefined();
-    expect(theme('hotStreak').find('.frame-opt-sub').exists()).toBe(false);
-    // One step short: the tier 5 title of the family, by name
-    expect(theme('hunter').classes()).toContain('locked');
-    expect(theme('hunter').attributes('disabled')).toBeDefined();
-    expect(theme('hunter').find('.frame-opt-sub').text()).toBe(`取得第 5 階稱號「${zhTW.titles.families.hunter.t5}」`);
-    expect(theme('netWin').find('.frame-opt-sub').text()).toBe(`取得第 5 階稱號「${zhTW.titles.families.netWin.t5}」`);
-    // A hidden family not found yet keeps its name
+    const hunter = themes.find(`[data-frame="${themed('hunter')}"]`);
+    expect(hunter.classes()).toContain('locked');
+    expect(hunter.attributes('disabled')).toBeDefined();
+    // Hidden families not found yet: the frame's own name only, never the title's
     for (const family of ['nightOwl', 'badBeat']) {
-      expect(theme(family).find('.frame-opt-sub').text()).toBe('某個隱藏稱號達到第 5 階');
-      expect(theme(family).text()).not.toContain(zhTW.titles.families[family].t5);
+      expect(themes.find(`[data-frame="${themed(family)}"]`).text()).not.toContain(zhTW.titles.families[family].t5);
+    }
+    expect(w.find('[data-testid="frame-crowns"]').findAll('[data-frame]')).toHaveLength(5);
+    // A fresh page starts from the stored choice
+    const again = await openPicker();
+    expect(again.find('[data-testid="frames-earned-only"] input').element.checked).toBe(false);
+  });
+
+  it('a link to the 圖鑑 頭像框 tab; the old how-to strings are gone', () => {
+    const src = readFileSync(resolve(__dirname, '../src/views/ProfileView.vue'), 'utf-8');
+    expect(src).toContain("const FRAMES_CODEX_LINK = { path: '/titles', query: { tab: 'frames' } };");
+    expect(src).toContain(':to="FRAMES_CODEX_LINK"');
+    for (const key of ['frameNeed', 'frameHint', 'frameThemesHint', 'frameThemeNeed', 'frameCrownsHint', 'frameCrownNeed']) {
+      expect(src).not.toContain(`titles.${key}'`);
+      expect(zhTW.titles[key]).toBeUndefined();
     }
   });
 
@@ -126,6 +140,7 @@ describe('頭像框 picker', () => {
     const fold = w.findAll('button.title-fold').find((b) => b.text().includes('頭像框'));
     expect(fold.text()).toContain(zhTW.titles.frames[fire]);
     // A locked one does nothing
+    await w.find('[data-testid="frames-earned-only"] input').trigger('change');
     await w.find(`[data-testid="frame-themes"] [data-frame="${themed('hunter')}"]`).trigger('click');
     await flushPromises();
     expect(calls).toHaveLength(1);
@@ -141,7 +156,7 @@ describe('頭像框 picker', () => {
 
 describe('簡化特效', () => {
   it('the switch stores the flag and sets it on the document root', async () => {
-    const w = mount(ProfileView, { global: { plugins: [i18n], stubs: { 'router-link': true } } });
+    const w = mount(ProfileView, { global: { plugins: [i18n], stubs: { 'router-link': RouterLinkStub } } });
     await flushPromises();
     const row = w.find('[data-testid="fx-lite"]');
     expect(row.text()).toContain('簡化特效');
@@ -161,7 +176,7 @@ describe('簡化特效', () => {
 
   it('starts from the stored choice', async () => {
     localStorage.setItem(STORAGE_KEYS.FX_LITE, 'true');
-    const w = mount(ProfileView, { global: { plugins: [i18n], stubs: { 'router-link': true } } });
+    const w = mount(ProfileView, { global: { plugins: [i18n], stubs: { 'router-link': RouterLinkStub } } });
     await flushPromises();
     expect(w.find('[data-testid="fx-lite"] button[role="switch"]').attributes('aria-checked')).toBe('true');
   });

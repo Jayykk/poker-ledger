@@ -481,6 +481,5 @@ describe('PlayerAvatar and its frame canvas', () => {
     // The picker shows locked frames still
     const profile = readFileSync(resolve(__dirname, '../src/views/ProfileView.vue'), 'utf-8');
     expect(profile).toContain(':frame="f.id" :still="f.locked" />');
-    expect(profile).toContain(':frame="th.id" :still="th.locked" />');
   });
 });

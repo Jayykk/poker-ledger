@@ -7,6 +7,8 @@ import zhTW from '../src/i18n/locales/zh-TW.json';
 // 我的 › 稱號 › 指定: pick a family, and which of its reached steps to show
 
 const MONTH = '2026-11';
+// 王座 won in October are worn in November
+const WON = '2026-10';
 const titles = reactive({});
 const saveTitlePrefs = vi.fn(async (uid, prefs) => {
   // What the callable answers: the prefs saved (the display is not needed here)
@@ -73,7 +75,7 @@ describe('profile 指定: steps of a family', () => {
     titles.me = {
       unlocked: { regular: { tier: 4, at: 1 }, host: { tier: 1, at: 2 } },
       prefs: { mode: 'pick', titleId: 'host', titleTier: null, showRoomTitles: false, frame: 'none' },
-      crowns: { crownHunter: MONTH },
+      crowns: { crownHunter: WON },
       display: null,
     };
   });
@@ -138,7 +140,7 @@ describe('profile 名稱風格 switch', () => {
     titles.me = {
       unlocked: { regular: { tier: 4, at: 1 }, host: { tier: 1, at: 2 } },
       prefs: { mode: 'pick', titleId: 'regular', titleTier: null, showRoomTitles: false, frame: 'none' },
-      crowns: { crownHunter: MONTH },
+      crowns: { crownHunter: WON },
       display: null,
     };
   });

@@ -4,7 +4,7 @@ import { createI18n } from 'vue-i18n';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import zhTW from '../src/i18n/locales/zh-TW.json';
-import { crownMonthOf } from '../functions/src/utils/crownRules.js';
+import { crownMonthOf, previousMonthKey } from '../functions/src/utils/crownRules.js';
 
 const THIS_MONTH = crownMonthOf(Date.now());
 
@@ -21,7 +21,7 @@ const docs = {
   // A display from before 頭像框 (no frame): resolved on the client, from the prefs
   gus: { ladder: 2, display: { familyId: 'regular', tier: 3 }, unlocked: { regular: { tier: 3, at: 1 } }, prefs: { mode: 'auto', frame: 'auto', nameSet: 'chuuni' } },
   // Holds a crown this month: it shows, in its one set of names
-  hal: { ladder: 2, display: null, unlocked: { regular: { tier: 3, at: 1 } }, prefs: { mode: 'auto', frame: 'none', nameSet: 'chuuni' }, crowns: { crownHunter: THIS_MONTH } },
+  hal: { ladder: 2, display: null, unlocked: { regular: { tier: 3, at: 1 } }, prefs: { mode: 'auto', frame: 'none', nameSet: 'chuuni' }, crowns: { crownHunter: previousMonthKey(THIS_MONTH) } },
 };
 const reads = [];
 
