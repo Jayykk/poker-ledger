@@ -2,7 +2,7 @@
  * 稱號圖鑑「幾人拿到」: titleStats/global counted from every userTitles doc.
  */
 import { describe, it, expect } from 'vitest';
-import { titleStatsFrom, sameTitleStats } from '../functions/src/utils/titleStatsMath.js';
+import { titleStatsFrom, sameTitleStats, siteCrownCount } from '../functions/src/utils/titleStatsMath.js';
 import { TITLE_FAMILIES, CROWN_FRAMES } from '../functions/src/utils/titleRules.js';
 import { CROWN_IDS } from '../functions/src/utils/crownRules.js';
 
@@ -43,8 +43,24 @@ describe('titleStatsFrom', () => {
     expect(stats.frames.silver).toBeUndefined();
   });
 
+  it('a race led this month by someone who never won it is pending; counted once the month is over', () => {
+    expect(stats.month).toBe(NOV);
+    expect(stats.crownsPending).toMatchObject({ crownHunter: 1, crownProfit: 0 });
+    // Still November: only the winners
+    expect(siteCrownCount(stats, 'crownHunter', NOV)).toBe(0);
+    expect(siteCrownCount(stats, 'crownProfit', NOV)).toBe(2);
+    // December, before any game recounted: November's leader is a winner now
+    expect(siteCrownCount(stats, 'crownHunter', '2026-12')).toBe(1);
+    expect(siteCrownCount(stats, 'crownProfit', '2026-12')).toBe(2);
+    // A leader who already won it before is not counted twice
+    const again = titleStatsFrom([{ crowns: { crownLoss: NOV }, crownHistory: { crownLoss: ['2026-01'] } }], NOV);
+    expect(again.crowns.crownLoss).toBe(1);
+    expect(again.crownsPending.crownLoss).toBe(0);
+    expect(siteCrownCount(null, 'crownLoss', NOV)).toBe(0);
+  });
+
   it('sameTitleStats ignores key order and extra fields', () => {
-    const shuffled = { updatedAt: 1, crowns: stats.crowns, frames: stats.frames, titles: stats.titles, players: 3 };
+    const shuffled = { updatedAt: 1, countedAt: 5, ...Object.fromEntries(Object.entries(stats).reverse()) };
     expect(sameTitleStats(stats, shuffled)).toBe(true);
     expect(sameTitleStats(stats, { ...stats, players: 4 })).toBe(false);
     expect(sameTitleStats(null, titleStatsFrom([], NOV))).toBe(false);

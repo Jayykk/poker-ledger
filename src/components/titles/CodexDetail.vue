@@ -144,6 +144,7 @@ import {
   previousMonthKey, titleName, titleRarity,
 } from '../../utils/titles.js';
 import { frameCount, frameStatus, monthLabel, stepCounts } from '../../utils/codex.js';
+import { siteCrownCount } from '../../../functions/src/utils/titleStatsMath.js';
 import { formatShortDate } from '../../utils/formatters.js';
 
 const props = defineProps({
@@ -215,7 +216,9 @@ function frameView(id) {
     status,
     chip: worn ? 'worn' : status.earned ? 'earned' : 'notEarned',
     lines: [],
-    site: ctx.siteStats?.frames?.[id] || 0,
+    site: status.kind === 'crown'
+      ? siteCrownCount(ctx.siteStats, getCrownFrame(id).crown, ctx.crownMonth)
+      : Number(ctx.siteStats?.frames?.[id]) || 0,
     circle: frameCount(ctx.circleDocs, id, ctx.crownMonth),
     ratio: status.progress ? Math.min(100, Math.round((status.progress.value / status.progress.goal) * 100)) : 0,
     wearHint: status.kind === 'tier' ? t('titles.codexDetail.wearHintTier') : t('titles.codexDetail.wearHintSpecial'),
@@ -296,7 +299,7 @@ function crownView(id) {
       : t('titles.codexDetail.crownNever'),
     frame: frame.id,
     frameEarned: status.earned,
-    site: ctx.siteStats?.crowns?.[id] || 0,
+    site: siteCrownCount(ctx.siteStats, id, ctx.crownMonth),
   };
 }
 </script>

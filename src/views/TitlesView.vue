@@ -315,24 +315,26 @@ function setTab(tab) {
 // My circle's month stats (one doc each: me + my pals) and their userTitles
 // through the shared cache (avatars / names / crowns worn). The race leaders
 // are judged with the same rules the server uses; for me that is exactly
-// whether I lead (my circle is the one I'm judged in).
-const crownMonth = currentCrownMonth();
+// whether I lead (my circle is the one I'm judged in). The month follows the
+// clock (currentCrownMonth), so a page left open across the month change
+// moves to the new month: who wears what, the race, the frames.
+const crownMonth = computed(() => currentCrownMonth());
 const myPals = computed(() => palsOf(user.value?.uid));
 const circleStats = ref({});
 let circleKey = '';
 
-// Waits for my userTitles doc (the pals), so the circle loads once
-watch(() => [user.value?.uid, !!titles[user.value?.uid], myPals.value.join(',')], async ([uid, ready]) => {
+// Waits for my userTitles doc (the pals), so the circle loads once per month
+watch(() => [user.value?.uid, !!titles[user.value?.uid], myPals.value.join(','), crownMonth.value], async ([uid, ready, , month]) => {
   if (!uid || !ready) return;
   const members = [uid, ...myPals.value];
-  const key = `${crownMonth}:${members.join(',')}`;
+  const key = `${month}:${members.join(',')}`;
   if (key === circleKey) return;
   circleKey = key;
   ensureUserTitles(myPals.value);
   const loaded = {};
   await Promise.all(members.map(async (member) => {
     try {
-      const snap = await getDoc(doc(db, 'leaderboardStats', statsDocId(member, crownMonth)));
+      const snap = await getDoc(doc(db, 'leaderboardStats', statsDocId(member, month)));
       loaded[member] = snap.exists() ? snap.data() : null;
     } catch (error) {
       console.warn('[titles] crown stats load failed', member, error?.code || error);
@@ -360,14 +362,14 @@ const throne = computed(() => {
     return {
       id,
       private: getCrown(id)?.unit === 'money',
-      wearing: crownWearers(circleMembers.value, id, crownMonth),
+      wearing: crownWearers(circleMembers.value, id, crownMonth.value),
       holders,
       value,
       myValue,
       mine: holders.includes(me),
       gap: value != null && myValue != null ? value - myValue : null,
       playedThisMonth: !!mine && !mine.hidden,
-      history: wonCrownMonths(myDoc.value, id, crownMonth).length,
+      history: wonCrownMonths(myDoc.value, id, crownMonth.value).length,
     };
   });
 });
@@ -407,7 +409,7 @@ function frameSub(id, status) {
 
 const frameGroups = computed(() => FRAME_KINDS.map((kind) => {
   const items = framesOfKind(kind).map((id) => {
-    const status = frameStatus(id, myDoc.value, crownMonth);
+    const status = frameStatus(id, myDoc.value, crownMonth.value);
     return { id, earned: status.earned, worn: myFrame.value === id, sub: frameSub(id, status) };
   });
   return { kind, items, earned: items.filter((f) => f.earned).length };
@@ -464,13 +466,13 @@ const detailCtx = computed(() => ({
   allStats: stats.value,
   siteStats: siteStats.value,
   circleDocs: circleDocs.value,
-  crownMonth,
+  crownMonth: crownMonth.value,
   nameSet: nameSet.value,
   myFrame: myFrame.value,
   avatar: user.value?.photoURL || '',
   name: displayName.value || '',
   throneRow: (id) => (myPals.value.length < CROWN_MIN_PALS ? null : throne.value.find((row) => row.id === id) || null),
-  crownWearers: (id) => crownWearers(circleMembers.value, id, crownMonth),
+  crownWearers: (id) => crownWearers(circleMembers.value, id, crownMonth.value),
   formatValue,
   stepName,
   memberName: nameOf,
