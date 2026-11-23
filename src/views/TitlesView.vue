@@ -203,7 +203,7 @@
       </section>
     </template>
 
-    <CodexDetail :item="openItem" :ctx="detailCtx" @close="closeDetail" @open="switchDetail" @go-profile="goProfile" />
+    <CodexDetail :item="openItem" :ctx="detailCtx" :wearing="frameSaving" @close="closeDetail" @open="switchDetail" @wear="wearFrame" />
   </div>
 </template>
 
@@ -226,6 +226,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase-init.js';
 import { useAuth } from '../composables/useAuth.js';
 import { useUserTitles } from '../composables/useUserTitles.js';
+import { useNotification } from '../composables/useNotification.js';
+import { useLoading } from '../composables/useLoading.js';
 import TitleBadge from '../components/common/TitleBadge.vue';
 import PlayerAvatar from '../components/common/PlayerAvatar.vue';
 import CodexDetail from '../components/titles/CodexDetail.vue';
@@ -246,8 +248,10 @@ const route = useRoute();
 const router = useRouter();
 const { user, displayName } = useAuth();
 const {
-  titles, watchMyTitles, ensureUserTitles, palsOf, currentCrownMonth, frameOf,
+  titles, watchMyTitles, ensureUserTitles, palsOf, currentCrownMonth, frameOf, saveTitlePrefs,
 } = useUserTitles();
+const notification = useNotification();
+const { withLoading } = useLoading();
 
 const stats = ref(null);
 const loading = ref(true);
@@ -464,8 +468,20 @@ function closeDetail() {
   delete query.item;
   router.replace({ query });
 }
-function goProfile() {
-  router.push('/profile');
+// 更換此頭像框: put the frame on right here (the same save as 我的 › 頭像框)
+const frameSaving = ref(false);
+async function wearFrame(frame) {
+  if (!user.value?.uid || frameSaving.value || myFrame.value === frame) return;
+  frameSaving.value = true;
+  try {
+    // A Cloud Function (setTitlePrefs): a cold start can take a few seconds
+    await withLoading(() => saveTitlePrefs(user.value.uid, { frame }), t('loading.saving'));
+  } catch (error) {
+    console.error('[titles] wear frame failed', error);
+    notification.error(t('titles.saveFailed'));
+  } finally {
+    frameSaving.value = false;
+  }
 }
 
 const detailCtx = computed(() => ({
