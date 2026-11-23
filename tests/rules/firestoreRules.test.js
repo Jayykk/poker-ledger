@@ -662,6 +662,15 @@ describe('users / friends / invitations', () => {
     }));
   });
 
+  it('titleStats (幾人拿到) are signed-in read, CF-write only', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'titleStats', 'global'), { players: 3, titles: {}, frames: {}, crowns: {} });
+    });
+    await assertSucceeds(getDoc(doc(bobDb(), 'titleStats', 'global')));
+    await assertFails(getDoc(doc(anonDb(), 'titleStats', 'global')));
+    await assertFails(setDoc(doc(aliceDb(), 'titleStats', 'global'), { players: 999 }));
+  });
+
   it('accepting a friend request can mirror an entry referencing yourself', async () => {
     // Bob accepts Alice's request → Bob writes himself into Alice's friends list
     await assertSucceeds(addDoc(collection(bobDb(), 'users', ALICE, 'friends'), {

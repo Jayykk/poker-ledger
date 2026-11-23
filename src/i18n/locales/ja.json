@@ -431,7 +431,7 @@
       "potBalanced": "ポット {pot} · 自動で一致 ✅",
       "needTwo": "2 人以上選んでください",
       "needWinner": "勝者を選んでください",
-      "needPutIn": "他のプレイヤーの投入額を入力してください",
+      "putInOptional": "チップは任意です。カードと勝者だけでも保存できます",
       "photo": "写真から自動入力"
     }
   },
@@ -1260,8 +1260,6 @@
     "hiddenName": "???",
     "next": "次：{name}",
     "maxed": "最高ランク到達",
-    "showSteps": "全ランク",
-    "hideSteps": "閉じる",
     "stepsOf": "{total} 段階中 {n}",
     "saved": "称号設定を更新しました",
     "saveFailed": "称号設定に失敗しました",
@@ -1642,23 +1640,23 @@
       },
       "crownHunter": {
         "t4": "今月のハンター王",
-        "desc": "今月の仲間内で最多ノックアウト（2回以上）"
+        "desc": "その月の仲間内で最多ノックアウト（2回以上）"
       },
       "crownBoss": {
         "t4": "今月のボス",
-        "desc": "今月の仲間内で浮き沈みが最大（バイイン単位のある4戦以上）"
+        "desc": "その月の仲間内で浮き沈みが最大（バイイン単位のある4戦以上）"
       },
       "crownProfit": {
         "t4": "今月の造幣局",
-        "desc": "今月の仲間内でいちばんツイてる人"
+        "desc": "その月の仲間内でいちばんツイてる人"
       },
       "crownLoss": {
         "t4": "今月の慈善家",
-        "desc": "今月の仲間内でいちばんの出資者"
+        "desc": "その月の仲間内でいちばんの出資者"
       },
       "crownRegular": {
         "t4": "今月の常連王",
-        "desc": "今月の仲間内で最多参加（3戦以上）"
+        "desc": "その月の仲間内で最多参加（3戦以上）"
       }
     },
     "familiesChuuni": {
@@ -2001,9 +1999,7 @@
     },
     "titleCount": "称号 {n} 個を収集",
     "frame": "アバターフレーム",
-    "frameHint": "称号は段階ごとに 1 個。集めるほどフレームが豪華に",
     "frameAuto": "自動",
-    "frameNeed": "称号を {n} 個集める",
     "frameNone": "フレームなし",
     "frames": {
       "bronze": "銅フレーム",
@@ -2065,13 +2061,16 @@
       }
     },
     "frameOff": "表示しない",
+    "frameEarnedOnly": "獲得済みのみ",
+    "frameHowMore": "フレームの入手方法",
+    "frameNoneOfKind": "{kind}はまだありません",
     "throne": {
       "title": "今月の王座",
       "sub": "{month} · 自分と仲間 {n} 人",
       "history": "歴代 {n}",
       "vacant": "空位",
-      "youHold": "あなたが王座に",
-      "youShare": "仲間と王座を分け合い中",
+      "youHold": "あなたが首位",
+      "youShare": "仲間と首位タイ",
       "mine": "自分 {value}",
       "gap": "あと {value}",
       "noGames": "今月はまだ対戦なし",
@@ -2080,16 +2079,72 @@
         "knockouts": "{n} KO",
         "games": "{n} 戦"
       },
-      "needPals": "あと {n} 人と 2 回ずつ同卓すると今月の王座に参加できます"
+      "needPals": "あと {n} 人と 2 回ずつ同卓すると今月の王座に参加できます",
+      "rule": "先月の王者が今月の王座に就きます。今月の順位は月末に確定し、来月に交代します。",
+      "reigning": "在位",
+      "racing": "争奪中"
     },
     "frameTiers": "ランクフレーム",
     "frameThemes": "テーマフレーム",
-    "frameThemesHint": "対応する称号が第 {n} 段階に届くと解放。「自動」はランクフレームだけを選びます",
-    "frameThemeNeed": "第 {n} 段階の称号「{name}」を獲得",
-    "frameThemeNeedHidden": "隠し称号のどれかが第 {n} 段階に到達",
     "frameCrowns": "王座フレーム",
-    "frameCrownsHint": "対応する王座に就いている月だけ着けられます。月が替わると元のフレームに戻ります",
-    "frameCrownNeed": "今月「{name}」を獲得"
+    "codexDetail": {
+      "tabs": {
+        "titles": "称号",
+        "frames": "フレーム"
+      },
+      "framesTitle": "アバターフレーム",
+      "framesSub": "タップで入手方法・進捗・獲得人数を表示",
+      "tapForMore": "詳細",
+      "kind": {
+        "tier": "ランクフレーム",
+        "theme": "テーマフレーム",
+        "crown": "王座フレーム"
+      },
+      "worn": "着用中",
+      "earned": "獲得済み",
+      "notEarned": "未獲得",
+      "tileTierOf": "第 {n}/{total} 段階",
+      "tileCount": "{n}/{total} 個",
+      "tileWonTimes": "{n} 回獲得",
+      "howTo": "入手方法",
+      "progress": "進捗",
+      "howTier": "称号は段階ごとに 1 個（第 3 段階なら 3 個）。合計 {min} 個集めるとこのフレームを着けられます。一度手に入れたら消えません。",
+      "howTheme": "「{desc}」が {value} に届く、つまりこの称号が第 {n} 段階「{name}」になると解放。一度手に入れたら消えません。",
+      "howThemeHidden": "隠し称号のどれかが第 {n} 段階に届くと解放。まずはどれか探そう：",
+      "howCrown": "仲間内である月の「{name}」（{desc}）を獲得。月末に確定すると翌月まるごと着けられます。また着けるにはもう一度獲得が必要です。",
+      "progTier": "{n} / {min} 個、あと {left} 個",
+      "progTierDone": "{n} 個獲得（必要 {min} 個）",
+      "progTheme": "現在第 {n} 段階、第 {goal} 段階が必要",
+      "progThemeHidden": "この称号はまだ見つかっていません",
+      "earnedAt": "{date} に獲得",
+      "earnedAtUnknown": "獲得済み（獲得日の記録開始前）",
+      "crownWearing": "{won} に獲得、{month} の間着けられます",
+      "crownWon": "{n} 回獲得：{months}",
+      "crownNever": "まだ獲得したことがありません",
+      "raceMine": "今月はあなたが首位。月末まで守れば来月着けられます",
+      "raceLeader": "今月の首位：{names}",
+      "raceNone": "今月はまだ条件を満たす人がいません",
+      "raceNeedPals": "王座には仲間 {n} 人が必要です",
+      "wearHintTier": "「自動」は最高のランクフレームを着けます。マイページで指定もできます",
+      "wearHintSpecial": "マイページ › アバターフレームで指定すると着けられます",
+      "goProfile": "マイページでフレームを変更",
+      "seeTitle": "この称号を見る",
+      "seeCrown": "この王座を見る",
+      "steps": "10 段階",
+      "site": "全体",
+      "circle": "仲間",
+      "siteCount": "全体で {n} / {total} 人が獲得",
+      "circleCount": "仲間内で {n} / {total} 人が獲得",
+      "crownSiteCount": "全体で {n} 人が獲得経験あり",
+      "unlocksFrame": "第 {n} 段階でテーマフレーム解放",
+      "nowValue": "現在 {value}",
+      "toNext": "あと {value} で「{name}」",
+      "crownRule": "毎月確定：月末に仲間内で 1 位の人が、翌月まるごとこの王座（称号・王座フレーム・アバターの小さな王冠）を着けます。",
+      "reigning": "在位 · {month} の王者",
+      "racing": "今月の争奪",
+      "myCrown": "自分の記録",
+      "listSep": "、"
+    }
   },
   "chipSet": {
     "title": "チップ額面",

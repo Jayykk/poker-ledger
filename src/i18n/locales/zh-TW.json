@@ -431,7 +431,7 @@
       "potBalanced": "底池 {pot} · 自動平衡 ✅",
       "needTwo": "至少選兩個人",
       "needWinner": "選出贏家",
-      "needPutIn": "填上輸家各自投入多少",
+      "putInOptional": "籌碼可不填，只記牌和贏家也能存",
       "photo": "拍照自動填牌"
     }
   },
@@ -1260,8 +1260,6 @@
     "hiddenName": "???",
     "next": "下一階：{name}",
     "maxed": "已達最高階",
-    "showSteps": "全部階級",
-    "hideSteps": "收起",
     "stepsOf": "第 {n} / {total} 階",
     "saved": "稱號設定已更新",
     "saveFailed": "稱號設定失敗",
@@ -1642,23 +1640,23 @@
       },
       "crownHunter": {
         "t4": "本月獵頭王",
-        "desc": "本月牌友圈裡淘汰最多人（至少 2 次）"
+        "desc": "牌友圈裡當月淘汰最多人（至少 2 次）"
       },
       "crownBoss": {
         "t4": "本月老闆",
-        "desc": "本月牌友圈裡牌局起伏最大（至少 4 場有組數）"
+        "desc": "牌友圈裡當月牌局起伏最大（至少 4 場有組數）"
       },
       "crownProfit": {
         "t4": "本月印鈔機",
-        "desc": "本月牌友圈裡手氣最旺"
+        "desc": "牌友圈裡當月手氣最旺"
       },
       "crownLoss": {
         "t4": "本月大善人",
-        "desc": "本月牌友圈裡贊助最多"
+        "desc": "牌友圈裡當月贊助最多"
       },
       "crownRegular": {
         "t4": "本月釘子戶",
-        "desc": "本月牌友圈裡打最多場（至少 3 場）"
+        "desc": "牌友圈裡當月打最多場（至少 3 場）"
       }
     },
     "familiesChuuni": {
@@ -2001,9 +1999,7 @@
     },
     "titleCount": "已收集 {n} 個稱號",
     "frame": "頭像框",
-    "frameHint": "每一階稱號各算一個，收集越多框越高級",
     "frameAuto": "自動",
-    "frameNeed": "收集 {n} 個稱號",
     "frameNone": "尚無頭像框",
     "frames": {
       "bronze": "銅框",
@@ -2065,13 +2061,16 @@
       }
     },
     "frameOff": "不顯示",
+    "frameEarnedOnly": "只顯示已獲得",
+    "frameHowMore": "怎麼拿更多頭像框",
+    "frameNoneOfKind": "還沒有{kind}",
     "throne": {
       "title": "本月王座",
       "sub": "{month} · 我和 {n} 位牌友",
       "history": "歷代 {n}",
       "vacant": "從缺",
-      "youHold": "你坐在王座上",
-      "youShare": "你和牌友並列王座",
+      "youHold": "你目前領先",
+      "youShare": "你和牌友並列領先",
       "mine": "我 {value}",
       "gap": "差 {value}",
       "noGames": "本月還沒有牌局",
@@ -2080,16 +2079,72 @@
         "knockouts": "{n} 淘汰",
         "games": "{n} 場"
       },
-      "needPals": "再和 {n} 位牌友同桌（同一人滿 2 場）就能參加本月王座"
+      "needPals": "再和 {n} 位牌友同桌（同一人滿 2 場）就能參加本月王座",
+      "rule": "上個月的冠軍這個月戴著王座；本月的排名月底結算，下個月換人戴。",
+      "reigning": "在位",
+      "racing": "爭奪中"
     },
     "frameTiers": "等級框",
     "frameThemes": "主題框",
-    "frameThemesHint": "對應的稱號達到第 {n} 階就能解鎖；「自動」只會挑等級框",
-    "frameThemeNeed": "取得第 {n} 階稱號「{name}」",
-    "frameThemeNeedHidden": "某個隱藏稱號達到第 {n} 階",
     "frameCrowns": "王座框",
-    "frameCrownsHint": "當月坐上對應的王座才能戴，月底換人就會退回原本的框",
-    "frameCrownNeed": "本月拿下「{name}」"
+    "codexDetail": {
+      "tabs": {
+        "titles": "稱號",
+        "frames": "頭像框"
+      },
+      "framesTitle": "頭像框",
+      "framesSub": "點一下看怎麼拿、進度和幾人拿到",
+      "tapForMore": "詳細",
+      "kind": {
+        "tier": "等級框",
+        "theme": "主題框",
+        "crown": "王座框"
+      },
+      "worn": "戴著中",
+      "earned": "已獲得",
+      "notEarned": "未獲得",
+      "tileTierOf": "第 {n}/{total} 階",
+      "tileCount": "{n}/{total} 個",
+      "tileWonTimes": "拿過 {n} 次",
+      "howTo": "怎麼拿",
+      "progress": "進度",
+      "howTier": "每個稱號的每一階都算 1 個（例如「常客」升到第 3 階就是 3 個）。總共收集滿 {min} 個就能戴上這個框，拿到之後不會消失。",
+      "howTheme": "「{desc}」達到 {value}，也就是這個系列升到第 {n} 階「{name}」，就能解鎖。拿到之後不會消失。",
+      "howThemeHidden": "某個隱藏稱號升到第 {n} 階就會解鎖。先找出它是哪一個：",
+      "howCrown": "在牌友圈拿下某個月的「{name}」（{desc}）。月底結算後，下個月一整個月都能戴；之後要再拿一次才能再戴。",
+      "progTier": "已收集 {n} / {min} 個，還差 {left} 個",
+      "progTierDone": "已收集 {n} 個（需要 {min} 個）",
+      "progTheme": "目前第 {n} 階，需要第 {goal} 階",
+      "progThemeHidden": "還沒找到這個稱號",
+      "earnedAt": "{date} 取得",
+      "earnedAtUnknown": "已取得（在開始記錄取得日期之前）",
+      "crownWearing": "{won} 拿下，{month} 整個月都能戴",
+      "crownWon": "拿過 {n} 次：{months}",
+      "crownNever": "還沒拿過",
+      "raceMine": "本月你目前領先，維持到月底，下個月就能戴",
+      "raceLeader": "本月目前領先：{names}",
+      "raceNone": "本月還沒有人達標",
+      "raceNeedPals": "牌友圈滿 {n} 人才能參加王座",
+      "wearHintTier": "「自動」會戴你最高的等級框，也可以到「我的」指定",
+      "wearHintSpecial": "要到「我的 › 頭像框」指定才會戴上",
+      "goProfile": "到「我的」更換頭像框",
+      "seeTitle": "看這個稱號",
+      "seeCrown": "看這個王座",
+      "steps": "十個階級",
+      "site": "全站",
+      "circle": "牌友圈",
+      "siteCount": "全站 {n} / {total} 人拿到",
+      "circleCount": "牌友圈 {n} / {total} 人拿到",
+      "crownSiteCount": "全站 {n} 人拿過",
+      "unlocksFrame": "第 {n} 階解鎖主題框",
+      "nowValue": "目前 {value}",
+      "toNext": "再 {value} 升到「{name}」",
+      "crownRule": "每月結算一次：月底時在牌友圈排第一的人，下個月整個月戴著這個王座（稱號、王座框和頭像上的小皇冠）。",
+      "reigning": "在位 · {month} 冠軍",
+      "racing": "本月爭奪中",
+      "myCrown": "我的紀錄",
+      "listSep": "、"
+    }
   },
   "chipSet": {
     "title": "籌碼面額",

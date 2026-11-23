@@ -117,6 +117,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // 稱號圖鑑「幾人拿到」: counts over every userTitles doc, recounted by
+    // Cloud Functions after each game (handlers/titleStats.js)
+    match /titleStats/{statId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
     // ============================================
     // Friend requests (mailbox)
     // ============================================

@@ -5,6 +5,7 @@ import { roundNumber, toMillis } from '../utils/numbers.js';
 import { normalizeCashDecimals } from '../utils/cashRounding.js';
 import { recomputeLeaderboardStatsForUser } from './leaderboardStats.js';
 import { recomputeMonthlyCrowns } from './monthlyCrowns.js';
+import { recountTitleStats } from './titleStats.js';
 import { crownMonthOf } from '../utils/crownRules.js';
 import { deriveTournamentEntryMetrics } from '../utils/tournamentSettlementMath.js';
 import { emptyHandEvents } from '../utils/leaderboardStatsMath.js';
@@ -460,6 +461,13 @@ export async function syncCompletedGameHistoryProjection(gameId, options = {}) {
     await recomputeMonthlyCrowns(db, statsUserIds, [gameMonth, crownMonthOf(now)], { now });
   } catch (crownError) {
     console.error(`monthly crowns recompute failed for game ${gameId}:`, crownError);
+  }
+
+  // 稱號圖鑑「幾人拿到」, once the titles and crowns above are written
+  try {
+    await recountTitleStats(db);
+  } catch (statsError) {
+    console.error(`title stats recount failed for game ${gameId}:`, statsError);
   }
 
   return {

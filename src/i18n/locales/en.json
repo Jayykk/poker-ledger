@@ -431,7 +431,7 @@
       "potBalanced": "Pot {pot} · balances ✅",
       "needTwo": "Pick at least two players",
       "needWinner": "Pick the winner",
-      "needPutIn": "Enter what the others put in",
+      "putInOptional": "Chips are optional: cards and winner alone can be saved",
       "photo": "Fill from a photo"
     }
   },
@@ -1260,8 +1260,6 @@
     "hiddenName": "???",
     "next": "Next: {name}",
     "maxed": "Top tier reached",
-    "showSteps": "All tiers",
-    "hideSteps": "Hide",
     "stepsOf": "Tier {n} of {total}",
     "saved": "Title settings updated",
     "saveFailed": "Couldn't update title settings",
@@ -1642,23 +1640,23 @@
       },
       "crownHunter": {
         "t4": "Headhunter of the Month",
-        "desc": "Most knockouts in your circle this month (2+)"
+        "desc": "Most knockouts in your circle in a month (2+)"
       },
       "crownBoss": {
         "t4": "Big Boss of the Month",
-        "desc": "Biggest ups and downs in your circle this month (4+ games with a buy-in size)"
+        "desc": "Biggest ups and downs in your circle in a month (4+ games with a buy-in size)"
       },
       "crownProfit": {
         "t4": "Money Printer of the Month",
-        "desc": "Hottest hand in your circle this month"
+        "desc": "Hottest hand in your circle in a month"
       },
       "crownLoss": {
         "t4": "Philanthropist of the Month",
-        "desc": "Sponsored the most in your circle this month"
+        "desc": "Sponsored the most in your circle in a month"
       },
       "crownRegular": {
         "t4": "Regular of the Month",
-        "desc": "Most games in your circle this month (3+)"
+        "desc": "Most games in your circle in a month (3+)"
       }
     },
     "familiesChuuni": {
@@ -2001,9 +1999,7 @@
     },
     "titleCount": "{n} titles collected",
     "frame": "Avatar frame",
-    "frameHint": "Every tier of a title counts as one; collect more for a better frame",
     "frameAuto": "Auto",
-    "frameNeed": "Collect {n} titles",
     "frameNone": "No frame yet",
     "frames": {
       "bronze": "Bronze frame",
@@ -2065,13 +2061,16 @@
       }
     },
     "frameOff": "Off",
+    "frameEarnedOnly": "Earned only",
+    "frameHowMore": "How to get more frames",
+    "frameNoneOfKind": "No {kind} yet",
     "throne": {
       "title": "Monthly crowns",
       "sub": "{month} · me and {n} pals",
       "history": "Held {n}×",
       "vacant": "Vacant",
-      "youHold": "The crown is yours",
-      "youShare": "You share the crown",
+      "youHold": "You're in the lead",
+      "youShare": "You're tied for the lead",
       "mine": "Me {value}",
       "gap": "{value} behind",
       "noGames": "No games this month yet",
@@ -2080,16 +2079,72 @@
         "knockouts": "{n} KO",
         "games": "{n} games"
       },
-      "needPals": "Share 2 games with {n} more players to join this month's crowns"
+      "needPals": "Share 2 games with {n} more players to join this month's crowns",
+      "rule": "Last month's winners wear the crowns this month; this month's race is settled at month end and worn next month.",
+      "reigning": "Wearing",
+      "racing": "Racing"
     },
     "frameTiers": "Tier frames",
     "frameThemes": "Themed frames",
-    "frameThemesHint": "Reach tier {n} of the matching title to unlock one; Auto only picks tier frames",
-    "frameThemeNeed": "Earn the tier {n} title \"{name}\"",
-    "frameThemeNeedHidden": "Reach tier {n} of a hidden title",
     "frameCrowns": "Throne frames",
-    "frameCrownsHint": "Wearable only in a month you hold the matching throne; when it changes hands your usual frame is back",
-    "frameCrownNeed": "Hold \"{name}\" this month"
+    "codexDetail": {
+      "tabs": {
+        "titles": "Titles",
+        "frames": "Frames"
+      },
+      "framesTitle": "Avatar frames",
+      "framesSub": "Tap one for how to get it, your progress and how many have it",
+      "tapForMore": "Details",
+      "kind": {
+        "tier": "Tier frames",
+        "theme": "Themed frames",
+        "crown": "Throne frames"
+      },
+      "worn": "Wearing",
+      "earned": "Earned",
+      "notEarned": "Not earned",
+      "tileTierOf": "Tier {n}/{total}",
+      "tileCount": "{n}/{total}",
+      "tileWonTimes": "Won {n}×",
+      "howTo": "How to get it",
+      "progress": "Progress",
+      "howTier": "Every tier of every title counts as one (a title at tier 3 is three). Collect {min} in total to wear this frame; it stays once earned.",
+      "howTheme": "Reach {value} on \"{desc}\", i.e. tier {n} \"{name}\" of this title, to unlock it. It stays once earned.",
+      "howThemeHidden": "Unlocks when a hidden title reaches tier {n}. Find out which one first:",
+      "howCrown": "Win \"{name}\" ({desc}) in your circle for a month. Once the month is settled, you wear it all next month; win it again to wear it again.",
+      "progTier": "{n} / {min} collected, {left} to go",
+      "progTierDone": "{n} collected ({min} needed)",
+      "progTheme": "At tier {n}, needs tier {goal}",
+      "progThemeHidden": "You haven't found this title yet",
+      "earnedAt": "Earned {date}",
+      "earnedAtUnknown": "Earned (before earn dates were recorded)",
+      "crownWearing": "Won {won}, worn all through {month}",
+      "crownWon": "Won {n}×: {months}",
+      "crownNever": "Never won yet",
+      "raceMine": "You lead this month's race: hold it to month end to wear it next month",
+      "raceLeader": "Leading this month: {names}",
+      "raceNone": "Nobody qualifies this month yet",
+      "raceNeedPals": "Crowns need a circle of {n} pals",
+      "wearHintTier": "Auto wears your highest tier frame; you can also pick one in Profile",
+      "wearHintSpecial": "Pick it in Profile › Avatar frame to wear it",
+      "goProfile": "Change frame in Profile",
+      "seeTitle": "See this title",
+      "seeCrown": "See this crown",
+      "steps": "The ten tiers",
+      "site": "All",
+      "circle": "Circle",
+      "siteCount": "{n} / {total} players have it",
+      "circleCount": "{n} / {total} in your circle",
+      "crownSiteCount": "{n} players have won it",
+      "unlocksFrame": "Tier {n} unlocks a themed frame",
+      "nowValue": "Now {value}",
+      "toNext": "{value} more to \"{name}\"",
+      "crownRule": "Settled monthly: whoever ranks first in your circle at month end wears this crown all next month (the title, the throne frame and the little crown on the avatar).",
+      "reigning": "Wearing · {month} winner",
+      "racing": "This month's race",
+      "myCrown": "My record",
+      "listSep": ", "
+    }
   },
   "chipSet": {
     "title": "Chip denominations",

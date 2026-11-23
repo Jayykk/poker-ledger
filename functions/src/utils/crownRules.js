@@ -15,12 +15,18 @@
 // have their own holder.
 //
 // Stored on userTitles/{uid} (server-written):
-//   crowns        { [crownId]: monthKey }   held; active only while monthKey
-//                                           is the current month (Asia/Taipei)
+//   crowns        { [crownId]: monthKey }   leading the race of monthKey (the
+//                                           current month, Asia/Taipei), or
+//                                           the final holder of an older one
 //   crownHistory  { [crownId]: [monthKey] } months the crown was still held
 //                                           when the month ended (ascending)
 // No scheduler: a crown dated an older month is that month's final holder, and
 // the next evaluation moves it into crownHistory (applyCrownMonth).
+//
+// Won, then worn: a month's race is settled only when the month ends, and the
+// crown (its title, its 王座框, the avatar's corner crown) is worn through the
+// whole NEXT month: in November you wear what you won in October
+// (wornCrowns). Leading this month's race (activeCrowns) wears nothing yet.
 
 import { groupsStdDev, periodKeysForMillis } from './leaderboardStatsMath.js';
 
@@ -183,7 +189,8 @@ export function crownLeaders(id, members) {
 }
 
 /**
- * Active crowns: the ones dated the given month, in CROWN_IDS order.
+ * Crowns being led in a month's race (dated that month), in CROWN_IDS order.
+ * Leading wears nothing yet: see wornCrowns.
  *
  * @param {?Object<string, string>} crowns Stored crowns map.
  * @param {string} month Current month key.
@@ -192,6 +199,52 @@ export function crownLeaders(id, members) {
 export function activeCrowns(crowns, month) {
   if (!crowns || !month) return [];
   return CROWN_IDS.filter((id) => crowns[id] === month);
+}
+
+/**
+ * The month before a month key ('2026-01' → '2025-12'); '' for a bad key.
+ *
+ * @param {string} month Month key.
+ * @return {string}
+ */
+export function previousMonthKey(month) {
+  const [year, mon] = String(month || '').split('-').map(Number);
+  if (!year || !mon) return '';
+  const y = mon === 1 ? year - 1 : year;
+  const m = mon === 1 ? 12 : mon - 1;
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+/**
+ * Months a crown was won (held when the month ended), ascending. A crown
+ * still stored under a month before `month` is that month's final holder,
+ * even before applyCrownMonth has moved it into history.
+ *
+ * @param {?{crowns: ?object, crownHistory: ?object}} stored userTitles doc.
+ * @param {string} id Crown id.
+ * @param {string} month Current month key.
+ * @return {Array<string>}
+ */
+export function wonCrownMonths(stored, id, month) {
+  const history = stored?.crownHistory?.[id];
+  const months = new Set(Array.isArray(history) ? history : []);
+  const dated = stored?.crowns?.[id];
+  if (typeof dated === 'string') months.add(dated);
+  return [...months].filter((m) => typeof m === 'string' && m < month).sort();
+}
+
+/**
+ * Crowns worn in a month: the ones won the month before, in CROWN_IDS order.
+ *
+ * @param {?{crowns: ?object, crownHistory: ?object, month: ?string}} ctx
+ *   Stored crowns + history and the current month key.
+ * @return {Array<string>}
+ */
+export function wornCrowns(ctx) {
+  const prev = previousMonthKey(ctx?.month);
+  if (!prev) return [];
+  return CROWN_IDS.filter((id) => ctx.crowns?.[id] === prev
+    || (Array.isArray(ctx.crownHistory?.[id]) && ctx.crownHistory[id].includes(prev)));
 }
 
 /**

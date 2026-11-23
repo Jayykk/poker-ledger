@@ -136,9 +136,10 @@
         <p v-if="!pickableTitles.length" class="text-xs text-gray-500 text-left mt-2">{{ $t('titles.noneUnlocked') }}</p>
         </div>
 
-        <!-- 頭像框: folded the same way; two groups (等級框 by titles held, 主題框 by a
-             title family's step); earned ones to pick (their previews move), locked
-             ones dashed and still, with what they need -->
+        <!-- 頭像框: folded the same way; three groups (等級框 / 主題框 / 王座框),
+             earned ones to pick (their previews move). 只顯示已獲得 (on by
+             default, this device) hides the rest; with it off they show
+             dashed and still. How to get one lives in the 稱號圖鑑. -->
         <button type="button" class="title-fold" :aria-expanded="frameOpen" @click="frameOpen = !frameOpen">
           <span class="text-xs text-gray-400 whitespace-nowrap">{{ $t('titles.frame') }}</span>
           <span class="title-fold-now">
@@ -148,6 +149,15 @@
           <i class="fas fa-chevron-down title-fold-icon" :class="{ open: frameOpen }" aria-hidden="true"></i>
         </button>
         <div v-if="frameOpen" class="text-left">
+          <div class="frame-tools">
+            <label class="frame-only" data-testid="frames-earned-only">
+              <input type="checkbox" :checked="framesEarnedOnly" @change="toggleFramesEarnedOnly" />
+              <span>{{ $t('titles.frameEarnedOnly') }}</span>
+            </label>
+            <router-link :to="FRAMES_CODEX_LINK" class="frame-how" data-testid="frames-how-more">
+              {{ $t('titles.frameHowMore') }} <i class="fas fa-chevron-right" aria-hidden="true"></i>
+            </router-link>
+          </div>
           <div class="frame-group-title">{{ $t('titles.frameTiers') }}</div>
           <div class="frame-grid" data-testid="frame-tiers">
             <button
@@ -172,7 +182,7 @@
               <span class="frame-opt-sub">{{ myEarnedFrame ? $t(`titles.frames.${myEarnedFrame}`) : $t('titles.frameNone') }}</span>
             </button>
             <button
-              v-for="f in frameOptions"
+              v-for="f in shownFrames(frameOptions)"
               :key="f.id"
               type="button"
               class="frame-opt"
@@ -183,50 +193,33 @@
             >
               <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="f.id" :still="f.locked" />
               <span class="frame-opt-name">{{ $t(`titles.frames.${f.id}`) }}</span>
-              <span v-if="f.locked" class="frame-opt-sub">{{ $t('titles.frameNeed', { n: f.min }) }}</span>
             </button>
           </div>
-          <p class="text-[11px] text-gray-400 mt-1.5">{{ $t('titles.frameHint') }}</p>
 
-          <!-- 主題框: one per title family in THEME_FRAMES, shown only when picked -->
-          <div class="frame-group-title mt-3">{{ $t('titles.frameThemes') }}</div>
-          <div class="frame-grid" data-testid="frame-themes">
-            <button
-              v-for="th in themeFrameOptions"
-              :key="th.id"
-              type="button"
-              class="frame-opt"
-              :class="{ active: titlePrefs.frame === th.id, locked: th.locked }"
-              :disabled="titleSaving || th.locked"
-              :data-frame="th.id"
-              @click="pickFrame(th.id)"
-            >
-              <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="th.id" :still="th.locked" />
-              <span class="frame-opt-name">{{ $t(`titles.frames.${th.id}`) }}</span>
-              <span v-if="th.locked" class="frame-opt-sub">{{ th.need }}</span>
-            </button>
-          </div>
-          <p class="text-[11px] text-gray-400 mt-1.5">{{ $t('titles.frameThemesHint', { n: THEME_FRAME_MIN_TIER }) }}</p>
-
-          <!-- 王座框: one per 本月王座, wearable only in a month you hold that crown -->
-          <div class="frame-group-title mt-3">{{ $t('titles.frameCrowns') }}</div>
-          <div class="frame-grid" data-testid="frame-crowns">
-            <button
-              v-for="cf in crownFrameOptions"
-              :key="cf.id"
-              type="button"
-              class="frame-opt"
-              :class="{ active: titlePrefs.frame === cf.id, locked: cf.locked }"
-              :disabled="titleSaving || cf.locked"
-              :data-frame="cf.id"
-              @click="pickFrame(cf.id)"
-            >
-              <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="cf.id" :still="cf.locked" />
-              <span class="frame-opt-name">{{ $t(`titles.frames.${cf.id}`) }}</span>
-              <span v-if="cf.locked" class="frame-opt-sub">{{ cf.need }}</span>
-            </button>
-          </div>
-          <p class="text-[11px] text-gray-400 mt-1.5">{{ $t('titles.frameCrownsHint') }}</p>
+          <!-- 主題框 and 王座框: shown only when picked; a group with nothing to
+               show says so and points at the 圖鑑 -->
+          <template v-for="group in specialFrameGroups" :key="group.kind">
+            <div class="frame-group-title mt-3">{{ $t(group.titleKey) }}</div>
+            <div v-if="shownFrames(group.options).length" class="frame-grid" :data-testid="group.testid">
+              <button
+                v-for="f in shownFrames(group.options)"
+                :key="f.id"
+                type="button"
+                class="frame-opt"
+                :class="{ active: titlePrefs.frame === f.id, locked: f.locked }"
+                :disabled="titleSaving || f.locked"
+                :data-frame="f.id"
+                @click="pickFrame(f.id)"
+              >
+                <PlayerAvatar size="md" :src="userAvatar || ''" :name="displayName || ''" :frame="f.id" :still="f.locked" />
+                <span class="frame-opt-name">{{ $t(`titles.frames.${f.id}`) }}</span>
+              </button>
+            </div>
+            <router-link v-else :to="FRAMES_CODEX_LINK" class="frame-none" :data-testid="`${group.testid}-none`">
+              {{ $t('titles.frameNoneOfKind', { kind: $t(group.titleKey) }) }} · {{ $t('titles.frameHowMore') }}
+              <i class="fas fa-chevron-right" aria-hidden="true"></i>
+            </router-link>
+          </template>
         </div>
 
         <!-- 簡化特效: this device only — frames stop moving on my screen -->
@@ -393,14 +386,14 @@ import TitlePickGrid from '../components/common/TitlePickGrid.vue';
 import PlayerAvatar from '../components/common/PlayerAvatar.vue';
 import { useUserTitles } from '../composables/useUserTitles.js';
 import {
-  TITLE_FAMILIES, FRAME_TIERS, THEME_FRAMES, THEME_FRAME_MIN_TIER, getTitleFamily, normalizeTitlePrefs,
-  titleCount, earnedFrame, earnedThemeFrames, earnedCrownFrames, CROWN_FRAMES, frameRank, titleName, activeCrowns, CROWN_TIER,
+  TITLE_FAMILIES, FRAME_TIERS, THEME_FRAMES, getTitleFamily, normalizeTitlePrefs,
+  titleCount, earnedFrame, earnedThemeFrames, earnedCrownFrames, CROWN_FRAMES, frameRank, wornCrowns, crownCtxOf, CROWN_TIER,
 } from '../utils/titles.js';
 import { STORAGE_KEYS } from '../utils/constants.js';
 import { THEMES as THEME_LIST, applyTheme, resolveThemeId } from '../utils/themes.js';
 import { applyFxLite, isFxLite } from '../utils/fx.js';
 
-const { t, te, locale } = useI18n();
+const { t, locale } = useI18n();
 const router = useRouter();
 const { displayName, isGuest, user, logout, linkEmailToGuest } = useAuth();
 const { notificationsEnabled, toggleNotifications } = usePushNotification();
@@ -457,8 +450,8 @@ const unlockedTitles = computed(() => Object.entries(myTitles.value?.unlocked ||
   .filter(([id, entry]) => getTitleFamily(id) && entry?.tier > 0)
   .map(([familyId, entry]) => ({ familyId, tier: entry.tier, at: entry.at || 0 }))
   .sort((a, b) => (b.tier - a.tier) || (b.at - a.at) || (familyOrder.get(a.familyId) - familyOrder.get(b.familyId))));
-// 指定 grid: this month's 王座 first (CROWN_IDS order), then the titles
-const heldCrownIds = computed(() => activeCrowns(myTitles.value?.crowns, currentCrownMonth()));
+// 指定 grid: the 王座 worn this month (won last month, CROWN_IDS order), then the titles
+const heldCrownIds = computed(() => wornCrowns(crownCtxOf(myTitles.value, currentCrownMonth())));
 const pickableTitles = computed(() => [
   ...heldCrownIds.value.map((familyId) => ({ familyId, tier: CROWN_TIER, at: 0 })),
   ...unlockedTitles.value,
@@ -479,38 +472,46 @@ const frameSummary = computed(() => {
 });
 const frameOptions = computed(() => FRAME_TIERS.map((f) => ({
   id: f.id,
-  min: f.min,
   locked: frameRank(f.id) > frameRank(myEarnedFrame.value),
 })));
-// 主題框: a locked one says which title unlocks it (in my name set); a hidden
-// family not found yet keeps its name to itself
+// 主題框: earned while the family is at its minTier
 const themeFrameOptions = computed(() => {
-  const unlocked = myTitles.value?.unlocked;
-  const earned = new Set(earnedThemeFrames(unlocked));
-  return THEME_FRAMES.map((f) => {
-    const secret = !!getTitleFamily(f.family)?.hidden && !(unlocked?.[f.family]?.tier > 0);
-    return {
-      id: f.id,
-      locked: !earned.has(f.id),
-      need: secret
-        ? t('titles.frameThemeNeedHidden', { n: f.minTier })
-        : t('titles.frameThemeNeed', {
-          n: f.minTier,
-          name: titleName({ t, te }, f.family, f.minTier, titlePrefs.value.nameSet),
-        }),
-    };
-  });
+  const earned = new Set(earnedThemeFrames(myTitles.value?.unlocked));
+  return THEME_FRAMES.map((f) => ({ id: f.id, locked: !earned.has(f.id) }));
 });
-
-// 王座框: wearable while its crown is held this month; a locked one names the crown
+// 王座框: wearable the month after its crown is won
 const crownFrameOptions = computed(() => {
-  const earned = new Set(earnedCrownFrames({ crowns: myTitles.value?.crowns, month: currentCrownMonth() }));
-  return CROWN_FRAMES.map((f) => ({
-    id: f.id,
-    locked: !earned.has(f.id),
-    need: t('titles.frameCrownNeed', { name: titleName({ t, te }, f.crown, CROWN_TIER) }),
-  }));
+  const earned = new Set(earnedCrownFrames(crownCtxOf(myTitles.value, currentCrownMonth())));
+  return CROWN_FRAMES.map((f) => ({ id: f.id, locked: !earned.has(f.id) }));
 });
+const specialFrameGroups = computed(() => [
+  { kind: 'theme', titleKey: 'titles.frameThemes', testid: 'frame-themes', options: themeFrameOptions.value },
+  { kind: 'crown', titleKey: 'titles.frameCrowns', testid: 'frame-crowns', options: crownFrameOptions.value },
+]);
+
+// 只顯示已獲得: on unless turned off on this device (try/catch: storage can be
+// blocked)
+const FRAMES_CODEX_LINK = { path: '/titles', query: { tab: 'frames' } };
+function readFramesEarnedOnly() {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.FRAMES_EARNED_ONLY) !== 'false';
+  } catch {
+    return true;
+  }
+}
+const framesEarnedOnly = ref(readFramesEarnedOnly());
+function toggleFramesEarnedOnly() {
+  framesEarnedOnly.value = !framesEarnedOnly.value;
+  try {
+    localStorage.setItem(STORAGE_KEYS.FRAMES_EARNED_ONLY, String(framesEarnedOnly.value));
+  } catch {
+    // this device only; nothing to do when it can't be stored
+  }
+}
+// The options a group shows: the locked ones only with the toggle off
+function shownFrames(options) {
+  return framesEarnedOnly.value ? options.filter((f) => !f.locked) : options;
+}
 
 let stopTitles = () => {};
 watch(() => user.value?.uid, (uid) => {
@@ -705,6 +706,13 @@ const handleLogout = async () => {
 .title-nameset-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem; flex-shrink: 0; }
 .title-nameset-opt { padding: 0.3rem 0.75rem; font-size: 0.8rem; white-space: nowrap; }
 /* 頭像框 groups: as many columns as fit, the rest wraps */
+/* 只顯示已獲得 + the way to the 圖鑑, above the groups */
+.frame-tools { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.6rem; }
+.frame-only { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: rgb(var(--tw-slate-300)); }
+.frame-only input { accent-color: rgb(var(--tw-amber-500)); }
+.frame-how, .frame-none { font-size: 0.72rem; color: rgb(var(--tw-amber-400)); white-space: nowrap; }
+.frame-how .fa-chevron-right, .frame-none .fa-chevron-right { font-size: 0.55rem; margin-left: 0.15rem; }
+.frame-none { display: block; white-space: normal; }
 .frame-group-title { font-size: 0.75rem; font-weight: 600; color: rgb(var(--tw-slate-300)); margin-bottom: 0.4rem; }
 .frame-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.25rem, 1fr)); gap: 0.5rem; }
 .frame-opt {

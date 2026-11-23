@@ -87,7 +87,9 @@ export const STORAGE_KEYS = {
   // Leaderboard 只看牌友 toggle ('true' / 'false')
   LEADERBOARD_PALS_ONLY: 'poker_leaderboard_pals_only',
   // 簡化特效: 頭像框 without motion on this device ('true' / 'false')
-  FX_LITE: 'poker_fx_lite'
+  FX_LITE: 'poker_fx_lite',
+  // 我的 › 頭像框 只顯示已獲得 ('true' / 'false'; none = on)
+  FRAMES_EARNED_ONLY: 'poker_frames_earned_only'
 };
 
 // Theme options

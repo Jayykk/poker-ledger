@@ -4,15 +4,17 @@ import { createI18n } from 'vue-i18n';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import zhTW from '../src/i18n/locales/zh-TW.json';
-import { crownMonthOf } from '../functions/src/utils/crownRules.js';
+import { crownMonthOf, previousMonthKey } from '../functions/src/utils/crownRules.js';
 import { ALL_FRAME_IDS, THEME_FRAMES } from '../functions/src/utils/titleRules.js';
 
 const NOW_MONTH = crownMonthOf(Date.now());
 
 const docs = {
-  // Wears a crown this month, titles on / off, and one from an older month
-  kim: { unlocked: {}, prefs: { mode: 'auto' }, crowns: { crownHunter: NOW_MONTH } },
-  lee: { unlocked: {}, prefs: { mode: 'off' }, crowns: { crownHunter: NOW_MONTH } },
+  // Won a crown last month (worn this month), titles on / off; leading this
+  // month's race (nothing worn yet); and one from an older month
+  kim: { unlocked: {}, prefs: { mode: 'auto' }, crowns: { crownHunter: previousMonthKey(NOW_MONTH) } },
+  lee: { unlocked: {}, prefs: { mode: 'off' }, crowns: { crownHunter: previousMonthKey(NOW_MONTH) } },
+  ned: { unlocked: {}, prefs: { mode: 'auto' }, crowns: { crownHunter: NOW_MONTH } },
   max: { unlocked: {}, prefs: { mode: 'pick', titleId: 'regular' }, crowns: { crownHunter: '2020-01' } },
   dave: {
     ladder: 2,
@@ -58,11 +60,12 @@ const { default: LiveTitleBadge } = await import('../src/components/common/LiveT
 const { titleDisplayOf, frameOf, allowsRoomTitles, ensureUserTitles, wearsCrown } = await import('../src/composables/useUserTitles.js');
 
 describe('本月王座 corner crown', () => {
-  it('only while wearing a crown this month with titles turned on', async () => {
-    await ensureUserTitles(['kim', 'lee', 'max']);
+  it('only while wearing a crown this month (won last month) with titles turned on', async () => {
+    await ensureUserTitles(['kim', 'lee', 'max', 'ned']);
     expect(wearsCrown('kim')).toBe(true);
     expect(wearsCrown('lee')).toBe(false); // titles off: the crown is a title too
     expect(wearsCrown('max')).toBe(false); // last time was 2020
+    expect(wearsCrown('ned')).toBe(false); // still racing for it
     expect(wearsCrown('nobody')).toBe(false);
   });
 
@@ -280,8 +283,6 @@ describe('where avatars and live titles go', () => {
     const profile = read('src/views/ProfileView.vue');
     expect(profile).toContain('<PlayerAvatar size="lg" :src="userAvatar || \'\'" :name="displayName || \'\'" :frame="myFrame" :uid="user?.uid || \'\'" />');
     expect(profile).toContain('@click="pickFrame(f.id)"');
-    expect(profile).toContain('@click="pickFrame(th.id)"');
-    expect(profile).toContain("$t('titles.frameNeed', { n: f.min })");
     expect(read('src/views/TitlesView.vue')).toContain("$t('titles.titleCount', { n: myTitleCount })");
   });
 });

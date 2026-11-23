@@ -17,6 +17,9 @@
  * --uid: that user and their pals). Past months are left as they are unless
  * --crown-history is given.
  *
+ * Last, titleStats/global (稱號圖鑑「幾人拿到」) is recounted from every
+ * userTitles doc (handlers/titleStats.js).
+ *
  * --crown-history replays every month present in leaderboardStats and sets
  * crowns + crownHistory from scratch, so it is idempotent. APPROXIMATION:
  * past months are judged with TODAY's pals lists (the circle back then is not
@@ -88,6 +91,7 @@ const { getFirestore } = await import('firebase-admin/firestore');
 const { recomputeLeaderboardStatsForUser } = await import('../src/handlers/leaderboardStats.js');
 const { recomputeMonthlyCrowns, rebuildCrownHistory } = await import('../src/handlers/monthlyCrowns.js');
 const { crownMonthOf } = await import('../src/utils/crownRules.js');
+const { recountTitleStats } = await import('../src/handlers/titleStats.js');
 const { fillHandEventsForUser } = await import('../src/handlers/gameHandEvents.js');
 
 try {
@@ -204,6 +208,16 @@ async function run() {
     console.error('  Crowns FAILED:', error.message);
   }
 
+  // 稱號圖鑑「幾人拿到」, once every title and crown above is written
+  let titleStats = null;
+  try {
+    titleStats = await recountTitleStats(db);
+    console.log(`Title stats: ${titleStats.players} players over ${titleStats.docs} docs, ${titleStats.written ? 'written' : 'unchanged'}`);
+  } catch (error) {
+    failures++;
+    console.error('  Title stats FAILED:', error.message);
+  }
+
   console.log('\n=== Summary ===');
   console.log(JSON.stringify({
     users: uids.length,
@@ -214,6 +228,7 @@ async function run() {
     titleDocsWritten,
     titlesUnlocked,
     crowns,
+    titleStats,
     failures,
   }, null, 2));
   if (failures > 0) process.exit(2);

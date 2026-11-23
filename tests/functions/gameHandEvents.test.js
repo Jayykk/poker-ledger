@@ -68,6 +68,9 @@ vi.mock('../../functions/src/handlers/leaderboardStats.js', () => ({
 vi.mock('../../functions/src/handlers/monthlyCrowns.js', () => ({
   recomputeMonthlyCrowns: vi.fn(async () => ({})),
 }));
+vi.mock('../../functions/src/handlers/titleStats.js', () => ({
+  recountTitleStats: vi.fn(async () => ({})),
+}));
 
 const { syncCompletedGameHistoryProjection } = await import('../../functions/src/handlers/gameHistoryProjection.js');
 const {

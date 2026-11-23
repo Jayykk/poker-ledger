@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import {
-  CROWN_IDS, CROWN_MIN_PALS, activeCrowns, applyCrownMonth, crownLeaders, crownMonthOf, crownStateFromScratch,
+  CROWN_IDS, CROWN_MIN_PALS, activeCrowns, previousMonthKey, wonCrownMonths, wornCrowns, applyCrownMonth, crownLeaders, crownMonthOf, crownStateFromScratch,
   crownValue, heldCrowns as heldCrownsRaw,
 } from '../functions/src/utils/crownRules.js';
 import {
@@ -198,32 +198,50 @@ describe('lazy finalisation', () => {
 
 describe('display with crowns', () => {
   const OCT = '2026-10';
+  const NOV = '2026-11';
+  const DEC = '2026-12';
+  // Won in October (worn through November); 大善人 in September (worn in October)
   // 8 + 2 = 10 titles: bronze
   const unlocked = { regular: { tier: 8, at: 1 }, champion: { tier: 2, at: 2 } };
   const crowns = { crownProfit: OCT, crownHunter: OCT, crownLoss: '2026-09' };
 
-  it('active crowns: only this month, fixed order', () => {
+  it('active crowns: the race of that month, fixed order', () => {
     expect(activeCrowns(crowns, OCT)).toEqual(['crownHunter', 'crownProfit']);
-    expect(activeCrowns(crowns, '2026-11')).toEqual([]);
+    expect(activeCrowns(crowns, NOV)).toEqual([]);
   });
 
-  it('auto: an active crown beats any title; the frame is unchanged', () => {
-    expect(resolveDisplay(unlocked, { mode: 'auto', frame: 'auto' }, { crowns, month: OCT }))
-      .toEqual({ familyId: 'crownHunter', tier: 4, frame: 'bronze', month: OCT });
-    expect(resolveTitle(unlocked, { mode: 'auto' }, { crowns, month: '2026-11' })).toEqual({ familyId: 'regular', tier: 8 });
+  it('worn crowns: the ones won the month before, from crowns or history', () => {
+    expect(previousMonthKey(NOV)).toBe(OCT);
+    expect(previousMonthKey('2027-01')).toBe('2026-12');
+    expect(previousMonthKey('')).toBe('');
+    expect(wornCrowns({ crowns, month: NOV })).toEqual(['crownHunter', 'crownProfit']);
+    expect(wornCrowns({ crowns, month: OCT })).toEqual(['crownLoss']);
+    expect(wornCrowns({ crowns, month: DEC })).toEqual([]);
+    expect(wornCrowns({ crowns: {}, crownHistory: { crownBoss: ['2026-08', OCT] }, month: NOV })).toEqual(['crownBoss']);
+    expect(wornCrowns(null)).toEqual([]);
+    expect(wonCrownMonths({ crowns, crownHistory: { crownProfit: ['2026-08'] } }, 'crownProfit', NOV))
+      .toEqual(['2026-08', OCT]);
+    // Still being led: not won yet
+    expect(wonCrownMonths({ crowns: { crownProfit: NOV } }, 'crownProfit', NOV)).toEqual([]);
+  });
+
+  it('auto: a worn crown beats any title; the frame is unchanged', () => {
+    expect(resolveDisplay(unlocked, { mode: 'auto', frame: 'auto' }, { crowns, month: NOV }))
+      .toEqual({ familyId: 'crownHunter', tier: 4, frame: 'bronze', month: NOV });
+    expect(resolveTitle(unlocked, { mode: 'auto' }, { crowns, month: DEC })).toEqual({ familyId: 'regular', tier: 8 });
     expect(resolveTitle(unlocked, { mode: 'auto' })).toEqual({ familyId: 'regular', tier: 8 });
     // Opt-in: nothing set means nothing shown, crowns included
-    expect(resolveTitle(unlocked, null, { crowns, month: OCT })).toBeNull();
+    expect(resolveTitle(unlocked, null, { crowns, month: NOV })).toBeNull();
   });
 
-  it('pick: a held crown, falls back like auto once it is gone; off hides crowns too', () => {
+  it('pick: a worn crown, falls back like auto once it is gone; off hides crowns too', () => {
     const pick = { mode: 'pick', titleId: 'crownProfit' };
-    expect(resolveTitle(unlocked, pick, { crowns, month: OCT })).toMatchObject({ familyId: 'crownProfit', month: OCT });
-    expect(resolveTitle(unlocked, pick, { crowns, month: '2026-11' })).toEqual({ familyId: 'regular', tier: 8 });
-    // A picked normal title wins over an active crown
-    expect(resolveTitle(unlocked, { mode: 'pick', titleId: 'champion' }, { crowns, month: OCT }))
+    expect(resolveTitle(unlocked, pick, { crowns, month: NOV })).toMatchObject({ familyId: 'crownProfit', month: NOV });
+    expect(resolveTitle(unlocked, pick, { crowns, month: DEC })).toEqual({ familyId: 'regular', tier: 8 });
+    // A picked normal title wins over a worn crown
+    expect(resolveTitle(unlocked, { mode: 'pick', titleId: 'champion' }, { crowns, month: NOV }))
       .toEqual({ familyId: 'champion', tier: 2 });
-    expect(resolveTitle(unlocked, { mode: 'off' }, { crowns, month: OCT })).toBeNull();
+    expect(resolveTitle(unlocked, { mode: 'off' }, { crowns, month: NOV })).toBeNull();
   });
 
   it('client: a stored crown display from an older month is re-resolved', () => {
@@ -232,14 +250,14 @@ describe('display with crowns', () => {
       unlocked,
       prefs: { mode: 'auto', frame: 'auto' },
       crowns,
-      display: { familyId: 'crownHunter', tier: 4, frame: 'bronze', month: OCT },
+      display: { familyId: 'crownHunter', tier: 4, frame: 'bronze', month: NOV },
     };
-    expect(effectiveDisplay(doc, OCT)).toBe(doc.display);
-    expect(effectiveDisplay(doc, '2026-11')).toEqual({ familyId: 'regular', tier: 8, frame: 'bronze' });
+    expect(effectiveDisplay(doc, NOV)).toBe(doc.display);
+    expect(effectiveDisplay(doc, DEC)).toEqual({ familyId: 'regular', tier: 8, frame: 'bronze' });
     // Normal titles are shown as stored
     const plain = { ...doc, display: { familyId: 'regular', tier: 8, frame: 'bronze' } };
-    expect(effectiveDisplay(plain, '2026-11')).toBe(plain.display);
-    expect(effectiveDisplay(null, OCT)).toBeNull();
+    expect(effectiveDisplay(plain, DEC)).toBe(plain.display);
+    expect(effectiveDisplay(null, NOV)).toBeNull();
   });
 
   it('server: the next recompute drops a stale crown display', () => {
@@ -248,20 +266,21 @@ describe('display with crowns', () => {
       unlocked,
       prefs: { mode: 'auto', frame: 'auto' },
       crowns,
-      display: { familyId: 'crownHunter', tier: 4, frame: 'bronze', month: OCT },
+      display: { familyId: 'crownHunter', tier: 4, frame: 'bronze', month: NOV },
+      frames: { bronze: 0, clock: 0 },
     };
     // regular 8 (160 games), champion 2: nothing new
     const stats = { total: { games: 160 }, cash: {}, tournament: { champion: 2 } };
-    const nov = Date.parse('2026-11-02T12:00:00+08:00');
-    const next = buildUserTitles(prev, stats, nov);
+    const dec = Date.parse('2026-12-02T12:00:00+08:00');
+    const next = buildUserTitles(prev, stats, dec);
     expect(next.changed).toBe(true);
     expect(next.display).toEqual({ familyId: 'regular', tier: 8, frame: 'bronze' });
-    const oct = Date.parse('2026-10-20T12:00:00+08:00');
-    expect(buildUserTitles(prev, stats, oct).changed).toBe(false);
+    const nov = Date.parse('2026-11-20T12:00:00+08:00');
+    expect(buildUserTitles(prev, stats, nov).changed).toBe(false);
   });
 
-  it('setTitlePrefs validation: a crown can be picked while held this month', () => {
-    const ctx = { crowns, month: OCT };
+  it('setTitlePrefs validation: a crown can be picked while worn (won last month)', () => {
+    const ctx = { crowns, month: NOV };
     expect(validateTitlePrefs({ mode: 'pick', titleId: 'crownHunter' }, null, unlocked, ctx).prefs)
       .toMatchObject({ mode: 'pick', titleId: 'crownHunter' });
     expect(validateTitlePrefs({ mode: 'pick', titleId: 'crownLoss' }, null, unlocked, ctx).error).toBe('not-unlocked');
@@ -269,9 +288,9 @@ describe('display with crowns', () => {
     expect(validateTitlePrefs({ mode: 'pick', titleId: 'crownHunter' }, null, unlocked).error).toBe('not-unlocked');
     // The picked crown is gone: other prefs can still change
     const stored = { mode: 'pick', titleId: 'crownHunter' };
-    expect(validateTitlePrefs({ showRoomTitles: false }, stored, unlocked, { crowns, month: '2026-11' }).prefs)
+    expect(validateTitlePrefs({ showRoomTitles: false }, stored, unlocked, { crowns, month: DEC }).prefs)
       .toMatchObject({ mode: 'pick', titleId: 'crownHunter', showRoomTitles: false });
-    expect(validateTitlePrefs({ mode: 'pick' }, stored, unlocked, { crowns, month: '2026-11' }).error).toBe('not-unlocked');
+    expect(validateTitlePrefs({ mode: 'pick' }, stored, unlocked, { crowns, month: DEC }).error).toBe('not-unlocked');
   });
 
   it('buildCrownUpdate: crowns + history + the display they give', () => {
@@ -281,10 +300,11 @@ describe('display with crowns', () => {
       prefs: { mode: 'auto', frame: 'auto' },
       display: { familyId: 'regular', tier: 8, frame: 'bronze' },
     };
+    // Taking the lead in October's race: stored, worn only from November
     const gain = buildCrownUpdate(stored, [[OCT, ['crownRegular']]], OCT);
     expect(gain).toMatchObject({
       crowns: { crownRegular: OCT },
-      display: { familyId: 'crownRegular', tier: 4, frame: 'bronze', month: OCT },
+      display: stored.display,
       changed: true,
       gained: ['crownRegular'],
     });
@@ -292,5 +312,13 @@ describe('display with crowns', () => {
     expect(buildCrownUpdate(held, [[OCT, ['crownRegular']]], OCT).changed).toBe(false);
     const lost = buildCrownUpdate(held, [[OCT, []]], OCT);
     expect(lost).toMatchObject({ crowns: {}, display: stored.display, lost: ['crownRegular'], changed: true });
+    // Still ahead when October ended: November's first verdict settles it and wears it
+    const nov = buildCrownUpdate(held, [[NOV, []]], NOV);
+    expect(nov).toMatchObject({
+      crowns: {},
+      crownHistory: { crownRegular: [OCT] },
+      display: { familyId: 'crownRegular', tier: 4, frame: 'bronze', month: NOV },
+      changed: true,
+    });
   });
 });
