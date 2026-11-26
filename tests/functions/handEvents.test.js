@@ -84,6 +84,11 @@ describe('final hands', () => {
     expect(royal).toEqual({ royalFlush: 1 });
   });
 
+  it('a wheel straight flush with the ace in hand belongs to the player (pokersolver writes that ace as 1)', () => {
+    const got = handEventsOfHand(hand(['5♠', 'Q♥', '2♠', '4♠', '3♠'], [['a', ['K♠', 'A♠'], W], ['b', ['A♣', 'K♥']]]));
+    expect(got.a).toMatchObject({ straightFlush: 1 });
+  });
+
   it('quads lying on the board belong to nobody', () => {
     const got = handEventsOfHand(hand(['9♠', '9♥', '9♦', '9♣', 'K♦'], [['a', ['A♠', '2♣'], W], ['b', ['3♠', '4♣']]]));
     expect(got).toEqual({});
