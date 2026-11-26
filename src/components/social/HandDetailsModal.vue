@@ -88,12 +88,13 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { query, where, getDocs, limit, orderBy, collectionGroup } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
 import BaseModal from '../common/BaseModal.vue';
 import PlayingCard from '../common/PlayingCard.vue';
 import { getHandCards } from '../../utils/pokerHandEvaluator.js';
-import { periodRangeMillis } from '../../../functions/src/utils/leaderboardStatsMath.js';
+import { specialHandOf } from '../../utils/specialHandOf.js';
+import { periodKeysForMillis, recordMillis } from '../../../functions/src/utils/leaderboardStatsMath.js';
 
 const props = defineProps({
   modelValue: {
@@ -119,15 +120,15 @@ const props = defineProps({
   }
 });
 
-// The leaderboard's filter → the recorded hand types it lists
+// The leaderboard's filter → the hand types it lists
 const HAND_TYPES_OF = {
   royalFlush: ['royal_flush'],
   straightFlush: ['straight_flush'],
   fourOfAKind: ['four_of_a_kind'],
   total: ['royal_flush', 'straight_flush', 'four_of_a_kind'],
 };
-// At most this many hands of the period are read (newest first)
-const READ_LIMIT = 1000;
+// Hand type → its count on a history record (handEvents)
+const EVENT_KEY = { royal_flush: 'royalFlush', straight_flush: 'straightFlush', four_of_a_kind: 'quads' };
 // Rarest first; each type keeps its own colour in the tally and on its hands
 const TYPE_ORDER = ['royal_flush', 'straight_flush', 'four_of_a_kind'];
 const TYPE_STYLE = {
@@ -184,73 +185,82 @@ const handCardsOf = (playerCards, communityCards) => {
   }
 };
 
+// The hands behind the row's count, found the way the count is made
+// (leaderboardStatsMath.js / handEvents.js): the player's history records in
+// the period (dated by the record, not by when a hand was logged — 補記 can
+// come days later) that count this kind of hand, then those games' hands
+// that give it to the player (a board-only four of a kind gives it to nobody).
+let loadSeq = 0;
 const loadHandDetails = async () => {
   if (!props.userId) return;
-  
+  const uid = props.userId;
+  const seq = ++loadSeq;
+
   loading.value = true;
   hands.value = [];
-  
+
   try {
-    // The period's hands, newest first (createdAt: millis). Bounded: a
-    // collection-group scan grows with every game ever played.
-    const range = periodRangeMillis(props.periodKey);
-    const handsQuery = query(
-      collectionGroup(db, 'hands'),
-      ...(range ? [where('createdAt', '>=', range.start), where('createdAt', '<', range.end)] : []),
-      orderBy('createdAt', 'desc'),
-      limit(READ_LIMIT)
-    );
-    const handsSnapshot = await getDocs(handsQuery);
     const wanted = HAND_TYPES_OF[props.handType] || HAND_TYPES_OF.total;
-    const userHands = [];
+    const historySnap = await getDocs(collection(db, 'users', uid, 'history_sub'));
+    const gameIds = historySnap.docs
+      .filter((d) => {
+        const record = d.data();
+        const ms = recordMillis(record);
+        if (!ms) return false;
+        if (props.periodKey !== 'all' && !Object.values(periodKeysForMillis(ms)).includes(props.periodKey)) return false;
+        return wanted.some((type) => Number(record.handEvents?.[EVENT_KEY[type]]) > 0);
+      })
+      .map((d) => d.id);
 
-    handsSnapshot.forEach((doc) => {
-      const handData = doc.data();
-      // Test hands don't count anywhere (mark_test_hands.js)
-      if (handData.excludeFromTitles === true || !Array.isArray(handData.players)) return;
-      for (const player of handData.players) {
-        // playerUid on new records, playerId on older ones
-        const playerId = player.playerUid || player.playerId;
-        if (playerId !== props.userId || !wanted.includes(player.handType)) continue;
-        const playerCards = Array.isArray(player.cards) ? player.cards : [];
-        const communityCards = Array.isArray(handData.communityCards) ? handData.communityCards : [];
-        userHands.push({
-          handType: player.handType,
-          playerCards,
-          communityCards,
-          lit: handCardsOf(playerCards, communityCards),
-          note: typeof handData.note === 'string' ? handData.note : '',
-          createdAt: handData.createdAt
-        });
+    const perGame = await Promise.all(gameIds.map(async (gameId) => {
+      const [gameSnap, handsSnap] = await Promise.all([
+        getDoc(doc(db, 'games', gameId)),
+        getDocs(collection(db, 'games', gameId, 'hands')),
+      ]);
+      // Seat id → account; a seat taken off the roster since: the hand's own playerUid
+      const roster = gameSnap.exists() && Array.isArray(gameSnap.data().players) ? gameSnap.data().players : [];
+      const uidById = new Map(roster.filter((p) => p && p.id).map((p) => [p.id, p.uid || null]));
+      const found = [];
+      for (const handDoc of handsSnap.docs) {
+        const handData = handDoc.data();
+        // Test hands don't count anywhere (mark_test_hands.js)
+        if (handData.excludeFromTitles === true || !Array.isArray(handData.players)) continue;
+        for (const player of handData.players) {
+          if (!player?.playerId) continue;
+          const owner = uidById.has(player.playerId) ? uidById.get(player.playerId) : player.playerUid;
+          if (owner !== uid) continue;
+          const handType = specialHandOf(handData, player.playerId);
+          if (!handType || !wanted.includes(handType)) continue;
+          const playerCards = Array.isArray(player.cards) ? player.cards : [];
+          const communityCards = Array.isArray(handData.communityCards) ? handData.communityCards : [];
+          found.push({
+            handType,
+            playerCards,
+            communityCards,
+            lit: handCardsOf(playerCards, communityCards),
+            note: typeof handData.note === 'string' ? handData.note : '',
+            createdAt: handData.createdAt,
+          });
+        }
       }
-    });
+      return found;
+    }));
 
-    hands.value = userHands;
+    if (seq !== loadSeq) return;
+    hands.value = perGame.flat().sort((x, y) => (Number(y.createdAt) || 0) - (Number(x.createdAt) || 0));
   } catch (err) {
     console.error('Load hand details error:', err);
   } finally {
-    loading.value = false;
+    if (seq === loadSeq) loading.value = false;
   }
 };
 
-// Watch for modal open and userId changes
-watch(() => props.modelValue, (newValue) => {
-  if (newValue) {
-    loadHandDetails();
-  }
-});
-
-watch(() => props.userId, () => {
-  if (props.modelValue) {
-    loadHandDetails();
-  }
-});
-
-watch(() => [props.handType, props.periodKey], () => {
-  if (props.modelValue) {
-    loadHandDetails();
-  }
-});
+// Open, or what to show changed while open: load once (a row click sets the
+// player and opens together)
+watch(
+  () => [props.modelValue, props.userId, props.handType, props.periodKey],
+  ([open]) => { if (open) loadHandDetails(); },
+);
 </script>
 
 <style scoped>

@@ -108,7 +108,8 @@ function categoryOf(evaluation) {
  * @return {boolean}
  */
 function usesHoleCard(evaluation, holes, category) {
-  const cards = evaluation.hand.cards.map((c) => c.value + c.suit);
+  // pokersolver writes the ace of a wheel (5-high straight) as '1'
+  const cards = evaluation.hand.cards.map((c) => (c.value === '1' ? 'A' : c.value) + c.suit);
   if (category === 'four_of_a_kind') {
     const counts = {};
     for (const c of cards) counts[c[0]] = (counts[c[0]] || 0) + 1;
