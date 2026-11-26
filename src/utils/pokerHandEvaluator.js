@@ -276,29 +276,16 @@ export const getHandCards = (playerCards, communityCards) => {
     const flushCardStrings = flushCards.map(c => c.original);
     const straightHighCard = getStraightHighCard(flushCardStrings);
     
-    // Get the 5 cards forming the straight
-    if (straightHighCard === 5) {
-      // Wheel (A-2-3-4-5)
-      const wheelRanks = ['A', '2', '3', '4', '5'];
-      return flushCards
-        .filter(c => wheelRanks.includes(c.rank))
-        .slice(0, 5)
-        .map(c => c.original);
-    } else {
-      // Regular straight - find consecutive sequence
-      const sortedFlush = flushCards
-        .sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank));
-      
-      const straightCards = [];
-      for (let i = 0; i < sortedFlush.length && straightCards.length < 5; i++) {
-        if (straightCards.length === 0 || 
-            getRankValue(straightCards[straightCards.length - 1].rank) - getRankValue(sortedFlush[i].rank) === 1) {
-          straightCards.push(sortedFlush[i]);
-        }
-      }
-      
-      return straightCards.map(c => c.original);
-    }
+    // The 5 cards of the highest run: high card down, the wheel's ace low.
+    // (A walk from the top that skips gaps can pick suited cards outside the
+    // run, e.g. K♠ Q♠ with 8♠-4♠ on the board.)
+    const runValues = straightHighCard === 5
+      ? [5, 4, 3, 2, 14]
+      : [0, 1, 2, 3, 4].map((step) => straightHighCard - step);
+    return runValues
+      .map((value) => flushCards.find((c) => getRankValue(c.rank) === value))
+      .filter(Boolean)
+      .map(c => c.original);
   }
   
   // Four of a Kind

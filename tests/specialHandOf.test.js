@@ -14,7 +14,7 @@ const serverSays = (hand, playerId) => {
 
 // A deck rich in quads and straight flushes, so both show up often
 const DECK = [
-  'A♠', 'K♠', 'Q♠', 'J♠', '10♠', '9♠', '5♠', '4♠', '3♠', '2♠',
+  'A♠', 'K♠', 'Q♠', 'J♠', '10♠', '9♠', '8♠', '7♠', '6♠', '5♠', '4♠', '3♠', '2♠',
   'A♥', 'A♦', 'A♣', 'K♥', 'K♦', 'K♣', 'Q♥', '9♥',
 ];
 let seed = 7;
@@ -32,7 +32,7 @@ const deal = (n) => {
 describe('specialHandOf', () => {
   it('agrees with handEventsOfHand on many dealt hands (board sizes 3–5, two players)', () => {
     let special = 0;
-    for (let i = 0; i < 4000; i += 1) {
+    for (let i = 0; i < 10000; i += 1) {
       const boardSize = 3 + (i % 3);
       const cards = deal(boardSize + 4);
       const hand = {
@@ -49,6 +49,22 @@ describe('specialHandOf', () => {
       }
     }
     expect(special).toBeGreaterThan(200);
+  });
+
+  it("the board's own straight flush is nobody's: a hole card must be in the best five", () => {
+    const board = ['8♠', '7♠', '6♠', '5♠', '4♠'];
+    // Suited cards outside the run don't make it theirs
+    const outside = { communityCards: board, players: [{ playerId: 'p1', cards: ['K♠', 'Q♠'], handType: 'straight_flush' }] };
+    expect(specialHandOf(outside, 'p1')).toBeNull();
+    expect(serverSays(outside, 'p1')).toBeNull();
+    // A card that extends the run on top does
+    const extends9 = { communityCards: board, players: [{ playerId: 'p1', cards: ['9♠', '2♥'], handType: 'straight_flush' }] };
+    expect(specialHandOf(extends9, 'p1')).toBe('straight_flush');
+    expect(serverSays(extends9, 'p1')).toBe('straight_flush');
+    // One below the run doesn't (the best five stays 8-high)
+    const below = { communityCards: board, players: [{ playerId: 'p1', cards: ['3♠', '2♥'], handType: 'straight_flush' }] };
+    expect(specialHandOf(below, 'p1')).toBeNull();
+    expect(serverSays(below, 'p1')).toBeNull();
   });
 
   it("the board's own four of a kind is nobody's; the recorded type when there are no cards", () => {
