@@ -30,7 +30,7 @@
       </span>
     </div>
 
-    <!-- Game format filter (hidden for special hands: those are online-poker global) -->
+    <!-- Game format filter (hidden for special hands: counted the same in cash and tournaments) -->
     <div v-if="selectedSort !== 'specialHands'" class="mb-3">
       <div class="text-xs text-gray-400 mb-2">{{ $t('friends.gameType') }}</div>
       <div class="flex gap-2 flex-wrap">
@@ -251,6 +251,7 @@
       :userId="selectedUserId"
       :userName="selectedUserName"
       :handType="selectedHandType"
+      :periodKey="currentPeriodKey(selectedPeriod)"
     />
   </BaseCard>
 </template>
@@ -258,7 +259,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { collection, getDocs, query, where, collectionGroup, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase-init.js';
 import { useAuth } from '../../composables/useAuth.js';
 import BaseCard from '../common/BaseCard.vue';
@@ -272,7 +273,7 @@ import { formatNumber } from '../../utils/formatters.js';
 // survive `firebase deploy`, which uploads the functions folder only.)
 import { periodKeysForMillis } from '../../../functions/src/utils/leaderboardStatsMath.js';
 import { buildTournamentLeaderboardEntry, filterToCircle, rankLeaderboardEntries } from '../../utils/leaderboardRanking.js';
-import { HAND_TYPES, STORAGE_KEYS } from '../../utils/constants.js';
+import { STORAGE_KEYS } from '../../utils/constants.js';
 import { ensureUserTitles, palsOf } from '../../composables/useUserTitles.js';
 
 const { t } = useI18n();
@@ -304,10 +305,9 @@ watch(() => user.value?.uid, (uid) => {
 const selectedPeriod = ref('thisMonth');
 const selectedGameType = ref('all');
 const selectedSort = ref('profit');
-const selectedHandType = ref('total'); // Filter for special hands - use 'total' instead of 'all'
+const selectedHandType = ref('total'); // Filter for special hands: a key of SPECIAL_HAND_STATS
 const minGames = ref(3); // Minimum games threshold for win-rate sort
 const statsRows = ref([]);
-const specialHandsData = ref({});
 const showHandDetailsModal = ref(false);
 const selectedUserId = ref('');
 const selectedUserName = ref('');
@@ -350,9 +350,19 @@ const handTypeOptions = [
   { value: 'royalFlush', label: 'royalFlush' },
   { value: 'straightFlush', label: 'straightFlush' },
   { value: 'fourOfAKind', label: 'fourOfAKind' },
-  { value: 'fullHouse', label: 'fullHouse' },
   { value: 'total', label: 'allHands' }
 ];
+// Special hands come from the period's stats doc (the hand events of its
+// games, counted the way 稱號 count them: by the game's date, a board-only
+// 四條 belongs to nobody). Each filter → the counts it adds up.
+const SPECIAL_HAND_STATS = {
+  royalFlush: ['royalFlush'],
+  straightFlush: ['straightFlush'],
+  fourOfAKind: ['quads'],
+  total: ['royalFlush', 'straightFlush', 'quads'],
+};
+const specialHandsOf = (bucket) => (SPECIAL_HAND_STATS[selectedHandType.value] || [])
+  .reduce((sum, key) => sum + (Number(bucket?.[key]) || 0), 0);
 
 const leaderboard = computed(() => {
   return rankedEntries.value.slice(0, 10);
@@ -371,16 +381,14 @@ const myRankInfo = computed(() => {
 });
 
 const rankedEntries = computed(() => {
-  // Special hands are an online-poker tally, orthogonal to the ledger game
-  // format — always rank them against the overall (total) bucket.
+  // Special hands are counted in the total bucket only (cash and tournaments
+  // alike) — always rank them against it.
   const bucketKey = selectedSort.value === 'specialHands' ? 'all' : selectedGameType.value;
 
   const rows = palsOnly.value ? filterToCircle(statsRows.value, user.value?.uid, myPals.value) : statsRows.value;
   const entries = rows.map((row) => {
     const bucket = bucketKey === 'all' ? row.total : row[bucketKey];
     if (!bucket || bucket.games <= 0) return null;
-
-    const userSpecialHands = specialHandsData.value[row.uid] || {};
 
     const baseEntry = {
       uid: row.uid,
@@ -390,7 +398,7 @@ const rankedEntries = computed(() => {
       winRate: Math.round((bucket.wins / bucket.games) * 100),
       champion: row.tournament?.champion || 0,
       runnerUp: row.tournament?.runnerUp || 0,
-      specialHands: userSpecialHands[selectedHandType.value] || 0
+      specialHands: specialHandsOf(row.total)
     };
     return bucketKey === 'tournament'
       ? { ...baseEntry, ...buildTournamentLeaderboardEntry(row), specialHands: baseEntry.specialHands }
@@ -500,67 +508,6 @@ watch(selectedGameType, (gameType) => {
   }
 });
 
-const loadSpecialHands = async () => {
-  try {
-    // Count special hands for each user by type
-    const specialHandsCount = {};
-    
-    // Map hand types to property names for cleaner counting
-    const handTypePropertyMap = {
-      [HAND_TYPES.ROYAL_FLUSH]: 'royalFlush',
-      [HAND_TYPES.STRAIGHT_FLUSH]: 'straightFlush',
-      [HAND_TYPES.FOUR_OF_A_KIND]: 'fourOfAKind',
-      [HAND_TYPES.FULL_HOUSE]: 'fullHouse'
-    };
-    
-    // Query recent hand records from all games. Bounded: an unbounded
-    // collection-group scan grows with every game ever played; the special
-    // hands tally covers the most recent 1000 hands.
-    const handsQuery = query(
-      collectionGroup(db, 'hands'),
-      orderBy('createdAt', 'desc'),
-      limit(1000)
-    );
-    const handsSnapshot = await getDocs(handsQuery);
-    
-    handsSnapshot.forEach((doc) => {
-      const hand = doc.data();
-      if (hand.players && Array.isArray(hand.players)) {
-        hand.players.forEach(player => {
-          // Use playerUid if available (new format), otherwise fall back to playerId for backward compatibility
-          const userId = player.playerUid || player.playerId;
-          
-          if (userId && player.handType) {
-            const propertyName = handTypePropertyMap[player.handType];
-            
-            // Only count if it's a special hand type
-            if (propertyName) {
-              // Initialize user's special hands object if not exists
-              if (!specialHandsCount[userId]) {
-                specialHandsCount[userId] = {
-                  total: 0,
-                  royalFlush: 0,
-                  straightFlush: 0,
-                  fourOfAKind: 0,
-                  fullHouse: 0
-                };
-              }
-              
-              // Increment both the specific hand type and total
-              specialHandsCount[userId][propertyName]++;
-              specialHandsCount[userId].total++;
-            }
-          }
-        });
-      }
-    });
-    
-    specialHandsData.value = specialHandsCount;
-  } catch (err) {
-    console.error('Load special hands error:', err);
-  }
-};
-
 const handleViewHandDetails = (entry) => {
   selectedUserId.value = entry.uid;
   selectedUserName.value = entry.name;
@@ -570,7 +517,7 @@ const handleViewHandDetails = (entry) => {
 onMounted(async () => {
   isLoading.value = true;
   try {
-    await Promise.all([loadStats(), loadSpecialHands()]);
+    await loadStats();
   } finally {
     isLoading.value = false;
   }

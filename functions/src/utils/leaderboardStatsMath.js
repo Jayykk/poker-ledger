@@ -43,6 +43,29 @@ export function periodKeysForMillis(ms) {
 }
 
 /**
+ * The span of a period key (periodKeysForMillis), Asia/Taipei calendar:
+ * start inclusive, end exclusive. null for 'all' or an unknown key.
+ *
+ * @param {string} key Period key.
+ * @return {?{start: number, end: number}} Unix millis.
+ */
+export function periodRangeMillis(key) {
+  const at = (y, m, d) => Date.UTC(y, m, d) - TAIPEI_OFFSET_MS;
+  let m = /^week-(\d{4})-(\d{2})-(\d{2})$/.exec(key || '');
+  if (m) {
+    const start = at(+m[1], +m[2] - 1, +m[3]);
+    return { start, end: at(+m[1], +m[2] - 1, +m[3] + 7) };
+  }
+  m = /^(\d{4})-Q([1-4])$/.exec(key || '');
+  if (m) return { start: at(+m[1], (+m[2] - 1) * 3, 1), end: at(+m[1], +m[2] * 3, 1) };
+  m = /^(\d{4})-(\d{2})$/.exec(key || '');
+  if (m) return { start: at(+m[1], +m[2] - 1, 1), end: at(+m[1], +m[2], 1) };
+  m = /^(\d{4})$/.exec(key || '');
+  if (m) return { start: at(+m[1], 0, 1), end: at(+m[1] + 1, 0, 1) };
+  return null;
+}
+
+/**
  * Deterministic leaderboardStats document id.
  *
  * @param {string} uid Owner uid.
