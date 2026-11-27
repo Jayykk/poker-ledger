@@ -29,8 +29,8 @@ export function summarizeTournamentSettlement(rows = []) {
     const best = [...list].sort((a, b) => num(b.knockouts) - num(a.knockouts) || num(b.bounty) - num(a.bounty))[0];
     if (best && num(best.knockouts) > 0) highlight = { type: 'hunter', row: best };
   } else if (kind === 'mystery') {
-    // 歐皇: most won from envelopes
-    const best = [...list].sort((a, b) => num(b.bounty) - num(a.bounty) || num(b.topDraws) - num(a.topDraws))[0];
+    // 歐皇: the biggest single envelope (bestDraw), then most won from envelopes
+    const best = [...list].sort((a, b) => num(b.bestDraw) - num(a.bestDraw) || num(b.bounty) - num(a.bounty))[0];
     if (best && num(best.draws) > 0 && num(best.bounty) > 0) highlight = { type: 'lucky', row: best };
   }
   return { kind, prizePool, bountyTotal, highlight };

@@ -39,6 +39,16 @@ describe('tournament settlement summary (LINE card / share text)', () => {
     expect(bountyDetail(rows[1], 'mystery', money)).toBe('🎁 抽 2 封 $810');
   });
 
+  it('mystery: 歐皇 is whoever drew the biggest single envelope, not the most in total', () => {
+    const rows = [
+      { name: '多抽', prize: 0, bounty: 900, knockouts: 4, draws: 4, topDraws: 0, bestDraw: 300 },
+      { name: '大包', prize: 0, bounty: 500, knockouts: 1, draws: 1, topDraws: 1, bestDraw: 500 },
+    ];
+    expect(summarizeTournamentSettlement(rows).highlight).toMatchObject({ type: 'lucky', row: { name: '大包' } });
+    const t = tournamentSettlementText({ gameName: '神秘', players: rows.map((r, i) => ({ ...r, placement: i + 1, buyIn: 200, profit: 0 })) });
+    expect(t).toContain('🍀 歐皇：大包（最大一封 $500）');
+  });
+
   it('nobody knocked anyone out: no Hunter', () => {
     expect(summarizeTournamentSettlement([{ prize: 100, bounty: 50, knockouts: 0 }]).highlight).toBe(null);
   });

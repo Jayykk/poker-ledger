@@ -57,7 +57,7 @@ export function tournamentSettlementText({ gameName, players = [], url }) {
     `🏆 錦標賽結算｜${gameName || '未命名'}`,
     kind !== 'none' ? `獎池 ${money(prizePool)} ｜ 賞金 ${money(bountyTotal)}` : null,
     highlight?.type === 'hunter' ? `🎯 Hunter：${highlight.row.name}（KO ${highlight.row.knockouts}）` : null,
-    highlight?.type === 'lucky' ? `🍀 歐皇：${highlight.row.name}（${money(highlight.row.bounty)}）` : null,
+    highlight?.type === 'lucky' ? `🍀 歐皇：${highlight.row.name}（最大一封 ${money(highlight.row.bestDraw ?? highlight.row.bounty)}）` : null,
     '———',
     rows,
     url ? ['———', `詳細：${url}`] : null,
