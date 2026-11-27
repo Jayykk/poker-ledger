@@ -587,7 +587,7 @@ const sendTournamentSettlementMessage = async ({ gameName, gameId, players }) =>
                 { type: 'text', text: `淨利 ${formatSignedMoney(champion?.profit || 0)}`, size: 'xs', color: '#B45309', margin: 'sm' },
               ],
             },
-            // Bounty games: the Hunter (most knockouts) / 歐皇 (most from envelopes)
+            // Bounty games: the Hunter (most knockouts) / 歐皇 (biggest single envelope)
             ...(highlight ? [{
               type: 'box',
               layout: 'vertical',
@@ -602,7 +602,7 @@ const sendTournamentSettlementMessage = async ({ gameName, gameId, players }) =>
                   type: 'text',
                   text: highlight.type === 'hunter'
                     ? `KO ${highlight.row.knockouts} · ${formatMoney(highlight.row.bounty)}`
-                    : `抽 ${highlight.row.draws} 封 · ${formatMoney(highlight.row.bounty)}`,
+                    : `最大一封 ${formatMoney(highlight.row.bestDraw ?? highlight.row.bounty)}`,
                   size: 'xs',
                   color: highlight.type === 'hunter' ? '#BE123C' : '#15803D',
                   margin: 'sm',
